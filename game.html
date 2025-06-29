@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HandiCricket - Score</title>
+  <title>HandiCricket - Card Game</title>
   <style>
     body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
+    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
     .card-buttons button {
       width: 60px; height: 60px; margin: 5px; border-radius: 50%; font-size: 18px;
       border: none; background: #1e88e5; color: white; transition: 0.2s;
     }
-    .card-buttons button.disabled { background-color: #555 !important; opacity: 0.6; pointer-events: none; }
-    #result, #roomInfo, #playerNames, #scoreboard { margin-top: 15px; font-size: 16px; }
+    .card-buttons button.disabled {
+      background-color: #555 !important; opacity: 0.6; pointer-events: none;
+    }
+    #result, #roomInfo, #playerNames { margin-top: 15px; font-size: 16px; }
   </style>
 </head>
 <body>
@@ -22,12 +24,12 @@
     <div id="playerNames">Loading players...</div>
     <div id="role">Loading role...</div>
     <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
-    <div class="card-buttons" id="buttons"></div>
+<div class="card-buttons" id="buttons"></div>
     <div id="result">Waiting for players...</div>
   </div>
 
   <script type="module">
-    import { db, ref, set, onValue, update } from './firebase.js';
+    import { db, ref, set, onValue } from './firebase.js';
 
     const urlParams = new URLSearchParams(window.location.search);
     const roomCode = urlParams.get('room');
@@ -37,16 +39,9 @@
     const roleEl = document.getElementById('role');
     const playerNames = document.getElementById('playerNames');
     const resultEl = document.getElementById('result');
-    const scoreboard = document.getElementById('scoreboard');
     const buttonContainer = document.getElementById('buttons');
 
-    
-roomInfo.innerText = `Room Code: ${roomCode}`;
-
-const name1 = data?.player1?.teamName || "Waiting...";
-const name2 = data?.player2?.teamName || "Waiting...";
-playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent: ${player === 'player1' ? name2 : name1}`;
-
+    roomInfo.innerText = `Room Code: ${roomCode}`;
     roleEl.innerText = `You are ${player === 'player1' ? 'Player 1 (Batting)' : 'Player 2 (Bowling)'}`;
 
     let buttons = [];
@@ -76,7 +71,11 @@ playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent
       buttons.forEach(btn => btn.classList.remove("disabled"));
     }
 
-    onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
+    
+onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
+      const score = data.score || { runs: 0, wickets: 0, balls: 0 };
+      scoreboard.innerText = `Runs: ${score.runs} | Wickets: ${score.wickets} | Overs: ${(score.balls / 6).toFixed(1)}`;
+
       const data = snapshot.val();
       if (!data) return;
 
@@ -89,50 +88,40 @@ playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent
         return;
       }
 
-      // Score state
-      const score = data.score || { runs: 0, wickets: 0, balls: 0 };
-      scoreboard.innerText = `Runs: ${score.runs} | Wickets: ${score.wickets} | Overs: ${(score.balls / 6).toFixed(1)}`;
-
       const p1Ready = typeof data.player1Card === 'number';
       const p2Ready = typeof data.player2Card === 'number';
 
-      if (p1Ready && p2Ready) {
-        const p1 = data.player1Card;
-        const p2 = data.player2Card;
+      
+if (p1Ready && p2Ready) {
+        const score = data.score || { runs: 0, wickets: 0, balls: 0 };
         let runs = score.runs;
         let wickets = score.wickets;
         let balls = score.balls;
+
+        const p1 = data.player1Card;
+        const p2 = data.player2Card;
         let result = "";
 
         if (p1 === 0 && p2 === 0) {
-          result = "No Ball! +1 run";
-          runs += 1;
+          result = "No Ball!";
         } else if (p1 === p2 && p1 !== 0) {
           result = "WICKET!";
-          wickets += 1;
-          balls += 1;
         } else if (p1 === 0 && p2 !== 0) {
           result = `Bowler's card ${p2} → Runs scored: ${p2}`;
-          runs += p2;
-          balls += 1;
         } else if (p1 !== 0 && p2 === 0) {
-          result = "Dot Ball!";
-          balls += 1;
+          result = `Dot Ball!`;
         } else {
           result = `Runs scored: ${p1}`;
-          runs += p1;
-          balls += 1;
         }
 
         resultEl.innerText = result;
-
         await update(ref(db, `rooms/${roomCode}`), {
           score: { runs, wickets, balls }
         });
 
+        // Clear after showing result (no delay in buttons, just state reset)
         await set(ref(db, `rooms/${roomCode}/player1Card`), null);
         await set(ref(db, `rooms/${roomCode}/player2Card`), null);
-
         hasPlayed = false;
         resetButtons();
       } else if (!hasPlayed) {
