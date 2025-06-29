@@ -17,13 +17,58 @@
   <h1>🏏 HandiCricket</h1>
   <div class="card">
     <input type="text" id="teamName" placeholder="Enter Team Name" />
-    <button id="createRoom">Create Room</button>on>
-    <button id="joinRoom">Join Room</button>
+    <button onclick="createRoom()">Create Room</button>
+    <button onclick="joinRoom()">Join Room</button>
     <input type="text" id="joinCode" placeholder="Enter Room Code to Join" />
     <div id="roomDisplay"></div>
     <div id="status"></div>
   </div>
 
-  <script type="module" src="script.mjs"></script>
+  <script type="module">
+    import { db, ref, set, get } from './firebase.js';
+
+    function generateRoomCode() {
+      return Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+
+    window.createRoom = async () => {
+      const teamName = document.getElementById('teamName').value;
+      const roomCode = generateRoomCode();
+      const roomRef = ref(db, 'rooms/' + roomCode);
+      await set(roomRef, {
+        player1: { teamName },
+        status: 'waiting'
+      });
+      document.getElementById('roomDisplay').innerText = `Room Code: ${roomCode}`;
+      setTimeout(() => {
+        location.href = `game.html?room=${roomCode}&player=player1`;
+      }, 1500);
+    };
+
+    window.joinRoom = async () => {
+      const teamName = document.getElementById('teamName').value;
+      const joinCode = document.getElementById('joinCode').value.toUpperCase();
+      const roomRef = ref(db, 'rooms/' + joinCode);
+      const snapshot = await get(roomRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (!data.player2) {
+          await set(roomRef, {
+            ...data,
+            player2: { teamName },
+            status: 'ready'
+          });
+          document.getElementById('roomDisplay').innerText = `Room Code: ${joinCode}`;
+          setTimeout(() => {
+            location.href = `game.html?room=${joinCode}&player=player2`;
+          }, 1500);
+        } else {
+          document.getElementById('status').innerText = 'Room full!';
+        }
+      } else {
+        document.getElementById('status').innerText = 'Room not found!';
+      }
+    };
+  </script>
 </body>
 </html>
