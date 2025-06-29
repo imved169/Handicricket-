@@ -8,7 +8,6 @@
     body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
     button { width: 60px; height: 60px; margin: 5px; border-radius: 50%; font-size: 18px; border: none; background: #1e88e5; color: white; }
-    button:disabled { background: #888; }
     #result, #roomInfo, #playerNames { margin-top: 15px; font-size: 16px; }
   </style>
 </head>
@@ -41,21 +40,15 @@
     const roleEl = document.getElementById('role');
     const playerNames = document.getElementById('playerNames');
     const resultEl = document.getElementById('result');
-    const buttons = document.querySelectorAll("button");
 
     roomInfo.innerText = `Room Code: ${roomCode}`;
     roleEl.innerText = `You are ${player === 'player1' ? 'Player 1 (Batting)' : 'Player 2 (Bowling)'}`;
 
-    function disableButtons() {
-      buttons.forEach(btn => btn.disabled = true);
-    }
-
-    function enableButtons() {
-      buttons.forEach(btn => btn.disabled = false);
-    }
+    let hasPlayed = false;
 
     async function selectCard(cardValue) {
-      disableButtons();
+      if (hasPlayed) return;
+      hasPlayed = true;
       await set(ref(db, `rooms/${roomCode}/${player}Card`), cardValue);
     }
 
@@ -63,20 +56,19 @@
       const data = snapshot.val();
       if (!data) return;
 
-      // Show player names
       const name1 = data?.player1?.teamName || "Waiting...";
       const name2 = data?.player2?.teamName || "Waiting...";
       playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent: ${player === 'player1' ? name2 : name1}`;
 
-      // If opponent not yet joined, show waiting message
       if (!data.player1 || !data.player2) {
         resultEl.innerText = "Waiting for opponent to join...";
-        disableButtons();
         return;
       }
 
-      // Handle gameplay
-      if ('player1Card' in data && 'player2Card' in data) {
+      const p1Ready = typeof data.player1Card === 'number';
+      const p2Ready = typeof data.player2Card === 'number';
+
+      if (p1Ready && p2Ready) {
         const p1 = data.player1Card;
         const p2 = data.player2Card;
         let result = "";
@@ -95,14 +87,14 @@
 
         resultEl.innerText = result;
 
-        setTimeout(() => {
-          set(ref(db, `rooms/${roomCode}/player1Card`), null);
-          set(ref(db, `rooms/${roomCode}/player2Card`), null);
+        setTimeout(async () => {
+          await set(ref(db, `rooms/${roomCode}/player1Card`), null);
+          await set(ref(db, `rooms/${roomCode}/player2Card`), null);
           resultEl.innerText = "Waiting for next move...";
-          enableButtons();
+          hasPlayed = false;
         }, 2000);
       } else {
-        resultEl.innerText = "Waiting for both players to play card...";
+        if (!hasPlayed) resultEl.innerText = "Waiting for both players to play card...";
       }
     });
   </script>
