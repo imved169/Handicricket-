@@ -140,5 +140,73 @@
     setupRole();
     updateScoreboard();
   </script>
+
+<script type="module">
+import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+  authDomain: "handicricket-d1ab7.firebaseapp.com",
+  projectId: "handicricket-d1ab7",
+  storageBucket: "handicricket-d1ab7.appspot.com",
+  messagingSenderId: "356065986337",
+  appId: "1:356065986337:web:399102c5dabfca2b6fe060",
+  measurementId: "G-6XS69Z6MMF"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const room = localStorage.getItem("roomCode");
+const player = localStorage.getItem("player");
+
+// Mark this player as entered the game screen
+set(ref(db, `rooms/${room}/${player}/hasEnteredGame`), true);
+
+const joinStatus = document.createElement("p");
+joinStatus.id = "joinStatus";
+document.body.appendChild(joinStatus);
+
+const startMatchBtn = document.createElement("button");
+startMatchBtn.id = "startMatchBtn";
+startMatchBtn.innerText = "Start Match";
+startMatchBtn.style.display = "none";
+startMatchBtn.style.padding = "10px 20px";
+startMatchBtn.style.margin = "20px";
+startMatchBtn.style.fontSize = "18px";
+document.body.appendChild(startMatchBtn);
+
+// Monitor both players' game screen entry
+onValue(ref(db, `rooms/${room}`), (snap) => {
+  const data = snap.val();
+  if (!data || !data.player1 || !data.player2) return;
+
+  const p1Ready = data.player1.hasEnteredGame;
+  const p2Ready = data.player2.hasEnteredGame;
+
+  if (p1Ready && p2Ready) {
+    joinStatus.innerText = "Both players are ready!";
+    if (player === "player1") startMatchBtn.style.display = "block";
+  } else {
+    joinStatus.innerText = `Waiting for ${!p1Ready ? "Player 1" : "Player 2"}...`;
+  }
+});
+
+// Enable cards on Start Match
+startMatchBtn.addEventListener("click", () => {
+  set(ref(db, `rooms/${room}/gameStarted`), true);
+  startMatchBtn.style.display = "none";
+  joinStatus.innerText = "Match Started!";
+});
+
+// Wait for start signal
+onValue(ref(db, `rooms/${room}/gameStarted`), (snap) => {
+  if (snap.exists() && snap.val()) {
+    joinStatus.innerText = "Match Started!";
+    document.querySelectorAll(".card-btn").forEach(btn => btn.disabled = false);
+  }
+});
+</script>
+
 </body>
 </html>
