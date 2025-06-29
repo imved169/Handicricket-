@@ -9,13 +9,14 @@
     .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
     button { width: 60px; height: 60px; margin: 5px; border-radius: 50%; font-size: 18px; border: none; background: #1e88e5; color: white; }
     button:disabled { background: #888; }
-    #result, #roomInfo { margin-top: 20px; font-size: 18px; }
+    #result, #roomInfo, #playerNames { margin-top: 15px; font-size: 16px; }
   </style>
 </head>
 <body>
   <h1>🏏 HandiCricket - Game</h1>
   <div class="card">
     <div id="roomInfo">Loading room...</div>
+    <div id="playerNames">Loading players...</div>
     <div id="role">Loading role...</div>
     <div id="buttons">
       <button onclick="selectCard(0)">0</button>
@@ -26,7 +27,7 @@
       <button onclick="selectCard(5)">5</button>
       <button onclick="selectCard(6)">6</button>
     </div>
-    <div id="result">Waiting for both players...</div>
+    <div id="result">Waiting for players...</div>
   </div>
 
   <script type="module">
@@ -36,9 +37,10 @@
     const roomCode = urlParams.get('room');
     const player = urlParams.get('player'); // "player1" or "player2"
 
-    const roleEl = document.getElementById('role');
-    const resultEl = document.getElementById('result');
     const roomInfo = document.getElementById('roomInfo');
+    const roleEl = document.getElementById('role');
+    const playerNames = document.getElementById('playerNames');
+    const resultEl = document.getElementById('result');
     const buttons = document.querySelectorAll("button");
 
     roomInfo.innerText = `Room Code: ${roomCode}`;
@@ -61,11 +63,22 @@
       const data = snapshot.val();
       if (!data) return;
 
+      // Show player names
+      const name1 = data?.player1?.teamName || "Waiting...";
+      const name2 = data?.player2?.teamName || "Waiting...";
+      playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent: ${player === 'player1' ? name2 : name1}`;
+
+      // If opponent not yet joined, show waiting message
+      if (!data.player1 || !data.player2) {
+        resultEl.innerText = "Waiting for opponent to join...";
+        disableButtons();
+        return;
+      }
+
+      // Handle gameplay
       if ('player1Card' in data && 'player2Card' in data) {
         const p1 = data.player1Card;
         const p2 = data.player2Card;
-
-        // Result logic
         let result = "";
 
         if (p1 === 0 && p2 === 0) {
@@ -82,13 +95,14 @@
 
         resultEl.innerText = result;
 
-        // Reset after delay
         setTimeout(() => {
           set(ref(db, `rooms/${roomCode}/player1Card`), null);
           set(ref(db, `rooms/${roomCode}/player2Card`), null);
-          resultEl.innerText = "Waiting for both players...";
+          resultEl.innerText = "Waiting for next move...";
           enableButtons();
         }, 2000);
+      } else {
+        resultEl.innerText = "Waiting for both players to play card...";
       }
     });
   </script>
