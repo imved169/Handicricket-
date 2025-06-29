@@ -10,13 +10,12 @@
     .card-row { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
     button.card { width: 60px; height: 60px; font-size: 20px; border-radius: 12px; border: none; background: #1e88e5; color: white; }
     button.card:disabled { background: #607d8b; color: #ccc; }
-    #scoreboard, #roleText { margin-top: 10px; font-size: 18px; }
+    #scoreboard { margin-top: 20px; font-size: 18px; }
     #status { margin-top: 15px; font-size: 16px; color: #ffeb3b; }
   </style>
 </head>
 <body>
   <h2>🏏 HandiCricket - Game</h2>
-  <div id="roleText"></div>
   <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
   <div id="status">Waiting for players...</div>
 
@@ -51,11 +50,11 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
-    let runs = 0, wickets = 0, balls = 0, freeHit = false;
+    let runs = 0, wickets = 0, balls = 0;
+
     const status = document.getElementById("status");
     const scoreboard = document.getElementById("scoreboard");
     const buttons = document.querySelectorAll(".card");
-    const roleText = document.getElementById("roleText");
 
     function disableButtons() {
       buttons.forEach(btn => btn.disabled = true);
@@ -66,21 +65,16 @@
     }
 
     function updateScoreboard() {
+    if (balls > 0 && balls % 6 === 0) {
+      overs++;
+      balls = 0;
+      status.innerText = `Over ${overs} completed`;
+    }
       scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${(balls / 6).toFixed(1)}`;
     }
 
     function resetPlays() {
       set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
-    }
-
-    async function setupRole() {
-      const snapshot = await get(ref(db, `rooms/${room}/tossWinner`));
-      const tossWinner = snapshot.val();
-      const isBatting = player === tossWinner;
-      const teamSnap = await get(ref(db, `rooms/${room}/${opponent}/playing11`));
-      const opponentTeam = teamSnap.val()?.[0] || "Opponent";
-
-      roleText.innerText = isBatting ? `You are Batting vs ${opponentTeam}` : `You are Bowling vs ${opponentTeam}`;
     }
 
     buttons.forEach(btn => {
@@ -92,52 +86,61 @@
       });
     });
 
-    onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+    onValue(ref(db, `rooms/${room}/currentPlays`), (snap) => {
       const plays = snap.val();
       if (!plays || plays.player1 == null || plays.player2 == null) return;
 
-      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-      const tossWinner = tossSnap.val();
-      const bat = plays[tossWinner];
-      const bowl = plays[tossWinner === "player1" ? "player2" : "player1"];
+      const bat = plays[room.tossWinner];
+      const bowl = plays[room.tossWinner === "player1" ? "player2" : "player1"];
 
       let outcome = "";
 
       if (bat === bowl && bat > 0) {
-        outcome = freeHit ? "Wicket on Free Hit (not out)" : "WICKET!";
-        if (!freeHit) wickets++;
-        balls++;
-        freeHit = false;
+        outcome = "WICKET!";
+        wickets++;
       } else if (bat === 0 && bowl === 0) {
         outcome = "NO BALL!";
         runs += 1;
-        freeHit = true;
+        // no ball: do not count the ball
       } else if (bat === 0 && bowl > 0) {
         runs += bowl;
         outcome = `Batter played 0. Runs = ${bowl}`;
         balls++;
-        freeHit = false;
       } else if (bowl === 0 && bat > 0) {
         outcome = "DOT BALL!";
         balls++;
-        freeHit = false;
       } else {
         runs += bat;
         outcome = `${bat} Run(s)!`;
         balls++;
-        freeHit = false;
       }
 
       status.innerText = outcome;
       updateScoreboard();
-      setTimeout(() => {
+      if (!isSecondInnings && (overs === 2 || wickets === 2)) {
+        status.innerText = "Innings Over! Switching Roles...";
+        setTimeout(() => {
+          runs = 0; wickets = 0; balls = 0; overs = 0;
+          isSecondInnings = true;
+          // Swap tossWinner for second innings
+          get(ref(db, `rooms/${room}/tossWinner`)).then(snap => {
+            const prev = snap.val();
+            const newWinner = prev === 'player1' ? 'player2' : 'player1';
+            set(ref(db, `rooms/${room}/tossWinner`), newWinner);
+          });
+          updateScoreboard();
+          resetPlays();
+          enableButtons();
+          status.innerText = "Second Innings Started! Play your card.";
+        }, 3000);
+        return;
+      }
         resetPlays();
         enableButtons();
         status.innerText = "Play your next card.";
       }, 1500);
     });
 
-    setupRole();
     updateScoreboard();
   </script>
 </body>
