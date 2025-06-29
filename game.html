@@ -1,121 +1,172 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HandiCricket - Card Game</title>
+  <title>HandiCricket - Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
-    .card-buttons button {
-      width: 60px; height: 60px; margin: 5px; border-radius: 50%; font-size: 18px;
-      border: none; background: #1e88e5; color: white; transition: 0.2s;
-    }
-    .card-buttons button.disabled {
-      background-color: #555 !important; opacity: 0.6; pointer-events: none;
-    }
-    #result, #roomInfo, #playerNames { margin-top: 15px; font-size: 16px; }
+    body { background: #061e3e; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
+    .card-row { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    button.card { width: 60px; height: 60px; font-size: 20px; border-radius: 12px; border: none; background: #1e88e5; color: white; }
+    button.card:disabled { background: #607d8b; color: #ccc; }
+    #scoreboard, #roleText { margin-top: 10px; font-size: 18px; }
+    #status { margin-top: 15px; font-size: 16px; color: #ffeb3b; }
   </style>
 </head>
 <body>
-  <h2 id="opponentName" style="text-align:center; color:#ccc; font-weight:normal;"></h2>
+  <h2>🏏 HandiCricket - Game</h2>
+  <div id="roleText"></div>
+  <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+  <div id="status">Waiting for players...</div>
 
-  <h1>🏏 HandiCricket - Game</h1>
-  <div class="card">
-    <div id="roomInfo">Loading room...</div>
-    <div id="playerNames">Loading players...</div>
-    <div id="role">Loading role...</div>
-    <div class="card-buttons" id="buttons"></div>
-    <div id="result">Waiting for players...</div>
+  <div class="card-row" id="cardButtons">
+    <button class="card" data-value="0">0</button>
+    <button class="card" data-value="1">1</button>
+    <button class="card" data-value="2">2</button>
+    <button class="card" data-value="3">3</button>
+    <button class="card" data-value="4">4</button>
+    <button class="card" data-value="5">5</button>
+    <button class="card" data-value="6">6</button>
   </div>
 
   <script type="module">
-    import { db, ref, set, onValue } from './firebase.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomCode = urlParams.get('room');
-    const player = urlParams.get('player');
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
 
-    const roomInfo = document.getElementById('roomInfo');
-    const roleEl = document.getElementById('role');
-    const playerNames = document.getElementById('playerNames');
-    const resultEl = document.getElementById('result');
-    const buttonContainer = document.getElementById('buttons');
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    roomInfo.innerText = `Room Code: ${roomCode}`;
-    roleEl.innerText = `You are ${player === 'player1' ? 'Player 1 (Batting)' : 'Player 2 (Bowling)'}`;
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const player = params.get('player');
+    const opponent = player === "player1" ? "player2" : "player1";
 
-    let buttons = [];
-    let hasPlayed = false;
+    let runs = 0, wickets = 0, balls = 0, freeHit = false;
+    const status = document.getElementById("status");
+    const scoreboard = document.getElementById("scoreboard");
+    const buttons = document.querySelectorAll(".card");
+    const roleText = document.getElementById("roleText");
 
-    function renderButtons() {
-      buttonContainer.innerHTML = "";
-      buttons = [];
-      for (let i = 0; i <= 6; i++) {
-        const btn = document.createElement("button");
-        btn.innerText = i.toString();
-        btn.addEventListener("click", async () => {
-          if (hasPlayed) return;
-          hasPlayed = true;
-          btn.classList.add("disabled");
-          buttons.forEach(b => b.classList.add("disabled"));
-          await set(ref(db, `rooms/${roomCode}/${player}Card`), i);
-        });
-        buttonContainer.appendChild(btn);
-        buttons.push(btn);
-      }
+    function disableButtons() {
+      buttons.forEach(btn => btn.disabled = true);
     }
 
-    renderButtons();
-
-    function resetButtons() {
-      buttons.forEach(btn => btn.classList.remove("disabled"));
+    function enableButtons() {
+      buttons.forEach(btn => btn.disabled = false);
     }
 
-    onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+    function updateScoreboard() {
+      scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${(balls / 6).toFixed(1)}`;
+    }
 
-      const name1 = data?.player1?.teamName || "Waiting...";
-      const name2 = data?.player2?.teamName || "Waiting...";
-      playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent: ${player === 'player1' ? name2 : name1}`;
+    function resetPlays() {
+      set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
+    }
 
-      if (!data.player1 || !data.player2) {
-        resultEl.innerText = "Waiting for opponent to join...";
-        return;
-      }
+    async function setupRole() {
+      const snapshot = await get(ref(db, `rooms/${room}/tossWinner`));
+      const tossWinner = snapshot.val();
+      const isBatting = player === tossWinner;
+      const teamSnap = await get(ref(db, `rooms/${room}/${opponent}/playing11`));
+      const opponentTeam = teamSnap.val()?.[0] || "Opponent";
 
-      const p1Ready = typeof data.player1Card === 'number';
-      const p2Ready = typeof data.player2Card === 'number';
+      roleText.innerText = isBatting ? `You are Batting vs ${opponentTeam}` : `You are Bowling vs ${opponentTeam}`;
+    }
 
-      if (p1Ready && p2Ready) {
-        const p1 = data.player1Card;
-        const p2 = data.player2Card;
-        let result = "";
-
-        if (p1 === 0 && p2 === 0) {
-          result = "No Ball!";
-        } else if (p1 === p2 && p1 !== 0) {
-          result = "WICKET!";
-        } else if (p1 === 0 && p2 !== 0) {
-          result = `Bowler's card ${p2} → Runs scored: ${p2}`;
-        } else if (p1 !== 0 && p2 === 0) {
-          result = `Dot Ball!`;
-        } else {
-          result = `Runs scored: ${p1}`;
-        }
-
-        resultEl.innerText = result;
-
-        // Clear after showing result (no delay in buttons, just state reset)
-        await set(ref(db, `rooms/${roomCode}/player1Card`), null);
-        await set(ref(db, `rooms/${roomCode}/player2Card`), null);
-        hasPlayed = false;
-        resetButtons();
-      } else if (!hasPlayed) {
-        resultEl.innerText = "Waiting for both players to play card...";
-      }
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const val = parseInt(btn.dataset.value);
+        disableButtons();
+        status.innerText = "Waiting for opponent...";
+        set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
+      });
     });
+
+    onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+      const plays = snap.val();
+      if (!plays || plays.player1 == null || plays.player2 == null) return;
+
+      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
+      const tossWinner = tossSnap.val();
+      const bat = plays[tossWinner];
+      const bowl = plays[tossWinner === "player1" ? "player2" : "player1"];
+
+      let outcome = "";
+
+      if (bat === bowl && bat > 0) {
+        outcome = freeHit ? "Wicket on Free Hit (not out)" : "WICKET!";
+        if (!freeHit) wickets++;
+        balls++;
+        freeHit = false;
+      } else if (bat === 0 && bowl === 0) {
+        outcome = "NO BALL!";
+        runs += 1;
+        freeHit = true;
+      } else if (bat === 0 && bowl > 0) {
+        runs += bowl;
+        outcome = `Batter played 0. Runs = ${bowl}`;
+        balls++;
+        freeHit = false;
+      } else if (bowl === 0 && bat > 0) {
+        outcome = "DOT BALL!";
+        balls++;
+        freeHit = false;
+      } else {
+        runs += bat;
+        outcome = `${bat} Run(s)!`;
+        balls++;
+        freeHit = false;
+      }
+
+      status.innerText = outcome;
+      updateScoreboard();
+      setTimeout(() => {
+        resetPlays();
+        enableButtons();
+        status.innerText = "Play your next card.";
+      }, 1500);
+    });
+
+    setupRole();
+    updateScoreboard();
   </script>
+
+<div id="game-info" style="margin-top: 20px; background: #0a2a5a; padding: 15px; border-radius: 12px;">
+  <h3>Scoreboard</h3>
+  <div id="scoreDisplay">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+  <h4>Playing XI</h4>
+  <div id="playingXI"></div>
+</div>
+
+<script>
+async function updatePlayingXI() {
+  const snap = await get(ref(db, `rooms/${room}/${player}/playing11`));
+  const team = snap.val();
+  document.getElementById("playingXI").innerHTML = team.map(p => `<div>${p}</div>`).join('');
+}
+
+function updateScoreBottom() {
+  document.getElementById("scoreDisplay").innerText =
+    `Runs: ${runs} | Wickets: ${wickets} | Overs: ${Math.floor(balls/6)}.${balls % 6}`;
+}
+
+onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+  const plays = snap.val();
+  if (!plays || plays.player1 === null || plays.player2 === null) return;
+  updateScoreBottom();
+});
+updatePlayingXI();
+</script>
+
 </body>
 </html>
