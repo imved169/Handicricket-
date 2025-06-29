@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const createBtn = document.getElementById("createRoom");
   const joinBtn = document.getElementById("joinRoom");
 
-  createBtn.addEventListener("click", async () => {
+  createBtn?.addEventListener("click", async () => {
     const teamName = document.getElementById("teamName").value.trim();
     if (!teamName) return alert("Enter team name");
     const roomCode = generateRoomCode();
@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = `playing11.html?room=${roomCode}&player=player1`;
   });
 
-  joinBtn.addEventListener("click", async () => {
+  joinBtn?.addEventListener("click", async () => {
     const teamName = document.getElementById("teamName").value.trim();
     const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
     if (!teamName || !joinCode) return alert("Enter all fields");
