@@ -1,68 +1,57 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Playing XI Entry</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Enter Playing XI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-  <div id="roomCodeDisplay" style="text-align:center; margin: 10px; font-weight: bold;"></div>
   <h2>Enter Your Playing XI</h2>
-  <h3 id="roomInfo"></h3>
-  <div id="playerInputs"></div>
-  <button onclick="submitPlayers()">Submit</button>
-
-  <script>
-    const roomCode = sessionStorage.getItem("roomCode");
-    const teamKey = sessionStorage.getItem("teamKey");
-
-    document.getElementById("roomInfo").innerText = `Room Code: ${roomCode} | Team: ${teamKey}`;
-
-    for (let i = 1; i <= 11; i++) {
-      const input = document.createElement("input");
-      input.type = "text";
-      input.id = "player" + i;
-      input.placeholder = "Player " + i;
-      document.getElementById("playerInputs").appendChild(input);
-      document.getElementById("playerInputs").appendChild(document.createElement("br"));
-    }
-
-    async function submitPlayers() {
-      const players = [];
-      for (let i = 1; i <= 11; i++) {
-        players.push(document.getElementById("player" + i).value);
-      }
-
-      await fetch(`https://handicricket-d1ab7-default-rtdb.firebaseio.com/rooms/${roomCode}/${teamKey}/players.json`, {
-        method: "PUT",
-        body: JSON.stringify(players)
-      });
-
-      alert("Players submitted!");
-      setTimeout(() => {
-        window.location.href = "toss.html";
-      }, 1000);
-    }
-  
-  const db = getDatabase(app);
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomCode = urlParams.get("room");
-  const player = urlParams.get("player");
-  if (roomCode) {
+  <div id="roomCodeDisplay" style="font-weight:bold;"></div>
+  <ul id="playerList"></ul>
+  <input type="text" id="playerName" placeholder="Enter player name" />
+  <button id="addPlayer">Add Player</button>
+  <script type="module">
+    import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { app } from './firebase.js';
+    const db = getDatabase(app);
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get("room");
+    const player = urlParams.get("player");
     document.getElementById("roomCodeDisplay").innerText = "Room Code: " + roomCode;
-  }
-
-  const roomRef = ref(db, `rooms/${roomCode}`);
-  onValue(roomRef, (snapshot) => {
-    const data = snapshot.val();
-    if (
-      data?.player1?.players?.length === 11 &&
-      data?.player2?.players?.length === 11
-    ) {
-      window.location.href = `toss.html?room=${roomCode}&player=${player}`;
-    }
-  });
-</script>
+    const listEl = document.getElementById("playerList");
+    const input = document.getElementById("playerName");
+    const addBtn = document.getElementById("addPlayer");
+    addBtn.onclick = () => {
+      const name = input.value.trim();
+      if (!name) return;
+      const playersRef = ref(db, `rooms/${roomCode}/${player}/players`);
+      push(playersRef, name);
+      input.value = "";
+    };
+    const playersRef = ref(db, `rooms/${roomCode}/${player}/players`);
+    onValue(playersRef, snap => {
+      listEl.innerHTML = "";
+      let count = 0;
+      snap.forEach(child => {
+        const li = document.createElement("li");
+        li.textContent = child.val();
+        listEl.appendChild(li);
+        count++;
+      });
+      if (count === 11) {
+        const roomRef = ref(db, `rooms/${roomCode}`);
+        onValue(roomRef, snapshot => {
+          const data = snapshot.val();
+          if (
+            data?.player1?.players && Object.keys(data.player1.players).length === 11 &&
+            data?.player2?.players && Object.keys(data.player2.players).length === 11
+          ) {
+            window.location.href = `toss.html?room=${roomCode}&player=${player}`;
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>
