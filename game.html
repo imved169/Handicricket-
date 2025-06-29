@@ -23,8 +23,7 @@
     <div id="roomInfo">Loading room...</div>
     <div id="playerNames">Loading players...</div>
     <div id="role">Loading role...</div>
-    <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
-<div class="card-buttons" id="buttons"></div>
+    <div class="card-buttons" id="buttons"></div>
     <div id="result">Waiting for players...</div>
   </div>
 
@@ -43,10 +42,6 @@
 
     roomInfo.innerText = `Room Code: ${roomCode}`;
     roleEl.innerText = `You are ${player === 'player1' ? 'Player 1 (Batting)' : 'Player 2 (Bowling)'}`;
-      if (data.player1?.teamName && data.player2?.teamName && buttons.length === 0) {
-        renderButtons();
-      }
-
 
     let buttons = [];
     let hasPlayed = false;
@@ -75,11 +70,7 @@
       buttons.forEach(btn => btn.classList.remove("disabled"));
     }
 
-    
-onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
-      const score = data.score || { runs: 0, wickets: 0, balls: 0 };
-      scoreboard.innerText = `Runs: ${score.runs} | Wickets: ${score.wickets} | Overs: ${(score.balls / 6).toFixed(1)}`;
-
+    onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
 
@@ -87,30 +78,15 @@ onValue(ref(db, `rooms/${roomCode}`), async (snapshot) => {
       const name2 = data?.player2?.teamName || "Waiting...";
       playerNames.innerText = `You: ${player === 'player1' ? name1 : name2} | Opponent: ${player === 'player1' ? name2 : name1}`;
 
-      
-
-if (!data.player1?.teamName || !data.player2?.teamName) {
-    buttons.forEach(btn => btn.classList.add("disabled"));
-    resultEl.innerText = "Waiting for opponent to join...";
-    return;
-}
-
-        
+      if (!data.player1 || !data.player2) {
+        resultEl.innerText = "Waiting for opponent to join...";
+        return;
       }
 
       const p1Ready = typeof data.player1Card === 'number';
       const p2Ready = typeof data.player2Card === 'number';
 
-      
-
-if (!data.player1?.teamName || !data.player2?.teamName) return;
-if (p1Ready && p2Ready) {
-
-        const score = data.score || { runs: 0, wickets: 0, balls: 0 };
-        let runs = score.runs;
-        let wickets = score.wickets;
-        let balls = score.balls;
-
+      if (p1Ready && p2Ready) {
         const p1 = data.player1Card;
         const p2 = data.player2Card;
         let result = "";
@@ -128,9 +104,6 @@ if (p1Ready && p2Ready) {
         }
 
         resultEl.innerText = result;
-        await update(ref(db, `rooms/${roomCode}`), {
-          score: { runs, wickets, balls }
-        });
 
         // Clear after showing result (no delay in buttons, just state reset)
         await set(ref(db, `rooms/${roomCode}/player1Card`), null);

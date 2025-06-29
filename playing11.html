@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Playing XI Entry</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h2>Enter Your Playing XI</h2>
+  <h3 id="roomInfo"></h3>
+  <div id="playerInputs"></div>
+  <button onclick="submitPlayers()">Submit</button>
+
+  <script>
+    const roomCode = sessionStorage.getItem("roomCode");
+    const teamKey = sessionStorage.getItem("teamKey");
+
+    document.getElementById("roomInfo").innerText = `Room Code: ${roomCode} | Team: ${teamKey}`;
+
+    for (let i = 1; i <= 11; i++) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = "player" + i;
+      input.placeholder = "Player " + i;
+      document.getElementById("playerInputs").appendChild(input);
+      document.getElementById("playerInputs").appendChild(document.createElement("br"));
+    }
+
+    async function submitPlayers() {
+      const players = [];
+      for (let i = 1; i <= 11; i++) {
+        players.push(document.getElementById("player" + i).value);
+      }
+
+      await fetch(`https://handicricket-d1ab7-default-rtdb.firebaseio.com/rooms/${roomCode}/${teamKey}/players.json`, {
+        method: "PUT",
+        body: JSON.stringify(players)
+      });
+
+      alert("Players submitted!");
+      setTimeout(() => {
+        window.location.href = "toss.html";
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

@@ -2,73 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HandiCricket - Room Setup</title>
-  <style>
-    body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
-    input, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; }
-    button { background: #1e88e5; color: white; cursor: pointer; }
-    button:hover { background: #1565c0; }
-    #roomDisplay { font-size: 18px; margin-top: 10px; word-break: break-all; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HandiCricket - Room System</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>🏏 HandiCricket</h1>
-  <div class="card">
-    <input type="text" id="teamName" placeholder="Enter Team Name" />
-    <button onclick="createRoom()">Create Room</button>
-    <button onclick="joinRoom()">Join Room</button>
-    <input type="text" id="joinCode" placeholder="Enter Room Code to Join" />
-    <div id="roomDisplay"></div>
-    <div id="status"></div>
+  <div id="app">
+    <h1>🏏 HandiCricket</h1>
+    <div class="container">
+      <input id="teamName" type="text" placeholder="Enter Team Name" />
+      <button onclick="createRoom()">Create Room</button>
+      <input id="joinCode" type="text" placeholder="Enter Room Code to Join" />
+      <button onclick="joinRoom()">Join Room</button>
+      <p id="roomInfo"></p>
+    </div>
   </div>
-
   <script type="module">
-    import { db, ref, set, get } from './firebase.js';
-
-    function generateRoomCode() {
-      return Math.random().toString(36).substring(2, 7).toUpperCase();
-    }
-
-    window.createRoom = async () => {
-      const teamName = document.getElementById('teamName').value;
-      const roomCode = generateRoomCode();
-      const roomRef = ref(db, 'rooms/' + roomCode);
-      await set(roomRef, {
-        player1: { teamName },
-        status: 'waiting'
-      });
-      document.getElementById('roomDisplay').innerText = `Room Code: ${roomCode}`;
-      setTimeout(() => {
-        location.href = `game.html?room=${roomCode}&player=player1`;
-      }, 1500);
-    };
-
-    window.joinRoom = async () => {
-      const teamName = document.getElementById('teamName').value;
-      const joinCode = document.getElementById('joinCode').value.toUpperCase();
-      const roomRef = ref(db, 'rooms/' + joinCode);
-      const snapshot = await get(roomRef);
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        if (!data.player2) {
-          await set(roomRef, {
-            ...data,
-            player2: { teamName },
-            status: 'ready'
-          });
-          document.getElementById('roomDisplay').innerText = `Room Code: ${joinCode}`;
-          setTimeout(() => {
-            location.href = `game.html?room=${joinCode}&player=player2`;
-          }, 1500);
-        } else {
-          document.getElementById('status').innerText = 'Room full!';
-        }
-      } else {
-        document.getElementById('status').innerText = 'Room not found!';
-      }
-    };
+    import { createRoom, joinRoom } from './script.mjs';
+    window.createRoom = createRoom;
+    window.joinRoom = joinRoom;
   </script>
+<p id="roomInfo" style="font-weight: bold;"></p>
+<script type="module">import { createRoom, joinRoom } from "./script.mjs"; window.createRoom = createRoom; window.joinRoom = joinRoom;</script>
 </body>
 </html>
