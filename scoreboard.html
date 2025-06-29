@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HandiCricket - Game</title>
+  <style>
+    body {
+      background-color: #0a2a43;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .card-btn {
+      margin: 10px;
+      padding: 15px 25px;
+      font-size: 20px;
+      background-color: #1e90ff;
+      border: none;
+      border-radius: 10px;
+      color: white;
+    }
+    .card-btn:disabled {
+      opacity: 0.5;
+    }
+    .card-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏏 HandiCricket - Game</h1>
+  <p id="score">Runs: 0 | Wickets: 0 | Overs: 0.0</p>
+  <p id="status">Waiting for players...</p>
+  <div class="card-container">
+    <button class="card-btn" onclick="playCard(0)">0</button>
+    <button class="card-btn" onclick="playCard(1)">1</button>
+    <button class="card-btn" onclick="playCard(2)">2</button>
+    <button class="card-btn" onclick="playCard(3)">3</button>
+    <button class="card-btn" onclick="playCard(4)">4</button>
+    <button class="card-btn" onclick="playCard(5)">5</button>
+    <button class="card-btn" onclick="playCard(6)">6</button>
+  </div>
+  <p id="result"></p>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060",
+      measurementId: "G-6XS69Z6MMF"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const room = localStorage.getItem("roomCode");
+    const player = localStorage.getItem("player"); // "player1" or "player2"
+    let runs = 0, wickets = 0, balls = 0;
+
+    function updateScoreboard() {
+      const overs = Math.floor(balls / 6) + "." + (balls % 6);
+      document.getElementById("score").innerText = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${overs}`;
+    }
+
+    function playCard(value) {
+      set(ref(db, `rooms/${room}/currentPlays/${player}`), value);
+    }
+
+    onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+      const plays = snap.val();
+      if (!plays || !plays.player1 || !plays.player2) return;
+
+      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
+      const tossWinner = tossSnap.val();
+
+      const bat = plays[tossWinner];
+      const bowl = plays[tossWinner === "player1" ? "player2" : "player1"];
+      const result = document.getElementById("result");
+
+      if (bat === bowl) {
+        result.innerText = "WICKET!";
+        wickets++;
+      } else {
+        result.innerText = `${bat} run(s)!`;
+        runs += parseInt(bat);
+      }
+
+      balls++;
+      updateScoreboard();
+      set(ref(db, `rooms/${room}/currentPlays`), {});
+    });
+  </script>
+</body>
+</html>
