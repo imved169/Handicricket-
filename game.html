@@ -149,60 +149,60 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
-    // Format rules with complete wicket systems
     const formatRules = {
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 11,
-        powerplayOvers: 2,
-        livesPerPlayer: 2,
+        totalWickets: 11, 
+        powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 0.5,
-        deadOvers: []
+        regularWicketValue: 1,
+        livesPerPlayer: 2,
+        regularLivesPerWicket: 1
       },
       "10": { 
         name: "10 Overs", 
         totalOvers: 10, 
-        totalWickets: 11,
-        powerplayOvers: 3,
-        livesPerPlayer: 2,
+        totalWickets: 11, 
+        powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 0.5,
-        deadOvers: []
+        regularWicketValue: 1,
+        livesPerPlayer: 2,
+        regularLivesPerWicket: 1
       },
       "20": { 
         name: "T20", 
         totalOvers: 20, 
-        totalWickets: 11,
-        powerplayOvers: 6,
-        livesPerPlayer: 2,
+        totalWickets: 11, 
+        powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 0.5,
-        deadOvers: []
+        regularWicketValue: 1,
+        livesPerPlayer: 2,
+        regularLivesPerWicket: 1
       },
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
-        totalWickets: 11,
-        powerplayOvers: [1,10,21,30,41,42],
-        livesPerPlayer: 4,
+        totalWickets: 11, 
+        powerplayOvers: [1,10, 21,30, 41,42], 
         powerplayWicketValue: 0.25,
-        regularWicketValue: 0.25,
-        deadOvers: [11,20,31,40]
+        regularWicketValue: 0.5,
+        livesPerPlayer: 4,
+        regularLivesPerWicket: 2,
+        deadOvers: [11,20, 31,40] 
       },
       "test": { 
         name: "Test Match", 
         totalOvers: Infinity, 
-        totalWickets: 10,
+        totalWickets: 10, 
+        powerplayOvers: 0, 
+        powerplayWicketValue: 1, 
+        regularWicketValue: 1,
         livesPerPlayer: 3,
-        wicketValue: 1/3,
-        powerplayOvers: 0,
-        deadOvers: []
+        wicketMultiplier: 3 
       }
     };
 
-    // Game state
     let runs = 0, wickets = 0;
     let legalBalls = 0;
     let freeHit = false;
@@ -226,9 +226,8 @@
     const maxOversPerDay = 90;
     let isPowerplay = false;
     let isDeadOver = false;
-    let batterLives = {}; // Tracks remaining lives: { "Player1": 2, "Player2": 4 }
+    let batterLives = {};
 
-    // DOM elements
     const status = document.getElementById("status");
     const scoreboard = document.getElementById("scoreboard");
     const buttons = document.querySelectorAll(".card");
@@ -248,18 +247,44 @@
     const followOnBtn = document.getElementById("enforceFollowOn");
     const formatDisplay = document.getElementById("formatDisplay");
 
-    // Initialize game
-    initGame();
+    async function loadPlaying11() {
+      const roomRef = ref(db, `rooms/${room}`);
+      const snapshot = await get(roomRef);
+      const data = snapshot.val();
+
+      if (!data) {
+        alert("Room data not found! Returning to home.");
+        window.location.href = "index.html";
+        return false;
+      }
+
+      if (data.player1?.playing11) {
+        team1NameEl.innerText = data.player1.teamName || "Team 1";
+        team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
+      }
+      
+      if (data.player2?.playing11) {
+        team2NameEl.innerText = data.player2.teamName || "Team 2";
+        team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
+      }
+
+      return data.player1?.playing11 && data.player2?.playing11;
+    }
 
     async function initGame() {
-      await loadPlaying11();
-      
+      const teamsLoaded = await loadPlaying11();
+      if (!teamsLoaded) {
+        alert("Both teams haven't submitted yet! Returning to team selection.");
+        window.location.href = `playing11.html?room=${room}&player=${player}`;
+        return;
+      }
+
       const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
       const format = formatSnap.val() || "5";
       currentFormat = formatRules[format];
       isTestMatch = format === "test";
       
-      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 lives/wicket" : currentFormat.livesPerPlayer + " lives/batter"}`;
+      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 outs/wicket" : currentFormat.livesPerPlayer + " lives/batter"}`;
       
       testControls.style.display = isTestMatch ? "flex" : "none";
       followOnBtn.style.display = "none";
@@ -351,10 +376,8 @@
       
       let displayWickets;
       if (isTestMatch) {
-        // Display fractional wickets for Tests (e.g., 2.33)
-        displayWickets = Math.floor(wickets) + (Math.round((wickets % 1) * 100)/100;
+        displayWickets = Math.floor(wickets / 3);
       } else {
-        // Display decimal wickets during accumulation
         displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
       }
 
@@ -364,8 +387,8 @@
         scoreboard.innerHTML = `
           <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
           <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
-          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets)}</div>
-          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets)}</div>
+          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
+          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
           <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
       } else {
@@ -413,7 +436,6 @@
         if (selectionType === "batter") {
           currentBatter = playerName;
           battersUsed.push(playerName);
-          // Initialize lives for new batter
           batterLives[playerName] = currentFormat.livesPerPlayer;
           currentBatterEl.innerText = playerName;
           await set(ref(db, `rooms/${room}/currentBatter`), playerName);
@@ -435,11 +457,8 @@
       try {
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
-        const availableBatters = players.filter(p => {
-          // Show batters with lives left or new batters
-          return (batterLives[p] === undefined || batterLives[p] > 0) && 
-                 !battersUsed.includes(p);
-        });
+        const availableBatters = players.filter(p => !battersUsed.includes(p) || 
+          (batterLives[p] !== undefined && batterLives[p] > 0));
         
         if (availableBatters.length === 0) {
           alert("All batters are out!");
@@ -451,8 +470,7 @@
         
         availableBatters.forEach(player => {
           const livesLeft = batterLives[player] !== undefined ? 
-                           batterLives[player] : 
-                           currentFormat.livesPerPlayer;
+                          batterLives[player] : currentFormat.livesPerPlayer;
           const playerEl = document.createElement("div");
           playerEl.className = "player-item";
           playerEl.textContent = `${player} (${livesLeft} lives left)`;
@@ -558,7 +576,6 @@
               batterLives[currentBatter]--;
               
               if (isTestMatch) {
-                // Test Match: 3 lives = 1 wicket
                 wickets += (1/3);
                 currentInningWickets += (1/3);
                 outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
@@ -568,35 +585,22 @@
                 }
               } 
               else {
-                // Limited overs formats
                 if (isPowerplay) {
-                  // During powerplay - add partial value
                   wickets += currentFormat.powerplayWicketValue;
                   currentInningWickets += currentFormat.powerplayWicketValue;
-                  outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
                 } else {
-                  // After powerplay - complete to full wicket
-                  if (batterLives[currentBatter] === currentFormat.livesPerPlayer - 1) {
-                    // First life lost in non-PP (shouldn't normally happen)
-                    wickets += currentFormat.regularWicketValue;
-                    currentInningWickets += currentFormat.regularWicketValue;
-                  } else {
-                    // Complete the wicket
-                    const remainingValue = 1 - (wickets % 1);
-                    wickets += remainingValue;
-                    currentInningWickets += remainingValue;
-                    isPlayerOut = true;
-                  }
-                  outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
+                  const remainingValue = 1 - (wickets % 1);
+                  wickets += remainingValue;
+                  currentInningWickets += remainingValue;
+                  isPlayerOut = true;
                 }
-                
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
                 if (batterLives[currentBatter] <= 0) {
                   isPlayerOut = true;
                   outcome = "WICKET! (Player out)";
                 }
               }
             } else {
-              // Fallback
               outcome = "WICKET!";
               isWicket = true;
               wickets += 1;
@@ -675,7 +679,6 @@
           currentBatterEl.innerText = batter;
           if (!battersUsed.includes(batter)) {
             battersUsed.push(batter);
-            // Initialize lives for new batter
             if (batterLives[batter] === undefined) {
               batterLives[batter] = currentFormat.livesPerPlayer;
             }
@@ -744,7 +747,7 @@
       oversToday = 0;
       battersUsed = [];
       bowlerOvers = {};
-      batterLives = {}; // Reset lives for new inning
+      batterLives = {};
       freeHit = false;
       isBatting = !isBatting;
       
@@ -801,27 +804,8 @@
       set(ref(db, `rooms/${room}/result`), result);
     }
 
-    async function loadPlaying11() {
-      const roomRef = ref(db, `rooms/${room}`);
-      const snapshot = await get(roomRef);
-      const data = snapshot.val();
-
-      if (!data) {
-        alert("Room data not found! Returning to home.");
-        window.location.href = "index.html";
-        return;
-      }
-
-      if (data.player1?.playing11 && data.player2?.playing11) {
-        team1NameEl.innerText = data.player1.teamName || "Team 1";
-        team2NameEl.innerText = data.player2.teamName || "Team 2";
-        team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
-        team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
-      } else {
-        alert("Both teams haven't submitted yet! Returning to team selection.");
-        window.location.href = `playing11.html?room=${room}&player=${player}`;
-      }
-    }
+    // Initialize the game
+    initGame();
   </script>
 </body>
 </html>
