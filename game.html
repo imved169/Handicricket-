@@ -29,16 +29,49 @@
       border-radius: 5px; cursor: pointer; 
     }
     .player-item:hover { background: #1565c0; }
+    .player-item.selected { background: #0d47a1; }
+    .test-controls { 
+      margin: 15px 0; 
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .test-controls button {
+      padding: 10px 15px;
+      font-size: 14px;
+      background: #ff9800;
+    }
+    .test-controls button:hover {
+      background: #f57c00;
+    }
+    .innings-display {
+      background: #0d2a52;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+      text-align: left;
+    }
+    #formatDisplay {
+      font-weight: bold;
+      color: #4caf50;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
   <h2>🏏 HandiCricket - Game</h2>
+  <div id="formatDisplay"></div>
   <div id="roleText"></div>
   <div id="currentPlayers" style="margin-top: 10px; font-weight: bold; font-size: 16px;">
     Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
   </div>
   <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
   <div id="status">Waiting for players...</div>
+
+  <div id="testControls" class="test-controls" style="display: none;">
+    <button id="declareInning">Declare Innings</button>
+    <button id="enforceFollowOn" style="display: none;">Enforce Follow-On</button>
+  </div>
 
   <div class="card-row" id="cardButtons">
     <button class="card" data-value="0">0</button>
@@ -102,7 +135,20 @@
     let bowlersUsed = [];
     let bowlerOvers = {};
     let isBatting = false;
-    let matchOvers = 5; // Default to 5-over match
+    let matchOvers = 5;
+    let isTestMatch = false;
+    
+    // Test match specific state
+    let innings = 1;
+    let currentInningRuns = 0;
+    let currentInningWickets = 0;
+    let team1Score = 0;
+    let team2Score = 0;
+    let team1Wickets = 0;
+    let team2Wickets = 0;
+    let daysRemaining = 5;
+    let oversToday = 0;
+    const maxOversPerDay = 90;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -119,16 +165,57 @@
     const team2NameEl = document.getElementById("team2Name");
     const team1PlayersEl = document.getElementById("team1Players");
     const team2PlayersEl = document.getElementById("team2Players");
+    const testControls = document.getElementById("testControls");
+    const declareBtn = document.getElementById("declareInning");
+    const followOnBtn = document.getElementById("enforceFollowOn");
+    const formatDisplay = document.getElementById("formatDisplay");
 
     // Initialize game
     initGame();
 
     async function initGame() {
       await loadPlaying11();
+      
+      // Get match format
+      const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
+      const format = formatSnap.val() || "5";
+      isTestMatch = format === "test";
+      
+      const formatNames = {
+        "5": "5 Overs Match",
+        "10": "10 Overs Match",
+        "20": "20 Overs Match",
+        "50": "50 Overs Match",
+        "test": "Test Match (5 days)"
+      };
+      formatDisplay.innerText = formatNames[format];
+      
+      matchOvers = isTestMatch ? maxOversPerDay * daysRemaining : parseInt(format);
+      testControls.style.display = isTestMatch ? "flex" : "none";
+      followOnBtn.style.display = "none";
+      
       await setupRole();
       setupSelectionModal();
+      setupTestControls();
       updateScoreboard();
       setupFirebaseListeners();
+    }
+
+    function setupTestControls() {
+      declareBtn.addEventListener("click", async () => {
+        if (confirm("Are you sure you want to declare this innings?")) {
+          await set(ref(db, `rooms/${room}/declared`), true);
+          endInning();
+        }
+      });
+
+      followOnBtn.addEventListener("click", async () => {
+        if (confirm("Enforce follow-on and make Team 2 bat again?")) {
+          innings = 2; // Skip Team 1's second innings
+          resetInning();
+          await set(ref(db, `rooms/${room}/followOn`), false);
+        }
+      });
     }
 
     function disableButtons() {
@@ -142,7 +229,20 @@
     function updateScoreboard() {
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
-      scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${overs}.${balls}`;
+      
+      if (isTestMatch) {
+        scoreboard.innerHTML = `
+          <div class="innings-display">
+            <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
+            <div>Current: ${currentInningRuns}/${currentInningWickets} (${overs}.${balls})</div>
+            <div>Team 1: ${team1Score}/${team1Wickets}</div>
+            <div>Team 2: ${team2Score}/${team2Wickets}</div>
+            <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
+          </div>
+        `;
+      } else {
+        scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${overs}.${balls}`;
+      }
     }
 
     function resetPlays() {
@@ -164,9 +264,6 @@
         `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'}) vs ${opponentTeam}` : 
         `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'}) vs ${opponentTeam}`;
 
-      // Set max overs per bowler based on match length
-      const maxOversPerBowler = Math.ceil(matchOvers / 5);
-      
       // If we're the batting team and no batter is selected yet
       if (isBatting && !currentBatter) {
         showBatterSelection();
@@ -239,8 +336,8 @@
       const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
       const players = snapshot.val();
       
-      // Filter out bowlers who have reached their over limit
-      const maxOversPerBowler = Math.ceil(matchOvers / 5);
+      // For Tests, don't limit overs, for limited overs calculate max
+      const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(matchOvers / 5);
       const availableBowlers = players.filter(p => {
         return (bowlerOvers[p] || 0) < maxOversPerBowler;
       });
@@ -257,7 +354,9 @@
         const oversBowled = bowlerOvers[player] || 0;
         const playerEl = document.createElement("div");
         playerEl.className = "player-item";
-        playerEl.textContent = `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
+        playerEl.textContent = isTestMatch ? 
+          `${player} (${oversBowled.toFixed(1)} overs)` : 
+          `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
         playerEl.dataset.name = player;
         playerEl.addEventListener("click", function() {
           document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
@@ -288,6 +387,7 @@
         if (batCard === 0 && bowlCard === 0) {
           outcome = "NO BALL! +1 run";
           runs += 1;
+          currentInningRuns += 1;
           freeHit = true;
         } else if (batCard === bowlCard && batCard > 0) {
           if (freeHit) {
@@ -295,12 +395,14 @@
           } else {
             outcome = "WICKET!";
             wickets++;
+            currentInningWickets++;
             isWicket = true;
           }
           isLegalBall = true;
           freeHit = false;
         } else if (batCard === 0 && bowlCard > 0) {
           runs += bowlCard;
+          currentInningRuns += bowlCard;
           outcome = `Batter played 0. Runs = ${bowlCard}`;
           isLegalBall = true;
           freeHit = false;
@@ -310,6 +412,7 @@
           freeHit = false;
         } else {
           runs += batCard;
+          currentInningRuns += batCard;
           outcome = `${batCard} Run(s)!`;
           isLegalBall = true;
           freeHit = false;
@@ -317,6 +420,8 @@
 
         if (isLegalBall) {
           legalBalls++;
+          if (isTestMatch) oversToday++;
+          
           // Update bowler's over count
           if (currentBowler) {
             bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
@@ -324,11 +429,23 @@
               bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
             }
           }
+          
+          // Check for end of day's play in Test
+          if (isTestMatch && oversToday >= maxOversPerDay) {
+            endDaysPlay();
+            return;
+          }
         }
 
         status.innerText = outcome;
         updateScoreboard();
         
+        // Check innings completion for Test matches
+        if (isTestMatch && (currentInningWickets >= 10 || legalBalls >= matchOvers)) {
+          endInning();
+          return;
+        }
+
         setTimeout(() => {
           resetPlays();
           enableButtons();
@@ -367,6 +484,12 @@
           currentBowlerEl.innerText = bowler;
         }
       });
+
+      // Listen for follow-on
+      onValue(ref(db, `rooms/${room}/followOn`), (snap) => {
+        const followOn = snap.val();
+        followOnBtn.style.display = followOn ? "block" : "none";
+      });
     }
 
     buttons.forEach(btn => {
@@ -377,6 +500,93 @@
         set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
       });
     });
+
+    async function endInning() {
+      disableButtons();
+      
+      // Update team scores
+      if (innings === 1) {
+        team1Score = currentInningRuns;
+        team1Wickets = currentInningWickets;
+      } else {
+        team2Score = currentInningRuns;
+        team2Wickets = currentInningWickets;
+      }
+      
+      // Check for follow-on (if team1 leads by 200+ runs)
+      const followOnPossible = innings === 2 && team1Score - team2Score >= 200;
+      
+      if (followOnPossible) {
+        status.innerText = `Team 1 can enforce follow-on (lead of ${team1Score - team2Score})`;
+        followOnBtn.style.display = "block";
+        await set(ref(db, `rooms/${room}/followOn`), true);
+      } else {
+        innings++;
+        if (innings > 2) {
+          endTestMatch();
+          return;
+        }
+        resetInning();
+      }
+      
+      updateScoreboard();
+    }
+
+    function resetInning() {
+      runs = 0;
+      wickets = 0;
+      currentInningRuns = 0;
+      currentInningWickets = 0;
+      legalBalls = 0;
+      oversToday = 0;
+      battersUsed = [];
+      bowlerOvers = {};
+      freeHit = false;
+      
+      // Swap batting/bowling teams
+      isBatting = !isBatting;
+      
+      // Show selection modals
+      if (isBatting) {
+        showBatterSelection();
+      } else {
+        showBowlerSelection();
+      }
+    }
+
+    function endDaysPlay() {
+      disableButtons();
+      status.innerText = "Stumps for the day!";
+      daysRemaining--;
+      
+      setTimeout(() => {
+        if (daysRemaining > 0) {
+          oversToday = 0;
+          enableButtons();
+          status.innerText = `Day ${6 - daysRemaining} starting...`;
+          updateScoreboard();
+        } else {
+          endTestMatch();
+        }
+      }, 3000);
+    }
+
+    function endTestMatch() {
+      let result = "";
+      if (team1Score > team2Score) {
+        result = `Team 1 wins by ${team1Score - team2Score} runs`;
+      } else if (team2Score > team1Score) {
+        result = `Team 2 wins by ${10 - team2Wickets} wickets`;
+      } else {
+        result = "Match drawn";
+      }
+      
+      status.innerText = `Test Match Over! ${result}`;
+      disableButtons();
+      
+      // Store match result in Firebase
+      set(ref(db, `rooms/${room}/result`), result);
+    }
 
     async function loadPlaying11() {
       const roomRef = ref(db, `rooms/${room}`);
