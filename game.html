@@ -340,7 +340,9 @@
         dotBalls: Object.values(ballByBall).filter(ball => ball.runs === 0).length,
         wickets: wickets,
         partnership: runs - lastWicketScore,
-        requiredRate: requiredRate
+        requiredRate: requiredRate,
+        batterLives: currentBatter ? batterLives[currentBatter] : null,
+        isPowerplay: isPowerplay
       });
 
       set(ref(db, `rooms/${room}/liveState`), {
@@ -747,16 +749,24 @@
             freeHit = false;
           } else {
             if (currentBatter && batterLives[currentBatter] !== undefined) {
-              batterLives[currentBatter]--;
-              
-              if (isPowerplay) {
-                wickets += currentFormat.powerplayWicketValue;
-                currentInningWickets += currentFormat.powerplayWicketValue;
-                outcome = `WICKET! (Powerplay - ${batterLives[currentBatter]} lives left)`;
+              // T20 specific logic
+              if (currentFormat.name === "T20") {
+                batterLives[currentBatter] -= 1; // Deduct 1 life (2 lives = 1 wicket)
+                if (isPowerplay) {
+                  wickets += 0.5; // Powerplay: 0.5 wicket per life
+                } else {
+                  wickets += 1; // Non-powerplay: 1 wicket per life (2 lives)
+                }
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
               } else {
-                const remainingValue = 1 - (wickets % 1);
-                wickets += remainingValue;
-                currentInningWickets += remainingValue;
+                // Original logic for other formats
+                batterLives[currentBatter]--;
+                if (isPowerplay) {
+                  wickets += currentFormat.powerplayWicketValue;
+                } else {
+                  const remainingValue = 1 - (wickets % 1);
+                  wickets += remainingValue;
+                }
                 outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
               }
 
@@ -767,10 +777,8 @@
             } else {
               if (isPowerplay) {
                 wickets += currentFormat.powerplayWicketValue;
-                currentInningWickets += currentFormat.powerplayWicketValue;
               } else {
                 wickets += currentFormat.regularWicketValue;
-                currentInningWickets += currentFormat.regularWicketValue;
               }
               outcome = "WICKET!";
               isWicket = true;
@@ -821,7 +829,7 @@
         // Record ball data for spectators
         ballByBall[legalBalls] = {
           runs: batCard,
-          wicket: isWicket,
+          wicket: isWicket || isPlayerOut,
           batter: currentBatter,
           bowler: currentBowler,
           timestamp: Date.now()
@@ -1092,4 +1100,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
