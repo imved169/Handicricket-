@@ -111,9 +111,19 @@
     #saveBtn:hover { background: #F57C00; }
     #exitBtn { background: #f44336; }
     #exitBtn:hover { background: #d32f2f; }
+    #spectatorCount {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #1e88e5;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
+  <div id="spectatorCount">Spectators: 0</div>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
   <div id="roleText"></div>
@@ -177,7 +187,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -278,6 +288,10 @@
     let deadOversSelected = [];
     let bowlerRuns = {};
     let gameInProgress = true;
+    let lastOverRuns = 0;
+    let lastOverWickets = 0;
+    let lastWicketScore = 0;
+    let ballByBall = {};
     const playerRef = ref(db, `rooms/${room}/${player}/online`);
     const opponentRef = ref(db, `rooms/${room}/${opponent}/online`);
 
@@ -305,6 +319,42 @@
     const saveBtn = document.getElementById("saveBtn");
     const exitBtn = document.getElementById("exitBtn");
     const connectionStatus = document.getElementById("connectionStatus");
+    const spectatorCountEl = document.getElementById("spectatorCount");
+
+    function updateSpectatorData() {
+      const currentOver = Math.floor(legalBalls / 6);
+      if (currentOver > lastOverRuns) {
+        const overSummary = `Over ${currentOver}: ${runs - lastOverRuns} runs, ${wickets - lastOverWickets} wickets`;
+        set(ref(db, `rooms/${room}/overSummaries/${currentOver}`), overSummary);
+        lastOverRuns = runs;
+        lastOverWickets = wickets;
+      }
+
+      const runRate = (runs / (legalBalls / 6)).toFixed(2);
+      const boundaries = Object.values(ballByBall).filter(ball => [4,6].includes(ball.runs)).length;
+      const requiredRate = innings === 2 ? ((team1Score - runs + 1) / ((currentFormat.totalOvers * 6 - legalBalls) / 6)).toFixed(2) : null;
+
+      set(ref(db, `rooms/${room}/matchStats`), {
+        runRate: runRate,
+        boundaries: boundaries,
+        dotBalls: Object.values(ballByBall).filter(ball => ball.runs === 0).length,
+        wickets: wickets,
+        partnership: runs - lastWicketScore,
+        requiredRate: requiredRate
+      });
+
+      set(ref(db, `rooms/${room}/liveState`), {
+        runs: runs,
+        wickets: wickets,
+        legalBalls: legalBalls,
+        currentBatter: currentBatter,
+        currentBowler: currentBowler,
+        isPowerplay: isPowerplay,
+        isDeadOver: isDeadOver,
+        freeHit: freeHit,
+        innings: innings
+      });
+    }
 
     async function loadPlaying11() {
       const roomRef = ref(db, `rooms/${room}`);
@@ -498,6 +548,7 @@
         enableButtons();
       } catch (error) {
         console.error("Error resetting plays:", error);
+        enableButtons();
       }
     }
 
@@ -767,6 +818,19 @@
           isLegalBall = true;
         }
 
+        // Record ball data for spectators
+        ballByBall[legalBalls] = {
+          runs: batCard,
+          wicket: isWicket,
+          batter: currentBatter,
+          bowler: currentBowler,
+          timestamp: Date.now()
+        };
+
+        if (isWicket) {
+          lastWicketScore = runs;
+        }
+
         if (isLegalBall) {
           legalBalls++;
           if (isTestMatch) oversToday++;
@@ -787,6 +851,7 @@
 
         status.innerText = outcome;
         updateScoreboard();
+        updateSpectatorData();
         
         if ((isTestMatch && currentInningWickets >= 30) || 
             (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
@@ -834,6 +899,12 @@
         const followOn = snap.val();
         followOnBtn.style.display = followOn ? "block" : "none";
       });
+
+      // Spectator count listener
+      onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
+        const spectators = snap.val() || {};
+        spectatorCountEl.textContent = `Spectators: ${Object.keys(spectators).length}`;
+      });
     }
 
     buttons.forEach(btn => {
@@ -877,6 +948,7 @@
       }
       
       updateScoreboard();
+      updateSpectatorData();
     }
 
     function resetInning() {
@@ -911,6 +983,7 @@
           enableButtons();
           status.innerText = `Day ${6 - daysRemaining} starting...`;
           updateScoreboard();
+          updateSpectatorData();
         } else {
           endMatch();
         }
@@ -944,6 +1017,7 @@
       status.innerText = `Match Over! ${result}`;
       disableButtons();
       set(ref(db, `rooms/${room}/result`), result);
+      updateSpectatorData();
     }
 
     async function initGame() {
@@ -990,6 +1064,13 @@
       testControls.style.display = isTestMatch ? "flex" : "none";
       followOnBtn.style.display = "none";
       
+      // Initialize spectator data
+      await set(ref(db, `rooms/${room}/spectatorData`), {
+        overSummaries: {},
+        matchStats: {},
+        spectatorChat: {}
+      });
+
       setupConnectionMonitoring();
       await setupRole();
       setupSelectionModal();
