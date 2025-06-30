@@ -149,18 +149,47 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
-    // Format rules
+    // Format rules with updated wicket values
     const formatRules = {
-      "5": { name: "5 Overs", totalOvers: 5, totalWickets: 11, powerplayOvers: 2, powerplayWicketValue: 0.5, regularWicketValue: 1 },
-      "10": { name: "10 Overs", totalOvers: 10, totalWickets: 11, powerplayOvers: 3, powerplayWicketValue: 0.5, regularWicketValue: 1 },
-      "20": { name: "T20", totalOvers: 20, totalWickets: 11, powerplayOvers: 6, powerplayWicketValue: 0.5, regularWicketValue: 1 },
+      "5": { 
+        name: "5 Overs", 
+        totalOvers: 5, 
+        totalWickets: 11, 
+        powerplayOvers: 2, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        livesPerWicket: 2,
+        regularLivesPerWicket: 1
+      },
+      "10": { 
+        name: "10 Overs", 
+        totalOvers: 10, 
+        totalWickets: 11, 
+        powerplayOvers: 3, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        livesPerWicket: 2,
+        regularLivesPerWicket: 1
+      },
+      "20": { 
+        name: "T20", 
+        totalOvers: 20, 
+        totalWickets: 11, 
+        powerplayOvers: 6, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        livesPerWicket: 2,
+        regularLivesPerWicket: 1
+      },
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
         totalWickets: 11, 
         powerplayOvers: [1,10, 21,30, 41,42], 
-        powerplayWicketValue: 0.25, 
+        powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
+        livesPerWicket: 4,
+        regularLivesPerWicket: 2,
         deadOvers: [11,20, 31,40] 
       },
       "test": { 
@@ -320,7 +349,13 @@
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
       
-      let displayWickets = isTestMatch ? Math.floor(wickets / 3) : Math.floor(wickets);
+      let displayWickets;
+      if (isTestMatch) {
+        displayWickets = Math.floor(wickets / 3);
+      } else {
+        displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
+      }
+
       let totalWickets = currentFormat.totalWickets;
 
       if (isTestMatch) {
@@ -501,29 +536,49 @@
           runs += 1;
           currentInningRuns += 1;
           freeHit = true;
-        } else if (batCard === bowlCard && batCard > 0) {
+        } 
+        else if (batCard === bowlCard && batCard > 0) {
           if (freeHit) {
             outcome = "Wicket on Free Hit (not out)";
-          } else {
+          } 
+          else {
             outcome = "WICKET!";
-            let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
-            wickets += isTestMatch ? 3 : wicketValue;
-            currentInningWickets += isTestMatch ? 3 : wicketValue;
             isWicket = true;
+            
+            let wicketValue = isPowerplay ? 
+              currentFormat.powerplayWicketValue : 
+              currentFormat.regularWicketValue;
+            
+            // Handle partial wickets accumulation
+            const fractionalPart = wickets % 1;
+            const newValue = fractionalPart + wicketValue;
+            
+            if (newValue >= 1) {
+              // Complete the wicket
+              wickets = Math.floor(wickets) + 1;
+              currentInningWickets = Math.floor(currentInningWickets) + 1;
+            } else {
+              // Add partial wicket
+              wickets += wicketValue;
+              currentInningWickets += wicketValue;
+            }
           }
           isLegalBall = true;
           freeHit = false;
-        } else if (batCard === 0 && bowlCard > 0) {
+        }
+        else if (batCard === 0 && bowlCard > 0) {
           runs += bowlCard;
           currentInningRuns += bowlCard;
           outcome = `Batter played 0. Runs = ${bowlCard}`;
           isLegalBall = true;
           freeHit = false;
-        } else if (bowlCard === 0 && batCard > 0) {
+        }
+        else if (bowlCard === 0 && batCard > 0) {
           outcome = "DOT BALL!";
           isLegalBall = true;
           freeHit = false;
-        } else {
+        }
+        else {
           runs += batCard;
           currentInningRuns += batCard;
           outcome = `${batCard} Run(s)!`;
