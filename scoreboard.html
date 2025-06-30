@@ -101,10 +101,18 @@
     function updateScorecard(roomData, gameState) {
       const { runs, wickets, balls, overs, batsmen, bowlers, currentBowler, lastBallResult } = gameState;
 
+      // Format wickets display
+      let displayWickets;
+      if (roomData.player1?.format === "test") {
+        displayWickets = Math.floor(wickets / 3);
+      } else {
+        displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
+      }
+
       document.getElementById("battingTeamName").textContent = battingTeam;
       document.getElementById("bowlingTeamName").textContent = bowlingTeam;
       document.getElementById("matchStatus").textContent = `${overs >= 6 ? "2nd" : "1st"} Innings | Over: ${Math.floor(balls/6)}.${balls%6}`;
-      document.getElementById("battingScore").textContent = `${runs}/${wickets} (${Math.floor(balls/6)}.${balls%6})`;
+      document.getElementById("battingScore").textContent = `${runs}/${displayWickets} (${Math.floor(balls/6)}.${balls%6})`;
 
       document.getElementById("bowlingStats").textContent =
         `Bowling: ${currentBowler.overs}.${currentBowler.maidens}-${currentBowler.runs}-${currentBowler.wickets}`;
@@ -114,7 +122,7 @@
       batsmen.forEach(b => {
         const div = document.createElement("div");
         div.className = "player-card" + (b.isOut ? " out" : "");
-        div.innerHTML = \`<strong>\${b.name}</strong><br>\${b.runs} (\${b.balls}) \${b.isOut ? "✖" : ""}\`;
+        div.innerHTML = `<strong>${b.name}</strong><br>${b.runs} (${b.balls}) ${b.isOut ? "✖" : ""}`;
         batsmenContainer.appendChild(div);
       });
 
@@ -123,7 +131,7 @@
       bowlers.forEach(b => {
         const div = document.createElement("div");
         div.className = "player-card" + (b.name === currentBowler.name ? " current" : "");
-        div.innerHTML = \`<strong>\${b.name}</strong><br>\${b.overs}.\${b.maidens}-\${b.runs}-\${b.wickets}\`;
+        div.innerHTML = `<strong>${b.name}</strong><br>${b.overs}.${b.maidens}-${b.runs}-${b.wickets}`;
         bowlersContainer.appendChild(div);
       });
 
@@ -131,13 +139,13 @@
     }
 
     async function initScoreboard() {
-      const roomSnap = await get(ref(db, \`rooms/\${room}\`));
+      const roomSnap = await get(ref(db, `rooms/${room}`));
       const roomData = roomSnap.val();
 
       battingTeam = roomData.battingFirst === "player1" ? roomData.player1.teamName : roomData.player2.teamName;
       bowlingTeam = roomData.battingFirst === "player1" ? roomData.player2.teamName : roomData.player1.teamName;
 
-      onValue(ref(db, \`rooms/\${room}/liveState\`), snap => {
+      onValue(ref(db, `rooms/${room}/liveState`), snap => {
         const gameState = snap.val();
         if (!gameState) return;
         updateScorecard(roomData, gameState);
