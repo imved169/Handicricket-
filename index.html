@@ -55,7 +55,9 @@
     
     <button onclick="createRoom()">Create Room</button>
     <button onclick="joinRoom()">Join Room</button>
+    <button onclick="spectateRoom()">Spectate Match</button>
     <div id="roomDisplay"></div>
+    <div id="spectatorDisplay"></div>
   </div>
 
   <div class="saved-games">
@@ -123,6 +125,34 @@
         const format = snapshot.val().player1?.format || "5";
         document.getElementById("roomDisplay").innerText = `Joined Room: ${joinCode} | Format: ${getFormatName(format)}`;
         window.location.href = `playing11.html?room=${joinCode}&player=player2`;
+      } else {
+        alert("Invalid room code!");
+      }
+    }
+
+    window.spectateRoom = async function() {
+      const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
+      if (!joinCode) return alert("Enter room code to spectate!");
+      
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
+      if (snapshot.exists()) {
+        const roomData = snapshot.val();
+        const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
+        
+        if (spectatorCount >= 10) {
+          return alert("Spectator slots full! Max 10 spectators allowed.");
+        }
+        
+        const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
+        await set(ref(db, `rooms/${joinCode}/spectators/${spectatorId}`), {
+          joinedAt: Date.now(),
+          emoji: null,
+          vote: null
+        });
+        
+        document.getElementById("spectatorDisplay").innerText = `Spectating Room: ${joinCode}`;
+        window.location.href = `spectator.html?room=${joinCode}&id=${spectatorId}`;
       } else {
         alert("Invalid room code!");
       }
