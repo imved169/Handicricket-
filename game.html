@@ -11,6 +11,22 @@
     button.card:disabled { background: #607d8b; color: #ccc; }
     #scoreboard, #roleText { margin-top: 10px; font-size: 18px; }
     #status { margin-top: 15px; font-size: 16px; color: #ffeb3b; }
+    .powerplay-indicator {
+      background: #ffeb3b;
+      color: #000;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 10px;
+      display: inline-block;
+    }
+    .dead-over {
+      background: #f44336;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
     .selection-modal { 
       position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
       background: rgba(0,0,0,0.8); display: flex; justify-content: center; 
@@ -125,6 +141,56 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
+    // Format rules
+    const formatRules = {
+      "5": {
+        name: "5 Overs",
+        totalOvers: 5,
+        totalWickets: 11,
+        powerplayOvers: 2,
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        deadOvers: []
+      },
+      "10": {
+        name: "10 Overs",
+        totalOvers: 10,
+        totalWickets: 11,
+        powerplayOvers: 3,
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        deadOvers: []
+      },
+      "20": {
+        name: "T20",
+        totalOvers: 20,
+        totalWickets: 11,
+        powerplayOvers: 6,
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1,
+        deadOvers: []
+      },
+      "50": {
+        name: "ODI",
+        totalOvers: 50,
+        totalWickets: 11,
+        powerplayOvers: [1,10, 21,30, 41,42],
+        powerplayWicketValue: 0.25,
+        regularWicketValue: 0.5,
+        deadOvers: [11,20, 31,40]
+      },
+      "test": {
+        name: "Test Match",
+        totalOvers: Infinity,
+        totalWickets: 10,
+        powerplayOvers: 0,
+        powerplayWicketValue: 1,
+        regularWicketValue: 1,
+        deadOvers: [],
+        wicketMultiplier: 3
+      }
+    };
+
     // Game state
     let runs = 0, wickets = 0;
     let legalBalls = 0;
@@ -135,7 +201,7 @@
     let bowlersUsed = [];
     let bowlerOvers = {};
     let isBatting = false;
-    let matchOvers = 5;
+    let currentFormat = {};
     let isTestMatch = false;
     
     // Test match specific state
@@ -149,6 +215,10 @@
     let daysRemaining = 5;
     let oversToday = 0;
     const maxOversPerDay = 90;
+
+    // Powerplay state
+    let isPowerplay = false;
+    let isDeadOver = false;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -179,18 +249,12 @@
       // Get match format
       const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
       const format = formatSnap.val() || "5";
+      currentFormat = formatRules[format];
       isTestMatch = format === "test";
       
-      const formatNames = {
-        "5": "5 Overs Match",
-        "10": "10 Overs Match",
-        "20": "20 Overs Match",
-        "50": "50 Overs Match",
-        "test": "Test Match (5 days)"
-      };
-      formatDisplay.innerText = formatNames[format];
+      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 outs/wicket" : "11 wickets"}`;
       
-      matchOvers = isTestMatch ? maxOversPerDay * daysRemaining : parseInt(format);
+      matchOvers = isTestMatch ? maxOversPerDay * daysRemaining : currentFormat.totalOvers;
       testControls.style.display = isTestMatch ? "flex" : "none";
       followOnBtn.style.display = "none";
       
@@ -226,23 +290,93 @@
       buttons.forEach(btn => btn.disabled = false);
     }
 
+    function checkPowerplayStatus() {
+      const currentOver = Math.floor(legalBalls / 6);
+      
+      // Reset indicators
+      isPowerplay = false;
+      isDeadOver = false;
+      document.getElementById('powerplayIndicator')?.remove();
+      document.getElementById('deadOverIndicator')?.remove();
+
+      // Test matches have no powerplay
+      if (isTestMatch) return;
+
+      // Check powerplay status
+      if (Array.isArray(currentFormat.powerplayOvers)) {
+        // ODI-style phased powerplay
+        for (let i = 0; i < currentFormat.powerplayOvers.length; i += 2) {
+          if (currentOver >= currentFormat.powerplayOvers[i] - 1 && 
+              currentOver <= currentFormat.powerplayOvers[i+1] - 1) {
+            isPowerplay = true;
+            break;
+          }
+        }
+      } else if (currentOver < currentFormat.powerplayOvers) {
+        // Standard powerplay (first X overs)
+        isPowerplay = true;
+      }
+
+      // Check dead overs (ODI only)
+      if (currentFormat.deadOvers.length > 0) {
+        for (let i = 0; i < currentFormat.deadOvers.length; i += 2) {
+          if (currentOver >= currentFormat.deadOvers[i] - 1 && 
+              currentOver <= currentFormat.deadOvers[i+1] - 1) {
+            isDeadOver = true;
+            break;
+          }
+        }
+      }
+
+      // Update UI indicators
+      if (isPowerplay) {
+        const ppInd = document.createElement('span');
+        ppInd.id = 'powerplayIndicator';
+        ppInd.className = 'powerplay-indicator';
+        ppInd.textContent = 'POWERPLAY';
+        scoreboard.appendChild(ppInd);
+      }
+
+      if (isDeadOver) {
+        const doInd = document.createElement('span');
+        doInd.id = 'deadOverIndicator';
+        doInd.className = 'dead-over';
+        doInd.textContent = 'DEAD OVER';
+        scoreboard.appendChild(doInd);
+      }
+    }
+
     function updateScoreboard() {
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
       
+      // Calculate effective wickets for display
+      let displayWickets, totalWickets;
+      if (isTestMatch) {
+        displayWickets = Math.floor(wickets / 3);
+        totalWickets = currentFormat.totalWickets;
+      } else {
+        displayWickets = Math.floor(wickets);
+        totalWickets = currentFormat.totalWickets;
+      }
+
       if (isTestMatch) {
         scoreboard.innerHTML = `
           <div class="innings-display">
             <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
-            <div>Current: ${currentInningRuns}/${currentInningWickets} (${overs}.${balls})</div>
-            <div>Team 1: ${team1Score}/${team1Wickets}</div>
-            <div>Team 2: ${team2Score}/${team2Wickets}</div>
+            <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
+            <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
+            <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
             <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
           </div>
         `;
       } else {
-        scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${overs}.${balls}`;
+        scoreboard.innerHTML = `
+          Runs: ${runs} | Wickets: ${displayWickets}/${totalWickets} | Overs: ${overs}.${balls}
+        `;
       }
+
+      checkPowerplayStatus();
     }
 
     function resetPlays() {
@@ -337,7 +471,7 @@
       const players = snapshot.val();
       
       // For Tests, don't limit overs, for limited overs calculate max
-      const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(matchOvers / 5);
+      const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
       const availableBowlers = players.filter(p => {
         return (bowlerOvers[p] || 0) < maxOversPerBowler;
       });
@@ -394,8 +528,21 @@
             outcome = "Wicket on Free Hit (not out)";
           } else {
             outcome = "WICKET!";
-            wickets++;
-            currentInningWickets++;
+            
+            // Apply format-specific wicket values
+            let wicketValue = currentFormat.regularWicketValue;
+            if (isPowerplay) {
+              wicketValue = currentFormat.powerplayWicketValue;
+            }
+            
+            if (isTestMatch) {
+              wickets += 3; // 3 outs per wicket in Tests
+              currentInningWickets += 3;
+            } else {
+              wickets += wicketValue;
+              currentInningWickets += wicketValue;
+            }
+            
             isWicket = true;
           }
           isLegalBall = true;
@@ -440,10 +587,19 @@
         status.innerText = outcome;
         updateScoreboard();
         
-        // Check innings completion for Test matches
-        if (isTestMatch && (currentInningWickets >= 10 || legalBalls >= matchOvers)) {
-          endInning();
-          return;
+        // Check innings completion conditions
+        if (isTestMatch) {
+          // Test match innings end conditions
+          if (currentInningWickets >= 30 || legalBalls >= matchOvers) {
+            endInning();
+            return;
+          }
+        } else {
+          // Limited overs innings end conditions
+          if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
+            endInning();
+            return;
+          }
         }
 
         setTimeout(() => {
@@ -513,8 +669,8 @@
         team2Wickets = currentInningWickets;
       }
       
-      // Check for follow-on (if team1 leads by 200+ runs)
-      const followOnPossible = innings === 2 && team1Score - team2Score >= 200;
+      // Check for follow-on (if team1 leads by 200+ runs in Tests)
+      const followOnPossible = isTestMatch && innings === 2 && team1Score - team2Score >= 200;
       
       if (followOnPossible) {
         status.innerText = `Team 1 can enforce follow-on (lead of ${team1Score - team2Score})`;
@@ -522,8 +678,8 @@
         await set(ref(db, `rooms/${room}/followOn`), true);
       } else {
         innings++;
-        if (innings > 2) {
-          endTestMatch();
+        if (innings > 2 || !isTestMatch) {
+          endMatch();
           return;
         }
         resetInning();
@@ -566,22 +722,37 @@
           status.innerText = `Day ${6 - daysRemaining} starting...`;
           updateScoreboard();
         } else {
-          endTestMatch();
+          endMatch();
         }
       }, 3000);
     }
 
-    function endTestMatch() {
+    function endMatch() {
       let result = "";
-      if (team1Score > team2Score) {
-        result = `Team 1 wins by ${team1Score - team2Score} runs`;
-      } else if (team2Score > team1Score) {
-        result = `Team 2 wins by ${10 - team2Wickets} wickets`;
+      if (isTestMatch) {
+        if (team1Score > team2Score) {
+          result = `Team 1 wins by ${team1Score - team2Score} runs`;
+        } else if (team2Score > team1Score) {
+          result = `Team 2 wins by ${10 - Math.floor(team2Wickets/3)} wickets`;
+        } else {
+          result = "Match drawn";
+        }
       } else {
-        result = "Match drawn";
+        // Limited overs result
+        if (innings === 2) {
+          if (team2Score > team1Score) {
+            result = `Team 2 wins by ${currentFormat.totalWickets - Math.floor(team2Wickets)} wickets`;
+          } else if (team1Score > team2Score) {
+            result = `Team 1 wins by ${team1Score - team2Score} runs`;
+          } else {
+            result = "Match tied";
+          }
+        } else {
+          result = `Team 1 wins by ${currentFormat.totalWickets - Math.floor(team1Wickets)} wickets`;
+        }
       }
       
-      status.innerText = `Test Match Over! ${result}`;
+      status.innerText = `Match Over! ${result}`;
       disableButtons();
       
       // Store match result in Firebase
