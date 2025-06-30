@@ -17,6 +17,19 @@
 <body>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="roleText"></div>
+  <div id="selectionArea" style="margin: 10px 0;">
+    <div id="batterSelectArea" style="display:none;">
+      <label for="batterSelect">Select Batter: </label>
+      <select id="batterSelect"></select>
+      <button onclick="confirmBatter()">Confirm</button>
+    </div>
+    <div id="bowlerSelectArea" style="display:none;">
+      <label for="bowlerSelect">Select Bowler: </label>
+      <select id="bowlerSelect"></select>
+      <button onclick="confirmBowler()">Confirm</button>
+    </div>
+  </div>
+
   
     <div id="currentPlayers" style="margin-top: 10px; font-weight: bold; font-size: 16px;">
       Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
@@ -184,6 +197,66 @@
         team2PlayersEl.appendChild(li);
       });
     }
+
+    loadPlaying11();
+
+
+    const batterSelect = document.getElementById("batterSelect");
+    const bowlerSelect = document.getElementById("bowlerSelect");
+    const batterSelectArea = document.getElementById("batterSelectArea");
+    const bowlerSelectArea = document.getElementById("bowlerSelectArea");
+
+    const currentBatterEl = document.getElementById("currentBatter");
+    const currentBowlerEl = document.getElementById("currentBowler");
+
+    async function loadPlaying11() {
+      const roomRef = ref(db, `rooms/${room}`);
+      const snap = await get(roomRef);
+      const data = snap.val();
+      const isBatting = player === data.battingFirst;
+      const ownTeam = data[player].playing11;
+      const oppTeam = data[opponent].playing11;
+
+      if (isBatting) {
+        batterSelectArea.style.display = "block";
+        ownTeam.forEach(p => {
+          const opt = document.createElement("option");
+          opt.textContent = p;
+          opt.value = p;
+          batterSelect.appendChild(opt);
+        });
+      } else {
+        bowlerSelectArea.style.display = "block";
+        oppTeam.forEach(p => {
+          const opt = document.createElement("option");
+          opt.textContent = p;
+          opt.value = p;
+          bowlerSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function confirmBatter() {
+      const selected = batterSelect.value;
+      set(ref(db, `rooms/${room}/currentBatter`), selected);
+      batterSelectArea.style.display = "none";
+    }
+
+    function confirmBowler() {
+      const selected = bowlerSelect.value;
+      set(ref(db, `rooms/${room}/currentBowler`), selected);
+      bowlerSelectArea.style.display = "none";
+    }
+
+    onValue(ref(db, `rooms/${room}/currentBatter`), snap => {
+      const name = snap.val() || "-";
+      currentBatterEl.textContent = name;
+    });
+
+    onValue(ref(db, `rooms/${room}/currentBowler`), snap => {
+      const name = snap.val() || "-";
+      currentBowlerEl.textContent = name;
+    });
 
     loadPlaying11();
 
