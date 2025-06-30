@@ -1,32 +1,58 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HandiCricket - Room Setup</title>
+  <title>HandiCricket - Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
-    input, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; }
-    button { background: #1e88e5; color: white; cursor: pointer; }
-    button:hover { background: #1565c0; }
-    #roomDisplay { font-size: 18px; margin-top: 10px; word-break: break-all; }
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1565c0;
+    }
   </style>
 </head>
 <body>
-  <h1>🏏 HandiCricket</h1>
-  <div class="card">
-    <input type="text" id="teamName" placeholder="Enter Team Name" />
-    <input type="text" id="joinCode" placeholder="Join Room Code" />
-    <button onclick="createRoom()">Create Room</button>
-    <button onclick="joinRoom()">Join Room</button>
-    <div id="roomDisplay"></div>
-  </div>
+  <h2>🏏 Welcome to HandiCricket</h2>
+
+  <input type="text" id="teamName" placeholder="Enter Your Team Name" />
+  <br />
+
+  <label for="formatSelect">Select Match Format:</label>
+  <select id="formatSelect">
+    <option value="5">5 Overs</option>
+    <option value="10">10 Overs</option>
+    <option value="T20">20 Overs (T20)</option>
+    <option value="ODI">50 Overs (ODI)</option>
+    <option value="Test">Test Match</option>
+  </select>
+  <br />
+
+  <button onclick="createRoom()">Create Room</button>
+  <br />
+  <input type="text" id="roomCode" placeholder="Enter Room Code" />
+  <button onclick="joinRoom()">Join Room</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -40,36 +66,45 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    function generateRoomCode() {
-      return Math.random().toString(36).substring(2, 7).toUpperCase();
-    }
-
-    window.createRoom = async function() {
+    async function createRoom() {
       const teamName = document.getElementById("teamName").value.trim();
-      if (!teamName) return alert("Enter your team name first!");
-      const roomCode = generateRoomCode();
-      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
-        teamName: teamName
+      const format = document.getElementById("formatSelect").value;
+      if (!teamName) {
+        alert("Please enter your team name.");
+        return;
+      }
+
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const roomRef = ref(db, `rooms/${roomCode}`);
+
+      await set(roomRef, {
+        player1: {
+          teamName: teamName,
+          playing11: [] // Playing XI will be filled later
+        },
+        matchFormat: format
       });
-      document.getElementById("roomDisplay").innerText = "Room Code: " + roomCode;
+
+      // Redirect to team entry screen
       window.location.href = `playing11.html?room=${roomCode}&player=player1`;
     }
 
-    window.joinRoom = async function() {
-      const teamName = document.getElementById("teamName").value.trim();
-      const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
-      if (!teamName || !joinCode) return alert("Enter both team name and room code!");
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
-      if (snapshot.exists()) {
-        await set(ref(db, 'rooms/' + joinCode + '/player2'), {
-          teamName: teamName
-        });
-        document.getElementById("roomDisplay").innerText = "Joined Room: " + joinCode;
-        window.location.href = `playing11.html?room=${joinCode}&player=player2`;
-      } else {
-        alert("Invalid room code!");
+    async function joinRoom() {
+      const roomCode = document.getElementById("roomCode").value.trim().toUpperCase();
+      if (!roomCode) {
+        alert("Please enter a valid room code.");
+        return;
       }
+
+      const roomRef = ref(db, `rooms/${roomCode}`);
+      const snapshot = await get(roomRef);
+
+      if (!snapshot.exists()) {
+        alert("Room not found!");
+        return;
+      }
+
+      window.location.href = `playing11.html?room=${roomCode}&player=player2`;
     }
   </script>
 </body>
