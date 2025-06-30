@@ -32,7 +32,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -44,24 +44,6 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    async function loadPlayingXI() {
-      const snap = await get(ref(db, `rooms/${room}`));
-      const data = snap.val();
-      const team1 = data.player1.teamName;
-      const team2 = data.player2.teamName;
-      const team1XI = data.player1.playing11;
-      const team2XI = data.player2.playing11;
-
-      const teamADiv = document.getElementById("teamAPlayingXI");
-      const teamBDiv = document.getElementById("teamBPlayingXI");
-
-      teamADiv.innerHTML = `<h4>🏏 ${team1} Playing XI:</h4><ul>` +
-        team1XI.map(p => `<li>${p}</li>`).join("") + `</ul>`;
-
-      teamBDiv.innerHTML = `<h4>🏏 ${team2} Playing XI:</h4><ul>` +
-        team2XI.map(p => `<li>${p}</li>`).join("") + `</ul>`;
-    }
-
     const db = getDatabase(app);
 
     const params = new URLSearchParams(window.location.search);
@@ -69,7 +51,10 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
-    let runs = 0, wickets = 0, balls = 0, freeHit = false;
+    let runs = 0, wickets = 0;
+    let legalBalls = 0;
+    let freeHit = false;
+
     const status = document.getElementById("status");
     const scoreboard = document.getElementById("scoreboard");
     const buttons = document.querySelectorAll(".card");
@@ -84,7 +69,9 @@
     }
 
     function updateScoreboard() {
-      scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${(balls / 6).toFixed(1)}`;
+      const overs = Math.floor(legalBalls / 6);
+      const balls = legalBalls % 6;
+      scoreboard.textContent = `Runs: ${runs} | Wickets: ${wickets} | Overs: ${overs}.${balls}`;
     }
 
     function resetPlays() {
@@ -116,53 +103,55 @@
 
       const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
       const tossWinner = tossSnap.val();
-      const bat = plays[tossWinner];
-      const bowl = plays[tossWinner === "player1" ? "player2" : "player1"];
+      const batCard = plays[tossWinner];
+      const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
 
       let outcome = "";
+      let isLegalBall = false;
 
-      if (bat === bowl && bat > 0) {
-        outcome = freeHit ? "Wicket on Free Hit (not out)" : "WICKET!";
-        if (!freeHit) wickets++;
-        balls++;
-      if (bowlCard !== 0 && batCard !== bowlCard) legalBalls++;
-        freeHit = false;
-      } else if (bat === 0 && bowl === 0) {
-        outcome = "NO BALL!";
+      if (batCard === 0 && bowlCard === 0) {
+        outcome = "NO BALL! +1 run";
         runs += 1;
         freeHit = true;
-      } else if (bat === 0 && bowl > 0) {
-        runs += bowl;
-        outcome = `Batter played 0. Runs = ${bowl}`;
-        balls++;
-      if (bowlCard !== 0 && batCard !== bowlCard) legalBalls++;
+      } else if (batCard === bowlCard && batCard > 0) {
+        if (freeHit) {
+          outcome = "Wicket on Free Hit (not out)";
+        } else {
+          outcome = "WICKET!";
+          wickets++;
+        }
+        isLegalBall = true;
         freeHit = false;
-      } else if (bowl === 0 && bat > 0) {
+      } else if (batCard === 0 && bowlCard > 0) {
+        runs += bowlCard;
+        outcome = `Batter played 0. Runs = ${bowlCard}`;
+        isLegalBall = true;
+        freeHit = false;
+      } else if (bowlCard === 0 && batCard > 0) {
         outcome = "DOT BALL!";
-        balls++;
-      if (bowlCard !== 0 && batCard !== bowlCard) legalBalls++;
+        isLegalBall = true;
         freeHit = false;
       } else {
-        runs += bat;
-        outcome = `${bat} Run(s)!`;
-        balls++;
-      if (bowlCard !== 0 && batCard !== bowlCard) legalBalls++;
+        runs += batCard;
+        outcome = `${batCard} Run(s)!`;
+        isLegalBall = true;
         freeHit = false;
       }
+
+      if (isLegalBall) legalBalls++;
 
       status.innerText = outcome;
       updateScoreboard();
       setTimeout(() => {
         resetPlays();
         enableButtons();
-        status.innerText = "Play your next card.";
+        status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
       }, 1500);
     });
 
     setupRole();
-      loadPlayingXI();
     updateScoreboard();
-  </script>
+</script>
 
   <div id="playingXISection" style="margin-top: 30px;">
     <div id="teamAPlayingXI" style="margin-bottom: 20px;"></div>
