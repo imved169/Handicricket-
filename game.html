@@ -72,16 +72,24 @@
       color: #4caf50;
       margin-bottom: 10px;
     }
+    #teamStatus {
+      margin: 15px 0;
+      padding: 10px;
+      background: #0d2a52;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
   <div id="roleText"></div>
-  <div id="currentPlayers" style="margin-top: 10px; font-weight: bold; font-size: 16px;">
-    Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
+  <div id="teamStatus">
+    <div id="currentPlayers" style="font-weight: bold; font-size: 16px;">
+      Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
+    </div>
+    <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
   </div>
-  <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
   <div id="status">Waiting for players...</div>
 
   <div id="testControls" class="test-controls" style="display: none;">
@@ -362,13 +370,11 @@
 
       if (isTestMatch) {
         scoreboard.innerHTML = `
-          <div class="innings-display">
-            <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
-            <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
-            <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
-            <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
-            <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
-          </div>
+          <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
+          <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
+          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
+          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
+          <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
       } else {
         scoreboard.innerHTML = `
@@ -504,6 +510,23 @@
     }
 
     function setupFirebaseListeners() {
+      // Listen for team data updates
+      onValue(ref(db, `rooms/${room}`), (snap) => {
+        const data = snap.val();
+        if (!data) return;
+
+        // Update team displays
+        if (data.player1?.playing11) {
+          team1NameEl.innerText = data.player1.teamName || "Team 1";
+          team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
+        }
+        
+        if (data.player2?.playing11) {
+          team2NameEl.innerText = data.player2.teamName || "Team 2";
+          team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
+        }
+      });
+
       // Listen for plays
       onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
         const plays = snap.val();
@@ -764,25 +787,25 @@
       const snapshot = await get(roomRef);
       const data = snapshot.val();
 
-      const p1 = data.player1;
-      const p2 = data.player2;
+      if (!data) {
+        alert("Room data not found! Returning to home.");
+        window.location.href = "index.html";
+        return;
+      }
 
-      team1NameEl.innerText = p1.teamName || "Team 1";
-      team2NameEl.innerText = p2.teamName || "Team 2";
+      // Check if both teams have submitted
+      if (data.player1?.playing11 && data.player2?.playing11) {
+        // Update UI with team data
+        team1NameEl.innerText = data.player1.teamName || "Team 1";
+        team2NameEl.innerText = data.player2.teamName || "Team 2";
 
-      team1PlayersEl.innerHTML = "";
-      team2PlayersEl.innerHTML = "";
-
-      p1.playing11.forEach(p => {
-        const li = document.createElement("li");
-        li.innerText = p;
-        team1PlayersEl.appendChild(li);
-      });
-      p2.playing11.forEach(p => {
-        const li = document.createElement("li");
-        li.innerText = p;
-        team2PlayersEl.appendChild(li);
-      });
+        team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
+        team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
+      } else {
+        // If teams aren't ready but we're in game.html, something went wrong
+        alert("Both teams haven't submitted yet! Returning to team selection.");
+        window.location.href = `playing11.html?room=${room}&player=${player}`;
+      }
     }
   </script>
 </body>
