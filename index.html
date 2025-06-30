@@ -18,6 +18,25 @@
     }
     .format-btn.active { background: #1e88e5; font-weight: bold; }
     .format-btn:hover { background: #1565c0; }
+    .saved-games {
+      background: #102d4a;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .saved-game-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: #1a3a6a;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .saved-game-item:hover {
+      background: #1e88e5;
+    }
   </style>
 </head>
 <body>
@@ -39,9 +58,14 @@
     <div id="roomDisplay"></div>
   </div>
 
+  <div class="saved-games">
+    <h3>Continue Saved Games</h3>
+    <div id="savedGamesList"></div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -55,9 +79,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let selectedFormat = "5"; // Default format
+    let selectedFormat = "5";
 
-    // Format selection handler
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
@@ -77,7 +100,8 @@
       const roomCode = generateRoomCode();
       await set(ref(db, 'rooms/' + roomCode + '/player1'), {
         teamName: teamName,
-        format: selectedFormat
+        format: selectedFormat,
+        online: true
       });
       
       document.getElementById("roomDisplay").innerText = `Room Code: ${roomCode} | Format: ${getFormatName(selectedFormat)}`;
@@ -93,7 +117,8 @@
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
       if (snapshot.exists()) {
         await set(ref(db, 'rooms/' + joinCode + '/player2'), {
-          teamName: teamName
+          teamName: teamName,
+          online: true
         });
         const format = snapshot.val().player1?.format || "5";
         document.getElementById("roomDisplay").innerText = `Joined Room: ${joinCode} | Format: ${getFormatName(format)}`;
@@ -113,6 +138,34 @@
         default: return "5 Overs";
       }
     }
+
+    async function loadSavedGames() {
+      const snapshot = await get(ref(db, 'savedGames'));
+      const games = snapshot.val() || {};
+      
+      const container = document.getElementById("savedGamesList");
+      container.innerHTML = '';
+      
+      Object.entries(games).forEach(([roomId, game]) => {
+        const gameEl = document.createElement("div");
+        gameEl.className = "saved-game-item";
+        gameEl.innerHTML = `
+          <strong>${game.players.player1.team} vs ${game.players.player2.team}</strong><br>
+          Score: ${game.players.player1.score}-${game.players.player2.score} | 
+          Innings: ${game.innings} | Balls left: ${game.ballsRemaining}
+          <small>${new Date(game.timestamp).toLocaleString()}</small>
+        `;
+        gameEl.addEventListener("click", () => {
+          if (confirm("Resume this saved game?")) {
+            window.location.href = `game.html?room=${roomId}&player=player1`; 
+          }
+        });
+        container.appendChild(gameEl);
+      });
+    }
+
+    // Initialize
+    loadSavedGames();
   </script>
 </body>
 </html>
