@@ -78,6 +78,20 @@
       background: #0d2a52;
       border-radius: 8px;
     }
+    #specialAlerts {
+      margin: 10px 0;
+    }
+    .alert {
+      display: none;
+      padding: 10px;
+      margin: 5px;
+      border-radius: 5px;
+      font-weight: bold;
+      text-align: center;
+    }
+    #powerplayAlert { background: yellow; color: black; }
+    #freeHitAlert { background: green; color: white; }
+    #deadOverAlert { background: red; color: white; }
   </style>
 </head>
 <body>
@@ -89,6 +103,11 @@
       Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
     </div>
     <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+  </div>
+  <div id="specialAlerts">
+    <div id="powerplayAlert" class="alert">POWERPLAY</div>
+    <div id="freeHitAlert" class="alert">FREE HIT</div>
+    <div id="deadOverAlert" class="alert">DEAD OVER</div>
   </div>
   <div id="status">Waiting for players...</div>
 
@@ -158,7 +177,7 @@
         powerplayWicketValue: 0.5,
         regularWicketValue: 1,
         livesPerPlayer: 2,
-        regularLivesPerWicket: 1
+        deadOvers: []
       },
       "10": { 
         name: "10 Overs", 
@@ -168,7 +187,7 @@
         powerplayWicketValue: 0.5,
         regularWicketValue: 1,
         livesPerPlayer: 2,
-        regularLivesPerWicket: 1
+        deadOvers: []
       },
       "20": { 
         name: "T20", 
@@ -178,7 +197,7 @@
         powerplayWicketValue: 0.5,
         regularWicketValue: 1,
         livesPerPlayer: 2,
-        regularLivesPerWicket: 1
+        deadOvers: []
       },
       "50": { 
         name: "ODI", 
@@ -188,18 +207,17 @@
         powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
         livesPerPlayer: 4,
-        regularLivesPerWicket: 2,
-        deadOvers: [11,20, 31,40] 
+        deadOvers: [11,20, 31,40]
       },
       "test": { 
         name: "Test Match", 
         totalOvers: Infinity, 
-        totalWickets: 10, 
+        totalWickets: 30, 
         powerplayOvers: 0, 
-        powerplayWicketValue: 1, 
+        powerplayWicketValue: 1,
         regularWicketValue: 1,
         livesPerPlayer: 3,
-        wicketMultiplier: 3 
+        deadOvers: []
       }
     };
 
@@ -227,6 +245,10 @@
     let isPowerplay = false;
     let isDeadOver = false;
     let batterLives = {};
+    let zerosThisOver = { player1: 0, player2: 0 };
+    let currentOver = 0;
+    let deadOversSelected = [];
+    let bowlerRuns = {};
 
     const status = document.getElementById("status");
     const scoreboard = document.getElementById("scoreboard");
@@ -246,6 +268,9 @@
     const declareBtn = document.getElementById("declareInning");
     const followOnBtn = document.getElementById("enforceFollowOn");
     const formatDisplay = document.getElementById("formatDisplay");
+    const powerplayAlert = document.getElementById("powerplayAlert");
+    const freeHitAlert = document.getElementById("freeHitAlert");
+    const deadOverAlert = document.getElementById("deadOverAlert");
 
     async function loadPlaying11() {
       const roomRef = ref(db, `rooms/${room}`);
@@ -326,8 +351,10 @@
       
       isPowerplay = false;
       isDeadOver = false;
-      document.getElementById('powerplayIndicator')?.remove();
-      document.getElementById('deadOverIndicator')?.remove();
+      
+      powerplayAlert.style.display = "none";
+      freeHitAlert.style.display = "none";
+      deadOverAlert.style.display = "none";
 
       if (isTestMatch) return;
 
@@ -336,11 +363,13 @@
           if (currentOver >= currentFormat.powerplayOvers[i] - 1 && 
               currentOver <= currentFormat.powerplayOvers[i+1] - 1) {
             isPowerplay = true;
+            powerplayAlert.style.display = "block";
             break;
           }
         }
       } else if (currentOver < currentFormat.powerplayOvers) {
         isPowerplay = true;
+        powerplayAlert.style.display = "block";
       }
 
       if (currentFormat.deadOvers?.length > 0) {
@@ -348,25 +377,14 @@
           if (currentOver >= currentFormat.deadOvers[i] - 1 && 
               currentOver <= currentFormat.deadOvers[i+1] - 1) {
             isDeadOver = true;
+            deadOverAlert.style.display = "block";
             break;
           }
         }
       }
 
-      if (isPowerplay) {
-        const ppInd = document.createElement('span');
-        ppInd.id = 'powerplayIndicator';
-        ppInd.className = 'powerplay-indicator';
-        ppInd.textContent = 'POWERPLAY';
-        scoreboard.appendChild(ppInd);
-      }
-
-      if (isDeadOver) {
-        const doInd = document.createElement('span');
-        doInd.id = 'deadOverIndicator';
-        doInd.className = 'dead-over';
-        doInd.textContent = 'DEAD OVER';
-        scoreboard.appendChild(doInd);
+      if (freeHit) {
+        freeHitAlert.style.display = "block";
       }
     }
 
@@ -398,8 +416,13 @@
       checkPowerplayStatus();
     }
 
-    function resetPlays() {
-      set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
+    async function resetPlays() {
+      try {
+        await set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
+        enableButtons();
+      } catch (error) {
+        console.error("Error resetting plays:", error);
+      }
     }
 
     async function setupRole() {
@@ -561,73 +584,94 @@
         let isWicket = false;
         let isPlayerOut = false;
 
+        // Track zeros for current over
+        if (batCard === 0) zerosThisOver[player]++;
+        if (bowlCard === 0) zerosThisOver[opponent]++;
+
+        // Process the outcome
         if (batCard === 0 && bowlCard === 0) {
-          outcome = "NO BALL! +1 run";
-          runs += 1;
-          currentInningRuns += 1;
-          freeHit = true;
+          // No ball logic
+          if (!isTestMatch) {
+            outcome = "NO BALL! +1 run (Free Hit next ball)";
+            runs += 1;
+            currentInningRuns += 1;
+            freeHit = true;
+          } else {
+            outcome = "No run (Test Match)";
+          }
         } 
         else if (batCard === bowlCard && batCard > 0) {
+          // Wicket logic
           if (freeHit) {
             outcome = "Wicket on Free Hit (not out)";
-          } 
-          else {
+            freeHit = false;
+          } else {
+            // Format-specific wicket handling
+            if (isPowerplay) {
+              wickets += currentFormat.powerplayWicketValue;
+              currentInningWickets += currentFormat.powerplayWicketValue;
+            } else {
+              wickets += currentFormat.regularWicketValue;
+              currentInningWickets += currentFormat.regularWicketValue;
+            }
+            
             if (currentBatter && batterLives[currentBatter] !== undefined) {
               batterLives[currentBatter]--;
-              
-              if (isTestMatch) {
-                wickets += (1/3);
-                currentInningWickets += (1/3);
+              if (batterLives[currentBatter] <= 0) {
+                isPlayerOut = true;
+                outcome = "WICKET! (Player out)";
+              } else {
                 outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
-                if (batterLives[currentBatter] <= 0) {
-                  isPlayerOut = true;
-                  outcome = "WICKET! (Player out)";
-                }
-              } 
-              else {
-                if (isPowerplay) {
-                  wickets += currentFormat.powerplayWicketValue;
-                  currentInningWickets += currentFormat.powerplayWicketValue;
-                } else {
-                  const remainingValue = 1 - (wickets % 1);
-                  wickets += remainingValue;
-                  currentInningWickets += remainingValue;
-                  isPlayerOut = true;
-                }
-                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
-                if (batterLives[currentBatter] <= 0) {
-                  isPlayerOut = true;
-                  outcome = "WICKET! (Player out)";
-                }
               }
             } else {
               outcome = "WICKET!";
               isWicket = true;
-              wickets += 1;
-              currentInningWickets += 1;
             }
           }
           isLegalBall = true;
-          freeHit = false;
         }
         else if (batCard === 0 && bowlCard > 0) {
-          runs += bowlCard;
-          currentInningRuns += bowlCard;
-          outcome = `Batter played 0. Runs = ${bowlCard}`;
+          // Batter played 0
+          if (zerosThisOver[player] > 3) {
+            runs -= 5;
+            outcome = "4th 0 in over! -5 runs";
+          } else {
+            if (isTestMatch) {
+              // In Test, bowler's runs count to bowler's stats
+              bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
+              outcome = `Bowler's ${bowlCard} runs added to their stats`;
+            } else {
+              runs += bowlCard;
+              currentInningRuns += bowlCard;
+              outcome = `Batter played 0. Runs = ${bowlCard}`;
+            }
+          }
           isLegalBall = true;
-          freeHit = false;
         }
         else if (bowlCard === 0 && batCard > 0) {
-          outcome = "DOT BALL!";
+          // Bowler played 0
+          if (zerosThisOver[opponent] > 3 && !isTestMatch) {
+            outcome = "4th 0 in over! No ball";
+            runs += 1;
+            freeHit = true;
+          } else {
+            if (isTestMatch) {
+              // In Test, batter's runs count normally
+              runs += batCard;
+              currentInningRuns += batCard;
+              outcome = `${batCard} Run(s)!`;
+            } else {
+              outcome = "DOT BALL!";
+            }
+          }
           isLegalBall = true;
-          freeHit = false;
         }
         else {
+          // Normal play
           runs += batCard;
           currentInningRuns += batCard;
           outcome = `${batCard} Run(s)!`;
           isLegalBall = true;
-          freeHit = false;
         }
 
         if (isLegalBall) {
@@ -638,6 +682,7 @@
             bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
             if (legalBalls % 6 === 0) {
               bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
+              zerosThisOver = { player1: 0, player2: 0 }; // Reset zero count at over change
             }
           }
           
@@ -656,18 +701,16 @@
           return;
         }
 
-        setTimeout(() => {
-          resetPlays();
-          enableButtons();
+        setTimeout(async () => {
+          await resetPlays();
           
           if ((isPlayerOut || isWicket) && player === tossWinner) {
             showBatterSelection();
-          }
-          
-          if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
+          } else if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
             showBowlerSelection();
           } else {
             status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
+            enableButtons();
           }
         }, 1500);
       });
@@ -701,11 +744,16 @@
     }
 
     buttons.forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const val = parseInt(btn.dataset.value);
         disableButtons();
         status.innerText = "Waiting for opponent...";
-        set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
+        try {
+          await set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
+        } catch (error) {
+          console.error("Error submitting play:", error);
+          enableButtons();
+        }
       });
     });
 
@@ -750,6 +798,7 @@
       batterLives = {};
       freeHit = false;
       isBatting = !isBatting;
+      zerosThisOver = { player1: 0, player2: 0 };
       
       if (isBatting) {
         showBatterSelection();
