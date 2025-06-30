@@ -19,9 +19,7 @@
   <h2>Enter Your Playing XI</h2>
   <div id="roomCode"></div>
   <div class="container" id="formContainer">
-    <form id="playing11Form">
-      <!-- 11 player input fields will be inserted here -->
-    </form>
+    <form id="playing11Form"></form>
     <button id="submitXI">Submit Playing XI</button>
     <div id="waitingMessage"></div>
   </div>
@@ -45,13 +43,33 @@
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
+    let gameInProgress = true;
 
     document.getElementById("roomCode").innerText = "Room Code: " + room;
+
+    // Back button handling
+    window.addEventListener('beforeunload', (e) => {
+      if (gameInProgress) {
+        e.preventDefault();
+        e.returnValue = 'Are you sure you want to leave? Your progress may be lost.';
+        return e.returnValue;
+      }
+    });
+
+    if (window.history && window.history.pushState) {
+      window.history.pushState('forward', null, './');
+      window.onpopstate = function() {
+        if (confirm("Do you really want to exit? Your progress will be lost!")) {
+          window.location.href = "index.html";
+        } else {
+          window.history.pushState('forward', null, './');
+        }
+      };
+    }
 
     const form = document.getElementById("playing11Form");
     const waitingMessage = document.getElementById("waitingMessage");
 
-    // Create 11 input fields
     for (let i = 1; i <= 11; i++) {
       const input = document.createElement("input");
       input.type = "text";
@@ -61,7 +79,6 @@
       form.appendChild(input);
     }
 
-    // Real-time listener for opponent's submission
     onValue(ref(db, `rooms/${room}`), (snapshot) => {
       const roomData = snapshot.val();
       if (!roomData) return;
@@ -84,7 +101,6 @@
       await set(ref(db, `rooms/${room}/${player}/playing11`), players);
       waitingMessage.textContent = "Waiting for opponent...";
 
-      // Check if both teams have submitted
       const snapshot = await get(ref(db, `rooms/${room}`));
       const roomData = snapshot.val();
       
