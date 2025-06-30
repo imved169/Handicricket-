@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HandiCricket - Spectator Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background: #061e3e; color: white; font-family: sans-serif; padding: 20px; }
+    .container { display: flex; flex-wrap: wrap; gap: 20px; }
+    .scoreboard { flex: 2; min-width: 300px; background: #0a2a5a; padding: 15px; border-radius: 12px; }
+    .chat { flex: 1; min-width: 250px; background: #0a2a5a; padding: 15px; border-radius: 12px; }
+    .stats { width: 100%; background: #0a2a5a; padding: 15px; border-radius: 12px; margin-top: 15px; }
+    #messages { height: 300px; overflow-y: auto; margin-bottom: 10px; border-bottom: 1px solid #1e88e5; }
+    #commentary { font-style: italic; color: #ffeb3b; margin: 10px 0; }
+    .emoji-reactions { display: flex; gap: 10px; margin: 10px 0; }
+    .emoji-btn { font-size: 24px; background: none; border: none; cursor: pointer; }
+    .player-move { margin: 5px 0; padding: 5px; background: #133a6b; border-radius: 5px; }
+    .over-summary { margin-top: 15px; padding: 10px; background: #133a6b; border-radius: 8px; }
+    .spectator-count { position: absolute; top: 10px; right: 10px; background: #1e88e5; padding: 5px 10px; border-radius: 15px; }
+    #emojiReactions { margin-top: 10px; font-size: 18px; }
+    #playerCards { display: flex; justify-content: space-around; margin: 15px 0; }
+    .card-display { background: #133a6b; padding: 10px; border-radius: 8px; text-align: center; width: 45%; }
+  </style>
+</head>
+<body>
+  <h2>🏏 HandiCricket Spectator Mode</h2>
+  <div class="spectator-count">Spectators: <span id="specCount">0</span></div>
+  
+  <div class="container">
+    <div class="scoreboard">
+      <h3>Live Scoreboard</h3>
+      <div id="matchTitle">Team A vs Team B</div>
+      <div id="scoreDisplay">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+      <div id="batterDisplay">Batter: -</div>
+      <div id="bowlerDisplay">Bowler: -</div>
+      
+      <div id="playerCards">
+        <div class="card-display" id="batterCard">Batter's Card: -</div>
+        <div class="card-display" id="bowlerCard">Bowler's Card: -</div>
+      </div>
+      
+      <div id="commentary">Waiting for match to start...</div>
+      
+      <div class="over-summary">
+        <h4>Over Summary</h4>
+        <div id="overSummary">No over data yet</div>
+      </div>
+      
+      <div id="emojiReactions">Spectator Reactions: -</div>
+    </div>
+    
+    <div class="chat">
+      <h3>Spectator Chat</h3>
+      <div id="messages"></div>
+      <input type="text" id="messageInput" placeholder="Type your message..." />
+      <button onclick="sendMessage()">Send</button>
+      
+      <div class="emoji-reactions">
+        <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
+        <button class="emoji-btn" onclick="sendEmoji('👏')">👏</button>
+        <button class="emoji-btn" onclick="sendEmoji('😲')">😲</button>
+        <button class="emoji-btn" onclick="sendEmoji('🏆')">🏆</button>
+        <button class="emoji-btn" onclick="sendEmoji('💯')">💯</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <h3>Match Statistics</h3>
+    <div id="matchStats">Loading statistics...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, push, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const spectatorId = params.get('id');
+    let lastOver = 0;
+
+    // Spectator chat functions
+    function sendMessage() {
+      const message = document.getElementById("messageInput").value.trim();
+      if (message) {
+        push(ref(db, `rooms/${room}/spectatorChat`), {
+          sender: spectatorId,
+          message: message,
+          timestamp: Date.now()
+        });
+        document.getElementById("messageInput").value = "";
+      }
+    }
+
+    function sendEmoji(emoji) {
+      set(ref(db, `rooms/${room}/spectators/${spectatorId}/emoji`), emoji);
+    }
+
+    // Initialize spectator view
+    onValue(ref(db, `rooms/${room}`), (snapshot) => {
+      const roomData = snapshot.val();
+      if (!roomData) return;
+
+      // Update spectator count
+      const specCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
+      document.getElementById("specCount").textContent = specCount;
+
+      // Update scoreboard
+      if (roomData.player1 && roomData.player2) {
+        document.getElementById("matchTitle").textContent = 
+          `${roomData.player1.teamName} vs ${roomData.player2.teamName}`;
+      }
+
+      if (roomData.currentPlays) {
+        const player1Card = roomData.currentPlays.player1;
+        const player2Card = roomData.currentPlays.player2;
+        
+        if (player1Card !== null && player2Card !== null) {
+          const tossWinner = roomData.tossWinner;
+          const battingCard = tossWinner === 'player1' ? player1Card : player2Card;
+          const bowlingCard = tossWinner === 'player1' ? player2Card : player1Card;
+          
+          document.getElementById("batterCard").textContent = `Batter's Card: ${battingCard}`;
+          document.getElementById("bowlerCard").textContent = `Bowler's Card: ${bowlingCard}`;
+          
+          let commentary = "";
+          if (battingCard === 0 && bowlingCard === 0) {
+            commentary = "NO BALL! Free hit coming up!";
+          } else if (battingCard === bowlingCard) {
+            commentary = `WICKET! ${battingCard} out ${bowlingCard}`;
+          } else if (battingCard === 0) {
+            commentary = `Batter played 0, Bowler gets ${bowlingCard} runs`;
+          } else if (bowlingCard === 0) {
+            commentary = `Bowler played 0, Batter scores ${battingCard} runs`;
+          } else {
+            commentary = `${battingCard} runs scored!`;
+          }
+          document.getElementById("commentary").textContent = commentary;
+        }
+      }
+
+      if (roomData.currentBatter) {
+        document.getElementById("batterDisplay").textContent = `Batter: ${roomData.currentBatter}`;
+      }
+      
+      if (roomData.currentBowler) {
+        document.getElementById("bowlerDisplay").textContent = `Bowler: ${roomData.currentBowler}`;
+      }
+
+      // Update score display
+      if (roomData.runs !== undefined && roomData.wickets !== undefined && roomData.legalBalls !== undefined) {
+        const overs = Math.floor(roomData.legalBalls / 6);
+        const balls = roomData.legalBalls % 6;
+        document.getElementById("scoreDisplay").textContent = 
+          `Runs: ${roomData.runs} | Wickets: ${roomData.wickets} | Overs: ${overs}.${balls}`;
+      }
+
+      // Over summary for spectators
+      const currentOver = roomData.legalBalls ? Math.floor(roomData.legalBalls / 6) : 0;
+      if (currentOver > lastOver && roomData.overSummaries) {
+        lastOver = currentOver;
+        document.getElementById("overSummary").innerHTML = 
+          `<strong>Over ${currentOver}:</strong> ${roomData.overSummaries[currentOver] || "No data"}`;
+      }
+    });
+
+    // Listen for chat messages
+    onValue(ref(db, `rooms/${room}/spectatorChat`), (snapshot) => {
+      const messages = snapshot.val() || {};
+      const messagesContainer = document.getElementById("messages");
+      messagesContainer.innerHTML = '';
+      
+      Object.entries(messages).forEach(([id, msg]) => {
+        const msgEl = document.createElement("div");
+        msgEl.textContent = `Spectator: ${msg.message}`;
+        messagesContainer.appendChild(msgEl);
+      });
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+
+    // Listen for emoji reactions
+    onValue(ref(db, `rooms/${room}/spectators`), (snapshot) => {
+      const spectators = snapshot.val() || {};
+      const reactions = Object.values(spectators)
+        .filter(spec => spec.emoji)
+        .map(spec => spec.emoji);
+      
+      // Display top 3 emoji reactions
+      const emojiCount = {};
+      reactions.forEach(emoji => {
+        emojiCount[emoji] = (emojiCount[emoji] || 0) + 1;
+      });
+      
+      const topEmojis = Object.entries(emojiCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([emoji]) => emoji);
+      
+      document.getElementById("emojiReactions").textContent = 
+        `Spectator Reactions: ${topEmojis.join(' ')}`;
+    });
+
+    // Initialize match stats
+    async function loadMatchStats() {
+      const snapshot = await get(ref(db, `rooms/${room}/matchStats`));
+      const stats = snapshot.val() || {};
+      
+      let statsHTML = `
+        <div>Run Rate: ${stats.runRate || '-'}</div>
+        <div>Boundaries: ${stats.boundaries || 0}</div>
+        <div>Dot Balls: ${stats.dotBalls || 0}</div>
+        <div>Wickets: ${stats.wickets || 0}</div>
+        <div>Partnership: ${stats.partnership || 0}</div>
+        <div>Required Rate: ${stats.requiredRate || '-'}</div>
+      `;
+      
+      document.getElementById("matchStats").innerHTML = statsHTML;
+    }
+
+    loadMatchStats();
+  </script>
+</body>
+</html>
