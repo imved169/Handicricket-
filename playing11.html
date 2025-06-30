@@ -13,6 +13,14 @@
     button:hover { background: #1565c0; }
     #roomCode { margin-top: 10px; font-weight: bold; color: #90caf9; }
     #waitingMessage { margin-top: 15px; color: #ffeb3b; }
+    #spectatorNote { 
+      margin-top: 15px; 
+      padding: 10px;
+      background: #1a3a6a;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -22,6 +30,9 @@
     <form id="playing11Form"></form>
     <button id="submitXI">Submit Playing XI</button>
     <div id="waitingMessage"></div>
+    <div id="spectatorNote">
+      Spectators can join using the room code after both teams submit
+    </div>
   </div>
 
   <script type="module">
@@ -87,7 +98,14 @@
       if (roomData[opponent]?.playing11) {
         waitingMessage.textContent = "Opponent has submitted their team!";
         if (roomData[player]?.playing11) {
-          window.location.href = `toss.html?room=${room}&player=${player}`;
+          // Initialize spectator data structure
+          set(ref(db, `rooms/${room}/spectatorData`), {
+            overSummaries: {},
+            matchStats: {},
+            spectatorChat: {}
+          }).then(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          });
         }
       }
     });
@@ -106,6 +124,12 @@
       
       const opponent = player === 'player1' ? 'player2' : 'player1';
       if (roomData[opponent]?.playing11) {
+        // Initialize spectator data structure
+        await set(ref(db, `rooms/${room}/spectatorData`), {
+          overSummaries: {},
+          matchStats: {},
+          spectatorChat: {}
+        });
         window.location.href = `toss.html?room=${room}&player=${player}`;
       }
     });
