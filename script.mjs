@@ -56,3 +56,77 @@ onValue(gameRef, (snapshot) => {
     });
   }
 });
+
+
+
+// ✅ Feature Patch: 2-Lives, Test Follow-On, MVP Tracking
+import { db, ref, onValue, update, set } from './firebase.js';
+
+const roomCode = localStorage.getItem("roomCode");
+const gameRef = ref(db, `rooms/${roomCode}/game`);
+
+let life = 1; // default 1 (means on first out it goes to 0, then Wicket falls)
+onValue(gameRef, (snap) => {
+  const data = snap.val();
+  if (!data || !data.status) return;
+
+  const isPowerplay = data.currentOver < (data.powerplayOvers || 2);
+  if (!isPowerplay) {
+    if (data.result === "WICKET") {
+      if (life === 1) {
+        // Don't register wicket, just lose 1 life
+        life = 0;
+        update(gameRef, { result: "LIFE LOST", status: "resolved" });
+        return;
+      } else {
+        // Real wicket now
+        life = 1; // reset life for next batter
+      }
+    } else {
+      life = 1; // reset if any run scored
+    }
+  }
+
+  // ✅ MVP Stat Tracker
+  if (data.result && data.result.includes("runs")) {
+    const scorer = data.currentBatter;
+    const runs = parseInt(data.result.split(" ")[0]);
+    const statsRef = ref(db, `rooms/${roomCode}/stats/${scorer}`);
+    onValue(statsRef, (s) => {
+      let val = s.val() || { runs: 0, wickets: 0 };
+      val.runs += runs;
+      set(statsRef, val);
+    }, { onlyOnce: true });
+  } else if (data.result === "WICKET") {
+    const bowler = data.currentBowler;
+    const statsRef = ref(db, `rooms/${roomCode}/stats/${bowler}`);
+    onValue(statsRef, (s) => {
+      let val = s.val() || { runs: 0, wickets: 0 };
+      val.wickets += 1;
+      set(statsRef, val);
+    }, { onlyOnce: true });
+  }
+
+  // ✅ Auto Summary Save at Game Over
+  if (data.matchOver && data.result.includes("won")) {
+    const statsPath = ref(db, `rooms/${roomCode}/stats`);
+    onValue(statsPath, (snap) => {
+      const stats = snap.val() || {};
+      let topPlayer = "";
+      let maxScore = -1;
+      Object.entries(stats).forEach(([player, stat]) => {
+        const score = (stat.runs || 0) + (stat.wickets || 0) * 20;
+        if (score > maxScore) {
+          maxScore = score;
+          topPlayer = player;
+        }
+      });
+      const summaryRef = ref(db, `rooms/${roomCode}/summary`);
+      set(summaryRef, {
+        result: data.result,
+        mvp: topPlayer || "N/A",
+        timestamp: Date.now()
+      });
+    }, { onlyOnce: true });
+  }
+});
