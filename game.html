@@ -1151,7 +1151,80 @@
 
     // Initialize the game
     initGame();
-  </script>
+  
+function processBall(batCard, bowlCard) {
+  let outcome = "";
+  let runs = 0;
+
+  // Determine outcome
+  if (batCard === 0 && bowlCard === 0) {
+    // No ball
+    outcome = "No Ball! +1 run. Free Hit next.";
+    freeHit = true;
+    runs = 1;
+  } else if (freeHit) {
+    // Free Hit active
+    freeHit = false;
+    if (batCard === bowlCard) {
+      outcome = "No Wicket on Free Hit. Dot Ball.";
+    } else {
+      runs = batCard;
+      outcome = `Free Hit! Scored ${runs} run(s)`;
+      if (batCard === 4) playSound("four");
+    }
+  } else if (batCard === bowlCard) {
+    // Wicket
+    outcome = "WICKET!";
+    wickets++;
+    playSound("wicket");
+    if (wickets >= maxWickets) {
+      endInning();
+      return;
+    }
+    currentBatter = getNextBatter();
+  } else {
+    runs = batCard;
+    outcome = `Scored ${runs} run(s)`;
+    if (batCard === 4) playSound("four");
+  }
+
+  // Update stats
+  if (!playerStats.batters[currentBatter]) {
+    playerStats.batters[currentBatter] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+  }
+  playerStats.batters[currentBatter].runs += runs;
+  playerStats.batters[currentBatter].balls++;
+  if (batCard === 4) playerStats.batters[currentBatter].fours++;
+  if (batCard === 6) playerStats.batters[currentBatter].sixes++;
+
+  // Update scores
+  currentInningRuns += runs;
+  ballsThisOver++;
+  totalBalls++;
+
+  // Show outcome
+  status.textContent = outcome;
+  updateScoreboard();
+
+  // End over or match
+  if (ballsThisOver >= 6) {
+    ballsThisOver = 0;
+    overs++;
+  }
+
+  if (overs >= maxOvers || wickets >= maxWickets) {
+    endInning();
+    return;
+  }
+
+  setTimeout(() => {
+    clearCards();
+    enableButtons();
+    status.textContent = "Next ball.";
+  }, 2000);
+}
+
+</script>
 
 <div id="pauseScreen" style="display:none;">
   <h2>Game Paused</h2>
