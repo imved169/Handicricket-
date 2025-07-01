@@ -1,102 +1,34 @@
+
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Match Summary</title>
-  <style>
-    body { font-family: sans-serif; background: #001F3F; color: white; padding: 20px; }
-    .summary-card { background: #0a2a5a; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-    .player-stats { display: flex; flex-wrap: wrap; gap: 10px; }
-    .player-card { background: #133a6b; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; }
-    .batsman { border-left: 3px solid #4CAF50; }
-    .bowler { border-left: 3px solid #1e88e5; }
-    .mvp-card { background: #ffeb3b; color: black; padding: 15px; text-align: center; }
-    button { background: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 5px; margin-top: 10px; cursor: pointer; }
-  </style>
-</head>
+<html>
+<head><title>Match Summary</title></head>
 <body>
-  <h2>🏏 Match Summary</h2>
-  <div id="result" class="summary-card"></div>
-  <div id="team1" class="summary-card"></div>
-  <div id="team2" class="summary-card"></div>
-  <div id="mvp" class="mvp-card"></div>
-  <button onclick="shareSummary()">Share Match Summary</button>
+  <div id="summaryContainer">
+    <h2>🏆 Match Summary</h2>
+    <div id="inningsBreakdown"></div>
+    <h3 id="mvpDisplay"></h3>
+    <button onclick="shareSummary()">Share Result</button>
+  </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
-      authDomain: "handicricket-d1ab7.firebaseapp.com",
-      projectId: "handicricket-d1ab7",
-      storageBucket: "handicricket-d1ab7.appspot.com",
-      messagingSenderId: "356065986337",
-      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
-    };
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { firebaseConfig } from './firebase.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const room = new URLSearchParams(window.location.search).get("room");
 
-    const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
-
-    async function loadSummary() {
-      const snapshot = await get(ref(db, `rooms/${room}/summary`));
-      const summary = snapshot.val();
-      
-      if (!summary) {
-        document.getElementById("result").innerHTML = "<h3>Summary not available</h3>";
-        return;
-      }
-
-      // Display result
-      document.getElementById("result").innerHTML = `
-        <h3>${summary.result}</h3>
-        <p>${summary.team1.score}/${summary.team1.wickets} vs ${summary.team2.score}/${summary.team2.wickets}</p>
-      `;
-
-      // Display team 1 stats
-      let team1HTML = "<h3>Team 1 Batting</h3><div class='player-stats'>";
-      Object.entries(summary.team1.players).forEach(([player, stats]) => {
-        team1HTML += `
-          <div class="player-card batsman">
-            <strong>${player}</strong><br>
-            ${stats.runs} (${stats.balls})<br>
-            ${stats.fours || 0} fours, ${stats.sixes || 0} sixes
-          </div>
-        `;
-      });
-      document.getElementById("team1").innerHTML = team1HTML + "</div>";
-
-      // Display team 2 stats
-      let team2HTML = "<h3>Team 2 Bowling</h3><div class='player-stats'>";
-      Object.entries(summary.team2.players).forEach(([player, stats]) => {
-        team2HTML += `
-          <div class="player-card bowler">
-            <strong>${player}</strong><br>
-            ${stats.overs || 0} overs<br>
-            ${stats.runs || 0}-${stats.wickets || 0}
-          </div>
-        `;
-      });
-      document.getElementById("team2").innerHTML = team2HTML + "</div>";
-
-      // Display MVP
-      document.getElementById("mvp").innerHTML = `
-        <h3>🏆 Player of the Match</h3>
-        <p>${summary.mvp}</p>
-      `;
-    }
+    onValue(ref(db, `rooms/${room}/summary`), (snap) => {
+      const data = snap.val();
+      document.getElementById("inningsBreakdown").innerHTML =
+        data.innings.map(inn => `<p>${inn.team}: ${inn.runs}/${inn.wickets}</p>`).join('');
+      document.getElementById("mvpDisplay").textContent = "MVP: " + data.mvp;
+    });
 
     function shareSummary() {
-      const shareURL = `${window.location.origin}/summary.html?room=${room}`;
-      navigator.clipboard.writeText(shareURL).then(() => {
-        alert("Match summary link copied to clipboard!\n\n" + shareURL);
-      });
+      alert("Summary sharing not implemented.");
     }
-
-    loadSummary();
   </script>
 </body>
 </html>

@@ -271,7 +271,12 @@
     let isBatting = false;
     let currentFormat = {};
     let isTestMatch = false;
-    let innings = 1;
+    const inningsData = {
+  current: 1,
+  max: isTestMatch ? 4 : 2,
+  team1Completed: 0,
+  team2Completed: 0 
+};
     let currentInningRuns = 0;
     let currentInningWickets = 0;
     let team1Score = 0;
@@ -960,6 +965,20 @@
     });
 
     async function endInning() {
+  if (inningsData.current % 2 === 1) {
+    team1Score = currentInningRuns;
+    team1Wickets = wickets;
+    inningsData.team1Completed++;
+  } else {
+    team2Score = currentInningRuns;
+    team2Wickets = wickets;
+    inningsData.team2Completed++;
+  }
+
+  if (isTestMatch && inningsData.current === 2) {
+    checkFollowOn();
+  }
+
       disableButtons();
       
       if (innings === 1) {
@@ -1030,6 +1049,9 @@
     }
 
     function endMatch() {
+  const summary = generateSummary();
+  set(ref(db, `rooms/${room}/summary`), summary);
+
       let result = "";
       if (isTestMatch) {
         if (team1Score > team2Score) {
@@ -1130,5 +1152,50 @@
     // Initialize the game
     initGame();
   </script>
+
+<div id="pauseScreen" style="display:none;">
+  <h2>Game Paused</h2>
+  <p>Waiting for opponent to reconnect...</p>
+</div>
 </body>
 </html>
+
+
+function checkFollowOn() {
+  if (team1Score - team2Score >= 200) {
+    status.textContent = `Lead of ${team1Score - team2Score}. Enforce follow-on?`;
+    followOnBtn.style.display = "block";
+  }
+}
+
+
+function showPauseScreen() {
+  document.getElementById('pauseScreen').style.display = 'block';
+  disableButtons();
+}
+function resumeGame() {
+  document.getElementById('pauseScreen').style.display = 'none';
+  enableButtons();
+}
+onValue(ref(db, `rooms/${room}/paused`), (snap) => {
+  if (snap.val()) showPauseScreen();
+  else resumeGame();
+});
+
+function generateSummary() {
+  const innings = [
+    { team: team1Name, runs: team1Score, wickets: team1Wickets },
+    { team: team2Name, runs: team2Score, wickets: team2Wickets }
+  ];
+
+  let mvp = "";
+  let maxRuns = 0;
+  for (let player in playerStats.batters) {
+    if (playerStats.batters[player].runs > maxRuns) {
+      maxRuns = playerStats.batters[player].runs;
+      mvp = player;
+    }
+  }
+
+  return { innings, mvp };
+}
