@@ -21,6 +21,18 @@
     #playerCards { display: flex; justify-content: space-around; margin: 15px 0; }
     .card-display { background: #133a6b; padding: 10px; border-radius: 8px; text-align: center; width: 45%; }
     #livesDisplay { margin-top: 10px; }
+    .innings-indicator {
+      background: #4CAF50;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+    .target-display {
+      color: #FF9800;
+      font-weight: bold;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -29,9 +41,10 @@
   
   <div class="container">
     <div class="scoreboard">
-      <h3>Live Scoreboard</h3>
+      <h3>Live Scoreboard <span id="inningsIndicator" class="innings-indicator">1st Innings</span></h3>
       <div id="matchTitle">Team A vs Team B</div>
       <div id="scoreDisplay">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+      <div id="targetDisplay" class="target-display"></div>
       <div id="batterDisplay">Batter: -</div>
       <div id="bowlerDisplay">Bowler: -</div>
       
@@ -94,6 +107,14 @@
     const room = params.get('room');
     const spectatorId = params.get('id');
     let currentFormat = {};
+    let target = 0;
+
+    // Initialize spectator
+    set(ref(db, `rooms/${room}/spectators/${spectatorId}`), {
+      joinedAt: Date.now(),
+      emoji: null,
+      vote: null
+    });
 
     // Get match format
     get(ref(db, `rooms/${room}/player1/format`)).then((snap) => {
@@ -125,17 +146,28 @@
       set(ref(db, `rooms/${room}/spectators/${spectatorId}/emoji`), emoji);
     }
 
-    // Initialize spectator view
-    onValue(ref(db, `rooms/${room}`), (snapshot) => {
-      const roomData = snapshot.val();
-      if (!roomData) return;
-
-      // Update teams
-      if (roomData.player1 && roomData.player2) {
-        document.getElementById("matchTitle").textContent = 
-          `${roomData.player1.teamName} vs ${roomData.player2.teamName}`;
+    // Listen for innings changes
+    onValue(ref(db, `rooms/${room}/innings`), (snap) => {
+      const innings = snap.val() || 1;
+      const indicator = document.getElementById("inningsIndicator");
+      indicator.textContent = innings === 1 ? "1st Innings" : "2nd Innings";
+      
+      if (innings === 2) {
+        get(ref(db, `rooms/${room}/liveState`)).then((liveSnap) => {
+          target = liveSnap.val()?.target || 0;
+          updateTargetDisplay();
+        });
       }
     });
+
+    function updateTargetDisplay() {
+      const targetEl = document.getElementById("targetDisplay");
+      if (target > 0) {
+        targetEl.textContent = `Target: ${target} runs`;
+      } else {
+        targetEl.textContent = "";
+      }
+    }
 
     // Listen for live game state
     onValue(ref(db, `rooms/${room}/liveState`), (snap) => {
@@ -157,6 +189,12 @@
         gameState.currentBatter ? `${gameState.batterLives || currentFormat.livesPerPlayer}/${currentFormat.livesPerPlayer}` : '-';
       document.getElementById("powerplayStatus").textContent = gameState.isPowerplay ? 'Yes' : 'No';
       document.getElementById("powerplayStatus").style.color = gameState.isPowerplay ? '#ffeb3b' : 'white';
+
+      // Update innings indicator if not already set
+      if (gameState.innings) {
+        document.getElementById("inningsIndicator").textContent = 
+          gameState.innings === 1 ? "1st Innings" : "2nd Innings";
+      }
     });
 
     // Listen for current plays
@@ -259,6 +297,26 @@
     onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
       const spectators = snap.val() || {};
       document.getElementById("specCount").textContent = Object.keys(spectators).length;
+    });
+
+    // Initialize teams display
+    onValue(ref(db, `rooms/${room}`), (snapshot) => {
+      const roomData = snapshot.val();
+      if (!roomData) return;
+
+      // Update teams
+      if (roomData.player1 && roomData.player2) {
+        document.getElementById("matchTitle").textContent = 
+          `${roomData.player1.teamName} vs ${roomData.player2.teamName}`;
+      }
+      
+      // Initialize target if second innings
+      if (roomData.innings === 2) {
+        get(ref(db, `rooms/${room}/liveState`)).then((liveSnap) => {
+          target = liveSnap.val()?.target || 0;
+          updateTargetDisplay();
+        });
+      }
     });
   </script>
 </body>
