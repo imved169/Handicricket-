@@ -186,18 +186,45 @@
   </div>
 
   <script>
-// 🧪 Test Match Inning Tracker
-let innings = {
-  team1: { inning1: { runs: 0, wickets: 0, balls: 0 }, inning2: { runs: 0, wickets: 0, balls: 0 } },
-  team2: { inning1: { runs: 0, wickets: 0, balls: 0 }, inning2: { runs: 0, wickets: 0, balls: 0 } }
-};
-let followOnEnforced = false;
-let currentInningNumber = 1;
-let battingTeam = "team1";
-let bowlingTeam = "team2";
-let activeInning = "inning1";
+// ✅ Spectator Detection
+if (playerRole === 'spectator') {
+  document.querySelectorAll('.card-button').forEach(btn => btn.disabled = true);
+  const modeTag = document.createElement('div');
+  modeTag.innerText = "👁️ Spectator Mode";
+  modeTag.style.color = "#fff";
+  modeTag.style.margin = "10px";
+  document.body.prepend(modeTag);
+}
 
-// 🧮 Player Stats
+// ✅ MVP & Summary Tracking
+let summaryStats = {
+  team1: { total: 0, wickets: 0 },
+  team2: { total: 0, wickets: 0 },
+  mvp: { name: "", impact: 0 }
+};
+
+function updateScoreboardUI(score, wickets, overs, batter, bowler) {
+  document.getElementById("scoreDisplay").innerText =
+    `Runs: ${score} | Wickets: ${wickets} | Overs: ${overs.toFixed(1)}`;
+  document.getElementById("playerDisplay").innerText =
+    `Batter: ${batter} | Bowler: ${bowler}`;
+}
+
+// ✅ Save Summary at End
+function pushMatchSummaryToFirebase(resultText, mvpName) {
+  const summaryRef = ref(db, `rooms/${roomCode}/summary`);
+  set(summaryRef, {
+    result: resultText,
+    mvp: mvpName,
+    finalScores: summaryStats
+  });
+}
+
+
+
+// ✅ Feature Patch Injection
+
+// 🧮 Player Stats System
 let playerStats = { team1: {}, team2: {} };
 function initPlayerStats(team, players) {
   players.forEach(p => {
@@ -205,30 +232,18 @@ function initPlayerStats(team, players) {
   });
 }
 
-// Free Hit Tracking
-let isFreeHit = false;
-function endFreeHit() {
-  isFreeHit = false;
-}
+// 🧪 Test Match 4-Inning Tracker
+let innings = {
+  team1: { inning1: { runs: 0, wickets: 0, balls: 0 }, inning2: { runs: 0, wickets: 0, balls: 0 } },
+  team2: { inning1: { runs: 0, wickets: 0, balls: 0 }, inning2: { runs: 0, wickets: 0, balls: 0 } }
+};
+let currentInningNumber = 1;
+let followOnEnforced = false;
+let battingTeam = "team1";
+let bowlingTeam = "team2";
+let activeInning = "inning1";
 
-// Powerplay Checker
-function isPowerplay(over, format) {
-  const rules = formatRules[format];
-  if (Array.isArray(rules.powerplayOvers)) {
-    return rules.powerplayOvers.includes(over + 1);
-  }
-  return over < rules.powerplayOvers;
-}
-
-// Wicket Evaluation based on Lives
-function getWicketLoss(over, format, livesRemaining) {
-  const rules = formatRules[format];
-  return isPowerplay(over, format)
-    ? livesRemaining <= rules.livesPerPlayer * rules.powerplayWicketValue
-    : livesRemaining <= rules.livesPerPlayer * rules.regularWicketValue;
-}
-
-// Target Calculation & Inning Switch
+// 🔁 Inning Switch + Target
 let target = 0;
 function switchInnings(team1Score) {
   currentInningNumber++;
@@ -237,6 +252,41 @@ function switchInnings(team1Score) {
     target = team1Score + 1;
   }
 }
+
+// 🛑 Free Hit Handling
+let isFreeHit = false;
+function endFreeHit() {
+  isFreeHit = false;
+}
+
+// 🏏 2-Lives Wicket Logic (based on powerplay)
+function isPowerplay(over, format) {
+  const rules = formatRules[format];
+  if (Array.isArray(rules.powerplayOvers)) {
+    return rules.powerplayOvers.includes(over + 1);
+  }
+  return over < rules.powerplayOvers;
+}
+function getWicketLoss(over, format, livesRemaining) {
+  const rules = formatRules[format];
+  return isPowerplay(over, format)
+    ? livesRemaining <= rules.livesPerPlayer * rules.powerplayWicketValue
+    : livesRemaining <= rules.livesPerPlayer * rules.regularWicketValue;
+}
+
+// 🧪 Draw Detection (Test 4th Innings)
+function checkTestMatchDraw(format, inningsCompleted, teamScore, target, wickets, maxOvers, ballsUsed) {
+  if (format === "test" && inningsCompleted === 4) {
+    const totalOversUsed = Math.floor(ballsUsed / 6);
+    const allOut = wickets >= 10;
+    const reachedTarget = teamScore >= target;
+    if (!reachedTarget && !allOut && totalOversUsed >= maxOvers) {
+      return "Match Drawn";
+    }
+  }
+  return null;
+}
+
 
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
