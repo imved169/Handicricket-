@@ -1,64 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HandiCricket - Lobby</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HandiCricket - Room Setup</title>
   <style>
-    body {
-      background-color: #0a2540;
-      color: white;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
+    body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+    input, button, select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; }
+    button { background: #1e88e5; color: white; cursor: pointer; }
+    button:hover { background: #1565c0; }
+    #roomDisplay { font-size: 18px; margin-top: 10px; word-break: break-all; }
+    .format-selector { display: flex; flex-wrap: wrap; justify-content: space-between; margin: 10px 0; }
+    .format-btn { 
+      width: 48%; padding: 10px; margin: 5px 0; border-radius: 8px; 
+      background: #1a3a6a; border: 2px solid #1e88e5; color: white; cursor: pointer;
     }
-    .card {
-      background: #102d4a;
-      padding: 20px;
-      border-radius: 16px;
-      max-width: 400px;
-      width: 100%;
-      margin-top: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-    input, button, select {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 10px;
-      border: none;
-      font-size: 16px;
-    }
-    button {
-      background: #1e88e5;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #1565c0;
-    }
-    .format-selector {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin: 10px 0;
-    }
-    .format-btn {
-      width: 48%;
-      padding: 10px;
-      margin: 5px 0;
-      border-radius: 8px;
-      background: #1a3a6a;
-      border: 2px solid #1e88e5;
-      color: white;
-      cursor: pointer;
-    }
-    .format-btn.active {
-      background: #1e88e5;
-      font-weight: bold;
-    }
+    .format-btn.active { background: #1e88e5; font-weight: bold; }
+    .format-btn:hover { background: #1565c0; }
     .saved-games {
       background: #102d4a;
       padding: 15px;
@@ -73,14 +32,18 @@
       background: #1a3a6a;
       border-radius: 5px;
       cursor: pointer;
+      transition: background 0.3s;
+    }
+    .saved-game-item:hover {
+      background: #1e88e5;
     }
   </style>
 </head>
 <body>
   <h1>🏏 HandiCricket</h1>
   <div class="card">
-    <input type="text" id="teamName" placeholder="Enter Team Name">
-    <input type="text" id="joinCode" placeholder="Join Room Code">
+    <input type="text" id="teamName" placeholder="Enter Team Name" />
+    <input type="text" id="joinCode" placeholder="Join Room Code" />
     
     <div class="format-selector">
       <button class="format-btn active" data-format="5">5 Overs</button>
@@ -94,6 +57,7 @@
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="spectateRoom()">Spectate Match</button>
     <div id="roomDisplay"></div>
+    <div id="spectatorDisplay"></div>
   </div>
 
   <div class="saved-games">
@@ -106,12 +70,12 @@
     import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -173,7 +137,22 @@
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
       if (snapshot.exists()) {
-        window.location.href = `spectator.html?room=${joinCode}`;
+        const roomData = snapshot.val();
+        const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
+        
+        if (spectatorCount >= 10) {
+          return alert("Spectator slots full! Max 10 spectators allowed.");
+        }
+        
+        const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
+        await set(ref(db, `rooms/${joinCode}/spectators/${spectatorId}`), {
+          joinedAt: Date.now(),
+          emoji: null,
+          vote: null
+        });
+        
+        document.getElementById("spectatorDisplay").innerText = `Spectating Room: ${joinCode}`;
+        window.location.href = `spectator.html?room=${joinCode}&id=${spectatorId}`;
       } else {
         alert("Invalid room code!");
       }
@@ -215,6 +194,7 @@
       });
     }
 
+    // Initialize
     loadSavedGames();
   </script>
 </body>
