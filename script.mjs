@@ -61,3 +61,27 @@ function handleWicketAccumulation(batter, format, over) {
     batterOut(batter);
   }
 }
+
+
+// === Career Stats Handling ===
+
+// Career Stats Tracker
+function updateCareerStats(playerName, runs, wickets, isBatter) {
+  let stats = JSON.parse(localStorage.getItem(playerName)) || {
+    name: playerName,
+    runs: 0,
+    wickets: 0,
+    matches: 0
+  };
+
+  if (isBatter) stats.runs += runs;
+  else stats.wickets += wickets;
+
+  stats.matches += 1;
+
+  localStorage.setItem(playerName, JSON.stringify(stats));
+}
+
+function getCareerStats(playerName) {
+  return JSON.parse(localStorage.getItem(playerName)) || null;
+}
