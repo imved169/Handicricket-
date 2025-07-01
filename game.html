@@ -192,17 +192,52 @@ let innings = {
   team2: { inning1: { runs: 0, wickets: 0, balls: 0 }, inning2: { runs: 0, wickets: 0, balls: 0 } }
 };
 let followOnEnforced = false;
+let currentInningNumber = 1;
+let battingTeam = "team1";
+let bowlingTeam = "team2";
 let activeInning = "inning1";
 
 // 🧮 Player Stats
-let playerStats = {
-  team1: {}, team2: {}
-};
+let playerStats = { team1: {}, team2: {} };
 function initPlayerStats(team, players) {
   players.forEach(p => {
     playerStats[team][p] = { runs: 0, balls: 0, wickets: 0, bowled: 0 };
   });
 }
+
+// Free Hit Tracking
+let isFreeHit = false;
+function endFreeHit() {
+  isFreeHit = false;
+}
+
+// Powerplay Checker
+function isPowerplay(over, format) {
+  const rules = formatRules[format];
+  if (Array.isArray(rules.powerplayOvers)) {
+    return rules.powerplayOvers.includes(over + 1);
+  }
+  return over < rules.powerplayOvers;
+}
+
+// Wicket Evaluation based on Lives
+function getWicketLoss(over, format, livesRemaining) {
+  const rules = formatRules[format];
+  return isPowerplay(over, format)
+    ? livesRemaining <= rules.livesPerPlayer * rules.powerplayWicketValue
+    : livesRemaining <= rules.livesPerPlayer * rules.regularWicketValue;
+}
+
+// Target Calculation & Inning Switch
+let target = 0;
+function switchInnings(team1Score) {
+  currentInningNumber++;
+  [battingTeam, bowlingTeam] = [bowlingTeam, battingTeam];
+  if (currentInningNumber === 2) {
+    target = team1Score + 1;
+  }
+}
+
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
@@ -387,9 +422,7 @@ function initPlayerStats(team, players) {
         return false;
       }
 
-      if (data.player1?.teamName && data.player1?.playing11 && data.player2?.teamName && data.player2?.playing11) {
-      document.getElementById("status").style.display = "none"; // hide waiting message
-     {
+      if (data.player1?.playing11) {
         team1NameEl.innerText = data.player1.teamName || "Team 1";
         team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
       }
@@ -725,9 +758,7 @@ function initPlayerStats(team, players) {
         const data = snap.val();
         if (!data) return;
 
-        if (data.player1?.teamName && data.player1?.playing11 && data.player2?.teamName && data.player2?.playing11) {
-      document.getElementById("status").style.display = "none"; // hide waiting message
-     {
+        if (data.player1?.playing11) {
           team1NameEl.innerText = data.player1.teamName || "Team 1";
           team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
         }
