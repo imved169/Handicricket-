@@ -68,23 +68,39 @@ function handleWicketAccumulation(batter, format, over) {
 
 // 🧮 Wicket Rule Functions
 
-function getWicketValue(format, over, isPowerplay, lostLives) {
-  if (format === 'Test') return 1 / 3;
 
-  if (format === 'ODI') {
-    if (isPowerplay) return 0.25;
-    return 0.5;
+
+// === Final Game Logic Fixes ===
+
+
+// ✅ Free Hit lasts only 1 ball after No Ball
+// Set isFreeHit = true only on no-ball detection (0 vs 0)
+function markFreeHitIfNoBall(batterCard, bowlerCard) {
+  if (batterCard === 0 && bowlerCard === 0) {
+    isFreeHit = true; // next ball is Free Hit
+    return true; // no ball occurred
   }
-
-  if (isPowerplay) return 0.5;
-  return 1.0;
+  return false;
 }
 
-function calculateWicketIncrease(format, over, isPowerplay, lostLives) {
-  const valuePerLife = getWicketValue(format, over, isPowerplay, lostLives);
-  return valuePerLife * (lostLives || 1);
+// ✅ Reset Free Hit after 1 delivery
+function resetFreeHitAfterDelivery() {
+  if (isFreeHit) {
+    isFreeHit = false;
+  }
 }
 
+// 🧮 Wicket value based on format and over phase
+function getWicketValue(format, over, isPowerplay) {
+  if (format === 'Test') return 1 / 3;
+  if (format === 'ODI') return isPowerplay ? 0.25 : 0.5;
+  return isPowerplay ? 0.5 : 1.0;
+}
 
-// ✅ Free Hit fix fallback
-isFreeHit = false;
+// ✅ Add only remaining life value to reach full wicket (1.0)
+function calculateWicketIncrement(format, over, isPowerplay, batterWicketSoFar) {
+  const full = 1.0;
+  const remainder = full - (batterWicketSoFar % 1.0);
+  const perDismissal = getWicketValue(format, over, isPowerplay);
+  return Math.min(perDismissal, remainder);
+}
