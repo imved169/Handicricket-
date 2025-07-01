@@ -122,7 +122,34 @@
     }
   </style>
 </head>
+
 <body>
+<div id="playerDisplay" style="margin-top: 10px; font-weight: bold;"></div>
+<div id="scoreDisplay" style="margin-bottom: 10px;"></div>
+<script type="module">
+  import { db, ref, onValue } from './firebase.js';
+  const roomCode = localStorage.getItem("roomCode");
+  const playerRole = localStorage.getItem("playerRole");
+  const gameRef = ref(db, `rooms/${roomCode}/game`);
+
+  if (playerRole === 'spectator') {
+    document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+    const tag = document.createElement('div');
+    tag.innerText = "👁 Spectator Mode";
+    tag.style.color = "#fff";
+    tag.style.margin = "8px";
+    document.body.prepend(tag);
+  }
+
+  onValue(gameRef, (snap) => {
+    const d = document.getElementById("scoreDisplay");
+    const p = document.getElementById("playerDisplay");
+    const data = snap.val();
+    if (d && data) d.innerText = `Runs: ${data.totalRuns || 0} | Wickets: ${data.wickets || 0} | Overs: ${data.overs || 0}`;
+    if (p && data) p.innerText = `Batter: ${data.currentBatter || "-"} | Bowler: ${data.currentBowler || "-"}`;
+  });
+</script>
+
   <div id="spectatorCount">Spectators: 0</div>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
