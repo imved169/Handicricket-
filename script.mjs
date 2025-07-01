@@ -1,4 +1,3 @@
-
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 import { app } from './firebase.js';
 const db = getDatabase(app);
@@ -26,4 +25,34 @@ document.addEventListener("DOMContentLoaded", () => {
     await set(ref(db, `rooms/${joinCode}/player2`), { teamName });
     window.location.href = `playing11.html?room=${joinCode}&player=player2`;
   });
+});
+
+
+
+// ✅ Safe Sync Patch for Card Matching and Status
+import { db, ref, onValue, update } from "./firebase.js";
+
+const gameRef = ref(db, `rooms/${roomCode}/game`);
+onValue(gameRef, (snapshot) => {
+  const gameData = snapshot.val();
+  if (!gameData) return;
+
+  // Check if both cards are played
+  if (gameData.player1Card !== null && gameData.player2Card !== null && gameData.status !== "resolved") {
+    const p1 = gameData.player1Card;
+    const p2 = gameData.player2Card;
+
+    let result = "";
+    if (p1 === p2) {
+      result = "WICKET";
+    } else {
+      result = `${p1} runs`;
+    }
+
+    update(gameRef, {
+      result: result,
+      status: "resolved",
+      lastUpdate: Date.now()
+    });
+  }
 });
