@@ -252,8 +252,8 @@
         totalOvers: Infinity, 
         totalWickets: 30, 
         powerplayOvers: 0, 
-        powerplayWicketValue: 0.33,
-        regularWicketValue: 0.33,
+        powerplayWicketValue: 1,
+        regularWicketValue: 1,
         livesPerPlayer: 3,
         deadOvers: []
       }
@@ -262,7 +262,6 @@
     let runs = 0, wickets = 0;
     let legalBalls = 0;
     let freeHit = false;
-    let freeHitNextBall = false;
     let currentBatter = null;
     let currentBowler = null;
     let battersUsed = [];
@@ -271,12 +270,7 @@
     let isBatting = false;
     let currentFormat = {};
     let isTestMatch = false;
-    const inningsData = {
-  current: 1,
-  max: isTestMatch ? 4 : 2,
-  team1Completed: 0,
-  team2Completed: 0 
-};
+    let innings = 1;
     let currentInningRuns = 0;
     let currentInningWickets = 0;
     let team1Score = 0;
@@ -348,8 +342,7 @@
         partnership: runs - lastWicketScore,
         requiredRate: requiredRate,
         batterLives: currentBatter ? batterLives[currentBatter] : null,
-        isPowerplay: isPowerplay,
-        freeHit: freeHitNextBall
+        isPowerplay: isPowerplay
       });
 
       set(ref(db, `rooms/${room}/liveState`), {
@@ -360,7 +353,7 @@
         currentBowler: currentBowler,
         isPowerplay: isPowerplay,
         isDeadOver: isDeadOver,
-        freeHit: freeHitNextBall,
+        freeHit: freeHit,
         innings: innings
       });
     }
@@ -518,7 +511,7 @@
         }
       }
 
-      if (freeHitNextBall) {
+      if (freeHit) {
         freeHitAlert.style.display = "block";
       }
     }
@@ -529,7 +522,7 @@
       
       let displayWickets;
       if (isTestMatch) {
-        displayWickets = Math.floor(wickets);
+        displayWickets = Math.floor(wickets / 3);
       } else {
         displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
       }
@@ -540,8 +533,8 @@
         scoreboard.innerHTML = `
           <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
           <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
-          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets)}</div>
-          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets)}</div>
+          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
+          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
           <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
       } else {
@@ -656,12 +649,7 @@
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
         const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-        
-        // Round to 1 decimal place to avoid floating point precision issues
-        const availableBowlers = players.filter(p => {
-          const oversBowled = bowlerOvers[p] || 0;
-          return parseFloat(oversBowled.toFixed(1)) < maxOversPerBowler;
-        });
+        const availableBowlers = players.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
         
         if (availableBowlers.length === 0) {
           alert("All bowlers have bowled their maximum overs!");
@@ -677,7 +665,7 @@
           playerEl.className = "player-item";
           playerEl.textContent = isTestMatch ? 
             `${player} (${oversBowled.toFixed(1)} overs)` : 
-            `${player} (${oversBowled.toFixed(1)}/${maxOversPerBowler} overs)`;
+            `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
           playerEl.dataset.name = player;
           playerEl.addEventListener("click", function() {
             document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
@@ -750,77 +738,54 @@
             outcome = "NO BALL! +1 run (Free Hit next ball)";
             runs += 1;
             currentInningRuns += 1;
-            freeHitNextBall = true;
+            freeHit = true;
           } else {
             outcome = "No run (Test Match)";
           }
         } 
-        else if (freeHitNextBall) {
-          outcome = `${batCard} Run(s)! (Free Hit)`;
-          runs += batCard;
-          currentInningRuns += batCard;
-          isLegalBall = true;
-          freeHitNextBall = false;
-        }
         else if (batCard === bowlCard && batCard > 0) {
-          if (currentBatter && batterLives[currentBatter] !== undefined) {
-            batterLives[currentBatter]--;
-            
-            let wicketValue = 0;
-            if (isTestMatch) {
-              // Test Match: 0.33 per dismissal (3 lives = 1 wicket)
-              wicketValue = 0.33;
-              if (batterLives[currentBatter] <= 0) {
-                wickets = Math.floor(wickets) + 1;
-                isPlayerOut = true;
-              } else {
-                wickets += wicketValue;
-              }
-            } 
-            else if (currentFormat.name === "ODI") {
-              // ODI Logic
-              if (isPowerplay) {
-                wicketValue = 0.25; // Powerplay: 1 life = 0.25
-              } else {
-                // Non-powerplay: Add remaining to reach 1.0
-                const currentWicketFraction = wickets % 1;
-                wicketValue = Math.min(0.5, 1 - currentWicketFraction);
-              }
-              wickets += wicketValue;
-            }
-            else {
-              // T20/5/10 Overs Logic
-              if (isPowerplay) {
-                wicketValue = 0.5; // Powerplay: 1 life = 0.5
-              } else {
-                // Non-powerplay: Add remaining to reach 1.0
-                const currentWicketFraction = wickets % 1;
-                wicketValue = 1 - currentWicketFraction;
-              }
-              wickets += wicketValue;
-            }
-
-            if (batterLives[currentBatter] <= 0) {
-              isPlayerOut = true;
-              // Ensure full wicket when batter is out
-              if (wickets % 1 !== 0) {
-                wickets = Math.ceil(wickets);
-              }
-              outcome = "WICKET! (Player out)";
-            } else {
-              outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
-            }
+          if (freeHit) {
+            outcome = "Wicket on Free Hit (not out)";
+            freeHit = false;
           } else {
-            // Fallback for cases without batter lives
-            if (isPowerplay) {
-              wickets += currentFormat.powerplayWicketValue;
+            if (currentBatter && batterLives[currentBatter] !== undefined) {
+              // T20 specific logic
+              if (currentFormat.name === "T20") {
+                batterLives[currentBatter] -= 1; // Deduct 1 life (2 lives = 1 wicket)
+                if (isPowerplay) {
+                  wickets += 0.5; // Powerplay: 0.5 wicket per life
+                } else {
+                  wickets += 1; // Non-powerplay: 1 wicket per life (2 lives)
+                }
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
+              } else {
+                // Original logic for other formats
+                batterLives[currentBatter]--;
+                if (isPowerplay) {
+                  wickets += currentFormat.powerplayWicketValue;
+                } else {
+                  const remainingValue = 1 - (wickets % 1);
+                  wickets += remainingValue;
+                }
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
+              }
+
+              if (batterLives[currentBatter] <= 0) {
+                isPlayerOut = true;
+                outcome = "WICKET! (Player out)";
+              }
             } else {
-              wickets += currentFormat.regularWicketValue;
+              if (isPowerplay) {
+                wickets += currentFormat.powerplayWicketValue;
+              } else {
+                wickets += currentFormat.regularWicketValue;
+              }
+              outcome = "WICKET!";
+              isWicket = true;
             }
-            outcome = "WICKET!";
-            isWicket = true;
           }
           isLegalBall = true;
+          freeHit = false;
         }
         else if (batCard === 0 && bowlCard > 0) {
           if (zerosThisOver[player] > 3) {
@@ -842,7 +807,7 @@
           if (zerosThisOver[opponent] > 3 && !isTestMatch) {
             outcome = "4th 0 in over! No ball";
             runs += 1;
-            freeHitNextBall = true;
+            freeHit = true;
           } else {
             if (isTestMatch) {
               runs += batCard;
@@ -867,8 +832,7 @@
           wicket: isWicket || isPlayerOut,
           batter: currentBatter,
           bowler: currentBowler,
-          timestamp: Date.now(),
-          isFreeHit: freeHitNextBall
+          timestamp: Date.now()
         };
 
         if (isWicket) {
@@ -895,14 +859,6 @@
 
         status.innerText = outcome;
         updateScoreboard();
-
-  // Sync score to Firebase
-  set(ref(db, `rooms/${room}/score`), {
-    runs: currentInningRuns,
-    wickets: wickets,
-    overs: overs
-  });
-
         updateSpectatorData();
         
         if ((isTestMatch && currentInningWickets >= 30) || 
@@ -919,7 +875,7 @@
           } else if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
             showBowlerSelection();
           } else {
-            status.innerText = freeHitNextBall ? "FREE HIT next ball!" : "Play your next card.";
+            status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
             enableButtons();
           }
         }, 1500);
@@ -952,6 +908,7 @@
         followOnBtn.style.display = followOn ? "block" : "none";
       });
 
+      // Spectator count listener
       onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
         const spectators = snap.val() || {};
         spectatorCountEl.textContent = `Spectators: ${Object.keys(spectators).length}`;
@@ -973,28 +930,14 @@
     });
 
     async function endInning() {
-  if (inningsData.current % 2 === 1) {
-    team1Score = currentInningRuns;
-    team1Wickets = wickets;
-    inningsData.team1Completed++;
-  } else {
-    team2Score = currentInningRuns;
-    team2Wickets = wickets;
-    inningsData.team2Completed++;
-  }
-
-  if (isTestMatch && inningsData.current === 2) {
-    checkFollowOn();
-  }
-
       disableButtons();
       
       if (innings === 1) {
         team1Score = currentInningRuns;
-        team1Wickets = wickets;
+        team1Wickets = currentInningWickets;
       } else {
         team2Score = currentInningRuns;
-        team2Wickets = wickets;
+        team2Wickets = currentInningWickets;
       }
       
       const followOnPossible = isTestMatch && innings === 2 && team1Score - team2Score >= 200;
@@ -1013,14 +956,6 @@
       }
       
       updateScoreboard();
-
-  // Sync score to Firebase
-  set(ref(db, `rooms/${room}/score`), {
-    runs: currentInningRuns,
-    wickets: wickets,
-    overs: overs
-  });
-
       updateSpectatorData();
     }
 
@@ -1035,7 +970,6 @@
       bowlerOvers = {};
       batterLives = {};
       freeHit = false;
-      freeHitNextBall = false;
       isBatting = !isBatting;
       zerosThisOver = { player1: 0, player2: 0 };
       
@@ -1057,14 +991,6 @@
           enableButtons();
           status.innerText = `Day ${6 - daysRemaining} starting...`;
           updateScoreboard();
-
-  // Sync score to Firebase
-  set(ref(db, `rooms/${room}/score`), {
-    runs: currentInningRuns,
-    wickets: wickets,
-    overs: overs
-  });
-
           updateSpectatorData();
         } else {
           endMatch();
@@ -1073,9 +999,6 @@
     }
 
     function endMatch() {
-  const summary = generateSummary();
-  set(ref(db, `rooms/${room}/summary`), summary);
-
       let result = "";
       if (isTestMatch) {
         if (team1Score > team2Score) {
@@ -1161,14 +1084,6 @@
       setupSelectionModal();
       setupTestControls();
       updateScoreboard();
-
-  // Sync score to Firebase
-  set(ref(db, `rooms/${room}/score`), {
-    runs: currentInningRuns,
-    wickets: wickets,
-    overs: overs
-  });
-
       setupFirebaseListeners();
       
       // Setup button events
@@ -1183,132 +1098,6 @@
 
     // Initialize the game
     initGame();
-  
-function processBall(batCard, bowlCard) {
-  let outcome = "";
-  let runs = 0;
-
-  // Determine outcome
-  if (batCard === 0 && bowlCard === 0) {
-    // No ball
-    outcome = "No Ball! +1 run. Free Hit next.";
-    freeHit = true;
-    runs = 1;
-  } else if (freeHit) {
-    // Free Hit active
-    freeHit = false;
-    if (batCard === bowlCard) {
-      outcome = "No Wicket on Free Hit. Dot Ball.";
-    } else {
-      runs = batCard;
-      outcome = `Free Hit! Scored ${runs} run(s)`;
-      if (batCard === 4) playSound("four");
-    }
-  } else if (batCard === bowlCard) {
-    // Wicket
-    outcome = "WICKET!";
-    wickets++;
-    playSound("wicket");
-    if (wickets >= maxWickets) {
-      endInning();
-      return;
-    }
-    currentBatter = getNextBatter();
-  } else {
-    runs = batCard;
-    outcome = `Scored ${runs} run(s)`;
-    if (batCard === 4) playSound("four");
-  }
-
-  // Update stats
-  if (!playerStats.batters[currentBatter]) {
-    playerStats.batters[currentBatter] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
-  }
-  playerStats.batters[currentBatter].runs += runs;
-  playerStats.batters[currentBatter].balls++;
-  if (batCard === 4) playerStats.batters[currentBatter].fours++;
-  if (batCard === 6) playerStats.batters[currentBatter].sixes++;
-
-  // Update scores
-  currentInningRuns += runs;
-  ballsThisOver++;
-  totalBalls++;
-
-  // Show outcome
-  status.textContent = outcome;
-  updateScoreboard();
-
-  // Sync score to Firebase
-  set(ref(db, `rooms/${room}/score`), {
-    runs: currentInningRuns,
-    wickets: wickets,
-    overs: overs
-  });
-
-
-  // End over or match
-  if (ballsThisOver >= 6) {
-    ballsThisOver = 0;
-    overs++;
-  }
-
-  if (overs >= maxOvers || wickets >= maxWickets) {
-    endInning();
-    return;
-  }
-
-  setTimeout(() => {
-    clearCards();
-    enableButtons();
-    status.textContent = "Next ball.";
-  }, 2000);
-}
-
-</script>
-
-<div id="pauseScreen" style="display:none;">
-  <h2>Game Paused</h2>
-  <p>Waiting for opponent to reconnect...</p>
-</div>
+  </script>
 </body>
-</html>
-
-
-function checkFollowOn() {
-  if (team1Score - team2Score >= 200) {
-    status.textContent = `Lead of ${team1Score - team2Score}. Enforce follow-on?`;
-    followOnBtn.style.display = "block";
-  }
-}
-
-
-function showPauseScreen() {
-  document.getElementById('pauseScreen').style.display = 'block';
-  disableButtons();
-}
-function resumeGame() {
-  document.getElementById('pauseScreen').style.display = 'none';
-  enableButtons();
-}
-onValue(ref(db, `rooms/${room}/paused`), (snap) => {
-  if (snap.val()) showPauseScreen();
-  else resumeGame();
-});
-
-function generateSummary() {
-  const innings = [
-    { team: team1Name, runs: team1Score, wickets: team1Wickets },
-    { team: team2Name, runs: team2Score, wickets: team2Wickets }
-  ];
-
-  let mvp = "";
-  let maxRuns = 0;
-  for (let player in playerStats.batters) {
-    if (playerStats.batters[player].runs > maxRuns) {
-      maxRuns = playerStats.batters[player].runs;
-      mvp = player;
-    }
-  }
-
-  return { innings, mvp };
-}
+  </html>
