@@ -343,7 +343,8 @@
         partnership: runs - lastWicketScore,
         requiredRate: requiredRate,
         batterLives: currentBatter ? batterLives[currentBatter] : null,
-        isPowerplay: isPowerplay
+        isPowerplay: isPowerplay,
+        freeHit: freeHitNextBall
       });
 
       set(ref(db, `rooms/${room}/liveState`), {
@@ -354,7 +355,7 @@
         currentBowler: currentBowler,
         isPowerplay: isPowerplay,
         isDeadOver: isDeadOver,
-        freeHit: freeHit,
+        freeHit: freeHitNextBall,
         innings: innings
       });
     }
@@ -512,7 +513,7 @@
         }
       }
 
-      if (freeHit) {
+      if (freeHitNextBall) {
         freeHitAlert.style.display = "block";
       }
     }
@@ -650,7 +651,12 @@
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
         const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-        const availableBowlers = players.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
+        
+        // Round to 1 decimal place to avoid floating point precision issues
+        const availableBowlers = players.filter(p => {
+          const oversBowled = bowlerOvers[p] || 0;
+          return parseFloat(oversBowled.toFixed(1)) < maxOversPerBowler;
+        });
         
         if (availableBowlers.length === 0) {
           alert("All bowlers have bowled their maximum overs!");
@@ -666,7 +672,7 @@
           playerEl.className = "player-item";
           playerEl.textContent = isTestMatch ? 
             `${player} (${oversBowled.toFixed(1)} overs)` : 
-            `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
+            `${player} (${oversBowled.toFixed(1)}/${maxOversPerBowler} overs)`;
           playerEl.dataset.name = player;
           playerEl.addEventListener("click", function() {
             document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
@@ -744,12 +750,12 @@
             outcome = "No run (Test Match)";
           }
         } 
-        else if (freeHit) {
+        else if (freeHitNextBall) {
           outcome = `${batCard} Run(s)! (Free Hit)`;
           runs += batCard;
           currentInningRuns += batCard;
           isLegalBall = true;
-          freeHit = false;
+          freeHitNextBall = false;
         }
         else if (batCard === bowlCard && batCard > 0) {
           if (currentBatter && batterLives[currentBatter] !== undefined) {
@@ -856,7 +862,8 @@
           wicket: isWicket || isPlayerOut,
           batter: currentBatter,
           bowler: currentBowler,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          isFreeHit: freeHitNextBall
         };
 
         if (isWicket) {
