@@ -63,25 +63,28 @@ function handleWicketAccumulation(batter, format, over) {
 }
 
 
-// === Career Stats Handling ===
+// ✅ Fix: Reset free hit after each delivery
 
-// Career Stats Tracker
-function updateCareerStats(playerName, runs, wickets, isBatter) {
-  let stats = JSON.parse(localStorage.getItem(playerName)) || {
-    name: playerName,
-    runs: 0,
-    wickets: 0,
-    matches: 0
-  };
 
-  if (isBatter) stats.runs += runs;
-  else stats.wickets += wickets;
+// 🧮 Wicket Rule Functions
 
-  stats.matches += 1;
+function getWicketValue(format, over, isPowerplay, lostLives) {
+  if (format === 'Test') return 1 / 3;
 
-  localStorage.setItem(playerName, JSON.stringify(stats));
+  if (format === 'ODI') {
+    if (isPowerplay) return 0.25;
+    return 0.5;
+  }
+
+  if (isPowerplay) return 0.5;
+  return 1.0;
 }
 
-function getCareerStats(playerName) {
-  return JSON.parse(localStorage.getItem(playerName)) || null;
+function calculateWicketIncrease(format, over, isPowerplay, lostLives) {
+  const valuePerLife = getWicketValue(format, over, isPowerplay, lostLives);
+  return valuePerLife * (lostLives || 1);
 }
+
+
+// ✅ Free Hit fix fallback
+isFreeHit = false;
