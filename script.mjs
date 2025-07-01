@@ -1,3 +1,4 @@
+
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 import { app } from './firebase.js';
 const db = getDatabase(app);
@@ -29,104 +30,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-// ✅ Safe Sync Patch for Card Matching and Status
-import { db, ref, onValue, update } from "./firebase.js";
 
-const gameRef = ref(db, `rooms/${roomCode}/game`);
-onValue(gameRef, (snapshot) => {
-  const gameData = snapshot.val();
-  if (!gameData) return;
+// 🏏 Carry-over Wicket Handling
 
-  // Check if both cards are played
-  if (gameData.player1Card !== null && gameData.player2Card !== null && gameData.status !== "resolved") {
-    const p1 = gameData.player1Card;
-    const p2 = gameData.player2Card;
+function handleWicketAccumulation(batter, format, over) {
+  const { lifeValue, livesPerOut, outsPerBatter } = getLifeValue(format, over);
+  const totalWicketValue = lifeValue * livesPerOut;
+  
+  if (!batter.accumulatedWicket) batter.accumulatedWicket = 0;
 
-    let result = "";
-    if (p1 === p2) {
-      result = "WICKET";
-    } else {
-      result = `${p1} runs`;
+  // Calculate remaining space before full wicket
+  const spaceLeft = 1.0 - batter.accumulatedWicket;
+
+  // Add only what's needed to reach full 1.0
+  const toAdd = Math.min(spaceLeft, totalWicketValue);
+  batter.accumulatedWicket += toAdd;
+
+  // Handle Test: 3 outs per batter = 1 wicket
+  if (format === "Test") {
+    if (!batter.testOuts) batter.testOuts = 0;
+    batter.testOuts++;
+    if (batter.testOuts >= 3) {
+      batterOut(batter);
     }
-
-    update(gameRef, {
-      result: result,
-      status: "resolved",
-      lastUpdate: Date.now()
-    });
-  }
-});
-
-
-
-// ✅ Feature Patch: 2-Lives, Test Follow-On, MVP Tracking
-import { db, ref, onValue, update, set } from './firebase.js';
-
-const roomCode = localStorage.getItem("roomCode");
-const gameRef = ref(db, `rooms/${roomCode}/game`);
-
-let life = 1; // default 1 (means on first out it goes to 0, then Wicket falls)
-onValue(gameRef, (snap) => {
-  const data = snap.val();
-  if (!data || !data.status) return;
-
-  const isPowerplay = data.currentOver < (data.powerplayOvers || 2);
-  if (!isPowerplay) {
-    if (data.result === "WICKET") {
-      if (life === 1) {
-        // Don't register wicket, just lose 1 life
-        life = 0;
-        update(gameRef, { result: "LIFE LOST", status: "resolved" });
-        return;
-      } else {
-        // Real wicket now
-        life = 1; // reset life for next batter
-      }
-    } else {
-      life = 1; // reset if any run scored
-    }
+    return;
   }
 
-  // ✅ MVP Stat Tracker
-  if (data.result && data.result.includes("runs")) {
-    const scorer = data.currentBatter;
-    const runs = parseInt(data.result.split(" ")[0]);
-    const statsRef = ref(db, `rooms/${roomCode}/stats/${scorer}`);
-    onValue(statsRef, (s) => {
-      let val = s.val() || { runs: 0, wickets: 0 };
-      val.runs += runs;
-      set(statsRef, val);
-    }, { onlyOnce: true });
-  } else if (data.result === "WICKET") {
-    const bowler = data.currentBowler;
-    const statsRef = ref(db, `rooms/${roomCode}/stats/${bowler}`);
-    onValue(statsRef, (s) => {
-      let val = s.val() || { runs: 0, wickets: 0 };
-      val.wickets += 1;
-      set(statsRef, val);
-    }, { onlyOnce: true });
+  // Normal formats
+  if (batter.accumulatedWicket >= 1.0) {
+    batterOut(batter);
   }
-
-  // ✅ Auto Summary Save at Game Over
-  if (data.matchOver && data.result.includes("won")) {
-    const statsPath = ref(db, `rooms/${roomCode}/stats`);
-    onValue(statsPath, (snap) => {
-      const stats = snap.val() || {};
-      let topPlayer = "";
-      let maxScore = -1;
-      Object.entries(stats).forEach(([player, stat]) => {
-        const score = (stat.runs || 0) + (stat.wickets || 0) * 20;
-        if (score > maxScore) {
-          maxScore = score;
-          topPlayer = player;
-        }
-      });
-      const summaryRef = ref(db, `rooms/${roomCode}/summary`);
-      set(summaryRef, {
-        result: data.result,
-        mvp: topPlayer || "N/A",
-        timestamp: Date.now()
-      });
-    }, { onlyOnce: true });
-  }
-});
+}
