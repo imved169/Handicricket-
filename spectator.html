@@ -21,6 +21,15 @@
     #playerCards { display: flex; justify-content: space-around; margin: 15px 0; }
     .card-display { background: #133a6b; padding: 10px; border-radius: 8px; text-align: center; width: 45%; }
     #livesDisplay { margin-top: 10px; }
+    .free-hit-banner {
+      background: #ff5722;
+      color: white;
+      padding: 5px;
+      border-radius: 5px;
+      text-align: center;
+      margin: 5px 0;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -34,6 +43,8 @@
       <div id="scoreDisplay">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
       <div id="batterDisplay">Batter: -</div>
       <div id="bowlerDisplay">Bowler: -</div>
+      
+      <div id="freeHitBanner" class="free-hit-banner" style="display: none;">FREE HIT NEXT BALL!</div>
       
       <div id="playerCards">
         <div class="card-display" id="batterCard">Batter's Card: -</div>
@@ -94,6 +105,7 @@
     const room = params.get('room');
     const spectatorId = params.get('id');
     let currentFormat = {};
+    let isFreeHitNextBall = false;
 
     // Get match format
     get(ref(db, `rooms/${room}/player1/format`)).then((snap) => {
@@ -169,22 +181,34 @@
         const batCard = plays[tossWinner];
         const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
 
-        document.getElementById("batterCard").textContent = `Batter's Card: ${batCard}`;
-        document.getElementById("bowlerCard").textContent = `Bowler's Card: ${bowlCard}`;
-
         let commentary = "";
+        
         if (batCard === 0 && bowlCard === 0) {
           commentary = "NO BALL! Free hit coming up!";
-        } else if (batCard === bowlCard) {
+          isFreeHitNextBall = true;
+          document.getElementById("freeHitBanner").style.display = "block";
+        } 
+        else if (isFreeHitNextBall) {
+          commentary = "FREE HIT BALL!";
+          isFreeHitNextBall = false;
+          document.getElementById("freeHitBanner").style.display = "none";
+        }
+        else if (batCard === bowlCard) {
           commentary = `WICKET! ${batCard} out ${bowlCard}`;
-        } else if (batCard === 0) {
+        }
+        else if (batCard === 0) {
           commentary = `Batter played 0, Bowler gets ${bowlCard} runs`;
-        } else if (bowlCard === 0) {
+        }
+        else if (bowlCard === 0) {
           commentary = `Bowler played 0, Batter scores ${batCard} runs`;
-        } else {
+        }
+        else {
           commentary = `${batCard} runs scored!`;
         }
+        
         document.getElementById("commentary").textContent = commentary;
+        document.getElementById("batterCard").textContent = `Batter's Card: ${batCard}`;
+        document.getElementById("bowlerCard").textContent = `Bowler's Card: ${bowlCard}`;
       });
     });
 
