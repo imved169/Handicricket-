@@ -90,6 +90,7 @@
       form.appendChild(input);
     }
 
+    // Modified to handle second innings redirect
     onValue(ref(db, `rooms/${room}`), (snapshot) => {
       const roomData = snapshot.val();
       if (!roomData) return;
@@ -98,14 +99,19 @@
       if (roomData[opponent]?.playing11) {
         waitingMessage.textContent = "Opponent has submitted their team!";
         if (roomData[player]?.playing11) {
-          // Initialize spectator data structure
-          set(ref(db, `rooms/${room}/spectatorData`), {
-            overSummaries: {},
-            matchStats: {},
-            spectatorChat: {}
-          }).then(() => {
-            window.location.href = `toss.html?room=${room}&player=${player}`;
-          });
+          // Check if we're coming back for second innings
+          if (roomData.innings === 2) {
+            window.location.href = `game.html?room=${room}&player=${player}&innings=2`;
+          } else {
+            // Initialize spectator data structure
+            set(ref(db, `rooms/${room}/spectatorData`), {
+              overSummaries: {},
+              matchStats: {},
+              spectatorChat: {}
+            }).then(() => {
+              window.location.href = `toss.html?room=${room}&player=${player}`;
+            });
+          }
         }
       }
     });
@@ -130,7 +136,13 @@
           matchStats: {},
           spectatorChat: {}
         });
-        window.location.href = `toss.html?room=${room}&player=${player}`;
+        
+        // Check for second innings
+        if (roomData.innings === 2) {
+          window.location.href = `game.html?room=${room}&player=${player}&innings=2`;
+        } else {
+          window.location.href = `toss.html?room=${room}&player=${player}`;
+        }
       }
     });
   </script>
