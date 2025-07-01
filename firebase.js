@@ -9,7 +9,8 @@ import {
   update,
   push,
   onDisconnect,
-  serverTimestamp 
+  serverTimestamp,
+  off 
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -26,14 +27,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Connection monitoring
+// Connection state monitoring
+let isOnline = true;
 const connectedRef = ref(db, ".info/connected");
-onValue(connectedRef, (snap) => {
-  if (snap.val() === true) {
-    console.log("Connected to Firebase");
-  } else {
-    console.log("Connection lost");
-  }
+const connectionListener = onValue(connectedRef, (snap) => {
+  isOnline = snap.val() === true;
+  console.log(isOnline ? "Online" : "Offline");
 });
 
 export { 
@@ -46,5 +45,8 @@ export {
   update,
   push,
   onDisconnect,
-  serverTimestamp 
+  serverTimestamp,
+  off,
+  connectionListener,
+  isOnline 
 };
