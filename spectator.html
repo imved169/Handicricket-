@@ -54,7 +54,11 @@
     
     <div class="chat">
       <h3>Spectator Chat</h3>
-      <div id="messages"></div>
+      
+<div id="messages" style="height:200px; overflow-y:auto; border:1px solid #1e88e5; padding:10px; margin-bottom:10px;"></div>
+<input type="text" id="chatInput" placeholder="Type message..." style="width:100%; padding:8px;">
+<button onclick="sendChatMessage()" style="margin-top:5px;">Send</button>
+
       <input type="text" id="messageInput" placeholder="Type your message..." />
       <button onclick="sendMessage()">Send</button>
       
@@ -260,6 +264,72 @@
       const spectators = snap.val() || {};
       document.getElementById("specCount").textContent = Object.keys(spectators).length;
     });
-  </script>
+  
+function sendChatMessage() {
+  const message = document.getElementById('chatInput').value.trim();
+  if (message) {
+    push(ref(db, `rooms/${room}/spectatorChat`), {
+      sender: `Spectator${spectatorId.slice(0,4)}`,
+      message: message,
+      timestamp: Date.now()
+    });
+    document.getElementById('chatInput').value = '';
+  }
+}
+
+onValue(ref(db, `rooms/${room}/spectatorChat`), (snap) => {
+  const messages = snap.val() || {};
+  let chatHTML = '';
+  Object.values(messages).forEach(msg => {
+    chatHTML += `<div><strong>${msg.sender}:</strong> ${msg.message}</div>`;
+  });
+  document.getElementById('messages').innerHTML = chatHTML;
+});
+
+</script>
+
+<script>
+function sendMessage() {
+  const msg = document.getElementById("messageInput").value;
+  if (msg.trim()) {
+    const newMsg = {
+      sender: "Spectator",
+      message: msg,
+      timestamp: Date.now()
+    };
+    firebase.database().ref(`rooms/${room}/spectatorChat`).push(newMsg);
+  }
+}
+
+firebase.database().ref(`rooms/${room}/spectatorChat`).on("value", (snap) => {
+  const chat = snap.val() || {};
+  const chatBox = document.getElementById("messages");
+  chatBox.innerHTML = Object.values(chat).map(m =>
+    `<div><strong>${m.sender}</strong>: ${m.message}</div>`).join("");
+});
+
+function sendChatMessage() {
+  const message = document.getElementById('chatInput').value.trim();
+  if (message) {
+    push(ref(db, `rooms/${room}/spectatorChat`), {
+      sender: `Spectator${spectatorId.slice(0,4)}`,
+      message: message,
+      timestamp: Date.now()
+    });
+    document.getElementById('chatInput').value = '';
+  }
+}
+
+onValue(ref(db, `rooms/${room}/spectatorChat`), (snap) => {
+  const messages = snap.val() || {};
+  let chatHTML = '';
+  Object.values(messages).forEach(msg => {
+    chatHTML += `<div><strong>${msg.sender}:</strong> ${msg.message}</div>`;
+  });
+  document.getElementById('messages').innerHTML = chatHTML;
+});
+
+</script>
 </body>
+
 </html>
