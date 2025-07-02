@@ -743,7 +743,79 @@
             outcome = "No run (Test Match)";
           }
         } 
-        else if (batCard === bowlCard && batCard > 0) {
+        else 
+// --- 1. WICKET CALCULATION (Non-Powerplay Overs) ---
+if (batCard === bowlCard && batCard > 0) { // Wicket condition
+  if (freeHit) {
+    outcome = "Wicket on Free Hit (not out)";
+    freeHit = false;
+  } else {
+    if (currentBatter && batterLives[currentBatter] !== undefined) {
+      if (!isPowerplay) {
+        if (currentFormat.name !== "ODI") {
+          if (batterLives[currentBatter] >= 2) {
+            batterLives[currentBatter] -= 2;
+            wickets += 1;
+          } else {
+            batterLives[currentBatter] = 0;
+            wickets += 0.5;
+          }
+        } else {
+          if (batterLives[currentBatter] >= 2) {
+            batterLives[currentBatter] -= 2;
+            wickets += 0.5;
+          } else {
+            batterLives[currentBatter] = 0;
+            wickets += 0.25;
+          }
+        }
+      } else {
+        batterLives[currentBatter]--;
+        wickets += (currentFormat.name === "ODI") ? 0.25 : 0.5;
+      }
+
+      outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
+      if (batterLives[currentBatter] <= 0) {
+        isPlayerOut = true;
+        outcome = "WICKET! (Player out)";
+      }
+    } else {
+      wickets += isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
+      outcome = "WICKET!";
+      isWicket = true;
+    }
+  }
+  isLegalBall = true;
+  freeHit = false;
+}
+
+// --- 2. BOWLER PENALTY (4th Zero in Over) ---
+if (batCard === 0) zerosThisOver[player]++;
+if (bowlCard === 0) zerosThisOver[opponent]++;
+
+if (bowlCard === 0 && zerosThisOver[opponent] >= 4 && !isTestMatch) {
+  outcome = "4th ZERO! No-Ball (+1 run) + Free Hit";
+  runs += 1;
+  currentInningRuns += 1;
+  freeHit = true;
+  isLegalBall = false;
+}
+
+if (batCard === 0 && bowlCard === 0 && !isTestMatch) {
+  outcome = "DOUBLE ZERO! No-Ball (+1 run) + Free Hit";
+  runs += 1;
+  currentInningRuns += 1;
+  freeHit = true;
+  isLegalBall = false;
+}
+
+if (legalBalls % 6 === 0) {
+  zerosThisOver = { player1: 0, player2: 0 };
+}
+
+
+// Existing logic follows
+if (batCard === bowlCard && batCard > 0) {
           if (freeHit) {
             outcome = "Wicket on Free Hit (not out)";
             freeHit = false;
