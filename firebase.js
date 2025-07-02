@@ -16,9 +16,3 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 export { db, ref, set, onValue, get, child };
-
-// === Summary Push Logic ===
-export async function pushMatchSummary(room, summaryData) {
-  const summaryRef = ref(db, `rooms/${room}/summary`);
-  await set(summaryRef, summaryData);
-}
