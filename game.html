@@ -854,7 +854,26 @@ batterWicketTotal[currentBatter] += thisWicket;
       outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
       if (batterLives[currentBatter] <= 0) {
         isPlayerOut = true;
-        outcome = "WICKET! (Player out)";
+        
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+
+let livesLost = 0;
+if (!isPowerplay) {
+  livesLost = (currentFormat.name === "ODI") ? Math.min(4, batterLives[currentBatter]) : Math.min(2, batterLives[currentBatter]);
+} else {
+  livesLost = 1;
+}
+
+batterLives[currentBatter] -= livesLost;
+let addWicket = getWicketValueFromLives(currentFormat.name, livesLost);
+
+let available = 1.0 - batterWicketTotal[currentBatter];
+if (addWicket > available) addWicket = available;
+
+wickets += addWicket;
+batterWicketTotal[currentBatter] += addWicket;
+
+outcome = "WICKET! (Player out)";
       }
     } else {
       wickets += isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
@@ -939,7 +958,26 @@ batterWicketTotal[currentBatter] += thisWicket;
 
               if (batterLives[currentBatter] <= 0) {
                 isPlayerOut = true;
-                outcome = "WICKET! (Player out)";
+                
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+
+let livesLost = 0;
+if (!isPowerplay) {
+  livesLost = (currentFormat.name === "ODI") ? Math.min(4, batterLives[currentBatter]) : Math.min(2, batterLives[currentBatter]);
+} else {
+  livesLost = 1;
+}
+
+batterLives[currentBatter] -= livesLost;
+let addWicket = getWicketValueFromLives(currentFormat.name, livesLost);
+
+let available = 1.0 - batterWicketTotal[currentBatter];
+if (addWicket > available) addWicket = available;
+
+wickets += addWicket;
+batterWicketTotal[currentBatter] += addWicket;
+
+outcome = "WICKET! (Player out)";
               }
             } else {
               if (isPowerplay) {
@@ -1273,6 +1311,18 @@ batterWicketTotal[currentBatter] += thisWicket;
 
 <script type="module" src="script.mjs"></script>
 <script>
+
+function getWicketValueFromLives(format, livesLost) {
+  if (format === "ODI") {
+    if (livesLost === 1) return 0.25;
+    if (livesLost === 2) return 0.5;
+    if (livesLost === 3) return 0.75;
+    return 1.0; // 4 or more
+  } else {
+    return livesLost * 0.5 > 1.0 ? 1.0 : livesLost * 0.5; // T20/5/10
+  }
+}
+
   // Phase 4: Game state flags
   let isFreeHit = false;
   let freeHitActiveForBall = false;
