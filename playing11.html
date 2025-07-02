@@ -36,52 +36,6 @@
   </div>
 
   <script type="module">
-// Ensure proper redirect only after both teams submit
-onValue(ref(db, `rooms/${room}`), (snapshot) => {
-  const roomData = snapshot.val();
-  if (!roomData) return;
-
-  const opponent = player === 'player1' ? 'player2' : 'player1';
-
-  if (roomData[opponent]?.playing11 && roomData[player]?.playing11) {
-    set(ref(db, `rooms/${room}/spectatorData`), {
-      overSummaries: {},
-      matchStats: {},
-      spectatorChat: {}
-    }).then(() => {
-      if (player === 'player1') {
-        window.location.href = `toss.html?room=${room}&player=${player}`;
-      }
-    });
-  } else if (roomData[opponent]?.playing11) {
-    waitingMessage.textContent = "Opponent has submitted their team!";
-  }
-});
-
-document.getElementById("submitXI").addEventListener("click", async () => {
-  const players = Array.from(form.elements).map(input => input.value.trim());
-  if (players.some(name => name === "")) {
-    return alert("All 11 player names are required!");
-  }
-
-  await set(ref(db, `rooms/${room}/${player}/playing11`), players);
-  waitingMessage.textContent = "Waiting for opponent...";
-
-  const snapshot = await get(ref(db, `rooms/${room}`));
-  const roomData = snapshot.val();
-  const opponent = player === 'player1' ? 'player2' : 'player1';
-  if (roomData[opponent]?.playing11) {
-    await set(ref(db, `rooms/${room}/spectatorData`), {
-      overSummaries: {},
-      matchStats: {},
-      spectatorChat: {}
-    });
-    if (player === 'player1') {
-      window.location.href = `toss.html?room=${room}&player=${player}`;
-    }
-  }
-});
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
