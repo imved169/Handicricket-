@@ -979,5 +979,121 @@ onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
 });
 
 </script>
+
+<div id="freeHitBadge" style="display:none;background:#ffc107;color:#000;padding:5px;border-radius:8px;margin-top:10px;">FREE HIT</div>
+<script type="module">
+import { db, ref, onValue, set, get, child } from './firebase.js';
+
+let zeroCount = { batter: 0, bowler: 0 };
+let freeHit = false;
+let currentBatter = null;
+let currentBowler = null;
+let innings = 1;
+let target = 0;
+let currentRuns = 0;
+let currentBalls = 0;
+let wickets = 0;
+let maxWickets = 10;
+
+// Update free hit UI
+function showFreeHitBadge(active) {
+  const badge = document.getElementById("freeHitBadge");
+  if (badge) badge.style.display = active ? "inline-block" : "none";
+}
+
+// Reset free hit after valid delivery
+function resetFreeHit() {
+  freeHit = false;
+  showFreeHitBadge(false);
+}
+
+// Zero count logic
+function handleZero(value, role) {
+  if (value === 0) {
+    zeroCount[role]++;
+    if (zeroCount[role] > 3) {
+      if (role === 'batter') {
+        currentRuns = Math.max(0, currentRuns - 5);
+        updateScoreboard();
+      } else if (role === 'bowler') {
+        freeHit = true;
+        showFreeHitBadge(true);
+      }
+    }
+  } else {
+    zeroCount.batter = 0;
+    zeroCount.bowler = 0;
+  }
+}
+
+// Match end check
+function checkMatchEnd() {
+  if (innings === 2) {
+    if (currentRuns > target) {
+      alert("Batting Team Wins!");
+      pushMatchSummary("Batting Team Wins");
+    } else if (currentBalls >= totalBalls) {
+      if (currentRuns === target) {
+        alert("Match Tied! Super Over!");
+      } else {
+        alert("Bowling Team Wins!");
+        pushMatchSummary("Bowling Team Wins");
+      }
+    }
+  }
+}
+
+// Push summary to Firebase
+function pushMatchSummary(result) {
+  const summaryRef = ref(db, `rooms/${roomCode}/summary`);
+  set(summaryRef, {
+    result: result,
+    runs: currentRuns,
+    wickets: wickets,
+    overs: Math.floor(currentBalls / 6) + "." + (currentBalls % 6),
+  });
+}
+
+// Required RR display
+function updateRRR() {
+  if (innings === 2) {
+    const ballsLeft = totalBalls - currentBalls;
+    const runsNeeded = target - currentRuns + 1;
+    const rrr = (runsNeeded / (ballsLeft / 6)).toFixed(2);
+    document.getElementById("rrrDisplay").innerText = "RRR: " + rrr;
+  }
+}
+
+// Manual batter selection modal
+function selectNextBatter() {
+  document.getElementById("selectionModal").style.display = "flex";
+}
+
+// Card click sample logic extension
+function onCardClick(value) {
+  handleZero(value, 'batter'); // update zero logic
+  if (freeHit && value === 'W') {
+    alert("No wicket on Free Hit!");
+    return;
+  }
+  resetFreeHit();
+  currentBalls++;
+  if (value === 'W') {
+    wickets++;
+    if (wickets >= maxWickets) {
+      checkMatchEnd();
+    } else {
+      selectNextBatter();
+    }
+  } else {
+    currentRuns += parseInt(value);
+    updateScoreboard();
+  }
+  checkMatchEnd();
+  updateRRR();
+}
+
+</script>
+
 </body>
 </html>
