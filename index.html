@@ -5,19 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>HandiCricket - Room Setup</title>
   <style>
-    body { background-color: #0a2540; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #102d4a; padding: 20px; border-radius: 16px; max-width: 400px; width: 100%; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
-    input, button, select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; }
-    button { background: #1e88e5; color: white; cursor: pointer; }
-    button:hover { background: #1565c0; }
-    #roomDisplay { font-size: 18px; margin-top: 10px; word-break: break-all; }
-    .format-selector { display: flex; flex-wrap: wrap; justify-content: space-between; margin: 10px 0; }
-    .format-btn { 
-      width: 48%; padding: 10px; margin: 5px 0; border-radius: 8px; 
-      background: #1a3a6a; border: 2px solid #1e88e5; color: white; cursor: pointer;
+    body { 
+      background-color: #0a2540; 
+      color: white; 
+      font-family: sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      padding: 20px; 
     }
-    .format-btn.active { background: #1e88e5; font-weight: bold; }
-    .format-btn:hover { background: #1565c0; }
+    .card { 
+      background: #102d4a; 
+      padding: 20px; 
+      border-radius: 16px; 
+      max-width: 400px; 
+      width: 100%; 
+      margin-top: 20px; 
+      box-shadow: 0 0 10px rgba(0,0,0,0.3); 
+    }
+    input, button, select { 
+      width: 100%; 
+      padding: 10px; 
+      margin: 10px 0; 
+      border-radius: 10px; 
+      border: none; 
+      font-size: 16px; 
+    }
+    button { 
+      background: #1e88e5; 
+      color: white; 
+      cursor: pointer; 
+      transition: background 0.3s;
+    }
+    button:hover { 
+      background: #1565c0; 
+    }
+    #roomDisplay { 
+      font-size: 18px; 
+      margin-top: 10px; 
+      word-break: break-all; 
+    }
+    .format-selector { 
+      display: flex; 
+      flex-wrap: wrap; 
+      justify-content: space-between; 
+      margin: 10px 0; 
+    }
+    .format-btn { 
+      width: 48%; 
+      padding: 10px; 
+      margin: 5px 0; 
+      border-radius: 8px; 
+      background: #1a3a6a; 
+      border: 2px solid #1e88e5; 
+      color: white; 
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .format-btn.active { 
+      background: #1e88e5; 
+      font-weight: bold; 
+    }
+    .format-btn:hover { 
+      background: #1565c0; 
+    }
     .saved-games {
       background: #102d4a;
       padding: 15px;
@@ -37,20 +88,58 @@
     .saved-game-item:hover {
       background: #1e88e5;
     }
+    .player-count {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #1e88e5;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 14px;
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      cursor: help;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 200px;
+      background-color: #123;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
   <h1>🏏 HandiCricket</h1>
   <div class="card">
-    <input type="text" id="teamName" placeholder="Enter Team Name" />
-    <input type="text" id="joinCode" placeholder="Join Room Code" />
+    <input type="text" id="teamName" placeholder="Enter Team Name" maxlength="20" />
+    <input type="text" id="joinCode" placeholder="Join Room Code (Leave blank to create)" />
     
     <div class="format-selector">
       <button class="format-btn active" data-format="5">5 Overs</button>
       <button class="format-btn" data-format="10">10 Overs</button>
-      <button class="format-btn" data-format="20">20 Overs</button>
-      <button class="format-btn" data-format="50">50 Overs</button>
-      <button class="format-btn" data-format="test">Test Match</button>
+      <button class="format-btn" data-format="20">T20</button>
+      <button class="format-btn" data-format="50">ODI</button>
+      <button class="format-btn" data-format="test">Test Match 
+        <span class="tooltip">(5 days, 90 overs/day)
+          <span class="tooltiptext">Test matches have 4 innings and follow-on rules</span>
+        </span>
+      </button>
     </div>
     
     <button onclick="createRoom()">Create Room</button>
@@ -61,7 +150,7 @@
   </div>
 
   <div class="saved-games">
-    <h3>Continue Saved Games</h3>
+    <h3>⏳ Continue Saved Games</h3>
     <div id="savedGamesList"></div>
   </div>
 
@@ -98,15 +187,22 @@
     window.createRoom = async function() {
       const teamName = document.getElementById("teamName").value.trim();
       if (!teamName) return alert("Enter your team name first!");
+      if (teamName.length > 20) return alert("Team name too long! Max 20 chars");
       
       const roomCode = generateRoomCode();
       await set(ref(db, 'rooms/' + roomCode + '/player1'), {
         teamName: teamName,
         format: selectedFormat,
-        online: true
+        online: true,
+        timestamp: Date.now()
       });
       
-      document.getElementById("roomDisplay").innerText = `Room Code: ${roomCode} | Format: ${getFormatName(selectedFormat)}`;
+      document.getElementById("roomDisplay").innerHTML = `
+        <strong>Room Created!</strong><br>
+        Code: ${roomCode}<br>
+        Format: ${getFormatName(selectedFormat)}
+      `;
+      localStorage.setItem("roomCode", roomCode);
       window.location.href = `playing11.html?room=${roomCode}&player=player1`;
     }
 
@@ -114,16 +210,31 @@
       const teamName = document.getElementById("teamName").value.trim();
       const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
       if (!teamName || !joinCode) return alert("Enter both team name and room code!");
+      if (teamName.length > 20) return alert("Team name too long! Max 20 chars");
       
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
       if (snapshot.exists()) {
+        const roomData = snapshot.val();
+        
+        // Check if room is full
+        if (roomData.player1 && roomData.player2) {
+          return alert("Room is full! Try spectating instead.");
+        }
+        
         await set(ref(db, 'rooms/' + joinCode + '/player2'), {
           teamName: teamName,
-          online: true
+          online: true,
+          timestamp: Date.now()
         });
-        const format = snapshot.val().player1?.format || "5";
-        document.getElementById("roomDisplay").innerText = `Joined Room: ${joinCode} | Format: ${getFormatName(format)}`;
+        
+        const format = roomData.player1?.format || "5";
+        document.getElementById("roomDisplay").innerHTML = `
+          <strong>Joined Room!</strong><br>
+          Code: ${joinCode}<br>
+          Format: ${getFormatName(format)}
+        `;
+        localStorage.setItem("roomCode", joinCode);
         window.location.href = `playing11.html?room=${joinCode}&player=player2`;
       } else {
         alert("Invalid room code!");
@@ -140,8 +251,8 @@
         const roomData = snapshot.val();
         const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
         
-        if (spectatorCount >= 10) {
-          return alert("Spectator slots full! Max 10 spectators allowed.");
+        if (spectatorCount >= 20) {
+          return alert("Spectator slots full! Max 20 spectators allowed.");
         }
         
         const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
@@ -151,7 +262,11 @@
           vote: null
         });
         
-        document.getElementById("spectatorDisplay").innerText = `Spectating Room: ${joinCode}`;
+        document.getElementById("spectatorDisplay").innerHTML = `
+          <strong>Spectating:</strong> ${joinCode}<br>
+          ${roomData.player1?.teamName || "Team 1"} vs ${roomData.player2?.teamName || "Team 2"}
+        `;
+        localStorage.setItem("roomCode", joinCode);
         window.location.href = `spectator.html?room=${joinCode}&id=${spectatorId}`;
       } else {
         alert("Invalid room code!");
@@ -159,14 +274,14 @@
     }
 
     function getFormatName(format) {
-      switch(format) {
-        case "5": return "5 Overs";
-        case "10": return "10 Overs";
-        case "20": return "T20";
-        case "50": return "ODI";
-        case "test": return "Test Match";
-        default: return "5 Overs";
-      }
+      const names = {
+        "5": "5 Overs",
+        "10": "10 Overs",
+        "20": "T20",
+        "50": "ODI (50 Overs)",
+        "test": "Test Match"
+      };
+      return names[format] || "5 Overs";
     }
 
     async function loadSavedGames() {
@@ -179,11 +294,17 @@
       Object.entries(games).forEach(([roomId, game]) => {
         const gameEl = document.createElement("div");
         gameEl.className = "saved-game-item";
+        
+        const timeAgo = Math.floor((Date.now() - game.timestamp) / 60000);
+        const timeText = timeAgo < 1 ? "just now" : 
+                        timeAgo < 60 ? `${timeAgo} min ago` : 
+                        `${Math.floor(timeAgo/60)} hours ago`;
+        
         gameEl.innerHTML = `
           <strong>${game.players.player1.team} vs ${game.players.player2.team}</strong><br>
-          Score: ${game.players.player1.score}-${game.players.player2.score} | 
-          Innings: ${game.innings} | Balls left: ${game.ballsRemaining}
-          <small>${new Date(game.timestamp).toLocaleString()}</small>
+          ${game.format} | Innings ${game.innings}<br>
+          ${game.players.player1.score}/${game.players.player1.wickets} - ${game.players.player2.score}/${game.players.player2.wickets}<br>
+          <small>${timeText}</small>
         `;
         gameEl.addEventListener("click", () => {
           if (confirm("Resume this saved game?")) {
@@ -192,10 +313,15 @@
         });
         container.appendChild(gameEl);
       });
+      
+      if (container.innerHTML === '') {
+        container.innerHTML = '<div>No saved games found</div>';
+      }
     }
 
     // Initialize
     loadSavedGames();
+    setInterval(loadSavedGames, 30000); // Refresh every 30 seconds
   </script>
 </body>
 </html>
