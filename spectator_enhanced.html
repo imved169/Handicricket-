@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .reaction-burst {
+      position: absolute;
+      font-size: 48px;
+      animation: floatUp 2s ease-out;
+      z-index: 1000;
+    }
+    @keyframes floatUp {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2) translateY(-100px); opacity: 0; }
+    }
+    #momentumDisplay {
+      height: 10px;
+      background: linear-gradient(to right, #f44336, #ffeb3b, #4CAF50);
+      border-radius: 5px;
+      margin: 10px 0;
+      transition: width 0.5s;
+    }
+  </style>
+</head>
+<body>
+  <div id="momentumContainer">
+    <div>Match Momentum</div>
+    <div id="momentumDisplay" style="width: 50%"></div>
+  </div>
+
+  <script type="module">
+    import { db, ref, onValue } from './firebase_enhanced.js';
+    const room = new URLSearchParams(location.search).get("room");
+
+    onValue(ref(db, `rooms/${room}/matchStats`), (snap) => {
+      const stats = snap.val();
+      if (stats?.momentum) {
+        document.getElementById('momentumDisplay').style.width = `${stats.momentum}%`;
+      }
+    });
+
+    onValue(ref(db, `rooms/${room}/reactions`), (snap) => {
+      const reactions = snap.val();
+      if (!reactions) return;
+      Object.values(reactions).forEach(reaction => {
+        const burst = document.createElement('div');
+        burst.className = 'reaction-burst';
+        burst.textContent = reaction.emoji;
+        burst.style.left = `${Math.random() * 80 + 10}%`;
+        burst.style.top = `${Math.random() * 80 + 10}%`;
+        document.body.appendChild(burst);
+        setTimeout(() => burst.remove(), 2000);
+      });
+    });
+  </script>
+</body>
+</html>
