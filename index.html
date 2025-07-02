@@ -37,6 +37,13 @@
     .saved-game-item:hover {
       background: #1e88e5;
     }
+    .ai-btn {
+      background: #4caf50;
+      margin-top: 10px;
+    }
+    .ai-btn:hover {
+      background: #388e3c;
+    }
   </style>
 </head>
 <body>
@@ -56,6 +63,7 @@
     <button onclick="createRoom()">Create Room</button>
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="spectateRoom()">Spectate Match</button>
+    <button class="ai-btn" onclick="startAIMatch()">🖥️ Play vs AI</button>
     <div id="roomDisplay"></div>
     <div id="spectatorDisplay"></div>
   </div>
@@ -93,6 +101,17 @@
 
     function generateRoomCode() {
       return Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+
+    function getFormatName(format) {
+      switch(format) {
+        case "5": return "5 Overs";
+        case "10": return "10 Overs";
+        case "20": return "T20";
+        case "50": return "ODI";
+        case "test": return "Test Match";
+        default: return "5 Overs";
+      }
     }
 
     window.createRoom = async function() {
@@ -158,15 +177,31 @@
       }
     }
 
-    function getFormatName(format) {
-      switch(format) {
-        case "5": return "5 Overs";
-        case "10": return "10 Overs";
-        case "20": return "T20";
-        case "50": return "ODI";
-        case "test": return "Test Match";
-        default: return "5 Overs";
-      }
+    window.startAIMatch = async function() {
+      const teamName = document.getElementById("teamName").value.trim();
+      if (!teamName) return alert("Enter your team name first!");
+      
+      const roomCode = 'AI_' + generateRoomCode();
+      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
+        teamName: teamName,
+        format: selectedFormat,
+        online: true,
+        aiOpponent: true
+      });
+      
+      // Set AI team
+      const aiTeam = ["AI Batsman 1", "AI Batsman 2", "AI Batsman 3", "AI Batsman 4", 
+                     "AI Batsman 5", "AI Batsman 6", "AI Bowler 1", "AI Bowler 2",
+                     "AI Bowler 3", "AI Bowler 4", "AI Bowler 5"];
+      
+      await set(ref(db, 'rooms/' + roomCode + '/player2'), {
+        teamName: "AI Team",
+        playing11: aiTeam,
+        online: true,
+        isAI: true
+      });
+      
+      window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
     }
 
     async function loadSavedGames() {
@@ -180,10 +215,10 @@
         const gameEl = document.createElement("div");
         gameEl.className = "saved-game-item";
         gameEl.innerHTML = `
-          <strong>${game.players.player1.team} vs ${game.players.player2.team}</strong><br>
-          Score: ${game.players.player1.score}-${game.players.player2.score} | 
-          Innings: ${game.innings} | Balls left: ${game.ballsRemaining}
-          <small>${new Date(game.timestamp).toLocaleString()}</small>
+          <strong>${game.players?.player1?.team || 'Team 1'} vs ${game.players?.player2?.team || 'Team 2'}</strong><br>
+          Score: ${game.players?.player1?.score || '0'}-${game.players?.player2?.score || '0'} | 
+          Innings: ${game.innings || '1'} | Balls left: ${game.ballsRemaining || '0'}
+          <small>${new Date(game.timestamp || Date.now()).toLocaleString()}</small>
         `;
         gameEl.addEventListener("click", () => {
           if (confirm("Resume this saved game?")) {
@@ -197,49 +232,5 @@
     // Initialize
     loadSavedGames();
   </script>
-
-<!-- 🧠 Resume Game List -->
-<div id="savedGamesList" style="margin-top: 20px;"></div>
-
-<!-- 🤖 Play vs AI -->
-<button onclick="startAIMatch()">🖥️ Play vs AI</button>
-
-<script>
-function startAIMatch() {
-  const roomCode = Math.random().toString(36).substring(2, 8);
-  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
-}
-
-function loadSavedGames() {
-  const dbRef = firebase.database().ref("savedGames");
-  dbRef.once("value", (snap) => {
-    const games = snap.val() || {};
-    const container = document.getElementById("savedGamesList");
-    container.innerHTML = Object.entries(games).map(([id, game]) => `
-      <div style="background:#14395a;padding:10px;border-radius:8px;margin-bottom:10px;">
-        <strong>${game.team1} vs ${game.team2}</strong><br/>
-        Score: ${game.score || '0/0'} • Overs: ${game.overs || '0.0'}<br/>
-        <button onclick="resumeGame('${id}')">Resume</button>
-      </div>`).join("");
-  });
-}
-
-function resumeGame(roomId) {
-  if (confirm("Resume this match?")) {
-    window.location.href = `game.html?room=${roomId}&player=player1`;
-  }
-}
-</script>
-
-<!-- 🤖 AI Match Button -->
-<button onclick="startAIMatch()">🖥️ Play vs AI</button>
-<script>
-function startAIMatch() {
-  const roomCode = 'AI_' + Math.random().toString(36).substring(2, 7).toUpperCase();
-  localStorage.setItem('roomCode', roomCode);
-  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
-}
-</script>
 </body>
-
 </html>
