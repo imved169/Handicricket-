@@ -143,13 +143,25 @@
       margin: 5px;
       min-width: 120px;
     }
-  </style>
+  
+
+#aiToggle {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #4CAF50;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+</style>
 </head>
 <body>
   <div id="spectatorCount">Spectators: 0</div>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
   <div id="roleText"></div>
+  <div id="aiToggle">🤖 AI Mode: OFF</div>
   <div id="teamStatus">
     <div id="currentPlayers" style="font-weight: bold; font-size: 16px;">
       Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
@@ -857,6 +869,115 @@
 
     // Initialize the game
     initGame();
-  </script>
+  
+
+// === NEW FEATURE HOOKS ===
+
+function trackZeros(player, card) {
+  if (card !== 0) return;
+
+  zerosThisOver[player] = (zerosThisOver[player] || 0) + 1;
+  if (zerosThisOver[player] >= 4) {
+    if (isBatting) {
+      runs = Math.max(0, runs - 5);
+      status.innerText = "⚠️ 4th zero! -5 run penalty";
+    } else {
+      runs += 1;
+      freeHit = true;
+      status.innerText = "⚠️ 4th zero! No Ball + Free Hit";
+    }
+  }
+
+  if (legalBalls % 6 === 0) {
+    zerosThisOver = { player1: 0, player2: 0 }; // reset at over end
+  }
+}
+
+function checkMatchEnd() {
+  const target = team1Score + 1;
+  if (
+    wickets >= currentFormat.totalWickets ||
+    legalBalls >= currentFormat.totalOvers * 6 ||
+    (innings === 2 && runs >= target)
+  ) {
+    endMatch();
+  }
+}
+
+function handleFreeHitReset() {
+  if (freeHit) {
+    freeHitAlert.style.display = "block";
+    setTimeout(() => {
+      freeHit = false;
+      freeHitAlert.style.display = "none";
+    }, 2000);
+  }
+}
+
+function enableAIMode() {
+  if (player === "player1") {
+    set(ref(db, `rooms/${room}/aiMode`), true);
+    onValue(ref(db, `rooms/${room}/currentPlays/player1`), (snap) => {
+      if (snap.exists()) {
+        setTimeout(() => {
+          const aiPlay = Math.floor(Math.random() * 7);
+          set(ref(db, `rooms/${room}/currentPlays/player2`), aiPlay);
+        }, 1000);
+      }
+    });
+  }
+}
+
+// Inject into initGame
+function initAllExtras() {
+  if (params.get('ai')) enableAIMode();
+}
+initAllExtras();
+
+// Modify card handler:
+buttons.forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const val = parseInt(btn.dataset.value);
+    trackZeros(player, val);
+    disableButtons();
+    status.innerText = "Waiting...";
+    await set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
+  });
+});
+
+// Modify play listener:
+onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+  const plays = snap.val();
+  if (!plays || !plays.player1 || !plays.player2) return;
+
+  const batCard = isBatting ? plays[player] : plays[opponent];
+  const bowlCard = isBatting ? plays[opponent] : plays[player];
+
+  let outcome = "";
+  let isWicket = false;
+
+  if (freeHit) {
+    outcome = `Free Hit! Scored ${batCard}`;
+  } else if (batCard === bowlCard) {
+    wickets++;
+    isWicket = true;
+    outcome = "WICKET!";
+  } else {
+    runs += batCard;
+    outcome = `${batCard} run(s)`;
+  }
+
+  status.innerText = outcome;
+  legalBalls++;
+  handleFreeHitReset();
+  updateScoreboard();
+  updatePlayerStats();
+  checkMatchEnd();
+
+  // Clear plays after processing
+  set(ref(db, `rooms/${room}/currentPlays`), {});
+});
+
+</script>
 </body>
 </html>
