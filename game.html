@@ -261,6 +261,7 @@
 
     let runs = 0, wickets = 0;
     let legalBalls = 0;
+let skipBallIncrement = false;
     let freeHit = false;
     let currentBatter = null;
     let currentBowler = null;
@@ -283,6 +284,7 @@
     let isPowerplay = false;
     let isDeadOver = false;
     let batterLives = {};
+let batterWicketTotal = {};
     let zerosThisOver = { player1: 0, player2: 0 };
     let currentOver = 0;
     let deadOversSelected = [];
@@ -756,24 +758,52 @@ if (batCard === bowlCard && batCard > 0) { // Wicket condition
           if (batterLives[currentBatter] >= 2) {
             batterLives[currentBatter] -= 2;
             if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 1;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 1;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 }
           } else {
             batterLives[currentBatter] = 0;
             if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 0.5;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 0.5;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 }
           }
         } else {
           if (batterLives[currentBatter] >= 2) {
             batterLives[currentBatter] -= 2;
             if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 0.5;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 0.5;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 }
           } else {
             batterLives[currentBatter] = 0;
             if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 0.25;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 0.25;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 }
           }
         }
@@ -834,11 +864,25 @@ if (batCard === bowlCard && batCard > 0) {
                 batterLives[currentBatter] -= 1; // Deduct 1 life (2 lives = 1 wicket)
                 if (isPowerplay) {
                   if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 0.5;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 0.5;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 } // Powerplay: 0.5 wicket per life
                 } else {
                   if ((wickets + 1) - Math.floor(wickets) <= 1.0) {
-  wickets += 1;
+  
+if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+let thisWicket = 1;
+const available = 1.0 - batterWicketTotal[currentBatter];
+if (thisWicket > available) thisWicket = available;
+wickets += thisWicket;
+batterWicketTotal[currentBatter] += thisWicket;
+
 } // Non-powerplay: 1 wicket per life (2 lives)
                 }
                 outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
@@ -924,7 +968,7 @@ if (batCard === bowlCard && batCard > 0) {
         }
 
         if (isLegalBall) {
-          legalBalls++;
+          if (!skipBallIncrement) legalBalls++;
   if (freeHit && !(batCard === 0 && bowlCard === 0)) freeHit = false;
           if (isTestMatch) oversToday++;
           
@@ -1071,6 +1115,7 @@ if (batCard === bowlCard && batCard > 0) {
       daysRemaining--;
       
       setTimeout(() => {
+  skipBallIncrement = false;
         if (daysRemaining > 0) {
           oversToday = 0;
           enableButtons();
