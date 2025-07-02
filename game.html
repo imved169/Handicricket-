@@ -120,11 +120,6 @@
       border-radius: 15px;
       font-size: 14px;
     }
-    #winProbability {
-      margin-top: 5px;
-      font-size: 14px;
-      color: #4caf50;
-    }
   </style>
 </head>
 <body>
@@ -137,7 +132,6 @@
       Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
     </div>
     <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
-    <div id="winProbability"></div>
   </div>
   <div id="specialAlerts">
     <div id="powerplayAlert" class="alert">POWERPLAY</div>
@@ -262,16 +256,6 @@
         regularWicketValue: 1,
         livesPerPlayer: 3,
         deadOvers: []
-      },
-      "superover": {
-        name: "Super Over",
-        totalOvers: 1,
-        totalWickets: 2,
-        powerplayOvers: 0,
-        powerplayWicketValue: 1,
-        regularWicketValue: 1,
-        livesPerPlayer: 1,
-        deadOvers: []
       }
     };
 
@@ -286,7 +270,6 @@
     let isBatting = false;
     let currentFormat = {};
     let isTestMatch = false;
-    let isSuperOver = false;
     let innings = 1;
     let currentInningRuns = 0;
     let currentInningWickets = 0;
@@ -337,7 +320,6 @@
     const exitBtn = document.getElementById("exitBtn");
     const connectionStatus = document.getElementById("connectionStatus");
     const spectatorCountEl = document.getElementById("spectatorCount");
-    const winProbabilityEl = document.getElementById("winProbability");
 
     function updateSpectatorData() {
       const currentOver = Math.floor(legalBalls / 6);
@@ -360,8 +342,7 @@
         partnership: runs - lastWicketScore,
         requiredRate: requiredRate,
         batterLives: currentBatter ? batterLives[currentBatter] : null,
-        isPowerplay: isPowerplay,
-        winProbability: calculateWinProbability()
+        isPowerplay: isPowerplay
       });
 
       set(ref(db, `rooms/${room}/liveState`), {
@@ -503,7 +484,7 @@
       freeHitAlert.style.display = "none";
       deadOverAlert.style.display = "none";
 
-      if (isTestMatch || isSuperOver) return;
+      if (isTestMatch) return;
 
       if (Array.isArray(currentFormat.powerplayOvers)) {
         for (let i = 0; i < currentFormat.powerplayOvers.length; i += 2) {
@@ -535,40 +516,6 @@
       }
     }
 
-    function calculateWinProbability() {
-      if (innings !== 2 || isSuperOver) return '--';
-      
-      const target = team1Score + 1;
-      const runsNeeded = target - runs;
-      const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
-      const wicketsLeft = currentFormat.totalWickets - Math.floor(wickets);
-      
-      if (runsNeeded <= 0) return "100%";
-      if (ballsLeft <= 0 || wicketsLeft <= 0) return "0%";
-      
-      const resources = (ballsLeft / (currentFormat.totalOvers * 6)) * (wicketsLeft / currentFormat.totalWickets);
-      const requiredRate = runsNeeded / (ballsLeft / 6);
-      const currentRate = runs / (legalBalls / 6);
-      
-      let probability;
-      
-      if (requiredRate < currentRate) {
-        // If scoring faster than required
-        probability = 70 + (currentRate - requiredRate) * 5;
-      } else {
-        // If scoring slower than required
-        probability = 30 - (requiredRate - currentRate) * 5;
-      }
-      
-      // Adjust for resources (balls and wickets remaining)
-      probability = probability * resources;
-      
-      // Ensure probability is between 0 and 100
-      probability = Math.min(100, Math.max(0, Math.round(probability)));
-      
-      return probability + "%";
-    }
-
     function updateScoreboard() {
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
@@ -590,24 +537,8 @@
           <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
           <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
-      } else if (isSuperOver) {
-        scoreboard.innerHTML = `
-          <div><strong>SUPER OVER</strong></div>
-          <div>Runs: ${runs} | Wickets: ${wickets}/2 | Balls: ${legalBalls}/6</div>
-          <div>Target: ${team1Score + 1}</div>
-        `;
       } else {
         scoreboard.innerHTML = `Runs: ${runs} | Wickets: ${displayWickets}/${totalWickets} | Overs: ${overs}.${balls}`;
-        
-        if (innings === 2) {
-          const target = team1Score + 1;
-          const runsNeeded = target - runs;
-          const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
-          
-          winProbabilityEl.textContent = `Target: ${target} | Need ${runsNeeded} in ${ballsLeft} balls | Win Probability: ${calculateWinProbability()}`;
-        } else {
-          winProbabilityEl.textContent = "";
-        }
       }
 
       checkPowerplayStatus();
@@ -818,14 +749,26 @@
             freeHit = false;
           } else {
             if (currentBatter && batterLives[currentBatter] !== undefined) {
-              batterLives[currentBatter]--;
-              if (isPowerplay) {
-                wickets += currentFormat.powerplayWicketValue;
+              // T20 specific logic
+              if (currentFormat.name === "T20") {
+                batterLives[currentBatter] -= 1; // Deduct 1 life (2 lives = 1 wicket)
+                if (isPowerplay) {
+                  wickets += 0.5; // Powerplay: 0.5 wicket per life
+                } else {
+                  wickets += 1; // Non-powerplay: 1 wicket per life (2 lives)
+                }
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
               } else {
-                const remainingValue = 1 - (wickets % 1);
-                wickets += remainingValue;
+                // Original logic for other formats
+                batterLives[currentBatter]--;
+                if (isPowerplay) {
+                  wickets += currentFormat.powerplayWicketValue;
+                } else {
+                  const remainingValue = 1 - (wickets % 1);
+                  wickets += remainingValue;
+                }
+                outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
               }
-              outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
 
               if (batterLives[currentBatter] <= 0) {
                 isPlayerOut = true;
@@ -986,34 +929,6 @@
       });
     });
 
-    function initSuperOver() {
-      isSuperOver = true;
-      currentFormat = formatRules["superover"];
-      
-      // Reset for super over
-      innings = 1;
-      runs = 0;
-      wickets = 0;
-      legalBalls = 0;
-      freeHit = false;
-      isBatting = true;
-      batterLives = {};
-      battersUsed = [];
-      bowlerOvers = {};
-      
-      formatDisplay.innerText = "SUPER OVER | 1 over, 2 wickets max";
-      testControls.style.display = "none";
-      
-      alert("🏏 SUPER OVER BEGINS! 6 balls, 2 wickets maximum");
-      updateScoreboard();
-      
-      if (isBatting) {
-        showBatterSelection();
-      } else {
-        showBowlerSelection();
-      }
-    }
-
     async function endInning() {
       disableButtons();
       
@@ -1084,10 +999,26 @@
     }
 
     function endMatch() {
-      if (team1Score === team2Score && !isTestMatch) {
-        initSuperOver();
-        return;
-      }
+
+if (team1Score === team2Score && !isTestMatch) {
+  initSuperOver();
+}
+
+function initSuperOver() {
+  currentFormat = {
+    name: "Super Over",
+    totalOvers: 1,
+    totalWickets: 2,
+    livesPerPlayer: 1
+  };
+  innings = 1;
+  runs = 0;
+  wickets = 0;
+  legalBalls = 0;
+  freeHit = false;
+  alert("🏏 Super Over begins!");
+  updateScoreboard();
+}
 
       let result = "";
       if (isTestMatch) {
@@ -1097,14 +1028,6 @@
           result = `Team 2 wins by ${10 - Math.floor(team2Wickets)} wickets`;
         } else {
           result = "Match drawn";
-        }
-      } else if (isSuperOver) {
-        if (runs > team1Score) {
-          result = `Team 2 wins the Super Over by ${runs - team1Score} runs`;
-        } else if (team1Score > runs) {
-          result = `Team 1 wins the Super Over by ${team1Score - runs} runs`;
-        } else {
-          result = "Super Over tied! Match drawn";
         }
       } else {
         if (innings === 2) {
@@ -1124,7 +1047,6 @@
       disableButtons();
       set(ref(db, `rooms/${room}/result`), result);
       updateSpectatorData();
-      gameInProgress = false;
     }
 
     async function initGame() {
@@ -1197,6 +1119,19 @@
 
     // Initialize the game
     initGame();
-  </script>
+  
+function calculateWinProbability() {
+  if (innings !== 2) return '--';
+  const target = team1Score + 1;
+  const runsLeft = target - runs;
+  const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
+  const wicketsLeft = currentFormat.totalWickets - Math.floor(wickets);
+  const pressure = runsLeft / (ballsLeft || 1);
+  const factor = (wicketsLeft / 10) * (ballsLeft / (currentFormat.totalOvers * 6));
+  const rawProb = 100 * Math.pow(0.9, pressure / (factor + 0.2));
+  return Math.min(rawProb, 99).toFixed(1) + '%';
+}
+
+</script>
 </body>
-</html>
+  </html>

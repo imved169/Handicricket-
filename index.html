@@ -72,7 +72,6 @@
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
-      databaseURL: "https://handicricket-d1ab7-default-rtdb.firebaseio.com",
       projectId: "handicricket-d1ab7",
       storageBucket: "handicricket-d1ab7.appspot.com",
       messagingSenderId: "356065986337",
@@ -101,19 +100,14 @@
       if (!teamName) return alert("Enter your team name first!");
       
       const roomCode = generateRoomCode();
-      try {
-        await set(ref(db, 'rooms/' + roomCode + '/player1'), {
-          teamName: teamName,
-          format: selectedFormat,
-          online: true
-        });
-        
-        document.getElementById("roomDisplay").innerText = `Room Code: ${roomCode} | Format: ${getFormatName(selectedFormat)}`;
-        window.location.href = `playing11.html?room=${roomCode}&player=player1`;
-      } catch (error) {
-        console.error("Error creating room:", error);
-        alert("Failed to create room. Please try again.");
-      }
+      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
+        teamName: teamName,
+        format: selectedFormat,
+        online: true
+      });
+      
+      document.getElementById("roomDisplay").innerText = `Room Code: ${roomCode} | Format: ${getFormatName(selectedFormat)}`;
+      window.location.href = `playing11.html?room=${roomCode}&player=player1`;
     }
 
     window.joinRoom = async function() {
@@ -203,5 +197,49 @@
     // Initialize
     loadSavedGames();
   </script>
+
+<!-- 🧠 Resume Game List -->
+<div id="savedGamesList" style="margin-top: 20px;"></div>
+
+<!-- 🤖 Play vs AI -->
+<button onclick="startAIMatch()">🖥️ Play vs AI</button>
+
+<script>
+function startAIMatch() {
+  const roomCode = Math.random().toString(36).substring(2, 8);
+  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
+}
+
+function loadSavedGames() {
+  const dbRef = firebase.database().ref("savedGames");
+  dbRef.once("value", (snap) => {
+    const games = snap.val() || {};
+    const container = document.getElementById("savedGamesList");
+    container.innerHTML = Object.entries(games).map(([id, game]) => `
+      <div style="background:#14395a;padding:10px;border-radius:8px;margin-bottom:10px;">
+        <strong>${game.team1} vs ${game.team2}</strong><br/>
+        Score: ${game.score || '0/0'} • Overs: ${game.overs || '0.0'}<br/>
+        <button onclick="resumeGame('${id}')">Resume</button>
+      </div>`).join("");
+  });
+}
+
+function resumeGame(roomId) {
+  if (confirm("Resume this match?")) {
+    window.location.href = `game.html?room=${roomId}&player=player1`;
+  }
+}
+</script>
+
+<!-- 🤖 AI Match Button -->
+<button onclick="startAIMatch()">🖥️ Play vs AI</button>
+<script>
+function startAIMatch() {
+  const roomCode = 'AI_' + Math.random().toString(36).substring(2, 7).toUpperCase();
+  localStorage.setItem('roomCode', roomCode);
+  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
+}
+</script>
 </body>
+
 </html>
