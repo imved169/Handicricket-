@@ -1,6 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+
+  // Advanced Life-to-Wicket System
+  if (!isFreeHit && batCard === bowlCard && batCard !== 0) {
+    if (!batterLivesLost[currentBatter]) batterLivesLost[currentBatter] = 0;
+    if (!batterWicketTotal[currentBatter]) batterWicketTotal[currentBatter] = 0;
+
+    batterLivesLost[currentBatter]++;
+
+    // Determine how much this life is worth
+    let lifeValue = 0;
+    if (matchFormat === "T20" || matchFormat === "5" || matchFormat === "10") {
+      if (currentOver <= 6) {
+        lifeValue = 0.5;
+      } else {
+        lifeValue = 0.5;
+      }
+    } else if (matchFormat === "ODI") {
+      if ((currentOver >= 1 && currentOver <= 10) || (currentOver >= 21 && currentOver <= 30) || currentOver === 41 || currentOver === 42) {
+        lifeValue = 0.25;
+      } else {
+        lifeValue = 0.25;
+      }
+    } else if (matchFormat === "Test") {
+      lifeValue = 1.0;
+    }
+
+    // Cap to max 1.0
+    let allowedAddition = 1.0 - batterWicketTotal[currentBatter];
+    if (allowedAddition <= 0) {
+      outcome = `${currentBatter} has no life left!`;
+    } else {
+      const actualAdd = Math.min(allowedAddition, lifeValue);
+      batterWicketTotal[currentBatter] += actualAdd;
+      totalWickets += actualAdd;
+
+      if (batterWicketTotal[currentBatter] < 1.0) {
+        outcome = `${currentBatter} lost a life (${Math.round(batterWicketTotal[currentBatter] * 100) / 100}/1.0 wicket)`;
+      } else {
+        outcome = "WICKET!";
+      }
+    }
+  }
+
   <meta charset="UTF-8" />
   <title>HandiCricket - Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
