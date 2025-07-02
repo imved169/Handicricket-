@@ -123,6 +123,7 @@
   </style>
 </head>
 <body>
+<div id='superOverSetup' style='padding:10px; background:#123; color:#fff;'></div>
   <div id="spectatorCount">Spectators: 0</div>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
@@ -1133,5 +1134,45 @@ function calculateWinProbability() {
 }
 
 </script>
+
+<script>
+// After each ball is resolved:
+function pushBallDataToFirebase(runs, zone, batter, bowler, wicket, over) {
+  const dbRef = ref(db, `rooms/${room}/ballData`);
+  const newBallRef = push(dbRef);
+  set(newBallRef, {
+    runs,
+    zone,
+    batter,
+    bowler,
+    wicket,
+    over,
+    timestamp: Date.now()
+  });
+}
+
+// Track match stats
+function updateMatchStats(ball) {
+  const statsRef = ref(db, `rooms/${room}/matchStats`);
+
+  get(statsRef).then(snapshot => {
+    const stats = snapshot.val() || {
+      partnerships: {},
+      last5overs: { runs: 0, wickets: 0 }
+    };
+
+    if (!stats.partnerships[ball.batter]) stats.partnerships[ball.batter] = 0;
+    stats.partnerships[ball.batter] += ball.runs;
+
+    if (ball.over >= ball.currentOver - 5) {
+      stats.last5overs.runs += ball.runs;
+      if (ball.wicket) stats.last5overs.wickets++;
+    }
+
+    update(statsRef, stats);
+  });
+}
+</script>
+
 </body>
   </html>

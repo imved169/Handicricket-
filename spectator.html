@@ -282,6 +282,107 @@ firebase.database().ref(`rooms/${room}/spectatorChat`).on("value", (snap) => {
     `<div><strong>${m.sender}</strong>: ${m.message}</div>`).join("");
 });
 </script>
+
+<!-- Heatmap -->
+<div id="shotMap" style="position:relative; height:300px; background:#061e3e; margin:20px 0;">
+  <div class="pitch" style="width:30%; height:60%; background:#2e7d32; position:absolute; left:35%; top:20%;"></div>
+</div>
+
+<!-- Stat Panel -->
+<div id="statsPanel">
+  <div class="stat"><span class="label">Partnership:</span> <span id="currentPartnership">0</span></div>
+  <div class="stat"><span class="label">Last 5 Overs:</span> <span id="last5overs">0/0</span></div>
+  <div class="stat"><span class="label">Required RR:</span> <span id="reqRR">0.0</span></div>
+</div>
+
+<style>
+#statsPanel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  background: #0a2a5a;
+  padding: 10px;
+  border-radius: 8px;
+}
+.stat { text-align: center; }
+.label { font-size: 0.8em; color: #aaa; display: block; }
+@media (max-width: 600px) {
+  #statsPanel { grid-template-columns: 1fr; }
+  #shotMap { height: 200px; }
+}
+</style>
+
+<script type="module">
+import { db, ref, onChildAdded, onValue, update } from './firebase.js';
+
+const room = localStorage.getItem("room");
+
+// Heatmap plotting
+function plotShots(ballData) {
+  const zones = {
+    "off": {left: "60%", top: "30%"},
+    "leg": {left: "35%", top: "30%"},
+    "cover": {left: "75%", top: "35%"}
+  };
+
+  ballData.forEach(ball => {
+    if (ball.runs > 0 && ball.zone) {
+      const shot = document.createElement("div");
+      shot.className = "shot-dot";
+      shot.style.cssText = `
+        width: 8px; height: 8px; border-radius: 50%;
+        background: ${ball.runs >= 4 ? 'yellow' : 'lightblue'};
+        position: absolute;
+        left: ${zones[ball.zone].left};
+        top: ${zones[ball.zone].top};
+      `;
+      document.getElementById("shotMap").appendChild(shot);
+    }
+  });
+}
+
+// Reactions + chat display (basic)
+function initChat() {
+  const chatRef = ref(db, `rooms/${room}/spectatorChat`);
+  onValue(chatRef, (snap) => {
+    const messages = snap.val() || {};
+    let chatHTML = '';
+    Object.entries(messages).forEach(([id, msg]) => {
+      chatHTML += \`
+        <div class="message">
+          <span class="sender">\${msg.sender}:</span>
+          <span class="text">\${msg.text}</span>
+          <div class="reactions">
+            \${['🔥','😮','👏'].map(e => \`<span onclick="addReaction('\${id}','\${e}')">\${e}</span>\`).join('')}
+          </div>
+        </div>
+      \`;
+    });
+    document.getElementById("chat").innerHTML = chatHTML;
+  });
+}
+function addReaction(id, emoji) {
+  const msgRef = ref(db, `rooms/${room}/spectatorChat/${id}/reactions`);
+  update(msgRef, { [emoji]: 1 });
+}
+
+// Live updates
+const ballRef = ref(db, `rooms/${room}/ballData`);
+onValue(ballRef, (snap) => {
+  const data = Object.values(snap.val() || {});
+  plotShots(data);
+});
+
+onValue(ref(db, `rooms/${room}/matchStats`), (snap) => {
+  const stats = snap.val() || {};
+  const bat = Object.keys(stats.partnerships || {})[0];
+  const run = stats.partnerships?.[bat] || 0;
+  document.getElementById("currentPartnership").textContent = run;
+  const l5 = stats.last5overs || { runs: 0, wickets: 0 };
+  document.getElementById("last5overs").textContent = \`\${l5.runs}/\${l5.wickets}\`;
+});
+</script>
+
 </body>
 
 </html>

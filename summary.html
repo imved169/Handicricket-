@@ -1,59 +1,65 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Match Summary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background: #021b35; color: #fff; font-family: sans-serif; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; }
+    .section { margin-bottom: 30px; }
+    .team-title { font-size: 1.2em; margin-bottom: 10px; color: #ffd700; }
+    .score-table { width: 100%; border-collapse: collapse; }
+    .score-table th, .score-table td { border: 1px solid #555; padding: 8px; text-align: center; }
+    .score-table th { background: #03396c; }
+    .highlight { color: #4caf50; font-weight: bold; }
+  </style>
 </head>
-<body style="font-family: sans-serif; background: #001F3F; color: white; text-align: center; padding: 2rem;">
-  <h2>🏁 Match Summary</h2>
-  <div id="resultText" style="font-size: 1.5rem; margin: 1rem 0;"></div>
-  <div id="mvpText" style="font-size: 1.2rem;"></div>
-  <button onclick="shareSummary()" style="padding: 10px 20px; margin-top: 20px;">📤 Share Result</button>
-
+<body>
+  <h1>Match Summary</h1>
+  <div id="result" class="section highlight">Loading result...</div>
+  <div class="section">
+    <div class="team-title" id="team1-name"></div>
+    <table class="score-table" id="team1-scorecard">
+      <thead><tr><th>Player</th><th>Runs</th><th>Balls</th><th>SR</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="section">
+    <div class="team-title" id="team2-name"></div>
+    <table class="score-table" id="team2-scorecard">
+      <thead><tr><th>Player</th><th>Runs</th><th>Balls</th><th>SR</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
   <script type="module">
-    import { db, ref, onValue } from './firebase.js';
+    import { db, ref, get } from './firebase.js';
+    const room = localStorage.getItem('room');
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const matchCode = urlParams.get("match") || localStorage.getItem("roomCode");
-
-    const summaryRef = ref(db, `rooms/${matchCode}/summary`);
-    onValue(summaryRef, (snapshot) => {
+    async function loadSummary() {
+      const snapshot = await get(ref(db, `rooms/${room}/matchSummary`));
       const data = snapshot.val();
-      if (data) {
-        document.getElementById("resultText").innerText = "Result: " + data.result;
-        document.getElementById("mvpText").innerText = "MVP: " + data.mvp;
-      } else {
-        document.getElementById("resultText").innerText = "Summary not found.";
+      if (!data) return;
+
+      document.getElementById("result").textContent = data.result;
+
+      document.getElementById("team1-name").textContent = data.team1.name;
+      document.getElementById("team2-name").textContent = data.team2.name;
+
+      function fillTable(tableId, players) {
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        players.forEach(p => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${p.name}</td><td>${p.runs}</td><td>${p.balls}</td><td>${p.sr}</td>`;
+          tbody.appendChild(row);
+        });
       }
-    });
 
-    window.shareSummary = function () {
-      const shareURL = `${window.location.origin}/summary.html?match=${matchCode}`;
-      navigator.clipboard.writeText(shareURL).then(() => {
-        alert("✅ Summary link copied to clipboard:\n" + shareURL);
-      });
-    };
+      fillTable("team1-scorecard", data.team1.players);
+      fillTable("team2-scorecard", data.team2.players);
+    }
+
+    loadSummary();
   </script>
-
-<!-- 🔥 Heatmap -->
-<div id="heatmap" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-top: 20px;"></div>
-<script>
-function generateHeatmap() {
-  const container = document.getElementById("heatmap");
-  for (let i = 0; i < 60; i++) {
-    const intensity = Math.floor(Math.random() * 100);
-    container.innerHTML += `<div style="background:hsl(${100 - intensity},100%,50%);height:20px;border-radius:2px;" title="Zone ${i}: ${intensity}%"></div>`;
-  }
-}
-generateHeatmap();
-</script>
-
-<script>
-// 🏆 Player XP Tracking
-localStorage.setItem('playerXP', parseInt(localStorage.getItem('playerXP') || 0) + 10);
-</script>
 </body>
-
 </html>
