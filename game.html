@@ -1169,13 +1169,33 @@
 
 <script>
 
-function handleWicketLogic() {
-  let livesPerWicket = isPowerplay(overCount) ? 0.5 : 1.0;
 
-  if (batterLives >= 2 && !isPowerplay(overCount)) {
+function handleWicketLogic() {
+  let inPowerplay = isPowerplay(overCount);
+  let livesPerWicket = inPowerplay ? 0.5 : 1.0;
+
+  if (inPowerplay && batterLives >= 1) {
+    batterLives -= 1;
+    lifeAccumulated += 0.5;
+  } else if (!inPowerplay && batterLives >= 2) {
     batterLives -= 2;
     lifeAccumulated += 1.0;
-  } else if (batterLives >= 1 && isPowerplay(overCount)) {
+  }
+
+  if (lifeAccumulated >= 1.0) {
+    wickets += 1;
+    lifeAccumulated = 0;
+    batterLives = 2;
+    promptNextBatter();
+  }
+
+  if (wickets >= maxWickets) {
+    endInnings();
+  }
+
+  updateScoreboard();
+}
+ else if (batterLives >= 1 && isPowerplay(overCount)) {
     batterLives -= 1;
     lifeAccumulated += 0.5;
   }
