@@ -774,7 +774,7 @@
           updateFreeHitDisplay();
         }
 
-        if (batCard === 0 && bowlCard === 0) {
+        if (batCard === 0 && bowlCard === 0 && !isTestMatch) {
           if (!isTestMatch) {
             outcome = "NO BALL! +1 run (Free Hit next ball)";
             runs += 1;
@@ -1166,3 +1166,106 @@
   </script>
 </body>
 </html>
+
+<script>
+function handleWicketLogic() {
+  if (isTestMatch) {
+    currentLives -= 1;
+    if (currentLives <= 0) {
+      wickets += 0.33;
+      batterOut = true;
+      currentLives = 3;
+    }
+  } else {
+    currentLives -= 1;
+    if (currentLives <= 0) {
+      wickets += 1;
+      batterOut = true;
+      currentLives = 2;
+    }
+  }
+}
+</script>
+
+<script>
+let testInningsCount = 1;
+let teamAScore = 0;
+let teamBScore = 0;
+let teamAFirstInnings = 0;
+let teamBFirstInnings = 0;
+let followOnEnforced = false;
+
+function switchInningsTest() {
+  testInningsCount++;
+
+  if (testInningsCount === 2) {
+    teamAFirstInnings = totalScore;
+    currentInning = "Team B";
+    totalScore = 0;
+    wickets = 0;
+    overs = 0;
+    console.log("Team B 1st innings");
+  } else if (testInningsCount === 3) {
+    teamBFirstInnings = totalScore;
+
+    let lead = teamAFirstInnings - teamBFirstInnings;
+    if (lead >= 200) {
+      if (confirm("Team A leads by 200+. Enforce follow-on?")) {
+        followOnEnforced = true;
+        currentInning = "Team B (Follow-on)";
+      } else {
+        currentInning = "Team A 2nd Innings";
+      }
+    } else {
+      currentInning = "Team A 2nd Innings";
+    }
+    totalScore = 0;
+    wickets = 0;
+    overs = 0;
+    console.log(currentInning);
+  } else if (testInningsCount === 4) {
+    if (followOnEnforced) {
+      teamBScore = totalScore + teamBFirstInnings;
+    } else {
+      teamAScore = totalScore + teamAFirstInnings;
+    }
+    currentInning = "Team B 2nd Innings";
+    totalScore = 0;
+    wickets = 0;
+    overs = 0;
+    console.log("Team B 2nd innings");
+  } else if (testInningsCount === 5) {
+    if (followOnEnforced) {
+      teamBScore = totalScore + teamBFirstInnings;
+      teamAScore = teamAFirstInnings;
+    } else {
+      teamAScore = totalScore + teamAFirstInnings;
+      teamBScore = teamBFirstInnings;
+    }
+    checkTestMatchEnd();
+  }
+}
+
+function checkTestMatchEnd() {
+  console.log("Match Ended");
+  if (teamAScore > teamBScore) {
+    alert("Team A wins the Test match by " + (teamAScore - teamBScore) + " runs!");
+  } else if (teamBScore > teamAScore) {
+    alert("Team B wins the Test match by " + (10 - wickets) + " wickets!");
+  } else {
+    alert("The Test match is a draw!");
+  }
+}
+</script>
+
+<script>
+function getTestRunOutcome(batCard, bowlCard) {
+  if (batCard === 0 && bowlCard >= 1) {
+    return { runs: bowlCard, type: "Bowler card added to batting team (custom rule)" };
+  } else if (bowlCard === 0 && batCard >= 1) {
+    return { runs: 0, type: "Dot ball (Test rule)" };
+  } else {
+    return { runs: batCard, type: "Normal" };
+  }
+}
+</script>
