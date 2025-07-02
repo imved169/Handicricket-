@@ -120,24 +120,7 @@
       border-radius: 15px;
       font-size: 14px;
     }
-  
-@keyframes shotPulse {
-  0% { transform: scale(0.5); opacity: 1; }
-  100% { transform: scale(3); opacity: 0; }
-}
-
-.shot-animation {
-  position: fixed;
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle, #ffeb3b 0%, #ff9800 70%, transparent 100%);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1000;
-  animation: shotPulse 0.8s ease-out;
-}
-
-</style>
+  </style>
 </head>
 <body>
   <div id="spectatorCount">Spectators: 0</div>
@@ -221,18 +204,6 @@
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
-
-if (params.get('ai') === 'true') {
-  onValue(ref(db, `rooms/${room}/currentPlays/player1`), (snap) => {
-    if (snap.exists() && !isBatting) {
-      setTimeout(() => {
-        const aiMove = Math.random() > 0.3 ? snap.val() : Math.floor(Math.random() * 7);
-        set(ref(db, `rooms/${room}/currentPlays/player2`), aiMove);
-      }, 1000);
-    }
-  });
-}
-
     const opponent = player === "player1" ? "player2" : "player1";
 
     const formatRules = {
@@ -546,19 +517,6 @@ if (params.get('ai') === 'true') {
     }
 
     function updateScoreboard() {
-  if (innings === 2) {
-    document.getElementById('targetDisplay').style.display = 'block';
-    const target = team1Score + 1;
-    const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
-
-    document.getElementById('targetText').textContent = target;
-    document.getElementById('runsNeeded').textContent = target - runs;
-    document.getElementById('ballsLeft').textContent = ballsLeft;
-    document.getElementById('requiredRR').textContent = ((target - runs) / ballsLeft * 6).toFixed(2);
-  } else {
-    document.getElementById('targetDisplay').style.display = 'none';
-  }
-
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
       
@@ -795,9 +753,9 @@ if (params.get('ai') === 'true') {
               if (currentFormat.name === "T20") {
                 batterLives[currentBatter] -= 1; // Deduct 1 life (2 lives = 1 wicket)
                 if (isPowerplay) {
-                  addWicket(0.5); // Powerplay: 0.5 wicket per life
+                  wickets += 0.5; // Powerplay: 0.5 wicket per life
                 } else {
-                  addWicket(1); // Non-powerplay: 1 wicket per life (2 lives)
+                  wickets += 1; // Non-powerplay: 1 wicket per life (2 lives)
                 }
                 outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
               } else {
@@ -1041,6 +999,27 @@ if (params.get('ai') === 'true') {
     }
 
     function endMatch() {
+
+if (team1Score === team2Score && !isTestMatch) {
+  initSuperOver();
+}
+
+function initSuperOver() {
+  currentFormat = {
+    name: "Super Over",
+    totalOvers: 1,
+    totalWickets: 2,
+    livesPerPlayer: 1
+  };
+  innings = 1;
+  runs = 0;
+  wickets = 0;
+  legalBalls = 0;
+  freeHit = false;
+  alert("🏏 Super Over begins!");
+  updateScoreboard();
+}
+
       let result = "";
       if (isTestMatch) {
         if (team1Score > team2Score) {
@@ -1141,14 +1120,16 @@ if (params.get('ai') === 'true') {
     // Initialize the game
     initGame();
   
-function addWicket(value) {
-  const newValue = wickets + value;
-  wickets = Math.min(newValue, currentFormat.totalWickets); // Cap at max wickets
-
-  if (Math.floor(wickets) > Math.floor(newValue)) {
-    // Wicket completed (reached 1.0)
-    triggerWicketAnimation();
-  }
+function calculateWinProbability() {
+  if (innings !== 2) return '--';
+  const target = team1Score + 1;
+  const runsLeft = target - runs;
+  const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
+  const wicketsLeft = currentFormat.totalWickets - Math.floor(wickets);
+  const pressure = runsLeft / (ballsLeft || 1);
+  const factor = (wicketsLeft / 10) * (ballsLeft / (currentFormat.totalOvers * 6));
+  const rawProb = 100 * Math.pow(0.9, pressure / (factor + 0.2));
+  return Math.min(rawProb, 99).toFixed(1) + '%';
 }
 
 </script>
