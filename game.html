@@ -1340,3 +1340,78 @@ function onCardClick(value) {
 
 </body>
 </html>
+
+
+<!-- Match Summary UI -->
+<div id="matchSummary" style="display:none; background:#001F3F; color:white; padding:20px; border-radius:10px; margin-top:20px;">
+  <h2>🏏 Match Summary</h2>
+  <div id="summaryResult"></div>
+  <div id="topPerformer"></div>
+  <div id="finalBatterStats"></div>
+  <div id="finalBowlerStats"></div>
+</div>
+
+<script>
+function showMatchSummary(winningTeam) {
+  document.getElementById("matchSummary").style.display = "block";
+  document.getElementById("summaryResult").innerHTML = `<h3>Result: ${winningTeam}</h3>`;
+
+  // Top batter logic
+  let topBatter = Object.entries(batterStats).sort((a, b) => b[1].runs - a[1].runs)[0];
+  let topBowler = Object.entries(bowlerStats).sort((a, b) => b[1].wickets - a[1].wickets)[0];
+
+  document.getElementById("topPerformer").innerHTML = `
+    <h4>🌟 Top Batter: ${topBatter[0]} - ${topBatter[1].runs} runs</h4>
+    <h4>🔥 Top Bowler: ${topBowler[0]} - ${topBowler[1].wickets} wickets</h4>
+  `;
+
+  // Final stats
+  document.getElementById("finalBatterStats").innerHTML = "<h3>Batter Stats</h3>" + 
+    Object.entries(batterStats).map(([name, stat]) => 
+      `<div><strong>${name}</strong>: ${stat.runs} runs, ${stat.dots} dots, ${stat.livesLost} lives lost</div>`).join("");
+
+  document.getElementById("finalBowlerStats").innerHTML = "<h3>Bowler Stats</h3>" +
+    Object.entries(bowlerStats).map(([name, stat]) =>
+      `<div><strong>${name}</strong>: ${stat.overs.toFixed(1)} overs, ${stat.runs} runs, ${stat.wickets} wickets</div>`).join("");
+}
+</script>
+
+
+
+<!-- Firebase Match Save Button -->
+<div style="margin-top:10px;">
+  <button onclick="saveMatchResult()" style="padding:10px;border-radius:8px;background:#00c853;color:white;">💾 Save Match Result</button>
+  <div id="saveStatus" style="color:#00e676;margin-top:8px;"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+    authDomain: "handicricket-d1ab7.firebaseapp.com",
+    projectId: "handicricket-d1ab7",
+    storageBucket: "handicricket-d1ab7.appspot.com",
+    messagingSenderId: "356065986337",
+    appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  async function saveMatchResult() {
+    const docRef = await addDoc(collection(db, "matches"), {
+      format: matchFormat,
+      team1: team1Name,
+      team2: team2Name,
+      winner: document.getElementById("summaryResult").innerText,
+      topBatter: Object.entries(batterStats).sort((a, b) => b[1].runs - a[1].runs)[0][0],
+      topBowler: Object.entries(bowlerStats).sort((a, b) => b[1].wickets - a[1].wickets)[0][0],
+      score1: score1Display,
+      score2: score2Display,
+      timestamp: serverTimestamp()
+    });
+    document.getElementById("saveStatus").innerText = "✅ Match saved successfully!";
+  }
+</script>
