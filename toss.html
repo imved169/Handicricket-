@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Toss Time</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { background: #061e3e; color: white; font-family: sans-serif; text-align: center; padding: 30px; }
+    h2 { margin-bottom: 20px; }
+    button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 10px; background: #1e88e5; color: white; cursor: pointer; margin: 10px; }
+    button:hover { background: #1565c0; }
+    #result, #choiceSection { margin-top: 20px; }
+    #formatDisplay { margin: 15px 0; font-size: 18px; color: #ffeb3b; }
+  </style>
+</head>
+<body>
+  <h2>🪙 Toss Time</h2>
+  <div id="roomCodeDisplay"></div>
+  <div id="formatDisplay"></div>
+  <div id="tossButtonSection" style="display: none;">
+    <button id="tossBtn">Toss</button>
+  </div>
+  <div id="result"></div>
+  <div id="choiceSection" style="display: none;">
+    <button onclick="choose('bat')">Bat</button>
+    <button onclick="choose('bowl')">Bowl</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    
+    document.getElementById("roomCodeDisplay").innerText = "Room Code: " + room;
+
+    const tossBtn = document.getElementById("tossBtn");
+    const resultDiv = document.getElementById("result");
+    const tossSection = document.getElementById("tossButtonSection");
+    const choiceSection = document.getElementById("choiceSection");
+    const formatDisplay = document.getElementById("formatDisplay");
+
+    // Display match format
+    onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
+      const format = snap.val() || "5";
+      const formatNames = {
+        "5": "5 Overs",
+        "10": "10 Overs", 
+        "20": "T20",
+        "50": "ODI",
+        "test": "Test Match"
+      };
+      formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
+    });
+
+    if (player === 'player2') {
+      tossSection.style.display = "block";
+    }
+
+    tossBtn.addEventListener("click", async () => {
+      const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+      await set(ref(db, `rooms/${room}/tossWinner`), winner);
+    });
+
+    onValue(ref(db, `rooms/${room}/tossWinner`), async (snap) => {
+      const winner = snap.val();
+      if (!winner) return;
+
+      resultDiv.innerText = `Toss won by ${winner.toUpperCase()}`;
+      if (player === winner) {
+        choiceSection.style.display = "block";
+      }
+    });
+
+    window.choose = async (decision) => {
+      await set(ref(db, `rooms/${room}/decision`), decision);
+      await set(ref(db, `rooms/${room}/battingFirst`), decision === 'bat' ? player : opponent);
+    };
+
+    onValue(ref(db, `rooms/${room}/decision`), (snap) => {
+      const decision = snap.val();
+      if (decision) {
+        window.location.href = `game.html?room=${room}&player=${player}`;
+      }
+    });
+  </script>
+</body>
+</html>
