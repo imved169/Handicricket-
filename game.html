@@ -178,6 +178,12 @@
 </style>
 </head>
 <body>
+<button id="declareInningsBtn" style="display:none;position:absolute;top:10px;right:10px;z-index:1000;">Declare Innings</button>
+<div id="followOnModal" style="display:none;position:fixed;top:30%;left:10%;right:10%;background:#fff;padding:20px;border-radius:10px;z-index:999;">
+  <p>Lead is 200+. Enforce Follow-On?</p>
+  <button id="followOnYes">Yes</button>
+  <button id="followOnNo">No</button>
+</div>
 <div id="freeHitBadge">FREE HIT</div>
 <div id="rrrDisplay"></div>
 <div id="freeHitBadge">FREE HIT</div>
@@ -295,6 +301,14 @@ function resetFreeHit() {
 }
 
 function checkMatchEnd() {
+if (innings === 4) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets) {
+      const diff = target - runs - 1;
+      endMatch(`Team 1 wins by ${diff} runs`);
+    }
+  }
   const target = team1Score + 1;
   if (innings === 2) {
     if (runs >= target) {
@@ -363,8 +377,10 @@ function initNewFeatures() {
   }
 }
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { PlayerStats } from "./player_stats.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { PlayerStats } from "./player_stats.js";
+import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -953,6 +969,14 @@ function showFreeHitBadge(active) {
 }
 
 function checkMatchEnd() {
+if (innings === 4) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets) {
+      const diff = target - runs - 1;
+      endMatch(`Team 1 wins by ${diff} runs`);
+    }
+  }
   const target = team1Score + 1;
   if (innings === 2) {
     if (runs >= target) {
@@ -978,7 +1002,17 @@ function updateRRR() {
   }
 }
     async function initGame() {
+  const playerStats = new PlayerStats();
+  window.playerStats = playerStats;
   initNewFeatures();
+const declareBtn = document.getElementById("declareInningsBtn");
+if (currentFormat.type === "test" && isBatting) {
+  declareBtn.style.display = "block";
+  declareBtn.onclick = () => {
+    status.innerText = "Innings Declared!";
+    nextInnings(); // trigger switch to next innings
+  };
+}
   if (params.get('ai')) enableAIMode();
   const playerStats = new PlayerStats();
       gameInProgress = true;
@@ -1075,6 +1109,14 @@ function trackZeros(player, card) {
 }
 
 function checkMatchEnd() {
+if (innings === 4) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets) {
+      const diff = target - runs - 1;
+      endMatch(`Team 1 wins by ${diff} runs`);
+    }
+  }
   const target = team1Score + 1;
   if (
     wickets >= currentFormat.totalWickets ||
@@ -1119,8 +1161,18 @@ initAllExtras();
 buttons.forEach(btn => {
   btn.addEventListener("click", async () => {
     const val = parseInt(btn.dataset.value);
-    trackZeros(player, val); // Add this line
     trackZeros(player, val);
+        const isBoundary = (val === 4 || val === 6) ? val : 0;
+        const isOut = (result === 'WICKET');
+        if (isBatting) playerStats.updateBatter(teamName, striker, val, isBoundary, isOut);
+        else playerStats.updateBowler(teamName, bowler, val, isOut, false);
+         // Add this line
+    trackZeros(player, val);
+        const isBoundary = (val === 4 || val === 6) ? val : 0;
+        const isOut = (result === 'WICKET');
+        if (isBatting) playerStats.updateBatter(teamName, striker, val, isBoundary, isOut);
+        else playerStats.updateBowler(teamName, bowler, val, isOut, false);
+        
     disableButtons();
     status.innerText = "Waiting...";
     await set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
@@ -1164,6 +1216,7 @@ onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
 
 <div id="freeHitBadge" style="display:none;background:#ffc107;color:#000;padding:5px;border-radius:8px;margin-top:10px;">FREE HIT</div>
 <script type="module">
+import { PlayerStats } from "./player_stats.js";
 import { db, ref, onValue, set, get, child } from './firebase.js';
 
 let zeroCount = { batter: 0, bowler: 0 };
@@ -1210,6 +1263,14 @@ function handleZero(value, role) {
 
 // Match end check
 function checkMatchEnd() {
+if (innings === 4) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets) {
+      const diff = target - runs - 1;
+      endMatch(`Team 1 wins by ${diff} runs`);
+    }
+  }
   if (innings === 2) {
     if (currentRuns > target) {
       alert("Batting Team Wins!");
