@@ -1,1 +1,0 @@
-// Generate .txt scorecard for download
