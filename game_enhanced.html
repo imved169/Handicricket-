@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <style>
+    #spectatorEngagement {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 10px;
+      z-index: 100;
+    }
+    #liveReactions span {
+      font-size: 24px;
+      margin: 0 5px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    #liveReactions span:hover {
+      transform: scale(1.2);
+    }
+    .meter-bar {
+      height: 10px;
+      background: linear-gradient(to right, #f44336, #ffeb3b, #4CAF50);
+      width: 100%;
+      border-radius: 5px;
+      margin-top: 8px;
+    }
+    #miniScorecard {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+    .milestone-notification {
+      position: fixed;
+      bottom: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: gold;
+      padding: 12px 24px;
+      border-radius: 24px;
+      animation: fadeInOut 3s;
+      z-index: 1000;
+      font-weight: bold;
+      box-shadow: 0 0 15px gold;
+    }
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="spectatorEngagement">
+    <div id="liveReactions">
+      <span title="Fire!">🔥</span>
+      <span title="Great play!">👏</span>
+      <span title="Wow!">😲</span>
+    </div>
+    <div id="momentumMeter">
+      <div class="meter-bar"></div>
+    </div>
+  </div>
+
+  <div id="miniScorecard">
+    <div id="miniScore">0/0</div>
+    <div id="miniOvers">0.0</div>
+  </div>
+
+  <script type="module">
+    function updateMomentum() {
+      const boundaryCount = Object.values(ballByBall)
+        .filter(ball => ball.runs >= 4).length;
+      const meter = document.querySelector('.meter-bar');
+      const momentum = Math.min(100, boundaryCount * 5);
+      meter.style.width = `${momentum}%`;
+      meter.style.backgroundColor = momentum > 70 ? '#4CAF50' : 
+                                  momentum > 30 ? '#FFC107' : '#F44336';
+    }
+
+    function checkMilestones() {
+      if (currentBatter && batterStats[currentBatter]?.runs >= 100 && 
+          !batterStats[currentBatter].centuryNotified) {
+        showNotification(`${currentBatter} scores a century! 🎉`);
+        batterStats[currentBatter].centuryNotified = true;
+      }
+      if (currentBowler && bowlerStats[currentBowler]?.wickets >= 5 && 
+          !bowlerStats[currentBowler].fiveWicketNotified) {
+        showNotification(`${currentBowler} takes 5 wickets! 🎯`);
+        bowlerStats[currentBowler].fiveWicketNotified = true;
+      }
+    }
+
+    function showNotification(message) {
+      const notif = document.createElement('div');
+      notif.className = 'milestone-notification';
+      notif.textContent = message;
+      document.body.appendChild(notif);
+      setTimeout(() => notif.remove(), 3000);
+    }
+
+    function updateScoreboard() {
+      document.getElementById('miniScore').textContent = `${runs}/${Math.floor(wickets)}`;
+      document.getElementById('miniOvers').textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      updateMomentum();
+      checkMilestones();
+    }
+
+    document.querySelectorAll('#liveReactions span').forEach(icon => {
+      icon.addEventListener('click', () => {
+        push(ref(db, `rooms/${room}/reactions`), {
+          emoji: icon.textContent,
+          timestamp: Date.now(),
+          player: player
+        });
+      });
+    });
+
+    onValue(ref(db, `rooms/${room}/reactions`), (snap) => {
+      const reactions = snap.val();
+      if (!reactions) return;
+      const lastReaction = Object.values(reactions).pop();
+      if (lastReaction.player !== player) {
+        const reactionEl = document.createElement('div');
+        reactionEl.textContent = lastReaction.emoji;
+        reactionEl.style.position = 'fixed';
+        reactionEl.style.fontSize = '48px';
+        reactionEl.style.animation = 'fadeInOut 2s';
+        reactionEl.style.zIndex = '999';
+        reactionEl.style.left = `${Math.random() * 70 + 15}%`;
+        reactionEl.style.top = `${Math.random() * 70 + 15}%`;
+        document.body.appendChild(reactionEl);
+        setTimeout(() => reactionEl.remove(), 2000);
+      }
+    });
+  
+    function enableAIMode() {
+      if (localStorage.getItem("aiMode") === "true" && player === "player1") {
+        onValue(ref(db, `rooms/${room}/currentPlays/player1`), (snap) => {
+          if (snap.exists()) {
+            setTimeout(() => {
+              const aiCard = Math.floor(Math.random() * 7);
+              set(ref(db, `rooms/${room}/currentPlays/player2`), aiCard);
+            }, 800);
+          }
+        });
+      }
+    }
+    enableAIMode();
+    
+</script>
+</body>
+</html>
