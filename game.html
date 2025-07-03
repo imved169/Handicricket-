@@ -5,6 +5,27 @@
   <title>HandiCricket - Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+
+#freeHitBadge {
+  display: none;
+  background: #ffeb3b;
+  color: #000;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-weight: bold;
+  margin: 10px auto;
+  width: fit-content;
+}
+#freeHitBadge {
+  display: none;
+  background: #ffeb3b;
+  color: #000;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-weight: bold;
+  margin: 10px auto;
+  width: fit-content;
+}
     body { background: #061e3e; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
     .card-row { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
     button.card { width: 60px; height: 60px; font-size: 20px; border-radius: 12px; border: none; background: #1e88e5; color: white; }
@@ -157,6 +178,10 @@
 </style>
 </head>
 <body>
+<div id="freeHitBadge">FREE HIT</div>
+<div id="rrrDisplay"></div>
+<div id="freeHitBadge">FREE HIT</div>
+<div id="rrrDisplay"></div>
   <div id="spectatorCount">Spectators: 0</div>
   <h2>🏏 HandiCricket - Game</h2>
   <div id="formatDisplay"></div>
@@ -234,6 +259,110 @@
   </div>
 
   <script type="module">
+const zeroCount = { batter: 0, bowler: 0 };
+let freeHit = false;
+
+// === NEW FEATURES IMPLEMENTATION ===
+
+let zeroCount = { batter: 0, bowler: 0 };
+let freeHit = false;
+
+function trackZeros(player, card) {
+  if (card !== 0) return;
+  const role = isBatting ? 'batter' : 'bowler';
+  zeroCount[role]++;
+  if (zeroCount[role] >= 4) {
+    if (role === 'batter') {
+      runs = Math.max(0, runs - 5);
+      status.innerText = "⚠️ 4th zero! -5 run penalty";
+    } else {
+      runs += 1;
+      freeHit = true;
+      status.innerText = "⚠️ 4th zero! No Ball + Free Hit";
+      showFreeHitBadge(true);
+    }
+  }
+}
+
+function showFreeHitBadge(active) {
+  const badge = document.getElementById("freeHitBadge");
+  if (badge) badge.style.display = active ? "block" : "none";
+}
+
+function resetFreeHit() {
+  freeHit = false;
+  showFreeHitBadge(false);
+}
+
+function checkMatchEnd() {
+  const target = team1Score + 1;
+  if (innings === 2) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
+      endMatch(`Team 1 wins by ${target - runs - 1} runs`);
+    }
+  } else {
+    if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
+      endMatch(`Team 1 scored ${runs} runs`);
+    }
+  }
+}
+
+function endMatch(result) {
+  status.innerText = `Match Over! ${result}`;
+  disableButtons();
+  pushMatchSummary({ result, runs, wickets, overs: legalBalls / 6, team1: team1Name, team2: team2Name });
+}
+
+function updateRRR() {
+  if (innings === 2) {
+    const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
+    const runsNeeded = (team1Score + 1) - runs;
+    const rrr = (runsNeeded / (ballsLeft / 6)).toFixed(2);
+    document.getElementById("rrrDisplay").innerText = `RRR: ${rrr}`;
+  }
+}
+
+function selectNextBatter() {
+  const available = teamPlayers.filter(p => !battersUsed.includes(p) || (batterLives[p] > 0));
+  if (available.length === 0) {
+    endMatch("All out!");
+    return;
+  }
+  showSelectionModal("Select Next Batter", available);
+}
+
+function applyWicket() {
+  let wicketValue = currentFormat.regularWicketValue;
+  if (isPowerplay) wicketValue = currentFormat.powerplayWicketValue;
+  wickets += wicketValue;
+  if (currentFormat.type === "test") {
+    if (wickets % 1 === 0) {
+      selectNextBatter();
+    }
+  } else {
+    selectNextBatter();
+  }
+}
+
+function initNewFeatures() {
+  const teamStatus = document.getElementById("teamStatus");
+  if (teamStatus) {
+    const rrrEl = document.createElement("div");
+    rrrEl.id = "rrrDisplay";
+    teamStatus.appendChild(rrrEl);
+  }
+
+  const alerts = document.getElementById("specialAlerts");
+  if (alerts) {
+    const badge = document.createElement("div");
+    badge.id = "freeHitBadge";
+    badge.textContent = "FREE HIT";
+    alerts.appendChild(badge);
+  }
+}
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
@@ -799,7 +928,59 @@
     }
 
     // Initialize the game
+function trackZeros(player, card) {
+  if (card !== 0) return;
+
+  const role = isBatting ? 'batter' : 'bowler';
+  zeroCount[role]++;
+
+  if (zeroCount[role] >= 4) {
+    if (role === 'batter') {
+      runs = Math.max(0, runs - 5);
+      status.innerText = "⚠️ 4th zero! -5 run penalty";
+    } else {
+      runs += 1;
+      freeHit = true;
+      status.innerText = "⚠️ 4th zero! No Ball + Free Hit";
+      showFreeHitBadge(true);
+    }
+  }
+}
+
+function showFreeHitBadge(active) {
+  const badge = document.getElementById("freeHitBadge");
+  badge.style.display = active ? "block" : "none";
+}
+
+function checkMatchEnd() {
+  const target = team1Score + 1;
+  if (innings === 2) {
+    if (runs >= target) {
+      endMatch(`Team 2 wins by ${currentFormat.totalWickets - Math.floor(wickets)} wickets`);
+    } else if (wickets >= currentFormat.totalWickets || 
+              legalBalls >= currentFormat.totalOvers * 6) {
+      endMatch(`Team 1 wins by ${target - runs - 1} runs`);
+    }
+  } else {
+    if (wickets >= currentFormat.totalWickets || 
+        legalBalls >= currentFormat.totalOvers * 6) {
+      endMatch(`Team 1 scored ${runs} runs`);
+    }
+  }
+}
+
+function updateRRR() {
+  if (innings === 2) {
+    const ballsLeft = currentFormat.totalOvers * 6 - legalBalls;
+    const runsNeeded = (team1Score + 1) - runs;
+    const rrr = (runsNeeded / (ballsLeft / 6)).toFixed(2);
+    document.getElementById("rrrDisplay").innerText = `RRR: ${rrr}`;
+  }
+}
     async function initGame() {
+  initNewFeatures();
+  if (params.get('ai')) enableAIMode();
+  const playerStats = new PlayerStats();
       gameInProgress = true;
       
       // Check for saved game
@@ -938,6 +1119,7 @@ initAllExtras();
 buttons.forEach(btn => {
   btn.addEventListener("click", async () => {
     const val = parseInt(btn.dataset.value);
+    trackZeros(player, val); // Add this line
     trackZeros(player, val);
     disableButtons();
     status.innerText = "Waiting...";
