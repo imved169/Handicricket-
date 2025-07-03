@@ -27,3 +27,27 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = `playing11.html?room=${joinCode}&player=player2`;
   });
 });
+
+// === Role Sync + End Match Logic ===
+import { pushMatchSummary } from './firebase.js';
+
+export function checkMatchEnd(room, innings, runs, target, legalBalls, totalBalls, wickets, maxWickets) {
+  if (innings === 2) {
+    if (runs > target) {
+      pushMatchSummary(room, {
+        result: "Batting Team Wins",
+        runs,
+        wickets,
+        overs: Math.floor(legalBalls / 6) + "." + (legalBalls % 6)
+      });
+    } else if (legalBalls >= totalBalls || wickets >= maxWickets) {
+      const result = runs === target ? "Match Tied!" : "Bowling Team Wins";
+      pushMatchSummary(room, {
+        result,
+        runs,
+        wickets,
+        overs: Math.floor(legalBalls / 6) + "." + (legalBalls % 6)
+      });
+    }
+  }
+}

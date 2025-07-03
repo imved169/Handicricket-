@@ -36,5 +36,42 @@
       });
     };
   </script>
+
+<!-- 🔥 Heatmap -->
+<div id="heatmap" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-top: 20px;"></div>
+<script>
+function generateHeatmap() {
+  const container = document.getElementById("heatmap");
+  for (let i = 0; i < 60; i++) {
+    const intensity = Math.floor(Math.random() * 100);
+    container.innerHTML += `<div style="background:hsl(${100 - intensity},100%,50%);height:20px;border-radius:2px;" title="Zone ${i}: ${intensity}%"></div>`;
+  }
+}
+generateHeatmap();
+</script>
+
+<script>
+// 🏆 Player XP Tracking
+localStorage.setItem('playerXP', parseInt(localStorage.getItem('playerXP') || 0) + 10);
+</script>
 </body>
+
 </html>
+
+<script type="module">
+import { db, ref, onValue } from './firebase.js';
+
+const urlParams = new URLSearchParams(window.location.search);
+const room = urlParams.get('room');
+
+const resultDiv = document.getElementById("matchResult");
+const statsDiv = document.getElementById("matchStats");
+
+onValue(ref(db, `rooms/${room}/summary`), (snap) => {
+  if (snap.exists()) {
+    const data = snap.val();
+    resultDiv.innerText = `🏆 ${data.result}`;
+    statsDiv.innerText = `Runs: ${data.runs} | Wickets: ${data.wickets} | Overs: ${data.overs}`;
+  }
+});
+</script>

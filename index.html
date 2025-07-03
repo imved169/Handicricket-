@@ -197,5 +197,49 @@
     // Initialize
     loadSavedGames();
   </script>
+
+<!-- 🧠 Resume Game List -->
+<div id="savedGamesList" style="margin-top: 20px;"></div>
+
+<!-- 🤖 Play vs AI -->
+<button onclick="startAIMatch()">🖥️ Play vs AI</button>
+
+<script>
+function startAIMatch() {
+  const roomCode = Math.random().toString(36).substring(2, 8);
+  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
+}
+
+function loadSavedGames() {
+  const dbRef = firebase.database().ref("savedGames");
+  dbRef.once("value", (snap) => {
+    const games = snap.val() || {};
+    const container = document.getElementById("savedGamesList");
+    container.innerHTML = Object.entries(games).map(([id, game]) => `
+      <div style="background:#14395a;padding:10px;border-radius:8px;margin-bottom:10px;">
+        <strong>${game.team1} vs ${game.team2}</strong><br/>
+        Score: ${game.score || '0/0'} • Overs: ${game.overs || '0.0'}<br/>
+        <button onclick="resumeGame('${id}')">Resume</button>
+      </div>`).join("");
+  });
+}
+
+function resumeGame(roomId) {
+  if (confirm("Resume this match?")) {
+    window.location.href = `game.html?room=${roomId}&player=player1`;
+  }
+}
+</script>
+
+<!-- 🤖 AI Match Button -->
+<button onclick="startAIMatch()">🖥️ Play vs AI</button>
+<script>
+function startAIMatch() {
+  const roomCode = 'AI_' + Math.random().toString(36).substring(2, 7).toUpperCase();
+  localStorage.setItem('roomCode', roomCode);
+  window.location.href = `game.html?room=${roomCode}&player=player1&ai=true`;
+}
+</script>
 </body>
+
 </html>
