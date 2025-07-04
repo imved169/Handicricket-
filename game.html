@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Match In Progress - HandiCricket</title>
+  <meta name="description" content="Live HandiCricket match in progress">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Loading match...</p>
+  </div>
+
+  <div id="error-modal" class="error-modal" style="display: none;">
+    <div class="error-content">
+      <h3>Error</h3>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <span class="cricket-icon">🏏</span>
+        HandiCricket
+      </h1>
+      <div class="match-header">
+        <div id="roomCode" class="room-code"></div>
+        <div id="formatDisplay" class="format-display"></div>
+        <div id="spectatorCount" class="spectator-count">👥 0</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main game-container">
+    <!-- Match Status -->
+    <div class="match-status">
+      <div id="currentInnings" class="innings-display">1st Innings</div>
+      <div id="connectionStatus" class="connection-status online">
+        <span class="status-indicator"></span>
+        <span class="status-text">Connected</span>
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <div class="score-main">
+        <div class="batting-team">
+          <h3 id="battingTeamName">Team A</h3>
+          <div class="score-display">
+            <span id="runs" class="runs">0</span>
+            <span class="separator">/</span>
+            <span id="wickets" class="wickets">0</span>
+            <span class="overs-display">(<span id="overs">0.0</span>)</span>
+          </div>
+        </div>
+        <div class="target-display" id="targetDisplay" style="display: none;">
+          <div class="target-text">Target: <span id="target">0</span></div>
+          <div class="required-info">
+            <span>Need <span id="runsRequired">0</span> from <span id="ballsRemaining">0</span> balls</span>
+            <span class="req-rate">RR: <span id="requiredRate">0.00</span></span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="score-details">
+        <div class="run-rate">
+          <span class="label">Run Rate:</span>
+          <span id="currentRunRate" class="value">0.00</span>
+        </div>
+        <div class="last-over">
+          <span class="label">Last Over:</span>
+          <span id="lastOverRuns" class="value">0 runs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Players -->
+    <div class="current-players">
+      <div class="player-card">
+        <h4>Batter</h4>
+        <div id="currentBatter" class="player-name">-</div>
+        <div id="batterStats" class="player-stats">0(0)</div>
+        <div id="batterLives" class="player-lives"></div>
+      </div>
+      <div class="player-card">
+        <h4>Bowler</h4>
+        <div id="currentBowler" class="player-name">-</div>
+        <div id="bowlerStats" class="player-stats">0-0-0-0</div>
+        <div id="bowlerOvers" class="player-overs"></div>
+      </div>
+    </div>
+
+    <!-- Special Indicators -->
+    <div class="special-indicators">
+      <div id="powerplayIndicator" class="indicator powerplay" style="display: none;">
+        ⚡ POWERPLAY
+      </div>
+      <div id="freeHitIndicator" class="indicator free-hit" style="display: none;">
+        🎯 FREE HIT
+      </div>
+      <div id="deadOverIndicator" class="indicator dead-over" style="display: none;">
+        💀 DEAD OVER
+      </div>
+    </div>
+
+    <!-- Game Status -->
+    <div id="gameStatus" class="game-status">
+      <div id="statusMessage" class="status-message">Ready to play</div>
+      <div id="roleText" class="role-text"></div>
+    </div>
+
+    <!-- Card Selection -->
+    <div class="card-selection">
+      <h3>Select Your Number</h3>
+      <div class="card-row">
+        <button class="card" data-value="0">0</button>
+        <button class="card" data-value="1">1</button>
+        <button class="card" data-value="2">2</button>
+        <button class="card" data-value="3">3</button>
+        <button class="card" data-value="4">4</button>
+        <button class="card" data-value="5">5</button>
+        <button class="card" data-value="6">6</button>
+      </div>
+      <div id="selectedCard" class="selected-card" style="display: none;">
+        You selected: <span class="selected-value"></span>
+      </div>
+    </div>
+
+    <!-- Ball Results -->
+    <div id="ballResult" class="ball-result" style="display: none;">
+      <div class="result-content">
+        <div class="choices">
+          <div class="choice">
+            <span class="player">You:</span>
+            <span id="playerChoice" class="choice-value">0</span>
+          </div>
+          <div class="vs">VS</div>
+          <div class="choice">
+            <span class="player">Opponent:</span>
+            <span id="opponentChoice" class="choice-value">0</span>
+          </div>
+        </div>
+        <div id="ballOutcome" class="ball-outcome">
+          <!-- Dynamic result content -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Player Selection Modal -->
+    <div id="playerSelectionModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <h3 id="selectionTitle">Select Next Batter</h3>
+        <div id="playerList" class="player-list">
+          <!-- Dynamic player list -->
+        </div>
+        <button id="confirmPlayerSelection" class="btn btn-primary">Confirm Selection</button>
+      </div>
+    </div>
+
+    <!-- Test Match Controls -->
+    <div id="testControls" class="test-controls" style="display: none;">
+      <button id="declareInnings" class="btn btn-warning">Declare Innings</button>
+      <button id="enforceFollowOn" class="btn btn-secondary" style="display: none;">Enforce Follow-On</button>
+    </div>
+
+    <!-- Playing XI -->
+    <div class="playing-xi">
+      <div class="teams-display">
+        <div class="team-section">
+          <h4 id="team1Name">Team 1</h4>
+          <ul id="team1Players" class="player-list"></ul>
+        </div>
+        <div class="team-section">
+          <h4 id="team2Name">Team 2</h4>
+          <ul id="team2Players" class="player-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Controls -->
+    <div class="game-controls">
+      <button id="saveGame" class="btn btn-warning">💾 Save Game</button>
+      <button id="exitGame" class="btn btn-danger">🚪 Exit Game</button>
+      <button id="viewScoreboard" class="btn btn-secondary">📊 Scoreboard</button>
+    </div>
+  </main>
+
+  <script src="js/firebase.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/game-logic.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    const isResume = urlParams.get('resume') === 'true';
+    
+    if (!room || !player) {
+      window.location.href = 'index.html';
+    }
+
+    let gameLogic = null;
+    let gameInProgress = true;
+
+    // Initialize game
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initializeGame();
+      setupEventListeners();
+    });
+
+    async function initializeGame() {
+      try {
+        showLoading('Loading match...');
+        
+        // Initialize game logic
+        gameLogic = new GameLogic(room, player, {
+          onGameUpdate: updateGameDisplay,
+          onPlayerSelection: showPlayerSelection,
+          onMatchEnd: handleMatchEnd,
+          onError: showError
+        });
+        
+        if (isResume) {
+          await gameLogic.resumeGame();
+        } else {
+          await gameLogic.initializeGame();
+        }
+        
+        hideLoading();
+      } catch (error) {
+        showError('Failed to initialize game: ' + error.message);
+      }
+    }
+
+    function setupEventListeners() {
+      // Card selection
+      document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', () => selectCard(parseInt(card.dataset.value)));
+      });
+      
+      // Player selection
+      document.getElementById('confirmPlayerSelection').addEventListener('click', confirmPlayerSelection);
+      
+      // Test match controls
+      document.getElementById('declareInnings').addEventListener('click', declareInnings);
+      document.getElementById('enforceFollowOn').addEventListener('click', enforceFollowOn);
+      
+      // Game controls
+      document.getElementById('saveGame').addEventListener('click', saveGame);
+      document.getElementById('exitGame').addEventListener('click', exitGame);
+      document.getElementById('viewScoreboard').addEventListener('click', viewScoreboard);
+      
+      // Error modal
+      document.getElementById('retry-btn').addEventListener('click', hideError);
+      
+      // Prevent accidental navigation
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    function selectCard(value) {
+      if (!gameLogic || !gameLogic.canMakeMove()) {
+        showNotification('Wait for your turn!', 'warning');
+        return;
+      }
+      
+      // Disable all cards
+      document.querySelectorAll('.card').forEach(card => {
+        card.disabled = true;
+      });
+      
+      // Show selected card
+      document.getElementById('selectedCard').style.display = 'block';
+      document.querySelector('.selected-value').textContent = value;
+      
+      // Animate selected card
+      const selectedCard = document.querySelector(`[data-value="${value}"]`);
+      selectedCard.classList.add('card-selected');
+      
+      // Make move
+      gameLogic.makeMove(value);
+      
+      showNotification(`You selected ${value}`, 'info');
+    }
+
+    function updateGameDisplay(gameState) {
+      try {
+        // Update scoreboard
+        updateScoreboard(gameState);
+        
+        // Update current players
+        updateCurrentPlayers(gameState);
+        
+        // Update special indicators
+        updateSpecialIndicators(gameState);
+        
+        // Update game status
+        updateGameStatus(gameState);
+        
+        // Update playing XI
+        updatePlayingXI(gameState);
+        
+        // Enable/disable cards based on turn
+        updateCardState(gameState);
+        
+        // Update spectator count
+        updateSpectatorCount(gameState);
+        
+      } catch (error) {
+        console.error('Error updating game display:', error);
+      }
+    }
+
+    function updateScoreboard(gameState) {
+      document.getElementById('runs').textContent = gameState.runs;
+      document.getElementById('wickets').textContent = gameState.wickets;
+      document.getElementById('overs').textContent = formatOvers(gameState.balls);
+      document.getElementById('currentRunRate').textContent = calculateRunRate(gameState.runs, gameState.balls);
+      document.getElementById('lastOverRuns').textContent = `${gameState.lastOverRuns || 0} runs`;
+      
+      // Update batting team name
+      const battingTeam = gameState.battingFirst === 'player1' ? 
+        gameState.teams.team1 : gameState.teams.team2;
+      document.getElementById('battingTeamName').textContent = battingTeam;
+      
+      // Update innings display
+      document.getElementById('currentInnings').textContent = 
+        `${gameState.innings}${gameState.innings === 1 ? 'st' : 'nd'} Innings`;
+      
+      // Show target if second innings
+      if (gameState.innings === 2) {
+        const targetDisplay = document.getElementById('targetDisplay');
+        targetDisplay.style.display = 'block';
+        
+        document.getElementById('target').textContent = gameState.target;
+        document.getElementById('runsRequired').textContent = Math.max(0, gameState.target - gameState.runs);
+        
+        const ballsLeft = (gameState.totalOvers * 6) - gameState.balls;
+        document.getElementById('ballsRemaining').textContent = ballsLeft;
+        document.getElementById('requiredRate').textContent = 
+          calculateRequiredRate(gameState.target, gameState.runs, ballsLeft);
+      }
+    }
+
+    function updateCurrentPlayers(gameState) {
+      if (gameState.currentBatter) {
+        document.getElementById('currentBatter').textContent = gameState.currentBatter.name;
+        document.getElementById('batterStats').textContent = 
+          `${gameState.currentBatter.runs}(${gameState.currentBatter.balls})`;
+        
+        // Show batter lives
+        const livesEl = document.getElementById('batterLives');
+        livesEl.innerHTML = '';
+        for (let i = 0; i < gameState.currentBatter.lives; i++) {
+          livesEl.innerHTML += '❤️';
+        }
+      }
+      
+      if (gameState.currentBowler) {
+        document.getElementById('currentBowler').textContent = gameState.currentBowler.name;
+        document.getElementById('bowlerStats').textContent = 
+          `${gameState.currentBowler.overs}-${gameState.currentBowler.maidens}-${gameState.currentBowler.runs}-${gameState.currentBowler.wickets}`;
+      }
+    }
+
+    function updateSpecialIndicators(gameState) {
+      // Powerplay
+      const powerplayEl = document.getElementById('powerplayIndicator');
+      if (gameState.isPowerplay) {
+        powerplayEl.style.display = 'block';
+        powerplayEl.classList.add('powerplay-pulse');
+      } else {
+        powerplayEl.style.display = 'none';
+        powerplayEl.classList.remove('powerplay-pulse');
+      }
+      
+      // Free hit
+      const freeHitEl = document.getElementById('freeHitIndicator');
+      if (gameState.isFreeHit) {
+        freeHitEl.style.display = 'block';
+        freeHitEl.classList.add('glow');
+      } else {
+        freeHitEl.style.display = 'none';
+        freeHitEl.classList.remove('glow');
+      }
+      
+      // Dead over
+      const deadOverEl = document.getElementById('deadOverIndicator');
+      if (gameState.isDeadOver) {
+        deadOverEl.style.display = 'block';
+        deadOverEl.classList.add('pulse');
+      } else {
+        deadOverEl.style.display = 'none';
+        deadOverEl.classList.remove('pulse');
+      }
+    }
+
+    function updateGameStatus(gameState) {
+      const statusEl = document.getElementById('statusMessage');
+      const roleEl = document.getElementById('roleText');
+      
+      if (gameState.isWaitingForMove) {
+        if (gameState.currentTurn === player) {
+          statusEl.textContent = 'Your turn - Select a number!';
+          roleEl.textContent = gameState.isBatting ? 'You are batting' : 'You are bowling';
+        } else {
+          statusEl.textContent = 'Opponent is choosing...';
+          roleEl.textContent = gameState.isBatting ? 'You are bowling' : 'You are batting';
+        }
+      } else if (gameState.lastBallResult) {
+        statusEl.textContent = gameState.lastBallResult.description;
+      }
+    }
+
+    function updatePlayingXI(gameState) {
+      if (gameState.teams) {
+        document.getElementById('team1Name').textContent = gameState.teams.team1;
+        document.getElementById('team2Name').textContent = gameState.teams.team2;
+        
+        // Update player lists with status
+        updatePlayerList('team1Players', gameState.playing11.player1, gameState);
+        updatePlayerList('team2Players', gameState.playing11.player2, gameState);
+      }
+    }
+
+    function updatePlayerList(elementId, players, gameState) {
+      const listEl = document.getElementById(elementId);
+      listEl.innerHTML = '';
+      
+      players.forEach(player => {
+        const li = document.createElement('li');
+        li.className = 'player-item';
+        
+        // Add status indicators
+        let status = '';
+        if (gameState.currentBatter && gameState.currentBatter.name === player) {
+          li.classList.add('current-batter');
+          status = ' 🏏';
+        } else if (gameState.currentBowler && gameState.currentBowler.name === player) {
+          li.classList.add('current-bowler');
+          status = ' ⚾';
+        } else if (gameState.outPlayers && gameState.outPlayers.includes(player)) {
+          li.classList.add('out');
+          status = ' ❌';
+        }
+        
+        li.textContent = player + status;
+        listEl.appendChild(li);
+      });
+    }
+
+    function updateCardState(gameState) {
+      const cards = document.querySelectorAll('.card');
+      const canPlay = gameState.isWaitingForMove && gameState.currentTurn === player;
+      
+      cards.forEach(card => {
+        card.disabled = !canPlay;
+        if (canPlay) {
+          card.classList.remove('card-selected');
+        }
+      });
+      
+      // Hide selected card display if new turn
+      if (canPlay) {
+        document.getElementById('selectedCard').style.display = 'none';
+      }
+    }
+
+    function updateSpectatorCount(gameState) {
+      const count = gameState.spectatorCount || 0;
+      document.getElementById('spectatorCount').textContent = `👥 ${count}`;
+    }
+
+    function showPlayerSelection(availablePlayers, selectionType) {
+      const modal = document.getElementById('playerSelectionModal');
+      const title = document.getElementById('selectionTitle');
+      const playerList = document.getElementById('playerList');
+      
+      title.textContent = selectionType === 'batter' ? 'Select Next Batter' : 'Select Next Bowler';
+      
+      playerList.innerHTML = '';
+      availablePlayers.forEach(player => {
+        const div = document.createElement('div');
+        div.className = 'player-option';
+        div.textContent = player;
+        div.addEventListener('click', () => selectPlayer(player));
+        playerList.appendChild(div);
+      });
+      
+      modal.style.display = 'block';
+    }
+
+    function selectPlayer(playerName) {
+      document.querySelectorAll('.player-option').forEach(option => {
+        option.classList.remove('selected');
+      });
+      
+      event.target.classList.add('selected');
+      document.getElementById('confirmPlayerSelection').disabled = false;
+    }
+
+    function confirmPlayerSelection() {
+      const selectedOption = document.querySelector('.player-option.selected');
+      if (!selectedOption) {
+        showNotification('Please select a player', 'warning');
+        return;
+      }
+      
+      const playerName = selectedOption.textContent;
+      gameLogic.selectPlayer(playerName);
+      
+      document.getElementById('playerSelectionModal').style.display = 'none';
+      showNotification(`${playerName} selected!`, 'success');
+    }
+
+    function handleMatchEnd(result) {
+      gameInProgress = false;
+      
+      // Show match result
+      const resultMessage = result.winner === player ? 
+        `🎉 You Won! ${result.margin}` : 
+        `😞 You Lost! ${result.margin}`;
+      
+      showNotification(resultMessage, result.winner === player ? 'success' : 'error', 10000);
+      
+      // Disable all interactions
+      document.querySelectorAll('.card').forEach(card => {
+        card.disabled = true;
+      });
+      
+      // Show celebration or commiseration
+      if (result.winner === player) {
+        createConfetti();
+      }
+      
+      // Redirect to results page after delay
+      setTimeout(() => {
+        window.location.href = `result.html?room=${room}&player=${player}`;
+      }, 5000);
+    }
+
+    async function declareInnings() {
+      if (confirm('Are you sure you want to declare this innings?')) {
+        try {
+          await gameLogic.declareInnings();
+          showNotification('Innings declared!', 'success');
+        } catch (error) {
+          showError('Failed to declare innings: ' + error.message);
+        }
+      }
+    }
+
+    async function enforceFollowOn() {
+      if (confirm('Are you sure you want to enforce follow-on?')) {
+        try {
+          await gameLogic.enforceFollowOn();
+          showNotification('Follow-on enforced!', 'success');
+        } catch (error) {
+          showError('Failed to enforce follow-on: ' + error.message);
+        }
+      }
+    }
+
+    async function saveGame() {
+      try {
+        showLoading('Saving game...');
+        await gameLogic.saveGame();
+        showNotification('Game saved successfully!', 'success');
+        hideLoading();
+      } catch (error) {
+        showError('Failed to save game: ' + error.message);
+        hideLoading();
+      }
+    }
+
+    function exitGame() {
+      if (confirm('Are you sure you want to exit? Unsaved progress will be lost.')) {
+        gameInProgress = false;
+        setPlayerOffline(room, player);
+        window.location.href = 'index.html';
+      }
+    }
+
+    function viewScoreboard() {
+      window.open(`scoreboard.html?room=${room}`, '_blank');
+    }
+
+    function handleBeforeUnload(event) {
+      if (gameInProgress) {
+        event.preventDefault();
+        event.returnValue = 'Game is in progress. Are you sure you want to leave?';
+        return event.returnValue;
+      }
+    }
+
+    // Set player online status
+    window.addEventListener('load', () => {
+      setPlayerOnline(room, player);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (gameInProgress) {
+        setPlayerOffline(room, player);
+      }
+    });
+
+    // Handle visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (gameInProgress) {
+        if (document.hidden) {
+          setPlayerOffline(room, player);
+        } else {
+          setPlayerOnline(room, player);
+        }
+      }
+    });
+  </script>
+
+  <style>
+    .game-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .match-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .innings-display {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+
+    .connection-status.online {
+      background: rgba(76, 175, 80, 0.2);
+      color: var(--success-color);
+    }
+
+    .connection-status.offline {
+      background: rgba(244, 67, 54, 0.2);
+      color: var(--danger-color);
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .scoreboard {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .score-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .batting-team h3 {
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+
+    .score-display {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .runs {
+      color: var(--success-color);
+    }
+
+    .wickets {
+      color: var(--danger-color);
+    }
+
+    .separator {
+      color: var(--text-secondary);
+      margin: 0 0.5rem;
+    }
+
+    .overs-display {
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      margin-left: 1rem;
+    }
+
+    .target-display {
+      text-align: right;
+    }
+
+    .target-text {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--warning-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .required-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .req-rate {
+      font-weight: 500;
+    }
+
+    .score-details {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .score-details .label {
+      color: var(--text-secondary);
+      margin-right: 0.5rem;
+    }
+
+    .score-details .value {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .current-players {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .player-card {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .player-card h4 {
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .player-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .player-stats {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .player-lives {
+      margin-top: 0.5rem;
+      font-size: 1.2rem;
+    }
+
+    .special-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .indicator {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .indicator.powerplay {
+      background: var(--accent-color);
+      color: black;
+    }
+
+    .indicator.free-hit {
+      background: var(--success-color);
+      color: white;
+    }
+
+    .indicator.dead-over {
+      background: var(--danger-color);
+      color: white;
+    }
+
+    .game-status {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .status-message {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .role-text {
+      color: var(--text-secondary);
+    }
+
+    .card-selection {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      text-align: center;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-selection h3 {
+      color: var(--primary-color);
+      margin-bottom: 1.5rem;
+    }
+
+    .selected-card {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+
+    .ball-result {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .result-content {
+      text-align: center;
+    }
+
+    .choices {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .choice {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .choice-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      padding: 1rem;
+      background: var(--border-color);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vs {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .ball-outcome {
+      font-size: 1.3rem;
+      font-weight: bold;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .playing-xi {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .teams-display {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .team-section h4 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .player-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .player-item {
+      padding: 0.5rem;
+      margin-bottom: 0.25rem;
+      border-radius: 6px;
+      background: var(--border-color);
+    }
+
+    .player-item.current-batter {
+      background: rgba(76, 175, 80, 0.2);
+      color: var(--success-color);
+    }
+
+    .player-item.current-bowler {
+      background: rgba(30, 136, 229, 0.2);
+      color: var(--primary-color);
+    }
+
+    .player-item.out {
+      background: rgba(244, 67, 54, 0.2);
+      color: var(--danger-color);
+      opacity: 0.7;
+    }
+
+    .game-controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .test-controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .player-option {
+      padding: 1rem;
+      margin: 0.5rem 0;
+      background: var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .player-option:hover {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .player-option.selected {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    @media (max-width: 768px) {
+      .score-main {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .score-display {
+        font-size: 2.5rem;
+      }
+
+      .current-players {
+        grid-template-columns: 1fr;
+      }
+
+      .teams-display {
+        grid-template-columns: 1fr;
+      }
+
+      .choices {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .game-controls {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .test-controls {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</body>
+</html>

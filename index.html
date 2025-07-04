@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - The Ultimate Cricket Game</title>
+  <meta name="description" content="Play HandiCricket online with friends or AI opponents. Multiple formats including T20, ODI, and Test matches with real-time multiplayer.">
+  <meta name="keywords" content="cricket game, handicricket, online cricket, multiplayer cricket, cricket simulation">
+  <meta name="author" content="HandiCricket Team">
+  
+  <!-- Open Graph Meta Tags -->
+  <meta property="og:title" content="HandiCricket - The Ultimate Cricket Game">
+  <meta property="og:description" content="Play HandiCricket online with friends or AI opponents">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://handicricket.netlify.app">
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#1e88e5">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/animations.css">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js" as="script">
+  <link rel="preload" href="https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js" as="script">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Loading HandiCricket...</p>
+  </div>
+
+  <div id="error-modal" class="error-modal" style="display: none;">
+    <div class="error-content">
+      <h3>Connection Error</h3>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-primary">Retry</button>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <span class="cricket-icon">🏏</span>
+        HandiCricket
+      </h1>
+      <nav class="nav">
+        <a href="#game-modes" class="nav-link">Play</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="history.html" class="nav-link">History</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="hero">
+      <div class="container">
+        <h2 class="hero-title">The Ultimate Cricket Experience</h2>
+        <p class="hero-subtitle">Play with friends or challenge AI opponents in multiple cricket formats</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-large" onclick="scrollToSection('game-modes')">
+            Start Playing
+          </button>
+          <button class="btn btn-secondary btn-large" onclick="showSpectatorJoin()">
+            Watch Live
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="game-modes" class="game-modes">
+      <div class="container">
+        <h2 class="section-title">Choose Your Game Mode</h2>
+        
+        <div class="game-mode-grid">
+          <div class="game-mode-card">
+            <div class="card-icon">👥</div>
+            <h3>Multiplayer</h3>
+            <p>Play with friends in real-time</p>
+            <div class="format-selection">
+              <h4>Select Format:</h4>
+              <div class="format-buttons">
+                <button class="format-btn active" data-format="5">5 Overs</button>
+                <button class="format-btn" data-format="10">10 Overs</button>
+                <button class="format-btn" data-format="20">T20</button>
+                <button class="format-btn" data-format="50">ODI</button>
+                <button class="format-btn" data-format="test">Test</button>
+              </div>
+            </div>
+            <div class="game-actions">
+              <input type="text" id="teamName" placeholder="Enter Team Name" class="input-field">
+              <input type="text" id="joinCode" placeholder="Room Code (to join)" class="input-field">
+              <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
+              <button class="btn btn-secondary" onclick="joinRoom()">Join Room</button>
+            </div>
+            <div id="roomDisplay" class="room-display"></div>
+          </div>
+
+          <div class="game-mode-card">
+            <div class="card-icon">🤖</div>
+            <h3>AI Opponent</h3>
+            <p>Challenge computer opponents</p>
+            <div class="ai-difficulty">
+              <h4>Difficulty:</h4>
+              <div class="difficulty-buttons">
+                <button class="difficulty-btn active" data-difficulty="easy">Easy</button>
+                <button class="difficulty-btn" data-difficulty="medium">Medium</button>
+                <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+              </div>
+            </div>
+            <div class="format-selection">
+              <h4>Format:</h4>
+              <select id="aiFormat" class="select-field">
+                <option value="5">5 Overs</option>
+                <option value="10">10 Overs</option>
+                <option value="20">T20</option>
+                <option value="50">ODI</option>
+                <option value="test">Test Match</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="startAIGame()">Start AI Game</button>
+          </div>
+
+          <div class="game-mode-card">
+            <div class="card-icon">📺</div>
+            <h3>Spectator Mode</h3>
+            <p>Watch live matches and interact</p>
+            <div class="spectator-actions">
+              <input type="text" id="spectatorCode" placeholder="Enter Room Code" class="input-field">
+              <button class="btn btn-primary" onclick="joinAsSpectator()">Join as Spectator</button>
+            </div>
+            <div class="live-matches" id="liveMatches">
+              <h4>Live Matches:</h4>
+              <div id="liveMatchesList" class="live-matches-list">
+                <p class="no-matches">No live matches available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="saved-games">
+      <div class="container">
+        <h2 class="section-title">Continue Saved Games</h2>
+        <div id="savedGamesList" class="saved-games-grid">
+          <p class="no-saved-games">No saved games found</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="container">
+        <h2 class="section-title">Game Features</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Real-time Multiplayer</h3>
+            <p>Play with friends instantly with Firebase real-time sync</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>Multiple Formats</h3>
+            <p>5/10/20/50 overs and Test matches with authentic rules</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🧠</div>
+            <h3>Smart AI</h3>
+            <p>Challenge AI opponents with adaptive difficulty levels</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">👥</div>
+            <h3>Spectator Mode</h3>
+            <p>Watch live matches with reactions and momentum tracking</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>Live Statistics</h3>
+            <p>Detailed scoreboard with player stats and match analysis</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">💾</div>
+            <h3>Save & Resume</h3>
+            <p>Save your progress and continue games later</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 HandiCricket. Made with ❤️ for cricket fans.</p>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Privacy Policy</a>
+        <a href="#" class="footer-link">Terms of Service</a>
+        <a href="#" class="footer-link">Contact</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Spectator Join Modal -->
+  <div id="spectatorModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Join as Spectator</h2>
+      <input type="text" id="spectatorRoomCode" placeholder="Enter Room Code" class="input-field">
+      <button class="btn btn-primary" onclick="spectateRoom()">Join Match</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/firebase.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    let selectedFormat = "5";
+    let selectedDifficulty = "easy";
+
+    // Initialize PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => console.log('SW registered'))
+          .catch(error => console.log('SW registration failed'));
+      });
+    }
+
+    // Format selection
+    document.querySelectorAll('.format-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedFormat = btn.dataset.format;
+      });
+    });
+
+    // Difficulty selection
+    document.querySelectorAll('.difficulty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedDifficulty = btn.dataset.difficulty;
+      });
+    });
+
+    // Game functions
+    async function createRoom() {
+      const teamName = document.getElementById("teamName").value.trim();
+      if (!teamName) {
+        showError("Please enter your team name");
+        return;
+      }
+      
+      showLoading();
+      try {
+        const roomCode = generateRoomCode();
+        await createFirebaseRoom(roomCode, teamName, selectedFormat);
+        document.getElementById("roomDisplay").innerHTML = `
+          <div class="room-info">
+            <strong>Room Code: ${roomCode}</strong><br>
+            Format: ${getFormatName(selectedFormat)}<br>
+            <small>Share this code with your opponent</small>
+          </div>
+        `;
+        setTimeout(() => {
+          window.location.href = `playing11.html?room=${roomCode}&player=player1`;
+        }, 2000);
+      } catch (error) {
+        showError("Failed to create room: " + error.message);
+      }
+      hideLoading();
+    }
+
+    async function joinRoom() {
+      const teamName = document.getElementById("teamName").value.trim();
+      const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
+      
+      if (!teamName || !joinCode) {
+        showError("Please enter both team name and room code");
+        return;
+      }
+      
+      showLoading();
+      try {
+        const roomExists = await checkRoomExists(joinCode);
+        if (roomExists) {
+          await joinFirebaseRoom(joinCode, teamName);
+          window.location.href = `playing11.html?room=${joinCode}&player=player2`;
+        } else {
+          showError("Invalid room code. Please check and try again.");
+        }
+      } catch (error) {
+        showError("Failed to join room: " + error.message);
+      }
+      hideLoading();
+    }
+
+    async function startAIGame() {
+      const format = document.getElementById("aiFormat").value;
+      const difficulty = selectedDifficulty;
+      
+      showLoading();
+      try {
+        const roomCode = generateRoomCode();
+        await createAIRoom(roomCode, format, difficulty);
+        window.location.href = `ai-game.html?room=${roomCode}&difficulty=${difficulty}&format=${format}`;
+      } catch (error) {
+        showError("Failed to start AI game: " + error.message);
+      }
+      hideLoading();
+    }
+
+    async function joinAsSpectator() {
+      const roomCode = document.getElementById("spectatorCode").value.trim().toUpperCase();
+      if (!roomCode) {
+        showError("Please enter a room code");
+        return;
+      }
+      
+      showLoading();
+      try {
+        const roomExists = await checkRoomExists(roomCode);
+        if (roomExists) {
+          const spectatorId = await joinAsSpectatorFirebase(roomCode);
+          window.location.href = `spectator.html?room=${roomCode}&id=${spectatorId}`;
+        } else {
+          showError("Invalid room code or match not found");
+        }
+      } catch (error) {
+        showError("Failed to join as spectator: " + error.message);
+      }
+      hideLoading();
+    }
+
+    function scrollToSection(sectionId) {
+      document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function showSpectatorJoin() {
+      document.getElementById("spectatorModal").style.display = "block";
+    }
+
+    // Modal close functionality
+    document.querySelector('.close').addEventListener('click', () => {
+      document.getElementById("spectatorModal").style.display = "none";
+    });
+
+    // Load saved games and live matches on page load
+    window.addEventListener('load', async () => {
+      hideLoading();
+      try {
+        await loadSavedGames();
+        await loadLiveMatches();
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      }
+    });
+
+    // Error handling
+    function showError(message) {
+      document.getElementById("error-message").textContent = message;
+      document.getElementById("error-modal").style.display = "block";
+    }
+
+    function hideError() {
+      document.getElementById("error-modal").style.display = "none";
+    }
+
+    document.getElementById("retry-btn").addEventListener('click', hideError);
+  </script>
+</body>
+</html>

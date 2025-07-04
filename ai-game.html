@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Match - HandiCricket</title>
+  <meta name="description" content="Play HandiCricket against AI opponents with adaptive difficulty">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Preparing AI match...</p>
+  </div>
+
+  <div id="error-modal" class="error-modal" style="display: none;">
+    <div class="error-content">
+      <h3>Error</h3>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <span class="cricket-icon">🏏</span>
+        HandiCricket vs AI
+      </h1>
+      <div class="ai-info">
+        <div id="roomCode" class="room-code"></div>
+        <div id="aiDifficulty" class="ai-difficulty">Easy AI</div>
+        <div id="formatDisplay" class="format-display">T20</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main ai-game-container">
+    <!-- Match Status -->
+    <div class="match-status">
+      <div id="currentInnings" class="innings-display">1st Innings</div>
+      <div id="aiStatus" class="ai-status">
+        <span class="ai-indicator">🤖</span>
+        <span id="aiState" class="ai-state">Ready</span>
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <div class="score-main">
+        <div class="team-section human-team">
+          <h3 id="humanTeamName">Your Team</h3>
+          <div class="score-display">
+            <span id="humanRuns" class="runs">0</span>
+            <span class="separator">/</span>
+            <span id="humanWickets" class="wickets">0</span>
+            <span class="overs-display">(<span id="humanOvers">0.0</span>)</span>
+          </div>
+        </div>
+        
+        <div class="vs-section">
+          <div class="vs-text">VS</div>
+          <div id="lastBallResult" class="last-ball">Ready</div>
+        </div>
+        
+        <div class="team-section ai-team">
+          <h3 id="aiTeamName">AI Team</h3>
+          <div class="score-display">
+            <span id="aiRuns" class="runs">0</span>
+            <span class="separator">/</span>
+            <span id="aiWickets" class="wickets">0</span>
+            <span class="overs-display">(<span id="aiOvers">0.0</span>)</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="score-details">
+        <div class="run-rate">
+          <span class="label">Run Rate:</span>
+          <span id="currentRunRate" class="value">0.00</span>
+        </div>
+        <div class="target-chase" id="targetChase" style="display: none;">
+          <span class="label">Target:</span>
+          <span id="target" class="value">0</span>
+          <span class="separator">•</span>
+          <span class="label">Need:</span>
+          <span id="runsRequired" class="value">0</span>
+          <span class="label">from</span>
+          <span id="ballsRemaining" class="value">0</span>
+          <span class="label">balls</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Players -->
+    <div class="current-players">
+      <div class="player-card batter-card">
+        <h4>🏏 Current Batter</h4>
+        <div id="currentBatter" class="player-name">-</div>
+        <div id="batterStats" class="player-stats">0(0) • SR: 0.00</div>
+        <div id="batterLives" class="player-lives"></div>
+      </div>
+      
+      <div class="player-card bowler-card">
+        <h4>⚾ Current Bowler</h4>
+        <div id="currentBowler" class="player-name">-</div>
+        <div id="bowlerStats" class="player-stats">0-0-0-0 • Eco: 0.00</div>
+      </div>
+    </div>
+
+    <!-- AI Thinking Indicator -->
+    <div id="aiThinking" class="ai-thinking-section" style="display: none;">
+      <div class="thinking-animation">
+        <div class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p id="aiThinkingText">AI is analyzing...</p>
+      </div>
+    </div>
+
+    <!-- Game Status -->
+    <div id="gameStatus" class="game-status">
+      <div id="statusMessage" class="status-message">Choose your number!</div>
+      <div id="roleText" class="role-text">You are batting first</div>
+      <div id="gamePhase" class="game-phase">Ball 1 of Over 1</div>
+    </div>
+
+    <!-- Card Selection -->
+    <div class="card-selection">
+      <h3>Select Your Number</h3>
+      <div class="card-row">
+        <button class="card" data-value="0">0</button>
+        <button class="card" data-value="1">1</button>
+        <button class="card" data-value="2">2</button>
+        <button class="card" data-value="3">3</button>
+        <button class="card" data-value="4">4</button>
+        <button class="card" data-value="5">5</button>
+        <button class="card" data-value="6">6</button>
+      </div>
+      <div id="selectedCard" class="selected-card" style="display: none;">
+        You selected: <span class="selected-value"></span>
+      </div>
+    </div>
+
+    <!-- Ball Result Display -->
+    <div id="ballResultSection" class="ball-result-section" style="display: none;">
+      <div class="result-display">
+        <div class="choices-comparison">
+          <div class="choice-card your-choice">
+            <h4>Your Choice</h4>
+            <div id="yourChoice" class="choice-value">0</div>
+          </div>
+          <div class="vs-indicator">VS</div>
+          <div class="choice-card ai-choice">
+            <h4>AI Choice</h4>
+            <div id="aiChoice" class="choice-value">0</div>
+          </div>
+        </div>
+        <div id="ballOutcome" class="ball-outcome">
+          <!-- Dynamic result content -->
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Insights Panel -->
+    <div class="ai-insights">
+      <h3>AI Insights</h3>
+      <div class="insights-content">
+        <div class="insight-item">
+          <span class="insight-label">AI Confidence:</span>
+          <div class="confidence-bar">
+            <div id="aiConfidence" class="confidence-fill" style="width: 50%"></div>
+          </div>
+          <span id="confidenceText" class="confidence-text">50%</span>
+        </div>
+        <div class="insight-item">
+          <span class="insight-label">Strategy:</span>
+          <span id="aiStrategy" class="insight-value">Balanced</span>
+        </div>
+        <div class="insight-item">
+          <span class="insight-label">Predicted Move:</span>
+          <span id="aiPrediction" class="insight-value">Analyzing...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Match Statistics -->
+    <div class="match-statistics">
+      <h3>Match Statistics</h3>
+      <div class="stats-comparison">
+        <div class="team-stats human-stats">
+          <h4>Your Performance</h4>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <span class="stat-label">Boundaries</span>
+              <span id="humanBoundaries" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Dot Balls</span>
+              <span id="humanDots" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Strike Rate</span>
+              <span id="humanSR" class="stat-value">0.00</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="team-stats ai-stats">
+          <h4>AI Performance</h4>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <span class="stat-label">Boundaries</span>
+              <span id="aiBoundaries" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Dot Balls</span>
+              <span id="aiDots" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Strike Rate</span>
+              <span id="aiSR" class="stat-value">0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Controls -->
+    <div class="game-controls">
+      <button id="pauseGame" class="btn btn-warning">⏸️ Pause</button>
+      <button id="restartGame" class="btn btn-secondary">🔄 Restart</button>
+      <button id="exitGame" class="btn btn-danger">🚪 Exit</button>
+      <button id="viewStats" class="btn btn-primary">📊 Full Stats</button>
+    </div>
+
+    <!-- AI Difficulty Adjustment -->
+    <div class="difficulty-adjustment">
+      <h4>Adjust AI Difficulty</h4>
+      <div class="difficulty-controls">
+        <button id="decreaseDifficulty" class="btn btn-secondary">◀ Easier</button>
+        <span id="currentDifficulty" class="difficulty-display">Medium</span>
+        <button id="increaseDifficulty" class="btn btn-secondary">Harder ▶</button>
+      </div>
+      <div class="difficulty-description">
+        <p id="difficultyDescription">AI makes balanced decisions with some randomness</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Match Result Modal -->
+  <div id="matchResultModal" class="modal" style="display: none;">
+    <div class="modal-content result-modal">
+      <h2 id="resultTitle">Match Result</h2>
+      <div id="resultSummary" class="result-summary">
+        <!-- Dynamic result content -->
+      </div>
+      <div class="result-actions">
+        <button id="playAgain" class="btn btn-primary">🔄 Play Again</button>
+        <button id="changeDifficulty" class="btn btn-secondary">⚙️ Change Difficulty</button>
+        <button id="backToHome" class="btn btn-danger">🏠 Home</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/firebase.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/game-logic.js"></script>
+  <script src="js/ai-opponent.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const difficulty = urlParams.get('difficulty') || 'medium';
+    const format = urlParams.get('format') || '20';
+    
+    let aiOpponent = null;
+    let gameLogic = null;
+    let gameInProgress = false;
+    let isPaused = false;
+
+    // Initialize AI game
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initializeAIGame();
+      setupEventListeners();
+    });
+
+    async function initializeAIGame() {
+      try {
+        showLoading('Preparing AI match...');
+        
+        // Initialize AI opponent
+        aiOpponent = new AIOpponent(difficulty, format, {
+          onMove: handleAIMove,
+          onThinking: showAIThinking,
+          onInsight: updateAIInsights,
+          onError: showError
+        });
+        
+        // Initialize game logic for AI mode
+        gameLogic = new GameLogic(room, 'player1', {
+          onGameUpdate: updateGameDisplay,
+          onMatchEnd: handleMatchEnd,
+          onError: showError,
+          isAIMode: true,
+          aiOpponent: aiOpponent
+        });
+        
+        await gameLogic.initializeAIGame(difficulty, format);
+        
+        // Update UI with initial state
+        updateGameDisplay(gameLogic.getGameState());
+        updateAIInfo();
+        
+        gameInProgress = true;
+        hideLoading();
+        
+        showNotification('AI match started! Good luck!', 'success');
+        
+      } catch (error) {
+        showError('Failed to initialize AI game: ' + error.message);
+      }
+    }
+
+    function setupEventListeners() {
+      // Card selection
+      document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', () => selectCard(parseInt(card.dataset.value)));
+      });
+      
+      // Game controls
+      document.getElementById('pauseGame').addEventListener('click', togglePause);
+      document.getElementById('restartGame').addEventListener('click', restartGame);
+      document.getElementById('exitGame').addEventListener('click', exitGame);
+      document.getElementById('viewStats').addEventListener('click', viewFullStats);
+      
+      // Difficulty adjustment
+      document.getElementById('decreaseDifficulty').addEventListener('click', () => adjustDifficulty(-1));
+      document.getElementById('increaseDifficulty').addEventListener('click', () => adjustDifficulty(1));
+      
+      // Result modal
+      document.getElementById('playAgain').addEventListener('click', playAgain);
+      document.getElementById('changeDifficulty').addEventListener('click', showDifficultySelection);
+      document.getElementById('backToHome').addEventListener('click', goHome);
+      
+      // Error modal
+      document.getElementById('retry-btn').addEventListener('click', hideError);
+    }
+
+    function selectCard(value) {
+      if (!gameInProgress || isPaused || !gameLogic.canMakeMove()) {
+        showNotification('Wait for your turn!', 'warning');
+        return;
+      }
+      
+      // Disable all cards
+      document.querySelectorAll('.card').forEach(card => {
+        card.disabled = true;
+      });
+      
+      // Show selected card
+      document.getElementById('selectedCard').style.display = 'block';
+      document.querySelector('.selected-value').textContent = value;
+      
+      // Animate selected card
+      const selectedCard = document.querySelector(`[data-value="${value}"]`);
+      selectedCard.classList.add('card-selected');
+      
+      // Make move
+      gameLogic.makeMove(value);
+      
+      showNotification(`You selected ${value}`, 'info');
+    }
+
+    function handleAIMove(aiChoice, reasoning) {
+      // Update AI choice display
+      updateBallResult(gameLogic.getLastPlayerChoice(), aiChoice, reasoning);
+      
+      // Show AI insights
+      updateAIInsights({
+        reasoning: reasoning,
+        confidence: aiOpponent.getConfidence(),
+        strategy: aiOpponent.getCurrentStrategy()
+      });
+    }
+
+    function showAIThinking(isThinking, message) {
+      const thinkingEl = document.getElementById('aiThinking');
+      const statusEl = document.getElementById('aiState');
+      
+      if (isThinking) {
+        thinkingEl.style.display = 'block';
+        statusEl.textContent = 'Thinking...';
+        statusEl.classList.add('ai-thinking');
+        
+        if (message) {
+          document.getElementById('aiThinkingText').textContent = message;
+        }
+      } else {
+        thinkingEl.style.display = 'none';
+        statusEl.textContent = 'Ready';
+        statusEl.classList.remove('ai-thinking');
+      }
+    }
+
+    function updateAIInsights(insights) {
+      if (insights.confidence !== undefined) {
+        const confidence = Math.round(insights.confidence * 100);
+        document.getElementById('aiConfidence').style.width = `${confidence}%`;
+        document.getElementById('confidenceText').textContent = `${confidence}%`;
+      }
+      
+      if (insights.strategy) {
+        document.getElementById('aiStrategy').textContent = insights.strategy;
+      }
+      
+      if (insights.prediction) {
+        document.getElementById('aiPrediction').textContent = insights.prediction;
+      }
+    }
+
+    function updateGameDisplay(gameState) {
+      try {
+        updateScoreboard(gameState);
+        updateCurrentPlayers(gameState);
+        updateGameStatus(gameState);
+        updateMatchStatistics(gameState);
+        updateCardState(gameState);
+      } catch (error) {
+        console.error('Error updating game display:', error);
+      }
+    }
+
+    function updateScoreboard(gameState) {
+      // Update scores based on current innings
+      if (gameState.innings === 1) {
+        if (gameState.battingFirst === 'player1') {
+          // Human batting
+          document.getElementById('humanRuns').textContent = gameState.runs;
+          document.getElementById('humanWickets').textContent = gameState.wickets;
+          document.getElementById('humanOvers').textContent = formatOvers(gameState.balls);
+          document.getElementById('aiRuns').textContent = '-';
+          document.getElementById('aiWickets').textContent = '-';
+          document.getElementById('aiOvers').textContent = '-';
+        } else {
+          // AI batting
+          document.getElementById('aiRuns').textContent = gameState.runs;
+          document.getElementById('aiWickets').textContent = gameState.wickets;
+          document.getElementById('aiOvers').textContent = formatOvers(gameState.balls);
+          document.getElementById('humanRuns').textContent = '-';
+          document.getElementById('humanWickets').textContent = '-';
+          document.getElementById('humanOvers').textContent = '-';
+        }
+      } else {
+        // Second innings - show both scores
+        document.getElementById('humanRuns').textContent = gameState.humanScore || 0;
+        document.getElementById('humanWickets').textContent = gameState.humanWickets || 0;
+        document.getElementById('humanOvers').textContent = formatOvers(gameState.humanBalls || 0);
+        
+        document.getElementById('aiRuns').textContent = gameState.aiScore || 0;
+        document.getElementById('aiWickets').textContent = gameState.aiWickets || 0;
+        document.getElementById('aiOvers').textContent = formatOvers(gameState.aiBalls || 0);
+        
+        // Show target chase
+        if (gameState.target) {
+          const targetChase = document.getElementById('targetChase');
+          targetChase.style.display = 'block';
+          
+          document.getElementById('target').textContent = gameState.target;
+          document.getElementById('runsRequired').textContent = Math.max(0, gameState.target - gameState.runs);
+          
+          const ballsLeft = (gameState.totalOvers * 6) - gameState.balls;
+          document.getElementById('ballsRemaining').textContent = ballsLeft;
+        }
+      }
+      
+      // Current run rate
+      document.getElementById('currentRunRate').textContent = 
+        calculateRunRate(gameState.runs || 0, gameState.balls || 0);
+    }
+
+    function updateCurrentPlayers(gameState) {
+      if (gameState.currentBatter) {
+        document.getElementById('currentBatter').textContent = gameState.currentBatter.name;
+        
+        const runs = gameState.currentBatter.runs || 0;
+        const balls = gameState.currentBatter.balls || 0;
+        const sr = balls > 0 ? ((runs / balls) * 100).toFixed(2) : '0.00';
+        
+        document.getElementById('batterStats').textContent = `${runs}(${balls}) • SR: ${sr}`;
+        
+        // Show batter lives
+        const lives = gameState.currentBatter.lives || 0;
+        const livesEl = document.getElementById('batterLives');
+        livesEl.innerHTML = '';
+        for (let i = 0; i < lives; i++) {
+          livesEl.innerHTML += '❤️';
+        }
+      }
+      
+      if (gameState.currentBowler) {
+        document.getElementById('currentBowler').textContent = gameState.currentBowler.name;
+        
+        const overs = gameState.currentBowler.overs || 0;
+        const runs = gameState.currentBowler.runs || 0;
+        const wickets = gameState.currentBowler.wickets || 0;
+        const economy = overs > 0 ? (runs / overs).toFixed(2) : '0.00';
+        
+        document.getElementById('bowlerStats').textContent = `${overs}-0-${runs}-${wickets} • Eco: ${economy}`;
+      }
+    }
+
+    function updateGameStatus(gameState) {
+      const statusEl = document.getElementById('statusMessage');
+      const roleEl = document.getElementById('roleText');
+      const phaseEl = document.getElementById('gamePhase');
+      
+      // Current innings display
+      const innings = gameState.innings || 1;
+      document.getElementById('currentInnings').textContent = `${innings}${innings === 1 ? 'st' : 'nd'} Innings`;
+      
+      // Game phase
+      const currentOver = Math.floor((gameState.balls || 0) / 6) + 1;
+      const ballInOver = ((gameState.balls || 0) % 6) + 1;
+      phaseEl.textContent = `Ball ${ballInOver} of Over ${currentOver}`;
+      
+      // Status message and role
+      if (gameState.isWaitingForMove) {
+        if (gameState.currentTurn === 'player1') {
+          statusEl.textContent = 'Your turn - Select a number!';
+          roleEl.textContent = gameState.isBatting ? 'You are batting' : 'You are bowling';
+        } else {
+          statusEl.textContent = 'AI is choosing...';
+          roleEl.textContent = gameState.isBatting ? 'AI is batting' : 'AI is bowling';
+        }
+      } else if (gameState.lastBallResult) {
+        statusEl.textContent = gameState.lastBallResult.description;
+        document.getElementById('lastBallResult').textContent = gameState.lastBallResult.short || gameState.lastBallResult.description;
+      }
+    }
+
+    function updateMatchStatistics(gameState) {
+      const stats = gameState.statistics || {};
+      
+      // Human stats
+      document.getElementById('humanBoundaries').textContent = stats.humanBoundaries || 0;
+      document.getElementById('humanDots').textContent = stats.humanDots || 0;
+      document.getElementById('humanSR').textContent = stats.humanStrikeRate || '0.00';
+      
+      // AI stats
+      document.getElementById('aiBoundaries').textContent = stats.aiBoundaries || 0;
+      document.getElementById('aiDots').textContent = stats.aiDots || 0;
+      document.getElementById('aiSR').textContent = stats.aiStrikeRate || '0.00';
+    }
+
+    function updateCardState(gameState) {
+      const cards = document.querySelectorAll('.card');
+      const canPlay = gameState.isWaitingForMove && gameState.currentTurn === 'player1' && !isPaused;
+      
+      cards.forEach(card => {
+        card.disabled = !canPlay;
+        if (canPlay) {
+          card.classList.remove('card-selected');
+        }
+      });
+      
+      // Hide selected card display if new turn
+      if (canPlay) {
+        document.getElementById('selectedCard').style.display = 'none';
+      }
+    }
+
+    function updateBallResult(playerChoice, aiChoice, reasoning) {
+      const resultSection = document.getElementById('ballResultSection');
+      resultSection.style.display = 'block';
+      
+      document.getElementById('yourChoice').textContent = playerChoice;
+      document.getElementById('aiChoice').textContent = aiChoice;
+      
+      // Get ball outcome from game logic
+      const outcome = gameLogic.getLastBallOutcome();
+      if (outcome) {
+        const outcomeEl = document.getElementById('ballOutcome');
+        outcomeEl.innerHTML = `
+          <div class="outcome-text">${outcome.description}</div>
+          <div class="outcome-details">${outcome.details || ''}</div>
+          ${reasoning ? `<div class="ai-reasoning">AI Reasoning: ${reasoning}</div>` : ''}
+        `;
+        
+        // Add animation based on outcome
+        if (outcome.type === 'boundary') {
+          outcomeEl.classList.add('boundary-result');
+        } else if (outcome.type === 'six') {
+          outcomeEl.classList.add('six-result');
+        } else if (outcome.type === 'wicket') {
+          outcomeEl.classList.add('wicket-result');
+        }
+      }
+      
+      // Hide result after 3 seconds
+      setTimeout(() => {
+        resultSection.style.display = 'none';
+      }, 3000);
+    }
+
+    function updateAIInfo() {
+      document.getElementById('roomCode').textContent = `Room: ${room}`;
+      document.getElementById('aiDifficulty').textContent = `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} AI`;
+      document.getElementById('formatDisplay').textContent = getFormatName(format);
+      document.getElementById('currentDifficulty').textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+      
+      updateDifficultyDescription();
+    }
+
+    function updateDifficultyDescription() {
+      const descriptions = {
+        easy: 'AI makes simple decisions with lots of randomness',
+        medium: 'AI makes balanced decisions with some randomness',
+        hard: 'AI makes strategic decisions with minimal randomness',
+        expert: 'AI uses advanced strategies and adapts to your play style'
+      };
+      
+      document.getElementById('difficultyDescription').textContent = descriptions[difficulty] || descriptions.medium;
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      const btn = document.getElementById('pauseGame');
+      
+      if (isPaused) {
+        btn.textContent = '▶️ Resume';
+        showNotification('Game paused', 'info');
+      } else {
+        btn.textContent = '⏸️ Pause';
+        showNotification('Game resumed', 'info');
+      }
+      
+      // Update card state
+      updateCardState(gameLogic.getGameState());
+    }
+
+    function restartGame() {
+      if (confirm('Are you sure you want to restart the match?')) {
+        gameInProgress = false;
+        showLoading('Restarting match...');
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    }
+
+    function exitGame() {
+      if (confirm('Are you sure you want to exit the match?')) {
+        gameInProgress = false;
+        window.location.href = 'index.html';
+      }
+    }
+
+    function viewFullStats() {
+      // Open detailed statistics in a new window
+      const statsWindow = window.open('', '_blank', 'width=800,height=600');
+      const stats = gameLogic.getDetailedStatistics();
+      
+      statsWindow.document.write(`
+        <html>
+          <head><title>Match Statistics</title></head>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>Detailed Match Statistics</h2>
+            <pre>${JSON.stringify(stats, null, 2)}</pre>
+          </body>
+        </html>
+      `);
+    }
+
+    function adjustDifficulty(direction) {
+      const difficulties = ['easy', 'medium', 'hard', 'expert'];
+      const currentIndex = difficulties.indexOf(difficulty);
+      const newIndex = Math.max(0, Math.min(difficulties.length - 1, currentIndex + direction));
+      
+      if (newIndex !== currentIndex) {
+        const newDifficulty = difficulties[newIndex];
+        
+        if (confirm(`Change AI difficulty to ${newDifficulty}? This will restart the match.`)) {
+          window.location.href = `ai-game.html?room=${room}&difficulty=${newDifficulty}&format=${format}`;
+        }
+      }
+    }
+
+    function handleMatchEnd(result) {
+      gameInProgress = false;
+      
+      const modal = document.getElementById('matchResultModal');
+      const title = document.getElementById('resultTitle');
+      const summary = document.getElementById('resultSummary');
+      
+      if (result.winner === 'player1') {
+        title.textContent = '🎉 You Won!';
+        title.style.color = '#4CAF50';
+      } else if (result.winner === 'ai') {
+        title.textContent = '😞 AI Won!';
+        title.style.color = '#F44336';
+      } else {
+        title.textContent = '🤝 Match Drawn!';
+        title.style.color = '#FF9800';
+      }
+      
+      summary.innerHTML = `
+        <div class="result-details">
+          <h3>Match Summary</h3>
+          <p><strong>Margin:</strong> ${result.margin}</p>
+          <p><strong>Format:</strong> ${getFormatName(format)}</p>
+          <p><strong>AI Difficulty:</strong> ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
+        </div>
+        <div class="final-scores">
+          <h3>Final Scores</h3>
+          <div class="score-comparison">
+            <div>Your Team: ${result.humanScore}/${result.humanWickets}</div>
+            <div>AI Team: ${result.aiScore}/${result.aiWickets}</div>
+          </div>
+        </div>
+        <div class="performance-summary">
+          <h3>Your Performance</h3>
+          <p><strong>Strike Rate:</strong> ${result.playerStats?.strikeRate || '0.00'}</p>
+          <p><strong>Boundaries:</strong> ${result.playerStats?.boundaries || 0}</p>
+          <p><strong>Accuracy:</strong> ${result.playerStats?.accuracy || '0%'}</p>
+        </div>
+      `;
+      
+      modal.style.display = 'block';
+      
+      // Show celebration or commiseration
+      if (result.winner === 'player1') {
+        createConfetti();
+        showNotification('Congratulations! You beat the AI!', 'success', 10000);
+      } else {
+        showNotification('Good game! Try adjusting the difficulty or playing again.', 'info', 10000);
+      }
+    }
+
+    function playAgain() {
+      window.location.reload();
+    }
+
+    function showDifficultySelection() {
+      const difficulties = ['easy', 'medium', 'hard', 'expert'];
+      const newDifficulty = prompt(`Choose difficulty:\n${difficulties.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n\nEnter number (1-4):`);
+      
+      if (newDifficulty && newDifficulty >= 1 && newDifficulty <= 4) {
+        const selectedDifficulty = difficulties[parseInt(newDifficulty) - 1];
+        window.location.href = `ai-game.html?room=${room}&difficulty=${selectedDifficulty}&format=${format}`;
+      }
+    }
+
+    function goHome() {
+      window.location.href = 'index.html';
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!gameInProgress || isPaused) return;
+      
+      const key = e.key;
+      if (key >= '0' && key <= '6') {
+        const value = parseInt(key);
+        if (gameLogic.canMakeMove()) {
+          selectCard(value);
+        }
+      } else if (key === ' ') {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+
+    // Prevent accidental navigation
+    window.addEventListener('beforeunload', (e) => {
+      if (gameInProgress) {
+        e.preventDefault();
+        e.returnValue = 'Game is in progress. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    });
+  </script>
+
+  <style>
+    .ai-game-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .ai-info {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .ai-difficulty {
+      background: var(--warning-color);
+      color: black;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    .match-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .ai-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+    }
+
+    .ai-indicator {
+      font-size: 1.2rem;
+    }
+
+    .ai-state.ai-thinking {
+      animation: pulse 1s infinite;
+    }
+
+    .scoreboard .score-main {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 2rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .team-section {
+      text-align: center;
+      padding: 1.5rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .human-team {
+      border-left: 4px solid var(--success-color);
+    }
+
+    .ai-team {
+      border-left: 4px solid var(--warning-color);
+    }
+
+    .team-section h3 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+
+    .vs-section {
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .vs-text {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .last-ball {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+
+    .ai-thinking-section {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .thinking-animation {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .thinking-dots {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .thinking-dots span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      animation: thinking 1.4s ease-in-out infinite both;
+    }
+
+    .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes thinking {
+      0%, 80%, 100% {
+        transform: scale(0);
+      } 40% {
+        transform: scale(1);
+      }
+    }
+
+    .game-phase {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .ball-result-section {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .choices-comparison {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 2rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .choice-card {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .choice-card h4 {
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .choice-value {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .vs-indicator {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-secondary);
+    }
+
+    .ball-outcome {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .outcome-text {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .outcome-details {
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .ai-reasoning {
+      color: var(--warning-color);
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+
+    .ball-outcome.boundary-result {
+      background: rgba(76, 175, 80, 0.2);
+      border: 2px solid var(--success-color);
+    }
+
+    .ball-outcome.six-result {
+      background: rgba(255, 193, 7, 0.2);
+      border: 2px solid var(--accent-color);
+    }
+
+    .ball-outcome.wicket-result {
+      background: rgba(244, 67, 54, 0.2);
+      border: 2px solid var(--danger-color);
+    }
+
+    .ai-insights {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .ai-insights h3 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
+    .insights-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .insight-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .insight-label {
+      color: var(--text-secondary);
+      min-width: 120px;
+    }
+
+    .confidence-bar {
+      flex: 1;
+      height: 20px;
+      background: var(--border-color);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--danger-color), var(--warning-color), var(--success-color));
+      transition: width 0.5s ease-out;
+    }
+
+    .confidence-text {
+      color: var(--primary-color);
+      font-weight: bold;
+      min-width: 40px;
+    }
+
+    .insight-value {
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+
+    .match-statistics {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .match-statistics h3 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .stats-comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .team-stats {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .team-stats h4 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .stat-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-item .stat-label {
+      color: var(--text-secondary);
+    }
+
+    .stat-item .stat-value {
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+
+    .difficulty-adjustment {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .difficulty-adjustment h4 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .difficulty-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .difficulty-display {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      min-width: 100px;
+      text-align: center;
+    }
+
+    .difficulty-description {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .result-modal {
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .result-modal h2 {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .result-details, .final-scores, .performance-summary {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .result-details h3, .final-scores h3, .performance-summary h3 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
+    .score-comparison {
+      display: flex;
+      justify-content: space-around;
+      gap: 1rem;
+    }
+
+    .score-comparison div {
+      background: var(--border-color);
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .ai-info {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .scoreboard .score-main {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .vs-section {
+        order: -1;
+      }
+
+      .choices-comparison {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .vs-indicator {
+        order: -1;
+      }
+
+      .stats-comparison {
+        grid-template-columns: 1fr;
+      }
+
+      .difficulty-controls {
+        flex-direction: column;
+      }
+
+      .result-actions {
+        flex-direction: column;
+      }
+
+      .score-comparison {
+        flex-direction: column;
+      }
+    }
+  </style>
+</body>
+</html>

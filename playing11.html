@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enter Playing XI - HandiCricket</title>
+  <meta name="description" content="Enter your playing XI for HandiCricket match">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Loading team setup...</p>
+  </div>
+
+  <div id="error-modal" class="error-modal" style="display: none;">
+    <div class="error-content">
+      <h3>Error</h3>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <span class="cricket-icon">🏏</span>
+        HandiCricket
+      </h1>
+      <div class="room-info">
+        <span id="roomCode"></span>
+        <span id="formatDisplay"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main game-container">
+    <div class="playing-xi-container">
+      <div class="team-section">
+        <h2>Enter Your Playing XI</h2>
+        <div id="teamNameDisplay" class="team-name-display"></div>
+        
+        <form id="playing11Form" class="playing11-form">
+          <div class="players-grid">
+            <!-- Player inputs will be generated here -->
+          </div>
+          <button type="submit" id="submitXI" class="btn btn-primary btn-large">
+            Submit Playing XI
+          </button>
+        </form>
+      </div>
+
+      <div class="status-section">
+        <div id="waitingMessage" class="waiting-message">
+          <div class="waiting-icon">⏳</div>
+          <p>Waiting for you to submit your team...</p>
+        </div>
+        
+        <div id="opponentStatus" class="opponent-status">
+          <h3>Opponent Status</h3>
+          <div id="opponentInfo" class="opponent-info">
+            <div class="status-indicator offline"></div>
+            <span>Waiting for opponent...</span>
+          </div>
+        </div>
+
+        <div class="game-info">
+          <h3>Match Information</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Format:</span>
+              <span id="matchFormat" class="info-value">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Total Overs:</span>
+              <span id="totalOvers" class="info-value">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Players:</span>
+              <span class="info-value">11 per team</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tips-section">
+          <h3>Tips</h3>
+          <ul class="tips-list">
+            <li>Enter unique names for all 11 players</li>
+            <li>Player names cannot be changed once submitted</li>
+            <li>Share the room code with your opponent</li>
+            <li>The match will start after both teams submit</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="share-section">
+    <h3>Share Room Code</h3>
+    <div class="share-controls">
+      <div class="room-code-display">
+        <span id="shareRoomCode"></span>
+        <button id="copyRoomCode" class="btn btn-secondary">
+          📋 Copy
+        </button>
+      </div>
+      <button id="shareRoom" class="btn btn-primary">
+        📱 Share
+      </button>
+    </div>
+  </div>
+
+  <script src="js/firebase.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    
+    if (!room || !player) {
+      window.location.href = 'index.html';
+    }
+
+    let gameInProgress = true;
+    let opponentPlayer = player === 'player1' ? 'player2' : 'player1';
+    let roomData = null;
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initializePage();
+      setupEventListeners();
+      monitorRoomStatus();
+    });
+
+    async function initializePage() {
+      try {
+        showLoading('Loading room data...');
+        
+        // Load room data
+        roomData = await loadRoomData();
+        if (!roomData) {
+          throw new Error('Room not found');
+        }
+
+        // Display room information
+        updateRoomDisplay();
+        
+        // Generate player input fields
+        generatePlayerInputs();
+        
+        // Set up form validation
+        setupFormValidation();
+        
+        hideLoading();
+      } catch (error) {
+        showError('Failed to load room: ' + error.message);
+      }
+    }
+
+    async function loadRoomData() {
+      try {
+        const snapshot = await firebase.get(firebase.ref(firebase.db, `rooms/${room}`));
+        return snapshot.exists() ? snapshot.val() : null;
+      } catch (error) {
+        console.error('Error loading room data:', error);
+        throw error;
+      }
+    }
+
+    function updateRoomDisplay() {
+      document.getElementById('roomCode').textContent = `Room: ${room}`;
+      document.getElementById('shareRoomCode').textContent = room;
+      
+      if (roomData.player1) {
+        const format = roomData.player1.format || '5';
+        const formatName = getFormatName(format);
+        const formatRules = getFormatRules(format);
+        
+        document.getElementById('formatDisplay').textContent = formatName;
+        document.getElementById('matchFormat').textContent = formatName;
+        document.getElementById('totalOvers').textContent = formatRules.totalOvers === Infinity ? 'Unlimited' : formatRules.totalOvers;
+        
+        if (roomData[player]) {
+          document.getElementById('teamNameDisplay').textContent = roomData[player].teamName;
+        }
+      }
+    }
+
+    function generatePlayerInputs() {
+      const playersGrid = document.querySelector('.players-grid');
+      playersGrid.innerHTML = '';
+
+      for (let i = 1; i <= 11; i++) {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-input-group';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = `player${i}`;
+        input.placeholder = `Player ${i} Name`;
+        input.required = true;
+        input.className = 'input-field';
+        input.maxLength = 30;
+        
+        const label = document.createElement('label');
+        label.textContent = `Player ${i}`;
+        label.className = 'player-label';
+        
+        playerDiv.appendChild(label);
+        playerDiv.appendChild(input);
+        playersGrid.appendChild(playerDiv);
+      }
+    }
+
+    function setupFormValidation() {
+      const form = document.getElementById('playing11Form');
+      const inputs = form.querySelectorAll('input');
+      
+      inputs.forEach(input => {
+        input.addEventListener('input', validateInput);
+        input.addEventListener('blur', validateInput);
+      });
+    }
+
+    function validateInput(event) {
+      const input = event.target;
+      const error = validatePlayerName(input.value);
+      
+      if (error) {
+        input.classList.add('error');
+        input.title = error;
+      } else {
+        input.classList.remove('error');
+        input.title = '';
+      }
+    }
+
+    function setupEventListeners() {
+      // Form submission
+      document.getElementById('playing11Form').addEventListener('submit', handleFormSubmit);
+      
+      // Copy room code
+      document.getElementById('copyRoomCode').addEventListener('click', () => {
+        copyToClipboard(room).then(() => {
+          showNotification('Room code copied!', 'success');
+        });
+      });
+      
+      // Share room
+      document.getElementById('shareRoom').addEventListener('click', () => {
+        shareRoom(room);
+      });
+      
+      // Error modal
+      document.getElementById('retry-btn').addEventListener('click', hideError);
+      
+      // Back button handling
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      // Prevent accidental navigation
+      if (window.history && window.history.pushState) {
+        window.history.pushState('forward', null, './');
+        window.onpopstate = handlePopState;
+      }
+    }
+
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      
+      const formData = new FormData(event.target);
+      const players = [];
+      
+      // Collect and validate all player names
+      for (let i = 1; i <= 11; i++) {
+        const name = formData.get(`player${i}`).trim();
+        if (!name) {
+          showError(`Player ${i} name is required`);
+          return;
+        }
+        
+        const error = validatePlayerName(name);
+        if (error) {
+          showError(`Player ${i}: ${error}`);
+          return;
+        }
+        
+        if (players.includes(name)) {
+          showError(`Player names must be unique. "${name}" is already used.`);
+          return;
+        }
+        
+        players.push(name);
+      }
+      
+      try {
+        showLoading('Submitting team...');
+        
+        // Save playing XI to Firebase
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/${player}/playing11`), players);
+        
+        // Update waiting message
+        document.getElementById('waitingMessage').innerHTML = `
+          <div class="waiting-icon">✅</div>
+          <p>Team submitted! Waiting for opponent...</p>
+        `;
+        
+        // Disable form
+        const form = document.getElementById('playing11Form');
+        form.querySelectorAll('input, button').forEach(el => {
+          el.disabled = true;
+        });
+        
+        showNotification('Team submitted successfully!', 'success');
+        hideLoading();
+        
+      } catch (error) {
+        showError('Failed to submit team: ' + error.message);
+        hideLoading();
+      }
+    }
+
+    function monitorRoomStatus() {
+      const roomRef = firebase.ref(firebase.db, `rooms/${room}`);
+      
+      firebase.onValue(roomRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) {
+          showError('Room no longer exists');
+          return;
+        }
+        
+        roomData = data;
+        updateOpponentStatus();
+        checkIfBothTeamsReady();
+      });
+    }
+
+    function updateOpponentStatus() {
+      const opponentData = roomData[opponentPlayer];
+      const statusElement = document.getElementById('opponentInfo');
+      
+      if (!opponentData) {
+        statusElement.innerHTML = `
+          <div class="status-indicator offline"></div>
+          <span>Waiting for opponent to join...</span>
+        `;
+        return;
+      }
+      
+      const isOnline = opponentData.online;
+      const hasSubmittedTeam = opponentData.playing11;
+      
+      let statusText = '';
+      let statusClass = 'offline';
+      
+      if (hasSubmittedTeam) {
+        statusText = `${opponentData.teamName} - Team submitted!`;
+        statusClass = 'online';
+      } else if (isOnline) {
+        statusText = `${opponentData.teamName} - Online, selecting team...`;
+        statusClass = 'online';
+      } else {
+        statusText = `${opponentData.teamName} - Offline`;
+        statusClass = 'offline';
+      }
+      
+      statusElement.innerHTML = `
+        <div class="status-indicator ${statusClass}"></div>
+        <span>${statusText}</span>
+      `;
+    }
+
+    function checkIfBothTeamsReady() {
+      const player1Data = roomData.player1;
+      const player2Data = roomData.player2;
+      
+      if (player1Data?.playing11 && player2Data?.playing11) {
+        gameInProgress = false;
+        
+        showNotification('Both teams ready! Starting match...', 'success');
+        
+        // Initialize spectator data
+        initializeSpectatorData().then(() => {
+          setTimeout(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          }, 2000);
+        });
+      }
+    }
+
+    async function initializeSpectatorData() {
+      try {
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/spectatorData`), {
+          overSummaries: {},
+          matchStats: {
+            runRate: 0,
+            boundaries: 0,
+            dotBalls: 0,
+            wickets: 0,
+            partnership: 0
+          },
+          spectatorChat: {},
+          momentum: 50
+        });
+      } catch (error) {
+        console.error('Error initializing spectator data:', error);
+      }
+    }
+
+    function handleBeforeUnload(event) {
+      if (gameInProgress) {
+        event.preventDefault();
+        event.returnValue = 'Are you sure you want to leave? Your progress may be lost.';
+        return event.returnValue;
+      }
+    }
+
+    function handlePopState() {
+      if (gameInProgress) {
+        if (confirm('Do you really want to exit? Your progress will be lost!')) {
+          window.location.href = 'index.html';
+        } else {
+          window.history.pushState('forward', null, './');
+        }
+      }
+    }
+
+    // Set player online status
+    window.addEventListener('load', () => {
+      setPlayerOnline(room, player);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      setPlayerOffline(room, player);
+    });
+
+    // Handle visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        setPlayerOffline(room, player);
+      } else {
+        setPlayerOnline(room, player);
+      }
+    });
+  </script>
+
+  <style>
+    .playing-xi-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .team-section {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .team-name-display {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .player-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .player-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .input-field.error {
+      border-color: var(--danger-color);
+      background-color: rgba(244, 67, 54, 0.1);
+    }
+
+    .status-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .waiting-message {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .waiting-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .opponent-status {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .opponent-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--danger-color);
+    }
+
+    .status-indicator.online {
+      background: var(--success-color);
+    }
+
+    .game-info {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .info-label {
+      color: var(--text-secondary);
+    }
+
+    .info-value {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .tips-section {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .tips-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 1rem;
+    }
+
+    .tips-list li {
+      padding: 0.5rem 0;
+      position: relative;
+      padding-left: 1.5rem;
+      color: var(--text-secondary);
+    }
+
+    .tips-list li::before {
+      content: '💡';
+      position: absolute;
+      left: 0;
+      top: 0.5rem;
+    }
+
+    .share-section {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-top: 2rem;
+      text-align: center;
+    }
+
+    .share-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 1rem;
+    }
+
+    .room-code-display {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--border-color);
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .playing-xi-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .players-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .share-controls {
+        flex-direction: column;
+      }
+      
+      .room-code-display {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</body>
+</html>

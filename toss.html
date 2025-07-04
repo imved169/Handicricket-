@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toss - HandiCricket</title>
+  <meta name="description" content="Cricket toss ceremony - choose heads or tails">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Preparing toss...</p>
+  </div>
+
+  <div id="error-modal" class="error-modal" style="display: none;">
+    <div class="error-content">
+      <h3>Error</h3>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">
+        <span class="cricket-icon">🏏</span>
+        HandiCricket
+      </h1>
+      <div class="match-info">
+        <span id="roomCode"></span>
+        <span id="formatDisplay"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main game-container">
+    <div class="toss-container">
+      <div class="teams-display">
+        <div class="team-card">
+          <h3 id="team1Name">Team 1</h3>
+          <div id="team1Status" class="team-status">Ready</div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="team-card">
+          <h3 id="team2Name">Team 2</h3>
+          <div id="team2Status" class="team-status">Ready</div>
+        </div>
+      </div>
+
+      <div class="toss-section">
+        <h2 class="toss-title">Cricket Toss</h2>
+        <div id="tossPhase" class="toss-phase">
+          
+          <!-- Phase 1: Waiting for both players -->
+          <div id="waitingPhase" class="phase-content">
+            <div class="waiting-icon">⏳</div>
+            <h3>Waiting for both players to be ready...</h3>
+            <div id="playersStatus" class="players-status"></div>
+          </div>
+
+          <!-- Phase 2: Toss selection -->
+          <div id="selectionPhase" class="phase-content" style="display: none;">
+            <div class="coin-display">
+              <div id="coin" class="coin">
+                <div class="coin-side heads">H</div>
+                <div class="coin-side tails">T</div>
+              </div>
+            </div>
+            
+            <div id="tossPrompt" class="toss-prompt">
+              <h3>Choose Heads or Tails</h3>
+              <div class="toss-buttons">
+                <button id="headsBtn" class="btn btn-primary toss-btn">
+                  🪙 Heads
+                </button>
+                <button id="tailsBtn" class="btn btn-primary toss-btn">
+                  🪙 Tails
+                </button>
+              </div>
+            </div>
+
+            <div id="waitingForChoice" class="waiting-choice" style="display: none;">
+              <div class="waiting-icon">⏳</div>
+              <h3>Waiting for opponent's choice...</h3>
+            </div>
+          </div>
+
+          <!-- Phase 3: Coin flip animation -->
+          <div id="flipPhase" class="phase-content" style="display: none;">
+            <div class="coin-display">
+              <div id="flippingCoin" class="coin coin-flip">
+                <div class="coin-side heads">H</div>
+                <div class="coin-side tails">T</div>
+              </div>
+            </div>
+            <h3>Flipping coin...</h3>
+          </div>
+
+          <!-- Phase 4: Toss result -->
+          <div id="resultPhase" class="phase-content" style="display: none;">
+            <div class="result-display">
+              <div id="resultCoin" class="coin">
+                <div class="coin-side heads">H</div>
+                <div class="coin-side tails">T</div>
+              </div>
+              <div class="result-text">
+                <h3 id="tossWinner">Team wins the toss!</h3>
+                <p id="tossResult">It's Heads!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase 5: Choice selection -->
+          <div id="choicePhase" class="phase-content" style="display: none;">
+            <div class="choice-prompt">
+              <h3 id="choicePromptText">You won the toss! Choose:</h3>
+              <div class="choice-buttons">
+                <button id="batFirstBtn" class="btn btn-primary choice-btn">
+                  🏏 Bat First
+                </button>
+                <button id="bowlFirstBtn" class="btn btn-primary choice-btn">
+                  ⚾ Bowl First
+                </button>
+              </div>
+            </div>
+
+            <div id="waitingForDecision" class="waiting-decision" style="display: none;">
+              <div class="waiting-icon">⏳</div>
+              <h3>Waiting for toss winner's decision...</h3>
+            </div>
+          </div>
+
+          <!-- Phase 6: Final confirmation -->
+          <div id="confirmationPhase" class="phase-content" style="display: none;">
+            <div class="confirmation-display">
+              <div class="match-summary">
+                <h3>Match Details Confirmed</h3>
+                <div class="summary-grid">
+                  <div class="summary-item">
+                    <span class="label">Toss Winner:</span>
+                    <span id="finalTossWinner" class="value">-</span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="label">Decision:</span>
+                    <span id="finalDecision" class="value">-</span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="label">Batting First:</span>
+                    <span id="battingFirst" class="value">-</span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="label">Bowling First:</span>
+                    <span id="bowlingFirst" class="value">-</span>
+                  </div>
+                </div>
+              </div>
+              <button id="startMatchBtn" class="btn btn-primary btn-large">
+                🚀 Start Match
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/firebase.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    
+    if (!room || !player) {
+      window.location.href = 'index.html';
+    }
+
+    let roomData = null;
+    let tossData = {};
+    let currentPhase = 'waiting';
+    const opponentPlayer = player === 'player1' ? 'player2' : 'player1';
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initializePage();
+      setupEventListeners();
+      monitorTossProgress();
+    });
+
+    async function initializePage() {
+      try {
+        showLoading('Loading match data...');
+        
+        // Load room data
+        roomData = await loadRoomData();
+        if (!roomData) {
+          throw new Error('Room not found');
+        }
+
+        // Display room information
+        updateRoomDisplay();
+        
+        // Initialize toss data if not exists
+        await initializeTossData();
+        
+        hideLoading();
+      } catch (error) {
+        showError('Failed to load match: ' + error.message);
+      }
+    }
+
+    async function loadRoomData() {
+      try {
+        const snapshot = await firebase.get(firebase.ref(firebase.db, `rooms/${room}`));
+        return snapshot.exists() ? snapshot.val() : null;
+      } catch (error) {
+        console.error('Error loading room data:', error);
+        throw error;
+      }
+    }
+
+    function updateRoomDisplay() {
+      document.getElementById('roomCode').textContent = `Room: ${room}`;
+      
+      if (roomData.player1) {
+        const format = roomData.player1.format || '5';
+        const formatName = getFormatName(format);
+        document.getElementById('formatDisplay').textContent = formatName;
+        
+        document.getElementById('team1Name').textContent = roomData.player1.teamName;
+        document.getElementById('team2Name').textContent = roomData.player2?.teamName || 'Waiting...';
+      }
+    }
+
+    async function initializeTossData() {
+      try {
+        // Check if toss data already exists
+        const tossSnapshot = await firebase.get(firebase.ref(firebase.db, `rooms/${room}/toss`));
+        
+        if (!tossSnapshot.exists()) {
+          // Initialize toss data
+          const initialTossData = {
+            phase: 'waiting',
+            player1Ready: false,
+            player2Ready: false,
+            player1Choice: null,
+            player2Choice: null,
+            result: null,
+            winner: null,
+            decision: null,
+            battingFirst: null,
+            timestamp: Date.now()
+          };
+          
+          await firebase.set(firebase.ref(firebase.db, `rooms/${room}/toss`), initialTossData);
+        }
+        
+        // Mark current player as ready
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/toss/${player}Ready`), true);
+        
+      } catch (error) {
+        console.error('Error initializing toss data:', error);
+        throw error;
+      }
+    }
+
+    function setupEventListeners() {
+      // Toss choice buttons
+      document.getElementById('headsBtn').addEventListener('click', () => makeTossChoice('heads'));
+      document.getElementById('tailsBtn').addEventListener('click', () => makeTossChoice('tails'));
+      
+      // Decision buttons
+      document.getElementById('batFirstBtn').addEventListener('click', () => makeDecision('bat'));
+      document.getElementById('bowlFirstBtn').addEventListener('click', () => makeDecision('bowl'));
+      
+      // Start match button
+      document.getElementById('startMatchBtn').addEventListener('click', startMatch);
+      
+      // Error modal
+      document.getElementById('retry-btn').addEventListener('click', hideError);
+    }
+
+    function monitorTossProgress() {
+      const tossRef = firebase.ref(firebase.db, `rooms/${room}/toss`);
+      
+      firebase.onValue(tossRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        tossData = data;
+        updateTossPhase();
+      });
+    }
+
+    function updateTossPhase() {
+      const phase = tossData.phase;
+      
+      // Hide all phases
+      document.querySelectorAll('.phase-content').forEach(el => {
+        el.style.display = 'none';
+      });
+      
+      switch (phase) {
+        case 'waiting':
+          showWaitingPhase();
+          break;
+        case 'selection':
+          showSelectionPhase();
+          break;
+        case 'flipping':
+          showFlipPhase();
+          break;
+        case 'result':
+          showResultPhase();
+          break;
+        case 'choice':
+          showChoicePhase();
+          break;
+        case 'confirmation':
+          showConfirmationPhase();
+          break;
+      }
+    }
+
+    function showWaitingPhase() {
+      document.getElementById('waitingPhase').style.display = 'block';
+      
+      const statusHtml = `
+        <div class="player-ready ${tossData.player1Ready ? 'ready' : 'waiting'}">
+          ${roomData.player1.teamName}: ${tossData.player1Ready ? '✅ Ready' : '⏳ Loading...'}
+        </div>
+        <div class="player-ready ${tossData.player2Ready ? 'ready' : 'waiting'}">
+          ${roomData.player2?.teamName || 'Player 2'}: ${tossData.player2Ready ? '✅ Ready' : '⏳ Loading...'}
+        </div>
+      `;
+      
+      document.getElementById('playersStatus').innerHTML = statusHtml;
+      
+      // Check if both players are ready
+      if (tossData.player1Ready && tossData.player2Ready && player === 'player1') {
+        // Player 1 initiates the toss selection phase
+        setTimeout(() => {
+          updateTossPhase('selection');
+        }, 1500);
+      }
+    }
+
+    function showSelectionPhase() {
+      document.getElementById('selectionPhase').style.display = 'block';
+      
+      if (tossData[`${player}Choice`]) {
+        // Player has already made choice
+        document.getElementById('tossPrompt').style.display = 'none';
+        document.getElementById('waitingForChoice').style.display = 'block';
+      } else {
+        // Player needs to make choice
+        document.getElementById('tossPrompt').style.display = 'block';
+        document.getElementById('waitingForChoice').style.display = 'none';
+      }
+      
+      // Check if both players have made choices
+      if (tossData.player1Choice && tossData.player2Choice && player === 'player1') {
+        setTimeout(() => {
+          performTossFlip();
+        }, 1000);
+      }
+    }
+
+    function showFlipPhase() {
+      document.getElementById('flipPhase').style.display = 'block';
+      
+      // Animate coin flip
+      const coin = document.getElementById('flippingCoin');
+      coin.classList.add('coin-flip');
+      
+      setTimeout(() => {
+        coin.classList.remove('coin-flip');
+        if (player === 'player1') {
+          updateTossPhase('result');
+        }
+      }, 3000);
+    }
+
+    function showResultPhase() {
+      document.getElementById('resultPhase').style.display = 'block';
+      
+      const resultCoin = document.getElementById('resultCoin');
+      const tossWinner = document.getElementById('tossWinner');
+      const tossResult = document.getElementById('tossResult');
+      
+      // Show coin result
+      if (tossData.result === 'heads') {
+        resultCoin.classList.add('show-heads');
+      } else {
+        resultCoin.classList.add('show-tails');
+      }
+      
+      // Show result text
+      tossResult.textContent = `It's ${tossData.result.charAt(0).toUpperCase() + tossData.result.slice(1)}!`;
+      
+      if (tossData.winner) {
+        const winnerTeam = roomData[tossData.winner]?.teamName || tossData.winner;
+        tossWinner.textContent = `${winnerTeam} wins the toss!`;
+      }
+      
+      setTimeout(() => {
+        if (player === 'player1') {
+          updateTossPhase('choice');
+        }
+      }, 3000);
+    }
+
+    function showChoicePhase() {
+      document.getElementById('choicePhase').style.display = 'block';
+      
+      if (tossData.winner === player) {
+        // This player won the toss
+        document.getElementById('choicePromptText').textContent = 'You won the toss! Choose:';
+        document.querySelector('.choice-prompt').style.display = 'block';
+        document.getElementById('waitingForDecision').style.display = 'none';
+      } else {
+        // Opponent won the toss
+        const winnerTeam = roomData[tossData.winner]?.teamName || 'Opponent';
+        document.getElementById('choicePromptText').textContent = `${winnerTeam} won the toss!`;
+        document.querySelector('.choice-prompt').style.display = 'none';
+        document.getElementById('waitingForDecision').style.display = 'block';
+      }
+      
+      // Check if decision has been made
+      if (tossData.decision && player === 'player1') {
+        setTimeout(() => {
+          updateTossPhase('confirmation');
+        }, 1500);
+      }
+    }
+
+    function showConfirmationPhase() {
+      document.getElementById('confirmationPhase').style.display = 'block';
+      
+      const winnerTeam = roomData[tossData.winner]?.teamName || 'Unknown';
+      const battingTeam = roomData[tossData.battingFirst]?.teamName || 'Unknown';
+      const bowlingTeam = roomData[tossData.battingFirst === 'player1' ? 'player2' : 'player1']?.teamName || 'Unknown';
+      
+      document.getElementById('finalTossWinner').textContent = winnerTeam;
+      document.getElementById('finalDecision').textContent = tossData.decision === 'bat' ? 'Chose to Bat' : 'Chose to Bowl';
+      document.getElementById('battingFirst').textContent = battingTeam;
+      document.getElementById('bowlingFirst').textContent = bowlingTeam;
+    }
+
+    async function makeTossChoice(choice) {
+      try {
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/toss/${player}Choice`), choice);
+        
+        document.getElementById('tossPrompt').style.display = 'none';
+        document.getElementById('waitingForChoice').style.display = 'block';
+        
+        showNotification(`You chose ${choice}!`, 'info');
+      } catch (error) {
+        showError('Failed to make choice: ' + error.message);
+      }
+    }
+
+    async function performTossFlip() {
+      try {
+        // Update phase to flipping
+        await updateTossPhase('flipping');
+        
+        // Determine toss result
+        const result = Math.random() < 0.5 ? 'heads' : 'tails';
+        
+        // Determine winner based on choices
+        let winner = null;
+        if (tossData.player1Choice === result) {
+          winner = 'player1';
+        } else if (tossData.player2Choice === result) {
+          winner = 'player2';
+        }
+        // If neither chose correctly, flip again (shouldn't happen in normal flow)
+        
+        // Update toss data
+        await firebase.update(firebase.ref(firebase.db, `rooms/${room}/toss`), {
+          result: result,
+          winner: winner
+        });
+        
+      } catch (error) {
+        showError('Failed to perform toss: ' + error.message);
+      }
+    }
+
+    async function makeDecision(decision) {
+      try {
+        const battingFirst = decision === 'bat' ? tossData.winner : (tossData.winner === 'player1' ? 'player2' : 'player1');
+        
+        await firebase.update(firebase.ref(firebase.db, `rooms/${room}/toss`), {
+          decision: decision,
+          battingFirst: battingFirst
+        });
+        
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/gameState/battingFirst`), battingFirst);
+        
+        showNotification(`You chose to ${decision}!`, 'success');
+      } catch (error) {
+        showError('Failed to make decision: ' + error.message);
+      }
+    }
+
+    async function updateTossPhase(newPhase) {
+      try {
+        await firebase.set(firebase.ref(firebase.db, `rooms/${room}/toss/phase`), newPhase);
+      } catch (error) {
+        console.error('Error updating toss phase:', error);
+      }
+    }
+
+    async function startMatch() {
+      try {
+        showLoading('Starting match...');
+        
+        // Update game state
+        await firebase.update(firebase.ref(firebase.db, `rooms/${room}/gameState`), {
+          status: 'playing',
+          startedAt: Date.now(),
+          currentInnings: 1
+        });
+        
+        showNotification('Match starting!', 'success');
+        
+        setTimeout(() => {
+          window.location.href = `game.html?room=${room}&player=${player}`;
+        }, 1500);
+        
+      } catch (error) {
+        showError('Failed to start match: ' + error.message);
+        hideLoading();
+      }
+    }
+
+    // Set player online status
+    window.addEventListener('load', () => {
+      setPlayerOnline(room, player);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      setPlayerOffline(room, player);
+    });
+  </script>
+
+  <style>
+    .toss-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .teams-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3rem;
+      padding: 2rem;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .team-card {
+      text-align: center;
+      flex: 1;
+    }
+
+    .team-card h3 {
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+
+    .team-status {
+      color: var(--success-color);
+      font-weight: 500;
+    }
+
+    .vs-divider {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin: 0 2rem;
+    }
+
+    .toss-section {
+      background: var(--card-bg);
+      padding: 3rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+    }
+
+    .toss-title {
+      color: var(--primary-color);
+      margin-bottom: 2rem;
+      font-size: 2.5rem;
+    }
+
+    .phase-content {
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .waiting-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      animation: pulse 2s infinite;
+    }
+
+    .players-status {
+      margin-top: 2rem;
+    }
+
+    .player-ready {
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    .player-ready.ready {
+      background: rgba(76, 175, 80, 0.2);
+      color: var(--success-color);
+    }
+
+    .player-ready.waiting {
+      background: rgba(255, 152, 0, 0.2);
+      color: var(--warning-color);
+    }
+
+    .coin-display {
+      margin-bottom: 2rem;
+    }
+
+    .coin {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 2rem;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+
+    .coin-side {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      font-weight: bold;
+      color: white;
+      backface-visibility: hidden;
+    }
+
+    .coin-side.heads {
+      background: linear-gradient(45deg, #FFD700, #FFA500);
+    }
+
+    .coin-side.tails {
+      background: linear-gradient(45deg, #C0C0C0, #808080);
+      transform: rotateY(180deg);
+    }
+
+    .coin.coin-flip {
+      animation: coinFlip 3s ease-in-out;
+    }
+
+    .coin.show-heads {
+      transform: rotateY(0deg);
+    }
+
+    .coin.show-tails {
+      transform: rotateY(180deg);
+    }
+
+    @keyframes coinFlip {
+      0% { transform: rotateY(0deg); }
+      50% { transform: rotateY(1800deg) rotateX(360deg); }
+      100% { transform: rotateY(1800deg); }
+    }
+
+    .toss-buttons, .choice-buttons {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      margin-top: 2rem;
+    }
+
+    .toss-btn, .choice-btn {
+      padding: 1.5rem 2rem;
+      font-size: 1.2rem;
+      min-width: 150px;
+    }
+
+    .result-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .result-text h3 {
+      color: var(--success-color);
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-text p {
+      color: var(--primary-color);
+      font-size: 1.5rem;
+    }
+
+    .confirmation-display {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .match-summary {
+      background: rgba(30, 136, 229, 0.1);
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background: var(--border-color);
+      border-radius: 8px;
+    }
+
+    .summary-item .label {
+      color: var(--text-secondary);
+    }
+
+    .summary-item .value {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      .teams-display {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .vs-divider {
+        margin: 1rem 0;
+        transform: rotate(90deg);
+      }
+
+      .toss-section {
+        padding: 2rem 1rem;
+      }
+
+      .toss-title {
+        font-size: 2rem;
+      }
+
+      .coin {
+        width: 100px;
+        height: 100px;
+      }
+
+      .coin-side {
+        font-size: 2.5rem;
+      }
+
+      .toss-buttons, .choice-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .toss-btn, .choice-btn {
+        min-width: 200px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</body>
+</html>

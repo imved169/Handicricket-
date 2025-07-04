@@ -1,0 +1,193 @@
+[build]
+  # Build command (none needed for static site)
+  command = "echo 'Building HandiCricket...'"
+  
+  # Directory to publish (root directory contains all files)
+  publish = "."
+  
+  # Functions directory (not used in this project)
+  functions = "netlify/functions"
+
+[build.environment]
+  # Node.js version for build process
+  NODE_VERSION = "18"
+  
+  # Build environment variables
+  ENVIRONMENT = "production"
+
+# Redirect rules for SPA behavior
+[[redirects]]
+  # Handle all routes to index.html for client-side routing
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin", "user"]}
+  
+# Specific redirects for game pages
+[[redirects]]
+  from = "/game/*"
+  to = "/game.html"
+  status = 200
+
+[[redirects]]
+  from = "/spectator/*"
+  to = "/spectator.html"
+  status = 200
+
+[[redirects]]
+  from = "/ai-game/*"
+  to = "/ai-game.html"
+  status = 200
+
+# API redirects (if backend APIs are added later)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Security headers
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    
+    # Content Security Policy
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.jsdelivr.net;
+      style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      img-src 'self' data: https: blob:;
+      font-src 'self' https://cdn.jsdelivr.net;
+      connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;
+      media-src 'self';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+    """
+    
+    # Cache control
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache control for specific file types
+[[headers]]
+  for = "*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# Firebase hosting configuration compatibility
+[[headers]]
+  for = "/__/*"
+  [headers.values]
+    Cache-Control = "max-age=0"
+
+# Error pages
+[[redirects]]
+  from = "/404"
+  to = "/404.html"
+  status = 404
+
+[[redirects]]
+  from = "/500"
+  to = "/500.html"
+  status = 500
+
+# Performance optimizations
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = true
+
+# Environment-specific settings
+[context.production]
+  command = "echo 'Production build'"
+
+[context.deploy-preview]
+  command = "echo 'Deploy preview build'"
+
+[context.branch-deploy]
+  command = "echo 'Branch deploy build'"
+
+# Plugin configuration
+[[plugins]]
+  package = "@netlify/plugin-lighthouse"
+  
+  [plugins.inputs.thresholds]
+    performance = 0.8
+    accessibility = 0.9
+    best-practices = 0.9
+    seo = 0.9
+
+[[plugins]]
+  package = "netlify-plugin-minify-html"
+  
+  [plugins.inputs]
+    contexts = ["production"]
+
+# Form handling (for future contact forms)
+[forms]
+  spam_protection = true
+
+# Split testing (A/B testing capability)
+[split_testing]
+  # Can be used for testing different game features
+
+# Functions configuration (for future backend needs)
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Development settings
+[dev]
+  command = "python -m http.server 8000"
+  port = 8000
+  publish = "."
+  autoLaunch = true
+
+# Analytics and monitoring
+[template.environment]
+  NETLIFY_ANALYTICS = "true"
+  NETLIFY_FORMS = "true"
