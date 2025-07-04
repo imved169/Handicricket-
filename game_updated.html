@@ -252,7 +252,7 @@
         totalOvers: Infinity, 
         totalWickets: 30, 
         powerplayOvers: 0, 
-        powerplayWicketValue: 1,
+        powerplayWicketValue: 0.5,
         regularWicketValue: 1,
         livesPerPlayer: 3,
         deadOvers: []
@@ -700,6 +700,90 @@
       });
     }
 
+    // New inning management functions
+    async function handleInningEnd() {
+      disableButtons();
+      
+      // Update scores for current innings
+      if (innings === 1) {
+        team1Score = currentInningRuns;
+        team1Wickets = wickets;
+      } else if (innings === 2) {
+        team2Score = currentInningRuns;
+        team2Wickets = wickets;
+      }
+
+      // Check for follow-on in Tests (only after 2nd innings)
+      const followOnPossible = isTestMatch && innings === 2 && 
+                             (team1Score - team2Score >= 200);
+      
+      if (followOnPossible) {
+        status.innerText = `Team 1 can enforce follow-on (lead of ${team1Score - team2Score})`;
+        followOnBtn.style.display = "block";
+        await set(ref(db, `rooms/${room}/followOn`), true);
+        return; // Wait for follow-on decision
+      }
+      
+      await proceedToNextInning();
+    }
+
+    async function proceedToNextInning() {
+      // For limited overs, only 2 innings
+      if (!isTestMatch && innings >= 2) {
+        endMatch();
+        return;
+      }
+      
+      // For Tests, handle 4 innings
+      if (isTestMatch) {
+        if (innings >= 4) {
+          endMatch();
+          return;
+        }
+        // Reset days/overs for new innings if it's a new batting team
+        if (innings % 2 === 1) {
+          daysRemaining = 5;
+          oversToday = 0;
+        }
+      }
+
+      innings++;
+      resetInning();
+      updateScoreboard();
+      
+      // Update Firebase with new innings
+      await update(ref(db, `rooms/${room}`), {
+        currentInning: innings,
+        [`team${innings === 2 ? 1 : 2}Score`]: innings === 2 ? team1Score : team2Score,
+        currentBatter: null,
+        currentBowler: null
+      });
+      
+      // Show appropriate selection
+      if (isBatting) {
+        showBatterSelection();
+      } else {
+        showBowlerSelection();
+      }
+    }
+
+    function resetInning() {
+      runs = 0;
+      wickets = 0;
+      currentInningRuns = 0;
+      currentInningWickets = 0;
+      legalBalls = 0;
+      freeHit = false;
+      zerosThisOver = { player1: 0, player2: 0 };
+      
+      // Reset batters if it's a new batting team
+      if (!isTestMatch || innings % 2 === 1) {
+        battersUsed = [];
+        bowlerOvers = {};
+        isBatting = !isBatting;
+      }
+    }
+
     function setupFirebaseListeners() {
       onValue(ref(db, `rooms/${room}`), (snap) => {
         const data = snap.val();
@@ -746,7 +830,7 @@
         else if (batCard === bowlCard && batCard > 0) {
           if (freeHit) {
             outcome = "Wicket on Free Hit (not out)";
-            freeHit = false;
+            isWicket = false;
           } else {
             if (currentBatter && batterLives[currentBatter] !== undefined) {
               // T20 specific logic
@@ -861,9 +945,10 @@
         updateScoreboard();
         updateSpectatorData();
         
+        // Check for inning end
         if ((isTestMatch && currentInningWickets >= 30) || 
             (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
-          endInning();
+          await handleInningEnd();
           return;
         }
 
@@ -905,7 +990,18 @@
 
       onValue(ref(db, `rooms/${room}/followOn`), (snap) => {
         const followOn = snap.val();
-        followOnBtn.style.display = followOn ? "block" : "none";
+        if (followOn === false && innings === 2) {
+          // Follow-on was declined, proceed to next inning
+          proceedToNextInning();
+        }
+      });
+
+      onValue(ref(db, `rooms/${room}/currentInning`), (snap) => {
+        const newInning = snap.val();
+        if (newInning && newInning !== innings) {
+          innings = newInning;
+          resetInning();
+        }
       });
 
       // Spectator count listener
@@ -913,71 +1009,6 @@
         const spectators = snap.val() || {};
         spectatorCountEl.textContent = `Spectators: ${Object.keys(spectators).length}`;
       });
-    }
-
-    buttons.forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const val = parseInt(btn.dataset.value);
-        disableButtons();
-        status.innerText = "Waiting for opponent...";
-        try {
-          await set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
-        } catch (error) {
-          console.error("Error submitting play:", error);
-          enableButtons();
-        }
-      });
-    });
-
-    async function endInning() {
-      disableButtons();
-      
-      if (innings === 1) {
-        team1Score = currentInningRuns;
-        team1Wickets = currentInningWickets;
-      } else {
-        team2Score = currentInningRuns;
-        team2Wickets = currentInningWickets;
-      }
-      
-      const followOnPossible = isTestMatch && innings === 2 && team1Score - team2Score >= 200;
-      
-      if (followOnPossible) {
-        status.innerText = `Team 1 can enforce follow-on (lead of ${team1Score - team2Score})`;
-        followOnBtn.style.display = "block";
-        await set(ref(db, `rooms/${room}/followOn`), true);
-      } else {
-        innings++;
-        if (innings > 2 || !isTestMatch) {
-          endMatch();
-          return;
-        }
-        resetInning();
-      }
-      
-      updateScoreboard();
-      updateSpectatorData();
-    }
-
-    function resetInning() {
-      runs = 0;
-      wickets = 0;
-      currentInningRuns = 0;
-      currentInningWickets = 0;
-      legalBalls = 0;
-      oversToday = 0;
-      battersUsed = [];
-      bowlerOvers = {};
-      batterLives = {};
-      freeHit = false;
-      isBatting = !isBatting;
-      zerosThisOver = { player1: 0, player2: 0 };
-      
-      if (isBatting) {
-        showBatterSelection();
-      } else {
-        showBowlerSelection();
-      }
     }
 
     function endDaysPlay() {
@@ -1100,4 +1131,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
