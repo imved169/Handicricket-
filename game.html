@@ -120,6 +120,8 @@
     #saveBtn:hover { background: #F57C00; }
     #exitBtn { background: #f44336; }
     #exitBtn:hover { background: #d32f2f; }
+    #resetPlaysBtn { background: #9c27b0; }
+    #resetPlaysBtn:hover { background: #7b1fa2; }
     #spectatorCount {
       position: absolute;
       top: 10px;
@@ -200,6 +202,7 @@
   <div id="gameControls">
     <button id="saveBtn">💾 Save & Exit</button>
     <button id="exitBtn">🚪 Exit Without Saving</button>
+    <button id="resetPlaysBtn">🔄 Reset Plays</button>
   </div>
   
   <div id="connectionStatus" class="online">
@@ -317,6 +320,7 @@
     let ballByBall = {};
     const playerRef = ref(db, `rooms/${room}/${player}/online`);
     const opponentRef = ref(db, `rooms/${room}/${opponent}/online`);
+    let playTimeout;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -343,6 +347,7 @@
     const freeHitIndicator = document.getElementById("freeHitIndicator");
     const saveBtn = document.getElementById("saveBtn");
     const exitBtn = document.getElementById("exitBtn");
+    const resetPlaysBtn = document.getElementById("resetPlaysBtn");
     const connectionStatus = document.getElementById("connectionStatus");
     const spectatorCountEl = document.getElementById("spectatorCount");
     const targetDisplay = document.getElementById("targetDisplay");
@@ -584,10 +589,14 @@
       checkPowerplayStatus();
     }
 
-    // Reset plays after each ball
+    // Reset plays after each ball - IMPROVED VERSION
     async function resetPlays() {
       try {
-        await set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
+        // Clear both players' plays atomically
+        await update(ref(db, `rooms/${room}`), {
+          'currentPlays/player1': null,
+          'currentPlays/player2': null
+        });
         enableButtons();
       } catch (error) {
         console.error("Error resetting plays:", error);
@@ -746,8 +755,22 @@
       });
     }
 
-    // Set up Firebase listeners
+    // Set up Firebase listeners - IMPROVED VERSION
     function setupFirebaseListeners() {
+      // Clear any existing timeout when new plays come in
+      if (playTimeout) {
+        clearTimeout(playTimeout);
+      }
+
+      // Set a new timeout (10 seconds)
+      playTimeout = setTimeout(async () => {
+        if (status.textContent.includes("Waiting for opponent")) {
+          console.log("Timeout reached, resetting plays");
+          await resetPlays();
+          status.innerText = "Timeout - Resetting plays...";
+        }
+      }, 10000);
+
       onValue(ref(db, `rooms/${room}`), (snap) => {
         const data = snap.val();
         if (!data) return;
@@ -765,7 +788,23 @@
 
       onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
         const plays = snap.val();
-        if (!plays || plays.player1 == null || plays.player2 == null) return;
+        
+        // Skip if data is null or incomplete
+        if (!plays || plays.player1 === undefined || plays.player2 === undefined) {
+          return;
+        }
+
+        // Skip if either play is still null (not submitted yet)
+        if (plays.player1 === null || plays.player2 === null) {
+          return;
+        }
+
+        // First check connection status
+        const connectionSnap = await get(ref(db, `rooms/${room}/${opponent}/online`));
+        if (!connectionSnap.exists() || !connectionSnap.val()) {
+          status.innerText = "Opponent disconnected. Waiting...";
+          return;
+        }
 
         const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
         const tossWinner = tossSnap.val();
@@ -986,16 +1025,30 @@
       });
     }
 
-    // Set up card button events
+    // Set up card button events - IMPROVED VERSION
     buttons.forEach(btn => {
       btn.addEventListener("click", async () => {
         const val = parseInt(btn.dataset.value);
         disableButtons();
         status.innerText = "Waiting for opponent...";
+        
         try {
-          await set(ref(db, `rooms/${room}/currentPlays/${player}`), val);
+          // Check if opponent is online first
+          const opponentOnline = await get(ref(db, `rooms/${room}/${opponent}/online`));
+          if (!opponentOnline.exists() || !opponentOnline.val()) {
+            status.innerText = "Opponent is offline!";
+            enableButtons();
+            return;
+          }
+          
+          // Submit play with timestamp
+          await update(ref(db, `rooms/${room}`), {
+            [`currentPlays/${player}`]: val,
+            [`lastPlayTime/${player}`]: Date.now()
+          });
         } catch (error) {
           console.error("Error submitting play:", error);
+          status.innerText = "Error submitting play - try again";
           enableButtons();
         }
       });
@@ -1172,30 +1225,18 @@
           window.location.href = "index.html";
         }
       });
+      
+      // Add manual reset button handler
+      resetPlaysBtn.addEventListener("click", async () => {
+        if (confirm("Force reset the current plays?")) {
+          await resetPlays();
+          status.innerText = "Plays manually reset";
+        }
+      });
     }
 
     // Initialize the game
     initGame();
   </script>
-
-<script type="module">
-  import { CricketEngine } from './game_engine.js';
-  import { TestMatchHandler } from './test_match.js';
-  import { FirebaseManager } from './firebase_manager.js';
-  import { PlayerStats } from './player_stats.js';
-  import { NotificationManager } from './ui_components/notifications.js';
-
-  const game = new CricketEngine('test');
-  const testHandler = new TestMatchHandler();
-  const stats = new PlayerStats();
-
-  // Example game usage
-  const result = game.resolveCards('2', '4');
-  console.log('Card Result:', result);
-
-  // Show a sample notification
-  NotificationManager.showFreeHit();
-</script>
-
 </body>
-  </html>
+</html>
