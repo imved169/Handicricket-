@@ -524,6 +524,29 @@
     const autoStartTimerEl = document.getElementById("autoStartTimer");
     const startInningsText = document.getElementById("startInningsText");
 
+    // Function to start the second innings
+    async function startSecondInnings() {
+      disableButtons();
+      status.innerText = "Starting second innings...";
+      
+      // Update Firebase to signal innings change
+      await set(ref(db, `rooms/${room}/inningsReady`), true);
+      
+      // Set auto-start time (30 seconds from now)
+      const autoStartTime = Date.now() + 30000;
+      await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+      
+      // Show transition overlay
+      showTransitionOverlay("Starting Second Innings...", 3);
+      
+      // Proceed to second innings after delay
+      setTimeout(() => {
+        innings++;
+        startInningsBtn.style.display = "none";
+        resetInning();
+      }, 3000);
+    }
+
     // Update spectator data with match details
     function updateSpectatorData() {
       const currentOver = Math.floor(legalBalls / 6);
@@ -1041,29 +1064,7 @@
     // Set up the innings button with enhanced functionality
     function setupInningsButton() {
       // Handle button click
-      startInningsBtn.addEventListener("click", async () => {
-        if (innings === 1) {
-          disableButtons();
-          status.innerText = "Starting second innings...";
-          
-          // Update Firebase to signal innings change
-          await set(ref(db, `rooms/${room}/inningsReady`), true);
-          
-          // Set auto-start time (30 seconds from now)
-          const autoStartTime = Date.now() + 30000;
-          await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
-          
-          // Show transition overlay
-          showTransitionOverlay("Starting Second Innings...", 3);
-          
-          // Proceed to second innings after delay
-          setTimeout(() => {
-            innings++;
-            startInningsBtn.style.display = "none";
-            resetInning();
-          }, 3000);
-        }
-      });
+      startInningsBtn.addEventListener("click", startSecondInnings);
 
       // Listen for opponent's readiness
       onValue(ref(db, `rooms/${room}/inningsReady`), (snap) => {
