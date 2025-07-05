@@ -485,6 +485,8 @@
     let bowlerStats = {};
     let autoStartTimer;
     let countdownInterval;
+    let tossWinner = null;
+    let battingFirst = null;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -920,8 +922,13 @@
     // Set up player roles (batting/bowling)
     async function setupRole() {
       const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-      const tossWinner = tossSnap.val();
-      isBatting = player === tossWinner;
+      tossWinner = tossSnap.val();
+      
+      const battingFirstSnap = await get(ref(db, `rooms/${room}/battingFirst`));
+      battingFirst = battingFirstSnap.val();
+      
+      // Determine if current player is batting in this innings
+      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
 
       const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
       const decision = decisionSnap.val();
@@ -1540,7 +1547,10 @@
       batterLives = {};
       freeHit = false;
       freeHitNextBall = false;
-      isBatting = !isBatting;
+      
+      // Toggle batting role based on innings
+      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+      
       zerosThisOver = { player1: 0, player2: 0 };
       
       // Reset innings button state
@@ -1552,6 +1562,9 @@
       // Clear Firebase state
       set(ref(db, `rooms/${room}/inningsReady`), false);
       set(ref(db, `rooms/${room}/autoStartTime`), null);
+      
+      // Update role text
+      setupRole();
       
       if (isBatting) {
         showBatterSelection();
@@ -1613,6 +1626,13 @@
     // Initialize the game
     async function initGame() {
       gameInProgress = true;
+      
+      // Get toss winner and batting first team
+      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
+      tossWinner = tossSnap.val();
+      
+      const battingFirstSnap = await get(ref(db, `rooms/${room}/battingFirst`));
+      battingFirst = battingFirstSnap.val();
       
       // Check for saved game
       const savedGameSnap = await get(ref(db, `savedGames/${room}`));
@@ -1707,4 +1727,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
