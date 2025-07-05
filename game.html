@@ -200,6 +200,21 @@
       color: #ff9800;
       font-weight: bold;
     }
+    /* Add this new style for the innings button */
+    #startInningsBtn {
+      margin: 20px auto;
+      padding: 12px 24px;
+      font-size: 18px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: none;
+    }
+    #startInningsBtn:hover {
+      background: #45a049;
+    }
   </style>
 </head>
 <body>
@@ -245,6 +260,9 @@
     <button class="card" data-value="5">5</button>
     <button class="card" data-value="6">6</button>
   </div>
+
+  <!-- Add this new button for starting innings -->
+  <button id="startInningsBtn">Start Second Innings</button>
 
   <div id="playingXISection" style="margin-top: 30px;">
     <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
@@ -436,6 +454,7 @@
     const requiredRateEl = document.getElementById("requiredRate");
     const miniScoreEl = document.getElementById("miniScore");
     const miniOversEl = document.getElementById("miniOvers");
+    const startInningsBtn = document.getElementById("startInningsBtn");
 
     // Update spectator data with match details
     function updateSpectatorData() {
@@ -666,11 +685,13 @@
     // Disable all card buttons
     function disableButtons() {
       buttons.forEach(btn => btn.disabled = true);
+      startInningsBtn.disabled = true;
     }
 
     // Enable all card buttons
     function enableButtons() {
       buttons.forEach(btn => btn.disabled = false);
+      startInningsBtn.disabled = false;
     }
 
     // Check powerplay status based on current over
@@ -908,6 +929,17 @@
           innings = 2;
           resetInning();
           await set(ref(db, `rooms/${room}/followOn`), false);
+        }
+      });
+    }
+
+    // Set up the innings button
+    function setupInningsButton() {
+      startInningsBtn.addEventListener("click", async () => {
+        if (innings === 1) {
+          innings++;
+          startInningsBtn.style.display = "none";
+          resetInning();
         }
       });
     }
@@ -1261,6 +1293,13 @@
         team1Score = currentInningRuns;
         team1Wickets = currentInningWickets;
         status.innerText = `Team 1 scored ${team1Score} runs!`;
+        
+        // Show the start innings button for non-test matches
+        if (!isTestMatch) {
+          startInningsBtn.style.display = "block";
+          status.innerText += " Click 'Start Second Innings' when ready.";
+          return;
+        }
       } else {
         team2Score = currentInningRuns;
         team2Wickets = currentInningWickets;
@@ -1274,12 +1313,16 @@
         followOnBtn.style.display = "block";
         await set(ref(db, `rooms/${room}/followOn`), true);
       } else {
-        innings++;
-        if (innings > 2 || !isTestMatch) {
-          endMatch();
-          return;
+        // For test matches, automatically proceed to next innings
+        if (isTestMatch) {
+          innings++;
+          if (innings > 2) {
+            endMatch();
+            return;
+          }
+          resetInning();
         }
-        resetInning();
+        // For limited overs, wait for button click
       }
       
       updateScoreboard();
@@ -1417,6 +1460,7 @@
       await setupRole();
       setupSelectionModal();
       setupTestControls();
+      setupInningsButton();
       updateScoreboard();
       setupFirebaseListeners();
       
