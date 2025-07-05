@@ -542,6 +542,13 @@
         // Show transition overlay
         const overlay = showTransitionOverlay("Starting Second Innings...", 3);
         
+        // Clear all current plays and selections
+        await update(ref(db, `rooms/${room}`), {
+          currentPlays: { player1: null, player2: null },
+          currentBatter: null,
+          currentBowler: null
+        });
+        
         // Proceed to second innings after delay
         setTimeout(() => {
           innings++;
@@ -938,6 +945,10 @@
       roleText.innerText = isBatting ? 
         `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'}) vs ${opponentTeam}` : 
         `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'}) vs ${opponentTeam}`;
+
+      // Reset current batter/bowler display
+      currentBatterEl.innerText = "-";
+      currentBowlerEl.innerText = "-";
 
       if (isBatting && !currentBatter) {
         showBatterSelection();
@@ -1547,11 +1558,15 @@
       batterLives = {};
       freeHit = false;
       freeHitNextBall = false;
+      currentBatter = null;
+      currentBowler = null;
+      zerosThisOver = { player1: 0, player2: 0 };
+      
+      // Clear current plays
+      set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
       
       // Toggle batting role based on innings
       isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-      
-      zerosThisOver = { player1: 0, player2: 0 };
       
       // Reset innings button state
       startInningsBtn.style.display = "none";
@@ -1562,6 +1577,8 @@
       // Clear Firebase state
       set(ref(db, `rooms/${room}/inningsReady`), false);
       set(ref(db, `rooms/${room}/autoStartTime`), null);
+      set(ref(db, `rooms/${room}/currentBatter`), null);
+      set(ref(db, `rooms/${room}/currentBowler`), null);
       
       // Update role text
       setupRole();
@@ -1727,4 +1744,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
