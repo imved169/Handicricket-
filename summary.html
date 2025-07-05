@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Match Summary</title>
+</head>
+<body style="font-family: sans-serif; background: #001F3F; color: white; text-align: center; padding: 2rem;">
+  <h2>🏁 Match Summary</h2>
+  <div id="resultText" style="font-size: 1.5rem; margin: 1rem 0;"></div>
+  <div id="mvpText" style="font-size: 1.2rem;"></div>
+  <button onclick="shareSummary()" style="padding: 10px 20px; margin-top: 20px;">📤 Share Result</button>
+
+  <script type="module">
+    import { db, ref, onValue } from './firebase.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const matchCode = urlParams.get("match") || localStorage.getItem("roomCode");
+
+    const summaryRef = ref(db, `rooms/${matchCode}/summary`);
+    onValue(summaryRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        document.getElementById("resultText").innerText = "Result: " + data.result;
+        document.getElementById("mvpText").innerText = "MVP: " + data.mvp;
+      } else {
+        document.getElementById("resultText").innerText = "Summary not found.";
+      }
+    });
+
+    window.shareSummary = function () {
+      const shareURL = `${window.location.origin}/summary.html?match=${matchCode}`;
+      navigator.clipboard.writeText(shareURL).then(() => {
+        alert("✅ Summary link copied to clipboard:\n" + shareURL);
+      });
+    };
+  </script>
+</body>
+</html>

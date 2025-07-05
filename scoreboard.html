@@ -1,1329 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Scoreboard - HandiCricket</title>
-  <meta name="description" content="Live cricket scoreboard with detailed match statistics">
-  
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/responsive.css">
-  <link rel="stylesheet" href="css/animations.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
-</head>
-<body>
-  <div id="loading-overlay" class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <p>Loading scoreboard...</p>
-  </div>
-
-  <div id="error-modal" class="error-modal" style="display: none;">
-    <div class="error-content">
-      <h3>Error</h3>
-      <p id="error-message"></p>
-      <button id="retry-btn" class="btn btn-primary">Retry</button>
-    </div>
-  </div>
-
-  <header class="header">
-    <div class="container">
-      <h1 class="logo">
-        <span class="cricket-icon">🏏</span>
-        HandiCricket Scoreboard
-      </h1>
-      <div class="scoreboard-controls">
-        <button id="refreshBtn" class="btn btn-secondary">🔄 Refresh</button>
-        <button id="fullscreenBtn" class="btn btn-secondary">📺 Fullscreen</button>
-        <button id="backBtn" class="btn btn-primary">← Back to Game</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="main scoreboard-container">
-    <!-- Match Header -->
-    <div class="match-header-card">
-      <div class="match-title">
-        <h2 id="matchTitle">Live Cricket Match</h2>
-        <div class="match-meta">
-          <span id="matchFormat" class="format-badge">T20</span>
-          <span id="matchVenue" class="venue">Room: <span id="roomCode">-</span></span>
-          <span id="matchTime" class="match-time">Live</span>
-        </div>
-      </div>
-      <div id="matchStatus" class="match-status">1st Innings</div>
-    </div>
-
-    <!-- Live Score -->
-    <div class="live-score-section">
-      <div class="team-scores">
-        <div class="team-score-card current-batting" id="battingTeamCard">
-          <div class="team-info">
-            <h3 id="battingTeamName" class="team-name">Team A</h3>
-            <div class="team-flag">🏏</div>
-          </div>
-          <div class="score-display">
-            <div class="main-score">
-              <span id="runs" class="runs">0</span>
-              <span class="separator">/</span>
-              <span id="wickets" class="wickets">0</span>
-            </div>
-            <div class="overs-info">
-              <span id="overs" class="overs">0.0</span>
-              <span class="overs-label">overs</span>
-            </div>
-          </div>
-          <div class="rate-info">
-            <div class="run-rate">
-              <span class="label">Run Rate:</span>
-              <span id="currentRunRate" class="value">0.00</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="vs-divider">
-          <div class="vs-text">VS</div>
-          <div id="lastBallResult" class="last-ball-result">Ready to start</div>
-        </div>
-
-        <div class="team-score-card" id="bowlingTeamCard">
-          <div class="team-info">
-            <h3 id="bowlingTeamName" class="team-name">Team B</h3>
-            <div class="team-flag">⚾</div>
-          </div>
-          <div id="targetInfo" class="target-info" style="display: none;">
-            <div class="target-label">Target</div>
-            <div class="target-value" id="target">0</div>
-          </div>
-          <div id="chaseInfo" class="chase-info" style="display: none;">
-            <div class="need-info">
-              <span>Need </span>
-              <span id="runsRequired" class="runs-req">0</span>
-              <span> from </span>
-              <span id="ballsRemaining" class="balls-rem">0</span>
-              <span> balls</span>
-            </div>
-            <div class="req-rate">
-              <span class="label">Req Rate:</span>
-              <span id="requiredRate" class="value">0.00</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Current Players -->
-    <div class="current-players-section">
-      <h3 class="section-title">Current Players</h3>
-      <div class="players-grid">
-        <div class="player-card batter-card">
-          <div class="player-header">
-            <h4>🏏 Batsman</h4>
-            <div id="batterLives" class="player-lives"></div>
-          </div>
-          <div class="player-details">
-            <div id="batterName" class="player-name">-</div>
-            <div class="player-stats">
-              <span id="batterRuns" class="stat-value">0</span>
-              <span class="stat-label">runs</span>
-              <span class="stat-separator">•</span>
-              <span id="batterBalls" class="stat-value">0</span>
-              <span class="stat-label">balls</span>
-            </div>
-            <div class="player-extras">
-              <span class="strike-rate">SR: <span id="batterSR">0.00</span></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="player-card bowler-card">
-          <div class="player-header">
-            <h4>⚾ Bowler</h4>
-            <div id="bowlerCurrentOver" class="current-over-info"></div>
-          </div>
-          <div class="player-details">
-            <div id="bowlerName" class="player-name">-</div>
-            <div class="player-stats">
-              <span id="bowlerOvers" class="stat-value">0</span>
-              <span class="stat-label">ov</span>
-              <span class="stat-separator">•</span>
-              <span id="bowlerRuns" class="stat-value">0</span>
-              <span class="stat-label">runs</span>
-              <span class="stat-separator">•</span>
-              <span id="bowlerWickets" class="stat-value">0</span>
-              <span class="stat-label">wkts</span>
-            </div>
-            <div class="player-extras">
-              <span class="economy">Eco: <span id="bowlerEconomy">0.00</span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Special Indicators -->
-    <div class="special-indicators-section">
-      <div id="powerplayIndicator" class="special-indicator powerplay" style="display: none;">
-        <span class="indicator-icon">⚡</span>
-        <span class="indicator-text">POWERPLAY</span>
-      </div>
-      <div id="freeHitIndicator" class="special-indicator free-hit" style="display: none;">
-        <span class="indicator-icon">🎯</span>
-        <span class="indicator-text">FREE HIT</span>
-      </div>
-      <div id="deadOverIndicator" class="special-indicator dead-over" style="display: none;">
-        <span class="indicator-icon">💀</span>
-        <span class="indicator-text">DEAD OVER</span>
-      </div>
-    </div>
-
-    <!-- Recent Overs -->
-    <div class="recent-overs-section">
-      <h3 class="section-title">Recent Overs</h3>
-      <div id="oversHistory" class="overs-history">
-        <div class="no-overs">Match hasn't started yet</div>
-      </div>
-    </div>
-
-    <!-- Match Statistics -->
-    <div class="statistics-section">
-      <h3 class="section-title">Match Statistics</h3>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-header">Scoring</div>
-          <div class="stat-items">
-            <div class="stat-item">
-              <span class="stat-label">Boundaries (4s)</span>
-              <span id="fours" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Sixes (6s)</span>
-              <span id="sixes" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Dot Balls</span>
-              <span id="dotBalls" class="stat-value">0</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-header">Partnership</div>
-          <div class="stat-items">
-            <div class="stat-item">
-              <span class="stat-label">Current Stand</span>
-              <span id="currentPartnership" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Balls Faced</span>
-              <span id="partnershipBalls" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Partnership Rate</span>
-              <span id="partnershipRate" class="stat-value">0.00</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-header">Bowling</div>
-          <div class="stat-items">
-            <div class="stat-item">
-              <span class="stat-label">Extras</span>
-              <span id="extras" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Wides</span>
-              <span id="wides" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">No Balls</span>
-              <span id="noBalls" class="stat-value">0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Full Team Scorecard -->
-    <div class="full-scorecard-section">
-      <h3 class="section-title">Full Scorecard</h3>
-      <div class="scorecard-tabs">
-        <button id="battingTab" class="tab-btn active">Batting</button>
-        <button id="bowlingTab" class="tab-btn">Bowling</button>
-      </div>
-      
-      <div id="battingScorecard" class="scorecard-content">
-        <div class="scorecard-table-container">
-          <table class="scorecard-table">
-            <thead>
-              <tr>
-                <th>Batsman</th>
-                <th>Runs</th>
-                <th>Balls</th>
-                <th>SR</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="battingTableBody">
-              <tr class="no-data">
-                <td colspan="5">No batting data available</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="bowlingScorecard" class="scorecard-content" style="display: none;">
-        <div class="scorecard-table-container">
-          <table class="scorecard-table">
-            <thead>
-              <tr>
-                <th>Bowler</th>
-                <th>Overs</th>
-                <th>Runs</th>
-                <th>Wickets</th>
-                <th>Economy</th>
-              </tr>
-            </thead>
-            <tbody id="bowlingTableBody">
-              <tr class="no-data">
-                <td colspan="5">No bowling data available</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Commentary -->
-    <div class="commentary-section">
-      <h3 class="section-title">Live Commentary</h3>
-      <div id="commentaryFeed" class="commentary-feed">
-        <div class="commentary-item">
-          <span class="commentary-time">00:00</span>
-          <span class="commentary-text">Match is about to begin...</span>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <script src="js/firebase.js"></script>
-  <script src="js/utils.js"></script>
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get('room');
-    
-    if (!room) {
-      window.location.href = 'index.html';
-    }
-
-    let matchData = null;
-    let isFullscreen = false;
-
-    // Initialize scoreboard
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initializeScoreboard();
-      setupEventListeners();
-      startLiveUpdates();
-    });
-
-    async function initializeScoreboard() {
-      try {
-        showLoading('Loading scoreboard...');
-        
-        // Load initial match data
-        await loadMatchData();
-        
-        hideLoading();
-      } catch (error) {
-        showError('Failed to load scoreboard: ' + error.message);
-      }
-    }
-
-    async function loadMatchData() {
-      try {
-        const snapshot = await firebase.get(firebase.ref(firebase.db, `rooms/${room}`));
-        if (!snapshot.exists()) {
-          throw new Error('Match not found');
-        }
-        
-        matchData = snapshot.val();
-        updateScoreboardDisplay();
-        
-      } catch (error) {
-        console.error('Error loading match data:', error);
-        throw error;
-      }
-    }
-
-    function setupEventListeners() {
-      // Control buttons
-      document.getElementById('refreshBtn').addEventListener('click', refreshScoreboard);
-      document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-      document.getElementById('backBtn').addEventListener('click', goBackToGame);
-      
-      // Tab switching
-      document.getElementById('battingTab').addEventListener('click', () => showTab('batting'));
-      document.getElementById('bowlingTab').addEventListener('click', () => showTab('bowling'));
-      
-      // Error modal
-      document.getElementById('retry-btn').addEventListener('click', hideError);
-      
-      // Fullscreen events
-      document.addEventListener('fullscreenchange', handleFullscreenChange);
-      document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-    }
-
-    function startLiveUpdates() {
-      // Listen for real-time updates
-      const roomRef = firebase.ref(firebase.db, `rooms/${room}`);
-      firebase.onValue(roomRef, (snapshot) => {
-        if (snapshot.exists()) {
-          matchData = snapshot.val();
-          updateScoreboardDisplay();
-        }
-      });
-      
-      // Update time every minute
-      setInterval(updateMatchTime, 60000);
-    }
-
-    function updateScoreboardDisplay() {
-      if (!matchData) return;
-      
-      try {
-        updateMatchHeader();
-        updateLiveScore();
-        updateCurrentPlayers();
-        updateSpecialIndicators();
-        updateStatistics();
-        updateRecentOvers();
-        updateFullScorecard();
-        updateCommentary();
-      } catch (error) {
-        console.error('Error updating scoreboard:', error);
-      }
-    }
-
-    function updateMatchHeader() {
-      // Room code
-      document.getElementById('roomCode').textContent = room;
-      
-      // Format
-      const format = matchData.player1?.format || '5';
-      document.getElementById('matchFormat').textContent = getFormatName(format);
-      
-      // Match title
-      const team1 = matchData.player1?.teamName || 'Team 1';
-      const team2 = matchData.player2?.teamName || 'Team 2';
-      document.getElementById('matchTitle').textContent = `${team1} vs ${team2}`;
-      
-      // Match status
-      const gameState = matchData.gameState || {};
-      const innings = gameState.currentInnings || 1;
-      document.getElementById('matchStatus').textContent = `${innings}${innings === 1 ? 'st' : 'nd'} Innings`;
-    }
-
-    function updateLiveScore() {
-      const liveState = matchData.liveState || {};
-      
-      // Basic score
-      document.getElementById('runs').textContent = liveState.runs || 0;
-      document.getElementById('wickets').textContent = liveState.wickets || 0;
-      document.getElementById('overs').textContent = formatOvers(liveState.legalBalls || 0);
-      document.getElementById('currentRunRate').textContent = calculateRunRate(liveState.runs || 0, liveState.legalBalls || 0);
-      
-      // Team names
-      const battingFirst = matchData.gameState?.battingFirst;
-      if (battingFirst) {
-        const battingTeam = matchData[battingFirst]?.teamName || 'Team A';
-        const bowlingTeam = matchData[battingFirst === 'player1' ? 'player2' : 'player1']?.teamName || 'Team B';
-        
-        document.getElementById('battingTeamName').textContent = battingTeam;
-        document.getElementById('bowlingTeamName').textContent = bowlingTeam;
-      }
-      
-      // Target and chase info (for second innings)
-      const innings = matchData.gameState?.currentInnings || 1;
-      if (innings === 2 && matchData.gameState?.target) {
-        document.getElementById('targetInfo').style.display = 'block';
-        document.getElementById('chaseInfo').style.display = 'block';
-        
-        const target = matchData.gameState.target;
-        const runs = liveState.runs || 0;
-        const ballsPlayed = liveState.legalBalls || 0;
-        
-        document.getElementById('target').textContent = target;
-        document.getElementById('runsRequired').textContent = Math.max(0, target - runs);
-        
-        const totalBalls = (matchData.player1?.format === 'test' ? 90 : parseInt(matchData.player1?.format || '5')) * 6;
-        const ballsRemaining = totalBalls - ballsPlayed;
-        document.getElementById('ballsRemaining').textContent = ballsRemaining;
-        document.getElementById('requiredRate').textContent = calculateRequiredRate(target, runs, ballsRemaining);
-      }
-      
-      // Last ball result
-      if (liveState.lastBallResult) {
-        document.getElementById('lastBallResult').textContent = liveState.lastBallResult;
-      }
-    }
-
-    function updateCurrentPlayers() {
-      const liveState = matchData.liveState || {};
-      
-      // Current batter
-      if (liveState.currentBatter) {
-        document.getElementById('batterName').textContent = liveState.currentBatter;
-        
-        // Get batter stats from match stats
-        const matchStats = matchData.matchStats || {};
-        const batterStats = matchStats.batters?.[liveState.currentBatter] || { runs: 0, balls: 0 };
-        
-        document.getElementById('batterRuns').textContent = batterStats.runs;
-        document.getElementById('batterBalls').textContent = batterStats.balls;
-        
-        const strikeRate = batterStats.balls > 0 ? ((batterStats.runs / batterStats.balls) * 100).toFixed(2) : '0.00';
-        document.getElementById('batterSR').textContent = strikeRate;
-        
-        // Batter lives
-        const lives = matchStats.batterLives || 0;
-        const livesEl = document.getElementById('batterLives');
-        livesEl.innerHTML = '';
-        for (let i = 0; i < lives; i++) {
-          livesEl.innerHTML += '❤️';
-        }
-      }
-      
-      // Current bowler
-      if (liveState.currentBowler) {
-        document.getElementById('bowlerName').textContent = liveState.currentBowler;
-        
-        const matchStats = matchData.matchStats || {};
-        const bowlerStats = matchStats.bowlers?.[liveState.currentBowler] || { overs: 0, runs: 0, wickets: 0 };
-        
-        document.getElementById('bowlerOvers').textContent = bowlerStats.overs || 0;
-        document.getElementById('bowlerRuns').textContent = bowlerStats.runs || 0;
-        document.getElementById('bowlerWickets').textContent = bowlerStats.wickets || 0;
-        
-        const economy = bowlerStats.overs > 0 ? (bowlerStats.runs / bowlerStats.overs).toFixed(2) : '0.00';
-        document.getElementById('bowlerEconomy').textContent = economy;
-      }
-    }
-
-    function updateSpecialIndicators() {
-      const liveState = matchData.liveState || {};
-      
-      // Powerplay
-      const powerplayEl = document.getElementById('powerplayIndicator');
-      if (liveState.isPowerplay) {
-        powerplayEl.style.display = 'flex';
-        powerplayEl.classList.add('powerplay-pulse');
-      } else {
-        powerplayEl.style.display = 'none';
-        powerplayEl.classList.remove('powerplay-pulse');
-      }
-      
-      // Free hit
-      const freeHitEl = document.getElementById('freeHitIndicator');
-      if (liveState.freeHit) {
-        freeHitEl.style.display = 'flex';
-        freeHitEl.classList.add('glow');
-      } else {
-        freeHitEl.style.display = 'none';
-        freeHitEl.classList.remove('glow');
-      }
-      
-      // Dead over
-      const deadOverEl = document.getElementById('deadOverIndicator');
-      if (liveState.isDeadOver) {
-        deadOverEl.style.display = 'flex';
-        deadOverEl.classList.add('pulse');
-      } else {
-        deadOverEl.style.display = 'none';
-        deadOverEl.classList.remove('pulse');
-      }
-    }
-
-    function updateStatistics() {
-      const matchStats = matchData.matchStats || {};
-      
-      document.getElementById('fours').textContent = matchStats.boundaries || 0;
-      document.getElementById('sixes').textContent = matchStats.sixes || 0;
-      document.getElementById('dotBalls').textContent = matchStats.dotBalls || 0;
-      document.getElementById('currentPartnership').textContent = matchStats.partnership || 0;
-      document.getElementById('partnershipBalls').textContent = matchStats.partnershipBalls || 0;
-      document.getElementById('partnershipRate').textContent = matchStats.partnershipRate || '0.00';
-      document.getElementById('extras').textContent = matchStats.extras || 0;
-      document.getElementById('wides').textContent = matchStats.wides || 0;
-      document.getElementById('noBalls').textContent = matchStats.noBalls || 0;
-    }
-
-    function updateRecentOvers() {
-      const overSummaries = matchData.overSummaries || {};
-      const historyEl = document.getElementById('oversHistory');
-      
-      historyEl.innerHTML = '';
-      
-      const overs = Object.entries(overSummaries).slice(-6); // Last 6 overs
-      
-      if (overs.length === 0) {
-        historyEl.innerHTML = '<div class="no-overs">No overs completed yet</div>';
-        return;
-      }
-      
-      overs.reverse().forEach(([overNum, summary]) => {
-        const overEl = document.createElement('div');
-        overEl.className = 'over-item fade-in';
-        overEl.innerHTML = `
-          <div class="over-header">
-            <span class="over-number">Over ${overNum}</span>
-            <span class="over-runs">${extractRunsFromSummary(summary)} runs</span>
-          </div>
-          <div class="over-summary">${summary}</div>
-        `;
-        historyEl.appendChild(overEl);
-      });
-    }
-
-    function updateFullScorecard() {
-      updateBattingScorecard();
-      updateBowlingScorecard();
-    }
-
-    function updateBattingScorecard() {
-      const battingTeamPlayers = getBattingTeamPlayers();
-      const matchStats = matchData.matchStats || {};
-      const tbody = document.getElementById('battingTableBody');
-      
-      tbody.innerHTML = '';
-      
-      if (battingTeamPlayers.length === 0) {
-        tbody.innerHTML = '<tr class="no-data"><td colspan="5">No batting data available</td></tr>';
-        return;
-      }
-      
-      battingTeamPlayers.forEach(player => {
-        const stats = matchStats.batters?.[player] || { runs: 0, balls: 0, status: 'Not Out' };
-        const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '0.00';
-        
-        const row = document.createElement('tr');
-        row.className = 'scorecard-row';
-        if (matchData.liveState?.currentBatter === player) {
-          row.classList.add('current-player');
-        }
-        
-        row.innerHTML = `
-          <td class="player-name">${player}</td>
-          <td class="runs">${stats.runs}</td>
-          <td class="balls">${stats.balls}</td>
-          <td class="strike-rate">${strikeRate}</td>
-          <td class="status">${stats.status}</td>
-        `;
-        
-        tbody.appendChild(row);
-      });
-    }
-
-    function updateBowlingScorecard() {
-      const bowlingTeamPlayers = getBowlingTeamPlayers();
-      const matchStats = matchData.matchStats || {};
-      const tbody = document.getElementById('bowlingTableBody');
-      
-      tbody.innerHTML = '';
-      
-      if (bowlingTeamPlayers.length === 0) {
-        tbody.innerHTML = '<tr class="no-data"><td colspan="5">No bowling data available</td></tr>';
-        return;
-      }
-      
-      bowlingTeamPlayers.forEach(player => {
-        const stats = matchStats.bowlers?.[player] || { overs: 0, runs: 0, wickets: 0 };
-        const economy = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '0.00';
-        
-        const row = document.createElement('tr');
-        row.className = 'scorecard-row';
-        if (matchData.liveState?.currentBowler === player) {
-          row.classList.add('current-player');
-        }
-        
-        row.innerHTML = `
-          <td class="player-name">${player}</td>
-          <td class="overs">${stats.overs}</td>
-          <td class="runs">${stats.runs}</td>
-          <td class="wickets">${stats.wickets}</td>
-          <td class="economy">${economy}</td>
-        `;
-        
-        tbody.appendChild(row);
-      });
-    }
-
-    function updateCommentary() {
-      // This would be populated with live commentary from the game
-      const commentary = matchData.commentary || [];
-      const feedEl = document.getElementById('commentaryFeed');
-      
-      // Keep only recent commentary (last 10 items)
-      const recentCommentary = commentary.slice(-10).reverse();
-      
-      if (recentCommentary.length > 0) {
-        feedEl.innerHTML = '';
-        recentCommentary.forEach(comment => {
-          const commentEl = document.createElement('div');
-          commentEl.className = 'commentary-item fade-in';
-          commentEl.innerHTML = `
-            <span class="commentary-time">${formatTime(comment.timestamp)}</span>
-            <span class="commentary-text">${comment.text}</span>
-          `;
-          feedEl.appendChild(commentEl);
-        });
-      }
-    }
-
-    function getBattingTeamPlayers() {
-      const battingFirst = matchData.gameState?.battingFirst;
-      return battingFirst ? (matchData[battingFirst]?.playing11 || []) : [];
-    }
-
-    function getBowlingTeamPlayers() {
-      const battingFirst = matchData.gameState?.battingFirst;
-      const bowlingTeam = battingFirst === 'player1' ? 'player2' : 'player1';
-      return matchData[bowlingTeam]?.playing11 || [];
-    }
-
-    function extractRunsFromSummary(summary) {
-      const match = summary.match(/(\d+)\s*runs?/);
-      return match ? match[1] : '0';
-    }
-
-    function formatTime(timestamp) {
-      return new Date(timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-
-    function showTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.scorecard-content').forEach(content => content.style.display = 'none');
-      
-      if (tab === 'batting') {
-        document.getElementById('battingTab').classList.add('active');
-        document.getElementById('battingScorecard').style.display = 'block';
-      } else {
-        document.getElementById('bowlingTab').classList.add('active');
-        document.getElementById('bowlingScorecard').style.display = 'block';
-      }
-    }
-
-    function refreshScoreboard() {
-      showLoading('Refreshing...');
-      loadMatchData().finally(() => hideLoading());
-    }
-
-    function toggleFullscreen() {
-      if (!isFullscreen) {
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) {
-          elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          elem.webkitRequestFullscreen();
-        } else if (elem.mozRequestFullScreen) {
-          elem.mozRequestFullScreen();
-        } else if (elem.msRequestFullscreen) {
-          elem.msRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
-        }
-      }
-    }
-
-    function handleFullscreenChange() {
-      isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || 
-                       document.mozFullScreenElement || document.msFullscreenElement);
-      
-      const btn = document.getElementById('fullscreenBtn');
-      btn.textContent = isFullscreen ? '🔽 Exit Fullscreen' : '📺 Fullscreen';
-    }
-
-    function goBackToGame() {
-      window.close();
-    }
-
-    function updateMatchTime() {
-      const startTime = matchData.gameState?.startedAt;
-      if (startTime) {
-        document.getElementById('matchTime').textContent = formatRelativeTime(startTime);
-      }
-    }
-
-    // Auto-refresh every 5 seconds if not in focus
-    let autoRefreshInterval;
-    
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        autoRefreshInterval = setInterval(() => {
-          loadMatchData().catch(console.error);
-        }, 5000);
-      } else {
-        if (autoRefreshInterval) {
-          clearInterval(autoRefreshInterval);
-          autoRefreshInterval = null;
-        }
-      }
-    });
-  </script>
-
+  <meta charset="UTF-8" />
+  <title>HandiCricket - Scoreboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    .scoreboard-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-
-    .match-header-card {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .match-title h2 {
-      color: var(--primary-color);
-      margin-bottom: 0.5rem;
-      font-size: 2rem;
-    }
-
-    .match-meta {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-
-    .format-badge {
-      background: var(--primary-color);
-      color: white;
-      padding: 0.25rem 0.75rem;
+    body { background: #061e3e; color: white; font-family: sans-serif; padding: 20px; }
+    #scorecard {
+      background: #0a2a5a;
       border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: bold;
-    }
-
-    .venue, .match-time {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .match-status {
-      background: var(--accent-color);
-      color: black;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-weight: bold;
-    }
-
-    .live-score-section {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .team-scores {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 2rem;
-      align-items: center;
-    }
-
-    .team-score-card {
-      padding: 1.5rem;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.05);
-      text-align: center;
-    }
-
-    .team-score-card.current-batting {
-      background: rgba(30, 136, 229, 0.2);
-      border: 2px solid var(--primary-color);
-    }
-
-    .team-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .team-name {
-      color: var(--primary-color);
-      font-size: 1.5rem;
-      font-weight: bold;
-    }
-
-    .team-flag {
-      font-size: 1.5rem;
-    }
-
-    .score-display {
-      margin-bottom: 1rem;
-    }
-
-    .main-score {
-      font-size: 4rem;
-      font-weight: bold;
-      line-height: 1;
-    }
-
-    .runs {
-      color: var(--success-color);
-    }
-
-    .wickets {
-      color: var(--danger-color);
-    }
-
-    .separator {
-      color: var(--text-secondary);
-      margin: 0 0.5rem;
-    }
-
-    .overs-info {
-      color: var(--text-secondary);
-      font-size: 1.2rem;
-      margin-top: 0.5rem;
-    }
-
-    .rate-info, .target-info, .chase-info {
-      font-size: 0.9rem;
-    }
-
-    .rate-info .label, .chase-info .label {
-      color: var(--text-secondary);
-      margin-right: 0.5rem;
-    }
-
-    .rate-info .value, .chase-info .value {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .vs-divider {
-      text-align: center;
-      padding: 1rem;
-    }
-
-    .vs-text {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--accent-color);
-      margin-bottom: 0.5rem;
-    }
-
-    .last-ball-result {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      font-style: italic;
-    }
-
-    .target-label {
-      color: var(--warning-color);
-      font-weight: bold;
-      font-size: 1.1rem;
-    }
-
-    .target-value {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--warning-color);
-    }
-
-    .need-info {
-      margin-bottom: 0.5rem;
-    }
-
-    .runs-req, .balls-rem {
-      font-weight: bold;
-      color: var(--primary-color);
-    }
-
-    .current-players-section {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .section-title {
-      color: var(--primary-color);
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-      text-align: center;
-    }
-
-    .players-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-    }
-
-    .player-card {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1.5rem;
-      border-radius: 12px;
-      text-align: center;
-    }
-
-    .batter-card {
-      border-left: 4px solid var(--success-color);
-    }
-
-    .bowler-card {
-      border-left: 4px solid var(--primary-color);
-    }
-
-    .player-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .player-header h4 {
-      color: var(--primary-color);
-      margin: 0;
-    }
-
-    .player-lives {
-      font-size: 1.2rem;
-    }
-
-    .player-name {
-      font-size: 1.3rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-
-    .player-stats {
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-value {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .stat-separator {
-      margin: 0 0.5rem;
-      color: var(--text-secondary);
-    }
-
-    .player-extras {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-    }
-
-    .special-indicators-section {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .special-indicator {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      border-radius: 25px;
-      font-weight: bold;
-      font-size: 0.9rem;
-    }
-
-    .special-indicator.powerplay {
-      background: var(--accent-color);
-      color: black;
-    }
-
-    .special-indicator.free-hit {
-      background: var(--success-color);
-      color: white;
-    }
-
-    .special-indicator.dead-over {
-      background: var(--danger-color);
-      color: white;
-    }
-
-    .recent-overs-section, .statistics-section, .full-scorecard-section, .commentary-section {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .overs-history {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .over-item {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1rem;
-      border-radius: 8px;
-    }
-
-    .over-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .over-number {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .over-runs {
-      color: var(--success-color);
-      font-weight: bold;
-    }
-
-    .over-summary {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .no-overs {
-      text-align: center;
-      color: var(--text-secondary);
-      font-style: italic;
-      padding: 2rem;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .stat-card {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1.5rem;
-      border-radius: 12px;
-    }
-
-    .stat-header {
-      color: var(--primary-color);
-      font-weight: bold;
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-
-    .stat-items {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .stat-item .stat-label {
-      color: var(--text-secondary);
-    }
-
-    .stat-item .stat-value {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .scorecard-tabs {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      justify-content: center;
-    }
-
-    .tab-btn {
-      padding: 0.75rem 2rem;
-      border: 2px solid var(--border-color);
-      background: transparent;
-      color: var(--text-secondary);
-      border-radius: 25px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .tab-btn.active {
-      background: var(--primary-color);
-      color: white;
-      border-color: var(--primary-color);
-    }
-
-    .scorecard-table-container {
-      overflow-x: auto;
-    }
-
-    .scorecard-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .scorecard-table th {
-      background: var(--primary-color);
-      color: white;
-      padding: 1rem;
+      padding: 15px;
+      margin-bottom: 20px;
       text-align: left;
-      font-weight: bold;
     }
-
-    .scorecard-table td {
-      padding: 1rem;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .scorecard-row.current-player {
-      background: rgba(30, 136, 229, 0.2);
-    }
-
-    .scorecard-table .no-data td {
+    .scorecard-header {
+      border-bottom: 1px solid #1e88e5;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
       text-align: center;
-      color: var(--text-secondary);
-      font-style: italic;
-      padding: 2rem;
     }
-
-    .commentary-feed {
-      max-height: 300px;
-      overflow-y: auto;
+    .teams-container {
       display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      justify-content: space-between;
+      margin-bottom: 15px;
     }
-
-    .commentary-item {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1rem;
+    .team-score { flex: 1; text-align: center; }
+    .players-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .player-card {
+      background: #133a6b;
+      padding: 8px 12px;
       border-radius: 8px;
-      display: flex;
-      gap: 1rem;
-    }
-
-    .commentary-time {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      min-width: 60px;
-    }
-
-    .commentary-text {
-      color: var(--text-primary);
       flex: 1;
+      min-width: 120px;
     }
-
-    .scoreboard-controls {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
+    .player-card.out {
+      opacity: 0.7;
+      border-left: 4px solid #f44336;
     }
-
-    @media (max-width: 1024px) {
-      .team-scores {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-
-      .vs-divider {
-        order: -1;
-      }
-
-      .players-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
+    .player-card.current {
+      border-left: 4px solid #4caf50;
+      background: #1a4a8a;
     }
-
-    @media (max-width: 768px) {
-      .match-header-card {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-      }
-
-      .match-meta {
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .scoreboard-controls {
-        flex-direction: column;
-        width: 100%;
-      }
-
-      .scoreboard-controls button {
-        width: 100%;
-      }
-
-      .main-score {
-        font-size: 3rem;
-      }
-
-      .scorecard-table {
-        font-size: 0.9rem;
-      }
-
-      .scorecard-table th,
-      .scorecard-table td {
-        padding: 0.75rem 0.5rem;
-      }
+    #lastBall {
+      font-style: italic;
+      color: #ffeb3b;
+      text-align: center;
+      padding-top: 10px;
+      border-top: 1px dashed #1e88e5;
     }
-
-    /* Fullscreen styles */
-    :fullscreen .header,
-    :-webkit-full-screen .header,
-    :-moz-full-screen .header,
-    :-ms-fullscreen .header {
-      display: none;
+    .powerplay-indicator {
+      background: #ffeb3b;
+      color: #000;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 10px;
     }
-
-    :fullscreen .scoreboard-container,
-    :-webkit-full-screen .scoreboard-container,
-    :-moz-full-screen .scoreboard-container,
-    :-ms-fullscreen .scoreboard-container {
-      max-width: 100%;
-      height: 100vh;
-      overflow-y: auto;
+    .dead-over {
+      background: #f44336;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
     }
   </style>
+</head>
+<body>
+  <h2>🏏 HandiCricket - Live Scoreboard</h2>
+  <div id="scorecard">
+    <div class="scorecard-header">
+      <h3 id="matchTitle">Match In Progress</h3>
+      <div id="matchStatus">Innings | Over: 0.0</div>
+    </div>
+    <div class="teams-container">
+      <div class="team-score">
+        <h4 id="battingTeamName">Team A</h4>
+        <div id="battingScore">0/0 (0.0)</div>
+      </div>
+      <div class="team-score">
+        <h4 id="bowlingTeamName">Team B</h4>
+        <div id="bowlingStats">Bowling: 0-0-0-0</div>
+      </div>
+    </div>
+    <div id="batsmenContainer" class="players-container"></div>
+    <div id="bowlersContainer" class="players-container"></div>
+    <div id="lastBall">Last ball: Game starting...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+
+    let battingTeam = "", bowlingTeam = "";
+
+    function updateScorecard(roomData, gameState) {
+      const { runs, wickets, balls, overs, batsmen, bowlers, currentBowler, lastBallResult } = gameState;
+
+      // Format wickets display
+      let displayWickets;
+      if (roomData.player1?.format === "test") {
+        displayWickets = Math.floor(wickets / 3);
+      } else {
+        displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
+      }
+
+      document.getElementById("battingTeamName").textContent = battingTeam;
+      document.getElementById("bowlingTeamName").textContent = bowlingTeam;
+      document.getElementById("matchStatus").textContent = `${overs >= 6 ? "2nd" : "1st"} Innings | Over: ${Math.floor(balls/6)}.${balls%6}`;
+      document.getElementById("battingScore").textContent = `${runs}/${displayWickets} (${Math.floor(balls/6)}.${balls%6})`;
+
+      document.getElementById("bowlingStats").textContent =
+        `Bowling: ${currentBowler.overs}.${currentBowler.maidens}-${currentBowler.runs}-${currentBowler.wickets}`;
+
+      const batsmenContainer = document.getElementById("batsmenContainer");
+      batsmenContainer.innerHTML = "";
+      batsmen.forEach(b => {
+        const div = document.createElement("div");
+        div.className = "player-card" + (b.isOut ? " out" : "");
+        div.innerHTML = `<strong>${b.name}</strong><br>${b.runs} (${b.balls}) ${b.isOut ? "✖" : ""}`;
+        batsmenContainer.appendChild(div);
+      });
+
+      const bowlersContainer = document.getElementById("bowlersContainer");
+      bowlersContainer.innerHTML = "";
+      bowlers.forEach(b => {
+        const div = document.createElement("div");
+        div.className = "player-card" + (b.name === currentBowler.name ? " current" : "");
+        div.innerHTML = `<strong>${b.name}</strong><br>${b.overs}.${b.maidens}-${b.runs}-${b.wickets}`;
+        bowlersContainer.appendChild(div);
+      });
+
+      document.getElementById("lastBall").textContent = lastBallResult || "Waiting for first ball...";
+    }
+
+    async function initScoreboard() {
+      const roomSnap = await get(ref(db, `rooms/${room}`));
+      const roomData = roomSnap.val();
+
+      battingTeam = roomData.battingFirst === "player1" ? roomData.player1.teamName : roomData.player2.teamName;
+      bowlingTeam = roomData.battingFirst === "player1" ? roomData.player2.teamName : roomData.player1.teamName;
+
+      onValue(ref(db, `rooms/${room}/liveState`), snap => {
+        const gameState = snap.val();
+        if (!gameState) return;
+        updateScorecard(roomData, gameState);
+      });
+    }
+
+    initScoreboard();
+  </script>
 </body>
 </html>

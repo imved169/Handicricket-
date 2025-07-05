@@ -2,1285 +2,264 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <title>HandiCricket - Spectator Mode</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spectator Mode - HandiCricket</title>
-  <meta name="description" content="Watch live HandiCricket matches with interactive features">
-  
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/responsive.css">
-  <link rel="stylesheet" href="css/animations.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/icons/target.svg">
+  <style>
+    body { background: #061e3e; color: white; font-family: sans-serif; padding: 20px; }
+    .container { display: flex; flex-wrap: wrap; gap: 20px; }
+    .scoreboard { flex: 2; min-width: 300px; background: #0a2a5a; padding: 15px; border-radius: 12px; }
+    .chat { flex: 1; min-width: 250px; background: #0a2a5a; padding: 15px; border-radius: 12px; }
+    .stats { width: 100%; background: #0a2a5a; padding: 15px; border-radius: 12px; margin-top: 15px; }
+    #messages { height: 300px; overflow-y: auto; margin-bottom: 10px; border-bottom: 1px solid #1e88e5; }
+    #commentary { font-style: italic; color: #ffeb3b; margin: 10px 0; }
+    .emoji-reactions { display: flex; gap: 10px; margin: 10px 0; }
+    .emoji-btn { font-size: 24px; background: none; border: none; cursor: pointer; }
+    .player-move { margin: 5px 0; padding: 5px; background: #133a6b; border-radius: 5px; }
+    .over-summary { margin-top: 15px; padding: 10px; background: #133a6b; border-radius: 8px; }
+    .spectator-count { position: absolute; top: 10px; right: 10px; background: #1e88e5; padding: 5px 10px; border-radius: 15px; }
+    #emojiReactions { margin-top: 10px; font-size: 18px; }
+    #playerCards { display: flex; justify-content: space-around; margin: 15px 0; }
+    .card-display { background: #133a6b; padding: 10px; border-radius: 8px; text-align: center; width: 45%; }
+    #livesDisplay { margin-top: 10px; }
+  </style>
 </head>
 <body>
-  <div id="loading-overlay" class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <p>Joining match...</p>
-  </div>
-
-  <div id="error-modal" class="error-modal" style="display: none;">
-    <div class="error-content">
-      <h3>Error</h3>
-      <p id="error-message"></p>
-      <button id="retry-btn" class="btn btn-primary">Try Again</button>
-    </div>
-  </div>
-
-  <header class="header">
-    <div class="container">
-      <h1 class="logo">
-        <span class="cricket-icon">🏏</span>
-        HandiCricket
-      </h1>
-      <div class="spectator-info">
-        <div id="roomCode" class="room-code"></div>
-        <div id="spectatorCount" class="spectator-count">👥 0 watching</div>
+  <h2>🏏 HandiCricket Spectator Mode</h2>
+  <div class="spectator-count">Spectators: <span id="specCount">0</span></div>
+  
+  <div class="container">
+    <div class="scoreboard">
+      <h3>Live Scoreboard</h3>
+      <div id="matchTitle">Team A vs Team B</div>
+      <div id="scoreDisplay">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+      <div id="batterDisplay">Batter: -</div>
+      <div id="bowlerDisplay">Bowler: -</div>
+      
+      <div id="playerCards">
+        <div class="card-display" id="batterCard">Batter's Card: -</div>
+        <div class="card-display" id="bowlerCard">Bowler's Card: -</div>
       </div>
-    </div>
-  </header>
-
-  <main class="main spectator-container">
-    <!-- Main match view -->
-    <div class="spectator-main">
-      <!-- Live Score Display -->
-      <div class="live-score">
-        <div class="match-header">
-          <h2 id="matchTitle">Live Match</h2>
-          <div id="matchFormat" class="match-format">T20</div>
-          <div id="matchStatus" class="match-status">1st Innings</div>
-        </div>
-        
-        <div class="score-section">
-          <div class="batting-team-display">
-            <h3 id="battingTeamName">Team A</h3>
-            <div class="main-score">
-              <span id="runs" class="runs">0</span>
-              <span class="separator">/</span>
-              <span id="wickets" class="wickets">0</span>
-              <span class="overs">(<span id="overs">0.0</span> ov)</span>
-            </div>
-            <div class="run-rate">Run Rate: <span id="runRate">0.00</span></div>
-          </div>
-          
-          <div id="targetSection" class="target-section" style="display: none;">
-            <div class="target-info">
-              <div class="target">Target: <span id="target">0</span></div>
-              <div class="required">
-                Need <span id="runsRequired">0</span> from <span id="ballsRemaining">0</span> balls
-              </div>
-              <div class="req-rate">Required RR: <span id="requiredRate">0.00</span></div>
-            </div>
-          </div>
-        </div>
+      
+      <div id="commentary">Waiting for match to start...</div>
+      <div id="livesDisplay">
+        Batter Lives: <span id="batterLives">-</span> | 
+        Powerplay: <span id="powerplayStatus">No</span>
       </div>
-
-      <!-- Current Players -->
-      <div class="current-action">
-        <div class="players-display">
-          <div class="current-batter">
-            <h4>🏏 Batting</h4>
-            <div id="batterName" class="player-name">-</div>
-            <div id="batterStats" class="player-stats">0(0)</div>
-            <div id="batterLives" class="player-lives"></div>
-          </div>
-          
-          <div class="vs-section">
-            <div id="lastBallResult" class="last-ball">Ready</div>
-            <div id="ballAnimation" class="ball-animation"></div>
-          </div>
-          
-          <div class="current-bowler">
-            <h4>⚾ Bowling</h4>
-            <div id="bowlerName" class="player-name">-</div>
-            <div id="bowlerStats" class="player-stats">0-0-0-0</div>
-            <div id="bowlerOvers" class="bowler-overs"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Special Conditions -->
-      <div class="special-conditions">
-        <div id="powerplayIndicator" class="condition powerplay" style="display: none;">
-          ⚡ POWERPLAY
-        </div>
-        <div id="freeHitIndicator" class="condition free-hit" style="display: none;">
-          🎯 FREE HIT
-        </div>
-        <div id="deadOverIndicator" class="condition dead-over" style="display: none;">
-          💀 DEAD OVER
-        </div>
-      </div>
-
-      <!-- Match Statistics -->
-      <div class="match-stats">
-        <h3>Match Statistics</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-label">Boundaries</span>
-            <span id="boundaries" class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Dot Balls</span>
-            <span id="dotBalls" class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Partnership</span>
-            <span id="partnership" class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Extras</span>
-            <span id="extras" class="stat-value">0</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Over Summary -->
+      
       <div class="over-summary">
-        <h3>Recent Overs</h3>
-        <div id="overHistory" class="over-history"></div>
-      </div>
-
-      <!-- Momentum Meter -->
-      <div class="momentum-section">
-        <h3>Match Momentum</h3>
-        <div class="momentum-meter">
-          <div class="team-label left" id="team1Label">Team A</div>
-          <div class="momentum-bar">
-            <div id="momentumIndicator" class="momentum-fill" style="width: 50%"></div>
-          </div>
-          <div class="team-label right" id="team2Label">Team B</div>
-        </div>
-        <div id="momentumText" class="momentum-text">Balanced</div>
+        <h4>Over Summary</h4>
+        <div id="overSummary">No over data yet</div>
       </div>
     </div>
-
-    <!-- Spectator Sidebar -->
-    <div class="spectator-sidebar">
-      <!-- Spectator Reactions -->
-      <div class="reaction-section">
-        <h3>Quick Reactions</h3>
-        <div class="reaction-buttons">
-          <button class="reaction-btn" data-emoji="🔥" title="Fire!">🔥</button>
-          <button class="reaction-btn" data-emoji="👏" title="Applause">👏</button>
-          <button class="reaction-btn" data-emoji="😍" title="Amazing!">😍</button>
-          <button class="reaction-btn" data-emoji="😱" title="Shocked!">😱</button>
-          <button class="reaction-btn" data-emoji="💪" title="Power!">💪</button>
-          <button class="reaction-btn" data-emoji="🎯" title="Perfect!">🎯</button>
-          <button class="reaction-btn" data-emoji="😭" title="Sad">😭</button>
-          <button class="reaction-btn" data-emoji="⚡" title="Electric!">⚡</button>
-        </div>
-        <div id="reactionFeed" class="reaction-feed"></div>
-      </div>
-
-      <!-- Spectator Predictions -->
-      <div class="prediction-section">
-        <h3>Predictions</h3>
-        <div id="currentPrediction" class="current-prediction">
-          <div class="prediction-question">Next ball will be:</div>
-          <div class="prediction-options">
-            <button class="prediction-btn" data-prediction="dot">Dot Ball</button>
-            <button class="prediction-btn" data-prediction="single">Single</button>
-            <button class="prediction-btn" data-prediction="boundary">Boundary</button>
-            <button class="prediction-btn" data-prediction="six">Six</button>
-            <button class="prediction-btn" data-prediction="wicket">Wicket</button>
-          </div>
-          <div id="predictionResult" class="prediction-result"></div>
-        </div>
-      </div>
-
-      <!-- Live Chat -->
-      <div class="chat-section">
-        <h3>Live Chat</h3>
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="chat-input">
-          <input type="text" id="chatInputField" placeholder="Type a message..." maxlength="100">
-          <button id="sendChatBtn" class="btn btn-primary">Send</button>
-        </div>
-      </div>
-
-      <!-- Other Spectators -->
-      <div class="spectators-list">
-        <h3>Other Spectators</h3>
-        <div id="spectatorsList" class="spectators-grid"></div>
-      </div>
-
-      <!-- Match Details -->
-      <div class="match-details">
-        <h3>Match Info</h3>
-        <div class="details-list">
-          <div class="detail-item">
-            <span class="detail-label">Format:</span>
-            <span id="formatDetails" class="detail-value">T20</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Overs:</span>
-            <span id="oversDetails" class="detail-value">20</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Started:</span>
-            <span id="startTime" class="detail-value">-</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Reaction Burst Container -->
-  <div id="reactionBursts" class="reaction-bursts"></div>
-
-  <script src="js/firebase.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/spectator.js"></script>
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get('room');
-    const spectatorId = urlParams.get('id');
     
-    if (!room || !spectatorId) {
-      window.location.href = 'index.html';
-    }
+    <div class="chat">
+      <h3>Spectator Chat</h3>
+      <div id="messages"></div>
+      <input type="text" id="messageInput" placeholder="Type your message..." />
+      <button onclick="sendMessage()">Send</button>
+      
+      <div class="emoji-reactions">
+        <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
+        <button class="emoji-btn" onclick="sendEmoji('👏')">👏</button>
+        <button class="emoji-btn" onclick="sendEmoji('😲')">😲</button>
+        <button class="emoji-btn" onclick="sendEmoji('🏆')">🏆</button>
+        <button class="emoji-btn" onclick="sendEmoji('💯')">💯</button>
+      </div>
+      <div id="emojiReactions">Spectator Reactions: -</div>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <h3>Match Statistics</h3>
+    <div id="matchStats">Loading statistics...</div>
+  </div>
 
-    let spectatorManager = null;
-    let currentPrediction = null;
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, onValue, push, set, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-    // Initialize spectator mode
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initializeSpectator();
-      setupEventListeners();
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const spectatorId = params.get('id');
+    let currentFormat = {};
+
+    // Get match format
+    get(ref(db, `rooms/${room}/player1/format`)).then((snap) => {
+      const format = snap.val() || "20";
+      const formatRules = {
+        "5": { livesPerPlayer: 2 },
+        "10": { livesPerPlayer: 2 },
+        "20": { livesPerPlayer: 2 },
+        "50": { livesPerPlayer: 4 },
+        "test": { livesPerPlayer: 3 }
+      };
+      currentFormat = formatRules[format] || formatRules["20"];
     });
 
-    async function initializeSpectator() {
-      try {
-        showLoading('Joining match...');
-        
-        // Initialize spectator manager
-        spectatorManager = new SpectatorManager(room, spectatorId, {
-          onMatchUpdate: updateMatchDisplay,
-          onReactionReceived: showReactionBurst,
-          onChatMessage: addChatMessage,
-          onSpectatorUpdate: updateSpectatorsList,
-          onError: showError
-        });
-        
-        await spectatorManager.initialize();
-        
-        hideLoading();
-      } catch (error) {
-        showError('Failed to join match: ' + error.message);
-      }
-    }
-
-    function setupEventListeners() {
-      // Reaction buttons
-      document.querySelectorAll('.reaction-btn').forEach(btn => {
-        btn.addEventListener('click', () => sendReaction(btn.dataset.emoji));
-      });
-      
-      // Prediction buttons
-      document.querySelectorAll('.prediction-btn').forEach(btn => {
-        btn.addEventListener('click', () => makePrediction(btn.dataset.prediction));
-      });
-      
-      // Chat
-      document.getElementById('sendChatBtn').addEventListener('click', sendChatMessage);
-      document.getElementById('chatInputField').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChatMessage();
-      });
-      
-      // Error modal
-      document.getElementById('retry-btn').addEventListener('click', hideError);
-    }
-
-    function updateMatchDisplay(matchData) {
-      try {
-        // Update basic match info
-        updateMatchInfo(matchData);
-        
-        // Update live score
-        updateLiveScore(matchData);
-        
-        // Update current players
-        updateCurrentPlayers(matchData);
-        
-        // Update special conditions
-        updateSpecialConditions(matchData);
-        
-        // Update statistics
-        updateMatchStatistics(matchData);
-        
-        // Update momentum
-        updateMomentum(matchData);
-        
-        // Update over history
-        updateOverHistory(matchData);
-        
-        // Update spectator count
-        updateSpectatorCount(matchData);
-        
-      } catch (error) {
-        console.error('Error updating match display:', error);
-      }
-    }
-
-    function updateMatchInfo(matchData) {
-      document.getElementById('roomCode').textContent = `Room: ${room}`;
-      document.getElementById('matchFormat').textContent = getFormatName(matchData.format);
-      document.getElementById('formatDetails').textContent = getFormatName(matchData.format);
-      document.getElementById('oversDetails').textContent = matchData.totalOvers === Infinity ? 'Unlimited' : matchData.totalOvers;
-      
-      if (matchData.startTime) {
-        document.getElementById('startTime').textContent = formatRelativeTime(matchData.startTime);
-      }
-      
-      const inningsText = `${matchData.innings}${matchData.innings === 1 ? 'st' : 'nd'} Innings`;
-      document.getElementById('matchStatus').textContent = inningsText;
-      
-      if (matchData.teams) {
-        document.getElementById('team1Label').textContent = matchData.teams.team1;
-        document.getElementById('team2Label').textContent = matchData.teams.team2;
-      }
-    }
-
-    function updateLiveScore(matchData) {
-      document.getElementById('runs').textContent = matchData.runs || 0;
-      document.getElementById('wickets').textContent = matchData.wickets || 0;
-      document.getElementById('overs').textContent = formatOvers(matchData.balls || 0);
-      document.getElementById('runRate').textContent = calculateRunRate(matchData.runs || 0, matchData.balls || 0);
-      
-      // Update batting team name
-      const battingTeam = matchData.battingFirst === 'player1' ? 
-        matchData.teams?.team1 : matchData.teams?.team2;
-      document.getElementById('battingTeamName').textContent = battingTeam || 'Team A';
-      
-      // Show target if second innings
-      if (matchData.innings === 2 && matchData.target) {
-        const targetSection = document.getElementById('targetSection');
-        targetSection.style.display = 'block';
-        
-        document.getElementById('target').textContent = matchData.target;
-        document.getElementById('runsRequired').textContent = Math.max(0, matchData.target - (matchData.runs || 0));
-        
-        const ballsLeft = (matchData.totalOvers * 6) - (matchData.balls || 0);
-        document.getElementById('ballsRemaining').textContent = ballsLeft;
-        document.getElementById('requiredRate').textContent = 
-          calculateRequiredRate(matchData.target, matchData.runs || 0, ballsLeft);
-      }
-    }
-
-    function updateCurrentPlayers(matchData) {
-      if (matchData.currentBatter) {
-        document.getElementById('batterName').textContent = matchData.currentBatter.name;
-        document.getElementById('batterStats').textContent = 
-          `${matchData.currentBatter.runs || 0}(${matchData.currentBatter.balls || 0})`;
-        
-        // Show batter lives
-        const livesEl = document.getElementById('batterLives');
-        livesEl.innerHTML = '';
-        for (let i = 0; i < (matchData.currentBatter.lives || 0); i++) {
-          livesEl.innerHTML += '❤️';
-        }
-      }
-      
-      if (matchData.currentBowler) {
-        document.getElementById('bowlerName').textContent = matchData.currentBowler.name;
-        document.getElementById('bowlerStats').textContent = 
-          `${matchData.currentBowler.overs || 0}-${matchData.currentBowler.maidens || 0}-${matchData.currentBowler.runs || 0}-${matchData.currentBowler.wickets || 0}`;
-      }
-      
-      // Update last ball result
-      if (matchData.lastBallResult) {
-        document.getElementById('lastBallResult').textContent = matchData.lastBallResult.description;
-        
-        // Animate ball result
-        const ballAnimation = document.getElementById('ballAnimation');
-        ballAnimation.classList.remove('ball-animate');
-        setTimeout(() => ballAnimation.classList.add('ball-animate'), 100);
-      }
-    }
-
-    function updateSpecialConditions(matchData) {
-      // Powerplay
-      const powerplayEl = document.getElementById('powerplayIndicator');
-      if (matchData.isPowerplay) {
-        powerplayEl.style.display = 'block';
-        powerplayEl.classList.add('powerplay-pulse');
-      } else {
-        powerplayEl.style.display = 'none';
-        powerplayEl.classList.remove('powerplay-pulse');
-      }
-      
-      // Free hit
-      const freeHitEl = document.getElementById('freeHitIndicator');
-      if (matchData.isFreeHit) {
-        freeHitEl.style.display = 'block';
-        freeHitEl.classList.add('glow');
-      } else {
-        freeHitEl.style.display = 'none';
-        freeHitEl.classList.remove('glow');
-      }
-      
-      // Dead over
-      const deadOverEl = document.getElementById('deadOverIndicator');
-      if (matchData.isDeadOver) {
-        deadOverEl.style.display = 'block';
-        deadOverEl.classList.add('pulse');
-      } else {
-        deadOverEl.style.display = 'none';
-        deadOverEl.classList.remove('pulse');
-      }
-    }
-
-    function updateMatchStatistics(matchData) {
-      document.getElementById('boundaries').textContent = matchData.boundaries || 0;
-      document.getElementById('dotBalls').textContent = matchData.dotBalls || 0;
-      document.getElementById('partnership').textContent = matchData.partnership || 0;
-      document.getElementById('extras').textContent = matchData.extras || 0;
-    }
-
-    function updateMomentum(matchData) {
-      const momentum = matchData.momentum || 50;
-      const indicator = document.getElementById('momentumIndicator');
-      const text = document.getElementById('momentumText');
-      
-      indicator.style.width = `${momentum}%`;
-      
-      if (momentum > 70) {
-        text.textContent = `${matchData.teams?.team1 || 'Team A'} dominating`;
-        indicator.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
-      } else if (momentum < 30) {
-        text.textContent = `${matchData.teams?.team2 || 'Team B'} dominating`;
-        indicator.style.background = 'linear-gradient(90deg, #F44336, #FF5722)';
-      } else {
-        text.textContent = 'Balanced contest';
-        indicator.style.background = 'linear-gradient(90deg, #2196F3, #03A9F4)';
-      }
-    }
-
-    function updateOverHistory(matchData) {
-      const historyEl = document.getElementById('overHistory');
-      if (matchData.overSummaries) {
-        historyEl.innerHTML = '';
-        
-        const recentOvers = Object.entries(matchData.overSummaries)
-          .slice(-5) // Last 5 overs
-          .reverse();
-          
-        recentOvers.forEach(([overNum, summary]) => {
-          const overEl = document.createElement('div');
-          overEl.className = 'over-item';
-          overEl.innerHTML = `
-            <span class="over-number">Over ${overNum}:</span>
-            <span class="over-summary">${summary}</span>
-          `;
-          historyEl.appendChild(overEl);
-        });
-      }
-    }
-
-    function updateSpectatorCount(matchData) {
-      const count = matchData.spectatorCount || 0;
-      document.getElementById('spectatorCount').textContent = `👥 ${count} watching`;
-    }
-
-    function sendReaction(emoji) {
-      if (!spectatorManager) return;
-      
-      try {
-        spectatorManager.sendReaction(emoji);
-        
-        // Create local reaction burst
-        showReactionBurst({
-          emoji: emoji,
-          spectatorId: spectatorId,
+    // Spectator chat functions
+    function sendMessage() {
+      const message = document.getElementById("messageInput").value.trim();
+      if (message) {
+        push(ref(db, `rooms/${room}/spectatorChat`), {
+          sender: spectatorId,
+          message: message,
           timestamp: Date.now()
         });
-        
-        // Disable button briefly
-        const btn = document.querySelector(`[data-emoji="${emoji}"]`);
-        btn.disabled = true;
-        setTimeout(() => btn.disabled = false, 2000);
-        
-      } catch (error) {
-        showError('Failed to send reaction: ' + error.message);
+        document.getElementById("messageInput").value = "";
       }
     }
 
-    function showReactionBurst(reaction) {
-      const burst = document.createElement('div');
-      burst.className = 'reaction-burst';
-      burst.textContent = reaction.emoji;
-      
-      // Random position
-      burst.style.left = `${Math.random() * 80 + 10}%`;
-      burst.style.top = `${Math.random() * 80 + 10}%`;
-      
-      document.getElementById('reactionBursts').appendChild(burst);
-      
-      // Remove after animation
-      setTimeout(() => {
-        if (burst.parentNode) {
-          burst.parentNode.removeChild(burst);
+    function sendEmoji(emoji) {
+      set(ref(db, `rooms/${room}/spectators/${spectatorId}/emoji`), emoji);
+    }
+
+    // Initialize spectator view
+    onValue(ref(db, `rooms/${room}`), (snapshot) => {
+      const roomData = snapshot.val();
+      if (!roomData) return;
+
+      // Update teams
+      if (roomData.player1 && roomData.player2) {
+        document.getElementById("matchTitle").textContent = 
+          `${roomData.player1.teamName} vs ${roomData.player2.teamName}`;
+      }
+    });
+
+    // Listen for live game state
+    onValue(ref(db, `rooms/${room}/liveState`), (snap) => {
+      const gameState = snap.val();
+      if (!gameState) return;
+
+      // Update scoreboard
+      const overs = Math.floor(gameState.legalBalls / 6);
+      const balls = gameState.legalBalls % 6;
+      document.getElementById("scoreDisplay").textContent = 
+        `Runs: ${gameState.runs} | Wickets: ${gameState.wickets} | Overs: ${overs}.${balls}`;
+
+      // Update players
+      document.getElementById("batterDisplay").textContent = `Batter: ${gameState.currentBatter || '-'}`;
+      document.getElementById("bowlerDisplay").textContent = `Bowler: ${gameState.currentBowler || '-'}`;
+
+      // Update lives and powerplay
+      document.getElementById("batterLives").textContent = 
+        gameState.currentBatter ? `${gameState.batterLives || currentFormat.livesPerPlayer}/${currentFormat.livesPerPlayer}` : '-';
+      document.getElementById("powerplayStatus").textContent = gameState.isPowerplay ? 'Yes' : 'No';
+      document.getElementById("powerplayStatus").style.color = gameState.isPowerplay ? '#ffeb3b' : 'white';
+    });
+
+    // Listen for current plays
+    onValue(ref(db, `rooms/${room}/currentPlays`), (snap) => {
+      const plays = snap.val();
+      if (!plays || plays.player1 == null || plays.player2 == null) return;
+
+      get(ref(db, `rooms/${room}/tossWinner`)).then((tossSnap) => {
+        const tossWinner = tossSnap.val();
+        const batCard = plays[tossWinner];
+        const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
+
+        document.getElementById("batterCard").textContent = `Batter's Card: ${batCard}`;
+        document.getElementById("bowlerCard").textContent = `Bowler's Card: ${bowlCard}`;
+
+        let commentary = "";
+        if (batCard === 0 && bowlCard === 0) {
+          commentary = "NO BALL! Free hit coming up!";
+        } else if (batCard === bowlCard) {
+          commentary = `WICKET! ${batCard} out ${bowlCard}`;
+        } else if (batCard === 0) {
+          commentary = `Batter played 0, Bowler gets ${bowlCard} runs`;
+        } else if (bowlCard === 0) {
+          commentary = `Bowler played 0, Batter scores ${batCard} runs`;
+        } else {
+          commentary = `${batCard} runs scored!`;
         }
-      }, 3000);
-    }
-
-    function makePrediction(prediction) {
-      if (currentPrediction) {
-        showNotification('You already made a prediction for this ball!', 'warning');
-        return;
-      }
-      
-      try {
-        spectatorManager.makePrediction(prediction);
-        currentPrediction = prediction;
-        
-        // Update UI
-        document.querySelectorAll('.prediction-btn').forEach(btn => {
-          btn.disabled = true;
-          if (btn.dataset.prediction === prediction) {
-            btn.classList.add('selected');
-          }
-        });
-        
-        showNotification(`Predicted: ${prediction}`, 'info');
-        
-      } catch (error) {
-        showError('Failed to make prediction: ' + error.message);
-      }
-    }
-
-    function sendChatMessage() {
-      const input = document.getElementById('chatInputField');
-      const message = input.value.trim();
-      
-      if (!message) return;
-      
-      try {
-        spectatorManager.sendChatMessage(message);
-        input.value = '';
-        
-      } catch (error) {
-        showError('Failed to send message: ' + error.message);
-      }
-    }
-
-    function addChatMessage(messageData) {
-      const chatEl = document.getElementById('chatMessages');
-      const messageEl = document.createElement('div');
-      messageEl.className = 'chat-message fade-in';
-      
-      const time = new Date(messageData.timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
+        document.getElementById("commentary").textContent = commentary;
       });
+    });
+
+    // Listen for over summaries
+    onValue(ref(db, `rooms/${room}/overSummaries`), (snap) => {
+      const summaries = snap.val() || {};
+      const currentOver = Math.max(...Object.keys(summaries).map(Number)) || 0;
       
-      messageEl.innerHTML = `
-        <span class="chat-time">${time}</span>
-        <span class="chat-user">Spectator:</span>
-        <span class="chat-text">${messageData.message}</span>
+      if (summaries[currentOver]) {
+        document.getElementById("overSummary").innerHTML = `
+          <strong>${summaries[currentOver]}</strong>
+        `;
+      }
+    });
+
+    // Listen for match stats
+    onValue(ref(db, `rooms/${room}/matchStats`), (snap) => {
+      const stats = snap.val() || {};
+      
+      let statsHTML = `
+        <div>Run Rate: ${stats.runRate || '-'}</div>
+        <div>Boundaries: ${stats.boundaries || 0}</div>
+        <div>Dot Balls: ${stats.dotBalls || 0}</div>
+        <div>Wickets: ${stats.wickets || 0}</div>
+        <div>Partnership: ${stats.partnership || 0}</div>
       `;
       
-      chatEl.appendChild(messageEl);
-      chatEl.scrollTop = chatEl.scrollHeight;
-      
-      // Remove old messages (keep last 50)
-      while (chatEl.children.length > 50) {
-        chatEl.removeChild(chatEl.firstChild);
+      if (stats.requiredRate) {
+        statsHTML += `<div>Required Run Rate: ${stats.requiredRate}</div>`;
       }
-    }
-
-    function updateSpectatorsList(spectators) {
-      const listEl = document.getElementById('spectatorsList');
-      listEl.innerHTML = '';
       
-      Object.entries(spectators).forEach(([id, spectator]) => {
-        const spectatorEl = document.createElement('div');
-        spectatorEl.className = 'spectator-item';
-        spectatorEl.innerHTML = `
-          <div class="spectator-avatar">👤</div>
-          <div class="spectator-info">
-            <div class="spectator-id">Spectator</div>
-            <div class="spectator-status">${spectator.online ? '🟢 Online' : '🔴 Offline'}</div>
-          </div>
-        `;
-        listEl.appendChild(spectatorEl);
+      document.getElementById("matchStats").innerHTML = statsHTML;
+    });
+
+    // Listen for chat messages
+    onValue(ref(db, `rooms/${room}/spectatorChat`), (snap) => {
+      const messages = snap.val() || {};
+      const messagesContainer = document.getElementById("messages");
+      messagesContainer.innerHTML = '';
+      
+      Object.entries(messages).forEach(([id, msg]) => {
+        const msgEl = document.createElement("div");
+        msgEl.textContent = `Spectator: ${msg.message}`;
+        messagesContainer.appendChild(msgEl);
       });
-    }
-
-    // Set spectator online status
-    window.addEventListener('load', () => {
-      if (spectatorManager) {
-        spectatorManager.setOnline(true);
-      }
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
     });
 
-    window.addEventListener('beforeunload', () => {
-      if (spectatorManager) {
-        spectatorManager.setOnline(false);
-      }
+    // Listen for emoji reactions
+    onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
+      const spectators = snap.val() || {};
+      const reactions = Object.values(spectators)
+        .filter(spec => spec.emoji)
+        .map(spec => spec.emoji);
+      
+      // Display top 3 emoji reactions
+      const emojiCount = {};
+      reactions.forEach(emoji => {
+        emojiCount[emoji] = (emojiCount[emoji] || 0) + 1;
+      });
+      
+      const topEmojis = Object.entries(emojiCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([emoji]) => emoji);
+      
+      document.getElementById("emojiReactions").textContent = 
+        `Spectator Reactions: ${topEmojis.join(' ')}`;
     });
 
-    window.addEventListener('visibilitychange', () => {
-      if (spectatorManager) {
-        spectatorManager.setOnline(!document.hidden);
-      }
+    // Update spectator count
+    onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
+      const spectators = snap.val() || {};
+      document.getElementById("specCount").textContent = Object.keys(spectators).length;
     });
   </script>
-
-  <style>
-    .spectator-container {
-      display: grid;
-      grid-template-columns: 1fr 350px;
-      gap: 1rem;
-      height: calc(100vh - 80px);
-      overflow: hidden;
-    }
-
-    .spectator-main {
-      overflow-y: auto;
-      padding: 1rem;
-    }
-
-    .spectator-sidebar {
-      background: var(--card-bg);
-      padding: 1rem;
-      overflow-y: auto;
-      border-left: 1px solid var(--border-color);
-    }
-
-    .live-score {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .match-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .match-header h2 {
-      color: var(--primary-color);
-    }
-
-    .match-format {
-      background: var(--primary-color);
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: bold;
-    }
-
-    .match-status {
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    .score-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .batting-team-display h3 {
-      color: var(--primary-color);
-      margin-bottom: 0.5rem;
-      font-size: 1.5rem;
-    }
-
-    .main-score {
-      font-size: 3rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-
-    .runs {
-      color: var(--success-color);
-    }
-
-    .wickets {
-      color: var(--danger-color);
-    }
-
-    .separator {
-      color: var(--text-secondary);
-      margin: 0 0.5rem;
-    }
-
-    .overs {
-      font-size: 1.5rem;
-      color: var(--text-secondary);
-      margin-left: 1rem;
-    }
-
-    .run-rate {
-      color: var(--text-secondary);
-      font-size: 1.1rem;
-    }
-
-    .target-section {
-      text-align: right;
-    }
-
-    .target {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: var(--warning-color);
-      margin-bottom: 0.5rem;
-    }
-
-    .required, .req-rate {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .current-action {
-      background: var(--card-bg);
-      padding: 2rem;
-      border-radius: 16px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .players-display {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 2rem;
-      align-items: center;
-    }
-
-    .current-batter, .current-bowler {
-      text-align: center;
-    }
-
-    .current-batter h4, .current-bowler h4 {
-      color: var(--primary-color);
-      margin-bottom: 0.5rem;
-    }
-
-    .player-name {
-      font-size: 1.3rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-
-    .player-stats {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .player-lives {
-      margin-top: 0.5rem;
-      font-size: 1.2rem;
-    }
-
-    .vs-section {
-      text-align: center;
-      padding: 1rem;
-      border-left: 1px solid var(--border-color);
-      border-right: 1px solid var(--border-color);
-    }
-
-    .last-ball {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .ball-animation {
-      width: 60px;
-      height: 60px;
-      background: var(--primary-color);
-      border-radius: 50%;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 1.2rem;
-    }
-
-    .ball-animation.ball-animate {
-      animation: ballBounce 0.5s ease-out;
-    }
-
-    @keyframes ballBounce {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-    }
-
-    .special-conditions {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .condition {
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-weight: bold;
-      font-size: 0.9rem;
-    }
-
-    .condition.powerplay {
-      background: var(--accent-color);
-      color: black;
-    }
-
-    .condition.free-hit {
-      background: var(--success-color);
-      color: white;
-    }
-
-    .condition.dead-over {
-      background: var(--danger-color);
-      color: white;
-    }
-
-    .match-stats {
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow);
-    }
-
-    .match-stats h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem;
-      background: var(--border-color);
-      border-radius: 6px;
-    }
-
-    .stat-label {
-      color: var(--text-secondary);
-    }
-
-    .stat-value {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .over-summary {
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow);
-    }
-
-    .over-summary h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .over-history {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .over-item {
-      padding: 0.75rem;
-      background: var(--border-color);
-      border-radius: 6px;
-      font-size: 0.9rem;
-    }
-
-    .over-number {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .over-summary {
-      color: var(--text-secondary);
-    }
-
-    .momentum-section {
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      box-shadow: var(--shadow);
-    }
-
-    .momentum-section h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-
-    .momentum-meter {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .team-label {
-      font-size: 0.9rem;
-      font-weight: bold;
-      min-width: 80px;
-    }
-
-    .team-label.left {
-      text-align: right;
-      color: var(--primary-color);
-    }
-
-    .team-label.right {
-      text-align: left;
-      color: var(--danger-color);
-    }
-
-    .momentum-bar {
-      flex: 1;
-      height: 20px;
-      background: var(--border-color);
-      border-radius: 10px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .momentum-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-      transition: width 0.5s ease-out;
-    }
-
-    .momentum-text {
-      text-align: center;
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      margin-top: 0.5rem;
-    }
-
-    .reaction-section {
-      margin-bottom: 2rem;
-    }
-
-    .reaction-section h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .reaction-buttons {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
-    .reaction-btn {
-      padding: 0.75rem;
-      background: var(--border-color);
-      border: none;
-      border-radius: 8px;
-      font-size: 1.2rem;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .reaction-btn:hover {
-      background: var(--primary-color);
-      transform: scale(1.1);
-    }
-
-    .reaction-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .reaction-feed {
-      max-height: 100px;
-      overflow-y: auto;
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-    }
-
-    .prediction-section {
-      margin-bottom: 2rem;
-    }
-
-    .prediction-section h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .prediction-question {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    .prediction-options {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .prediction-btn {
-      padding: 0.5rem;
-      background: var(--border-color);
-      border: none;
-      border-radius: 6px;
-      color: var(--text-primary);
-      cursor: pointer;
-      transition: all 0.3s;
-      font-size: 0.9rem;
-    }
-
-    .prediction-btn:hover {
-      background: var(--primary-color);
-    }
-
-    .prediction-btn.selected {
-      background: var(--success-color);
-      color: white;
-    }
-
-    .prediction-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .chat-section {
-      margin-bottom: 2rem;
-    }
-
-    .chat-section h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .chat-messages {
-      height: 200px;
-      overflow-y: auto;
-      background: var(--border-color);
-      border-radius: 8px;
-      padding: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .chat-message {
-      margin-bottom: 0.5rem;
-      font-size: 0.8rem;
-      line-height: 1.4;
-    }
-
-    .chat-time {
-      color: var(--text-secondary);
-      margin-right: 0.5rem;
-    }
-
-    .chat-user {
-      color: var(--primary-color);
-      font-weight: bold;
-      margin-right: 0.5rem;
-    }
-
-    .chat-text {
-      color: var(--text-primary);
-    }
-
-    .chat-input {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .chat-input input {
-      flex: 1;
-      padding: 0.5rem;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background: var(--card-bg);
-      color: var(--text-primary);
-      font-size: 0.9rem;
-    }
-
-    .chat-input button {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-    }
-
-    .spectators-list {
-      margin-bottom: 2rem;
-    }
-
-    .spectators-list h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .spectators-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .spectator-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem;
-      background: var(--border-color);
-      border-radius: 6px;
-      font-size: 0.8rem;
-    }
-
-    .spectator-avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--primary-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-    }
-
-    .spectator-info {
-      flex: 1;
-    }
-
-    .spectator-id {
-      font-weight: bold;
-    }
-
-    .spectator-status {
-      color: var(--text-secondary);
-      font-size: 0.7rem;
-    }
-
-    .match-details h3 {
-      color: var(--primary-color);
-      margin-bottom: 1rem;
-    }
-
-    .details-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .detail-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem;
-      background: var(--border-color);
-      border-radius: 6px;
-      font-size: 0.9rem;
-    }
-
-    .detail-label {
-      color: var(--text-secondary);
-    }
-
-    .detail-value {
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-
-    .reaction-bursts {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1000;
-    }
-
-    .reaction-burst {
-      position: absolute;
-      font-size: 2rem;
-      animation: reactionFloat 3s ease-out forwards;
-      pointer-events: none;
-    }
-
-    @keyframes reactionFloat {
-      0% {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(-200px) scale(1.5);
-        opacity: 0;
-      }
-    }
-
-    @media (max-width: 1024px) {
-      .spectator-container {
-        grid-template-columns: 1fr;
-        height: auto;
-      }
-      
-      .spectator-sidebar {
-        border-left: none;
-        border-top: 1px solid var(--border-color);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .score-section {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-      }
-      
-      .players-display {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-        text-align: center;
-      }
-      
-      .vs-section {
-        border: none;
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-      }
-      
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .reaction-buttons {
-        grid-template-columns: repeat(4, 1fr);
-      }
-      
-      .momentum-meter {
-        flex-direction: column;
-        gap: 0.5rem;
-        text-align: center;
-      }
-      
-      .team-label {
-        min-width: auto;
-      }
-    }
-  </style>
 </body>
 </html>
