@@ -200,7 +200,7 @@
       color: #ff9800;
       font-weight: bold;
     }
-    /* Add this new style for the innings button */
+    /* New styles for innings transition */
     #startInningsBtn {
       margin: 20px auto;
       padding: 12px 24px;
@@ -211,9 +211,65 @@
       border-radius: 8px;
       cursor: pointer;
       display: none;
+      transition: all 0.3s;
     }
     #startInningsBtn:hover {
       background: #45a049;
+      transform: scale(1.05);
+    }
+    #startInningsBtn:disabled {
+      background: #607d8b;
+      cursor: not-allowed;
+    }
+    .transition-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      flex-direction: column;
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .transition-message {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: white;
+      text-align: center;
+    }
+    .transition-countdown {
+      font-size: 48px;
+      font-weight: bold;
+      color: #4CAF50;
+      margin: 20px 0;
+    }
+    .opponent-ready {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 15px;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .opponent-ready span {
+      margin-left: 10px;
+    }
+    .ready-checkmark {
+      color: #4CAF50;
+      font-size: 24px;
+    }
+    .auto-start-timer {
+      margin-top: 15px;
+      font-size: 16px;
+      color: #ff9800;
     }
   </style>
 </head>
@@ -261,8 +317,15 @@
     <button class="card" data-value="6">6</button>
   </div>
 
-  <!-- Add this new button for starting innings -->
-  <button id="startInningsBtn">Start Second Innings</button>
+  <!-- Enhanced Start Innings Button -->
+  <button id="startInningsBtn">
+    <div id="startInningsText">Start Second Innings</div>
+    <div id="opponentReadyStatus" class="opponent-ready" style="display: none;">
+      <span class="ready-checkmark">✓</span>
+      <span>Opponent Ready</span>
+    </div>
+    <div id="autoStartTimer" class="auto-start-timer" style="display: none;"></div>
+  </button>
 
   <div id="playingXISection" style="margin-top: 30px;">
     <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
@@ -420,6 +483,8 @@
     let playTimeout;
     let batterStats = {};
     let bowlerStats = {};
+    let autoStartTimer;
+    let countdownInterval;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -455,6 +520,9 @@
     const miniScoreEl = document.getElementById("miniScore");
     const miniOversEl = document.getElementById("miniOvers");
     const startInningsBtn = document.getElementById("startInningsBtn");
+    const opponentReadyStatus = document.getElementById("opponentReadyStatus");
+    const autoStartTimerEl = document.getElementById("autoStartTimer");
+    const startInningsText = document.getElementById("startInningsText");
 
     // Update spectator data with match details
     function updateSpectatorData() {
@@ -557,6 +625,36 @@
       notif.textContent = message;
       document.body.appendChild(notif);
       setTimeout(() => notif.remove(), 3000);
+    }
+
+    // Show transition overlay with countdown
+    function showTransitionOverlay(message, duration = 5) {
+      const overlay = document.createElement('div');
+      overlay.className = 'transition-overlay';
+      
+      const messageEl = document.createElement('div');
+      messageEl.className = 'transition-message';
+      messageEl.textContent = message;
+      
+      const countdownEl = document.createElement('div');
+      countdownEl.className = 'transition-countdown';
+      countdownEl.textContent = duration;
+      
+      overlay.appendChild(messageEl);
+      overlay.appendChild(countdownEl);
+      document.body.appendChild(overlay);
+      
+      let count = duration;
+      const countdown = setInterval(() => {
+        count--;
+        countdownEl.textContent = count;
+        if (count <= 0) {
+          clearInterval(countdown);
+          overlay.remove();
+        }
+      }, 1000);
+      
+      return overlay;
     }
 
     // Load playing 11 from Firebase
@@ -677,7 +775,10 @@
       await update(ref(db, `rooms/${room}`), {
         currentPlays: null,
         currentBatter: null,
-        currentBowler: null
+        currentBowler: null,
+        inningsReady: null,
+        startSecondInnings: null,
+        autoStartTime: null
       });
       await set(playerRef, false);
     }
@@ -685,13 +786,17 @@
     // Disable all card buttons
     function disableButtons() {
       buttons.forEach(btn => btn.disabled = true);
-      startInningsBtn.disabled = true;
+      if (startInningsBtn.style.display !== "none") {
+        startInningsBtn.disabled = true;
+      }
     }
 
     // Enable all card buttons
     function enableButtons() {
       buttons.forEach(btn => btn.disabled = false);
-      startInningsBtn.disabled = false;
+      if (startInningsBtn.style.display !== "none") {
+        startInningsBtn.disabled = false;
+      }
     }
 
     // Check powerplay status based on current over
@@ -933,13 +1038,83 @@
       });
     }
 
-    // Set up the innings button
+    // Set up the innings button with enhanced functionality
     function setupInningsButton() {
+      // Handle button click
       startInningsBtn.addEventListener("click", async () => {
         if (innings === 1) {
-          innings++;
-          startInningsBtn.style.display = "none";
-          resetInning();
+          disableButtons();
+          status.innerText = "Starting second innings...";
+          
+          // Update Firebase to signal innings change
+          await set(ref(db, `rooms/${room}/inningsReady`), true);
+          
+          // Set auto-start time (30 seconds from now)
+          const autoStartTime = Date.now() + 30000;
+          await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+          
+          // Show transition overlay
+          showTransitionOverlay("Starting Second Innings...", 3);
+          
+          // Proceed to second innings after delay
+          setTimeout(() => {
+            innings++;
+            startInningsBtn.style.display = "none";
+            resetInning();
+          }, 3000);
+        }
+      });
+
+      // Listen for opponent's readiness
+      onValue(ref(db, `rooms/${room}/inningsReady`), (snap) => {
+        if (snap.exists() && snap.val() && innings === 1 && !isTestMatch) {
+          opponentReadyStatus.style.display = "flex";
+          startInningsText.textContent = "Ready to Start";
+          startInningsBtn.disabled = false;
+          
+          // Update status message
+          status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
+        }
+      });
+
+      // Listen for auto-start time
+      onValue(ref(db, `rooms/${room}/autoStartTime`), (snap) => {
+        if (!snap.exists() || !snap.val()) return;
+        
+        const startTime = snap.val();
+        const now = Date.now();
+        
+        if (startTime > now) {
+          // Show countdown timer
+          autoStartTimerEl.style.display = "block";
+          
+          // Update countdown every second
+          if (countdownInterval) clearInterval(countdownInterval);
+          countdownInterval = setInterval(() => {
+            const remaining = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
+            autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
+            
+            if (remaining <= 0) {
+              clearInterval(countdownInterval);
+              autoStartTimerEl.style.display = "none";
+            }
+          }, 1000);
+        }
+      });
+
+      // Listen for second innings start command
+      onValue(ref(db, `rooms/${room}/startSecondInnings`), (snap) => {
+        if (snap.exists() && snap.val() && innings === 1 && !isTestMatch) {
+          // Show transition animation
+          const overlay = showTransitionOverlay("Second Innings Starting!", 3);
+          
+          // Proceed after animation
+          setTimeout(() => {
+            innings++;
+            startInningsBtn.style.display = "none";
+            resetInning();
+            overlay.remove();
+          }, 3000);
         }
       });
     }
@@ -1298,6 +1473,14 @@
         if (!isTestMatch) {
           startInningsBtn.style.display = "block";
           status.innerText += " Click 'Start Second Innings' when ready.";
+          
+          // Update Firebase to notify opponent
+          await set(ref(db, `rooms/${room}/inningsReady`), false);
+          
+          // Set auto-start time (30 seconds from now)
+          const autoStartTime = Date.now() + 30000;
+          await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+          
           return;
         }
       } else {
@@ -1344,6 +1527,16 @@
       freeHitNextBall = false;
       isBatting = !isBatting;
       zerosThisOver = { player1: 0, player2: 0 };
+      
+      // Reset innings button state
+      startInningsBtn.style.display = "none";
+      opponentReadyStatus.style.display = "none";
+      autoStartTimerEl.style.display = "none";
+      startInningsText.textContent = "Start Second Innings";
+      
+      // Clear Firebase state
+      set(ref(db, `rooms/${room}/inningsReady`), false);
+      set(ref(db, `rooms/${room}/autoStartTime`), null);
       
       if (isBatting) {
         showBatterSelection();
@@ -1448,6 +1641,7 @@
       
       testControls.style.display = isTestMatch ? "flex" : "none";
       followOnBtn.style.display = "none";
+      startInningsBtn.style.display = "none";
       
       // Initialize spectator data
       await set(ref(db, `rooms/${room}/spectatorData`), {
