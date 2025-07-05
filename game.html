@@ -1203,10 +1203,12 @@
           return;
         }
 
-        const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-        const tossWinner = tossSnap.val();
-        const batCard = plays[tossWinner];
-        const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
+        // Determine batting and bowling players based on innings
+        const battingPlayer = innings % 2 === 1 ? battingFirst : (battingFirst === "player1" ? "player2" : "player1");
+        const bowlingPlayer = battingPlayer === "player1" ? "player2" : "player1";
+
+        const batCard = plays[battingPlayer];
+        const bowlCard = plays[bowlingPlayer];
 
         let outcome = "";
         let isLegalBall = false;
@@ -1214,8 +1216,8 @@
         let isPlayerOut = false;
         let runsScored = 0;
 
-        if (batCard === 0) zerosThisOver[player]++;
-        if (bowlCard === 0) zerosThisOver[opponent]++;
+        if (batCard === 0) zerosThisOver[battingPlayer]++;
+        if (bowlCard === 0) zerosThisOver[bowlingPlayer]++;
 
         // Check for free hit next ball
         if (freeHitNextBall) {
@@ -1297,7 +1299,7 @@
           isLegalBall = true;
         }
         else if (batCard === 0 && bowlCard > 0) {
-          if (zerosThisOver[player] > 3) {
+          if (zerosThisOver[battingPlayer] > 3) {
             runs -= 5;
             outcome = "4th 0 in over! -5 runs";
           } else {
@@ -1314,7 +1316,7 @@
           isLegalBall = true;
         }
         else if (bowlCard === 0 && batCard > 0) {
-          if (zerosThisOver[opponent] > 3 && !isTestMatch) {
+          if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
@@ -1400,9 +1402,9 @@
         setTimeout(async () => {
           await resetPlays();
           
-          if ((isPlayerOut || isWicket) && player === tossWinner) {
+          if ((isPlayerOut || isWicket) && player === battingPlayer) {
             showBatterSelection();
-          } else if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
+          } else if (isLegalBall && legalBalls % 6 === 0 && player === bowlingPlayer) {
             showBowlerSelection();
           } else {
             status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
@@ -1499,7 +1501,7 @@
       
       if (innings === 1) {
         team1Score = currentInningRuns;
-        team1Wickets = currentInningWickets;
+        team1Wickets = wickets;
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
         // Show the start innings button for non-test matches
@@ -1518,7 +1520,7 @@
         }
       } else {
         team2Score = currentInningRuns;
-        team2Wickets = currentInningWickets;
+        team2Wickets = wickets;
         status.innerText = `Team 2 scored ${team2Score} runs!`;
       }
       
@@ -1744,4 +1746,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
