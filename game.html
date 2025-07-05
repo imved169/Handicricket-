@@ -526,25 +526,32 @@
 
     // Function to start the second innings
     async function startSecondInnings() {
-      disableButtons();
-      status.innerText = "Starting second innings...";
-      
-      // Update Firebase to signal innings change
-      await set(ref(db, `rooms/${room}/inningsReady`), true);
-      
-      // Set auto-start time (30 seconds from now)
-      const autoStartTime = Date.now() + 30000;
-      await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
-      
-      // Show transition overlay
-      showTransitionOverlay("Starting Second Innings...", 3);
-      
-      // Proceed to second innings after delay
-      setTimeout(() => {
-        innings++;
-        startInningsBtn.style.display = "none";
-        resetInning();
-      }, 3000);
+      try {
+        disableButtons();
+        status.innerText = "Starting second innings...";
+        
+        // Update Firebase to signal innings change
+        await set(ref(db, `rooms/${room}/inningsReady`), true);
+        
+        // Set auto-start time (30 seconds from now)
+        const autoStartTime = Date.now() + 30000;
+        await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+        
+        // Show transition overlay
+        const overlay = showTransitionOverlay("Starting Second Innings...", 3);
+        
+        // Proceed to second innings after delay
+        setTimeout(() => {
+          innings++;
+          startInningsBtn.style.display = "none";
+          resetInning();
+          overlay.remove();
+        }, 3000);
+      } catch (error) {
+        console.error("Error starting second innings:", error);
+        status.innerText = "Error starting second innings. Please try again.";
+        enableButtons();
+      }
     }
 
     // Update spectator data with match details
@@ -1068,13 +1075,20 @@
 
       // Listen for opponent's readiness
       onValue(ref(db, `rooms/${room}/inningsReady`), (snap) => {
-        if (snap.exists() && snap.val() && innings === 1 && !isTestMatch) {
-          opponentReadyStatus.style.display = "flex";
-          startInningsText.textContent = "Ready to Start";
-          startInningsBtn.disabled = false;
-          
-          // Update status message
-          status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
+        if (!snap.exists()) return;
+        
+        const isReady = snap.val();
+        
+        if (isReady && innings === 1 && !isTestMatch) {
+          // Only update UI if we're the one who didn't click ready
+          if (!startInningsBtn.disabled) {
+            opponentReadyStatus.style.display = "flex";
+            startInningsText.textContent = "Ready to Start";
+            startInningsBtn.disabled = false;
+            
+            // Update status message
+            status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
+          }
         }
       });
 
@@ -1693,4 +1707,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
