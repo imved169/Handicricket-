@@ -50,7 +50,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import {
-      getDatabase, ref, set, onValue, get, child
+      getDatabase, ref, set, onValue, get
     } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
     const firebaseConfig = {
@@ -78,7 +78,7 @@
     const tossStatus = document.getElementById("toss-status");
     const batBowlChoice = document.getElementById("batBowlChoice");
 
-    // Show format (optional)
+    // Show format name if available
     get(formatRef).then(snapshot => {
       if (snapshot.exists()) {
         const format = snapshot.val();
@@ -86,14 +86,17 @@
       }
     });
 
-    // 🧠 If AI mode, player1 gets auto toss win
+    // ✅ AI Mode: player1 auto-wins toss and chooses
     if (isAI && player === "player1") {
-      set(tossRef, "player1");
-      tossStatus.innerText = "You are playing against AI. You won the toss!";
-      batBowlChoice.style.display = "block";
+      const assignTossToAI = async () => {
+        await set(tossRef, "player1");
+        tossStatus.innerText = "You are playing against AI. You won the toss!";
+        batBowlChoice.style.display = "block";
+      };
+      assignTossToAI();
     }
 
-    // Normal Toss (only player2 tosses)
+    // Multiplayer toss (only player2 performs it)
     if (!isAI && player === "player2") {
       get(tossRef).then(snapshot => {
         if (!snapshot.exists()) {
@@ -103,7 +106,7 @@
       });
     }
 
-    // Listen for toss result
+    // Show toss result
     onValue(tossRef, (snapshot) => {
       const winner = snapshot.val();
       if (!winner) return;
@@ -116,7 +119,7 @@
       }
     });
 
-    // Listen for bat/bowl decision
+    // If decision is made, redirect to game
     onValue(decisionRef, (snapshot) => {
       const decision = snapshot.val();
       if (decision) {
@@ -126,7 +129,7 @@
       }
     });
 
-    // Handle user choice
+    // Handle bat/bowl selection
     window.chooseInnings = function (choice) {
       set(decisionRef, choice);
       const batting = choice === "bat" ? player : opponent;
@@ -134,7 +137,7 @@
 
       set(ref(db, `rooms/${room}/battingFirst`), batting);
       set(ref(db, `rooms/${room}/bowlingFirst`), bowling);
-    }
+    };
   </script>
 </body>
 </html>
