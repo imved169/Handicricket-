@@ -136,6 +136,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { AIOpponent } from './ai.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -154,6 +155,9 @@
     const player = urlParams.get('player');
     const isAIMode = room && room.includes('AI');
     const opponent = isAIMode ? 'AI' : (player === "player1" ? "player2" : "player1");
+    
+    // Initialize AI if in AI mode
+    const ai = isAIMode ? new AIOpponent('medium') : null;
     
     // DOM Elements
     const elements = {
@@ -179,19 +183,20 @@
     // Game state
     const gameState = {
       tossCompleted: false,
-      decisionMade: false
+      decisionMade: false,
+      format: '5'
     };
 
     // Initialize Firebase listeners
     function initializeListeners() {
       // Listen for format changes
       onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-        const format = snap.val() || "5";
+        gameState.format = snap.val() || "5";
         const formatNames = {
           "5": "5 Overs", "10": "10 Overs", "20": "T20",
           "50": "ODI", "test": "Test Match"
         };
-        elements.formatDisplay.textContent = `Match Format: ${formatNames[format]}`;
+        elements.formatDisplay.textContent = `Match Format: ${formatNames[gameState.format]}`;
       });
 
       // Listen for toss winner
@@ -240,7 +245,9 @@
       // AI takes 1-2 seconds to "think"
       await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
       
-      const decision = Math.random() < 0.5 ? 'bat' : 'bowl';
+      // Use AI class to make decision
+      const decision = ai.makeTossDecision({ format: gameState.format });
+      
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === 'bat' ? 'player2' : 'player1',
