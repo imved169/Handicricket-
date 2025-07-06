@@ -93,6 +93,11 @@
       background: #0d2a52;
       border-radius: 8px;
     }
+    .ai-message {
+      color: #ff9800;
+      font-style: italic;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -102,7 +107,7 @@
     <div id="formatDisplay">Match Format: Loading...</div>
     
     <div class="player-status" id="playerStatus">
-      Waiting for both players...
+      Initializing game...
     </div>
     
     <div id="coin" class="coin" style="display: none;">TOSS</div>
@@ -120,7 +125,11 @@
     </div>
     
     <div id="waitingSection" class="waiting" style="display: none;">
-      Waiting for toss winner to choose...
+      Waiting for opponent's decision...
+    </div>
+
+    <div id="aiSection" class="ai-message" style="display: none;">
+      AI is making decision...
     </div>
   </div>
 
@@ -143,166 +152,173 @@
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
-    const opponent = player === "player1" ? "player2" : "player1";
-    const isAIMode = room.includes('AI'); // Check if this is an AI match
+    const isAIMode = room && room.includes('AI');
+    const opponent = isAIMode ? 'AI' : (player === "player1" ? "player2" : "player1");
     
-    document.getElementById("roomCodeDisplay").innerText = `Room Code: ${room}`;
-    document.getElementById("playerStatus").innerText = `You are ${player.toUpperCase()}`;
+    // DOM Elements
+    const elements = {
+      roomCode: document.getElementById("roomCodeDisplay"),
+      playerStatus: document.getElementById("playerStatus"),
+      tossBtn: document.getElementById("tossBtn"),
+      result: document.getElementById("result"),
+      tossSection: document.getElementById("tossButtonSection"),
+      choiceSection: document.getElementById("choiceSection"),
+      formatDisplay: document.getElementById("formatDisplay"),
+      waitingSection: document.getElementById("waitingSection"),
+      coin: document.getElementById("coin"),
+      aiSection: document.getElementById("aiSection")
+    };
 
-    const tossBtn = document.getElementById("tossBtn");
-    const resultDiv = document.getElementById("result");
-    const tossSection = document.getElementById("tossButtonSection");
-    const choiceSection = document.getElementById("choiceSection");
-    const formatDisplay = document.getElementById("formatDisplay");
-    const waitingSection = document.getElementById("waitingSection");
-    const coinElement = document.getElementById("coin");
-    const playerStatus = document.getElementById("playerStatus");
+    // Initialize UI
+    elements.roomCode.innerText = `Room Code: ${room}`;
+    elements.playerStatus.innerText = `You are ${player.toUpperCase()}`;
+    if (isAIMode) elements.playerStatus.innerText += " (vs AI)";
 
-    // Set player as ready
-    async function setPlayerReady() {
-      if (isAIMode) {
-        // In AI mode, we don't need to wait for opponent
-        await set(ref(db, `rooms/${room}/${player}/ready`), true);
+    // Game state
+    const gameState = {
+      tossCompleted: false,
+      decisionMade: false
+    };
+
+    // Initialize Firebase listeners
+    function initializeListeners() {
+      // Listen for format changes
+      onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
+        const format = snap.val() || "5";
+        const formatNames = {
+          "5": "5 Overs", "10": "10 Overs", "20": "T20",
+          "50": "ODI", "test": "Test Match"
+        };
+        elements.formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
+      });
+
+      // Listen for toss winner
+      onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
+        const winner = snap.val();
+        if (!winner || gameState.tossCompleted) return;
         
-        // Set AI player as ready immediately
-        await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
+        gameState.tossCompleted = true;
+        elements.result.innerText = `Toss won by ${winner.toUpperCase()}`;
+        elements.tossSection.style.display = "none";
+        elements.coin.classList.remove("spinning");
+        elements.coin.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
         
-        playerStatus.innerText = "AI opponent is ready!";
-        initializeTossProcess();
-        return;
-      }
-      
-      // Original multiplayer code
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
-      playerStatus.innerText = "You are ready! Waiting for opponent...";
-      checkPlayersReady();
-    }
-
-    // Check if both players are ready (for multiplayer only)
-    async function checkPlayersReady() {
-      const player1Snap = await get(ref(db, `rooms/${room}/player1/ready`));
-      const player2Snap = await get(ref(db, `rooms/${room}/player2/ready`));
-      
-      if (player1Snap.exists() && player1Snap.val() && 
-          player2Snap.exists() && player2Snap.val()) {
-        initializeTossProcess();
-      } else {
-        setTimeout(checkPlayersReady, 1000);
-      }
-    }
-
-    // Initialize the toss process
-    function initializeTossProcess() {
-      playerStatus.innerText = "Both players ready!";
-      
-      if (isAIMode) {
-        // In AI mode, player1 always tosses (human player)
-        if (player === 'player1') {
-          tossSection.style.display = "block";
-          coinElement.style.display = "flex";
+        if (player === winner) {
+          elements.choiceSection.style.display = "block";
         } else {
-          // AI player (player2) will auto-toss
+          if (isAIMode) {
+            handleAIChoice();
+          } else {
+            elements.waitingSection.style.display = "block";
+          }
+        }
+      });
+
+      // Listen for final decision
+      onValue(ref(db, `rooms/${room}/decision`), (snap) => {
+        const decision = snap.val();
+        if (!decision || gameState.decisionMade) return;
+        
+        gameState.decisionMade = true;
+        const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
+        elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decisionText}`;
+        
+        // Redirect to game after short delay
+        setTimeout(() => {
+          window.location.href = `game.html?room=${room}&player=${player}`;
+        }, 2000);
+      });
+    }
+
+    // Handle AI's choice when it wins toss
+    async function handleAIChoice() {
+      elements.aiSection.style.display = "block";
+      elements.waitingSection.style.display = "none";
+      
+      // AI takes 1-2 seconds to "think"
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+      
+      const decision = Math.random() < 0.5 ? 'bat' : 'bowl';
+      await set(ref(db, `rooms/${room}/decision`), decision);
+      await update(ref(db, `rooms/${room}`), {
+        battingFirst: decision === 'bat' ? 'player2' : 'player1',
+        bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
+      });
+    }
+
+    // Initialize game based on mode
+    async function initializeGame() {
+      if (isAIMode) {
+        // In AI mode, mark both players as ready immediately
+        await Promise.all([
+          set(ref(db, `rooms/${room}/${player}/ready`), true),
+          set(ref(db, `rooms/${room}/${opponent}/ready`), true)
+        ]);
+        
+        // Player1 always tosses in AI mode
+        if (player === 'player1') {
+          elements.tossSection.style.display = "block";
+          elements.coin.style.display = "flex";
+          elements.playerStatus.innerText = "Your turn to toss!";
+        } else {
+          // AI will toss automatically
           performAIToss();
         }
       } else {
-        // Original multiplayer logic - player2 tosses
+        // Multiplayer mode - wait for both players
+        await set(ref(db, `rooms/${room}/${player}/ready`), true);
+        checkOpponentReady();
+      }
+    }
+
+    // Check if opponent is ready (multiplayer only)
+    async function checkOpponentReady() {
+      const opponentSnap = await get(ref(db, `rooms/${room}/${opponent}/ready`));
+      
+      if (opponentSnap.exists() && opponentSnap.val()) {
+        // Both players ready
+        elements.playerStatus.innerText = "Both players ready!";
+        
+        // Player2 tosses in multiplayer
         if (player === 'player2') {
-          tossSection.style.display = "block";
-          coinElement.style.display = "flex";
+          elements.tossSection.style.display = "block";
+          elements.coin.style.display = "flex";
         } else {
-          playerStatus.innerText = "Waiting for opponent to toss...";
+          elements.playerStatus.innerText = "Waiting for opponent to toss...";
         }
+      } else {
+        setTimeout(checkOpponentReady, 1000);
       }
     }
 
     // Perform toss for AI opponent
     async function performAIToss() {
-      if (player !== 'player2') return; // Only for AI player
+      elements.coin.style.display = "flex";
+      elements.coin.classList.add("spinning");
+      elements.result.innerText = "AI is tossing the coin...";
       
-      coinElement.style.display = "flex";
-      coinElement.classList.add("spinning");
-      resultDiv.innerText = "AI is tossing the coin...";
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      setTimeout(async () => {
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-        
-        coinElement.classList.remove("spinning");
-        coinElement.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
-        
-        // If AI won the toss, make a random choice
-        if (winner === 'player2') {
-          setTimeout(async () => {
-            const aiDecision = Math.random() < 0.5 ? 'bat' : 'bowl';
-            await set(ref(db, `rooms/${room}/decision`), aiDecision);
-            await update(ref(db, `rooms/${room}`), {
-              battingFirst: aiDecision === 'bat' ? 'player2' : 'player1',
-              bowlingFirst: aiDecision === 'bowl' ? 'player2' : 'player1'
-            });
-          }, 1500);
-        }
-      }, 1500);
+      const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+      await set(ref(db, `rooms/${room}/tossWinner`), winner);
     }
 
-    // Display match format
-    onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-      const format = snap.val() || "5";
-      const formatNames = {
-        "5": "5 Overs",
-        "10": "10 Overs", 
-        "20": "T20",
-        "50": "ODI",
-        "test": "Test Match"
-      };
-      formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
-    });
-
-    // Initialize the toss process when button clicked
-    tossBtn.addEventListener("click", async () => {
-      tossBtn.disabled = true;
-      coinElement.classList.add("spinning");
-      resultDiv.innerText = "Tossing...";
+    // Handle toss button click
+    elements.tossBtn.addEventListener("click", async () => {
+      elements.tossBtn.disabled = true;
+      elements.coin.classList.add("spinning");
+      elements.result.innerText = "Tossing...";
       
-      setTimeout(async () => {
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-        
-        coinElement.classList.remove("spinning");
-        coinElement.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
-        
-        // If in AI mode and AI wins, make a random choice
-        if (isAIMode && winner === 'player2') {
-          setTimeout(async () => {
-            const aiDecision = Math.random() < 0.5 ? 'bat' : 'bowl';
-            await set(ref(db, `rooms/${room}/decision`), aiDecision);
-            await update(ref(db, `rooms/${room}`), {
-              battingFirst: aiDecision === 'bat' ? 'player2' : 'player1',
-              bowlingFirst: aiDecision === 'bowl' ? 'player2' : 'player1'
-            });
-          }, 1500);
-        }
-      }, 1500);
-    });
-
-    // Listen for toss winner
-    onValue(ref(db, `rooms/${room}/tossWinner`), async (snap) => {
-      const winner = snap.val();
-      if (!winner) return;
-
-      resultDiv.innerText = `Toss won by ${winner.toUpperCase()}`;
-      tossSection.style.display = "none";
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      if (player === winner) {
-        choiceSection.style.display = "block";
-      } else {
-        waitingSection.style.display = "block";
-      }
+      const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+      await set(ref(db, `rooms/${room}/tossWinner`), winner);
     });
 
     // Handle bat/bowl choice
     window.choose = async (decision) => {
-      choiceSection.style.display = "none";
-      resultDiv.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
+      elements.choiceSection.style.display = "none";
+      elements.result.innerHTML += `<br>You chose to ${decision}`;
       
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
@@ -311,20 +327,9 @@
       });
     };
 
-    // Listen for decision and redirect to game
-    onValue(ref(db, `rooms/${room}/decision`), (snap) => {
-      const decision = snap.val();
-      if (decision) {
-        // Show final message before redirect
-        resultDiv.innerHTML += `<br>Starting match...`;
-        setTimeout(() => {
-          window.location.href = `game.html?room=${room}&player=${player}`;
-        }, 1500);
-      }
-    });
-
-    // Initialize the page
-    setPlayerReady();
+    // Start the game
+    initializeListeners();
+    initializeGame();
   </script>
 </body>
 </html>
