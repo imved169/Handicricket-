@@ -195,6 +195,13 @@
     #aiDifficulty button.start-ai-game:hover {
       background: linear-gradient(135deg, #2e7d32, #1b5e20);
     }
+    /* View History button styles */
+    button[onclick="viewHistory()"] {
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+    button[onclick="viewHistory()"]:hover {
+      background: linear-gradient(135deg, #2575fc, #6a11cb);
+    }
   </style>
 </head>
 <body>
@@ -215,6 +222,7 @@
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="spectateRoom()">Spectate Match</button>
     <button onclick="playWithAI()">Play vs AI</button>
+    <button onclick="viewHistory()">📊 View History</button>
     
     <div id="aiDifficulty">
       <h4>Select AI Difficulty:</h4>
@@ -389,10 +397,36 @@
         timestamp: Date.now()
       });
       
+      // Set AI team with predefined players
+      const aiTeamName = "AI Challengers";
+      const aiPlayers = {
+        1: "Ved",
+        2: "Bhavesh",
+        3: "Minmay",
+        4: "Deep",
+        5: "Ghost",
+        6: "King",
+        7: "Dead",
+        8: "Soul",
+        9: "Rishabh",
+        10: "Jasprit",
+        11: "Siraj"
+      };
+      
+      await set(ref(db, 'rooms/' + roomCode + '/player2'), {
+        teamName: aiTeamName,
+        online: true,
+        timestamp: Date.now(),
+        isAI: true,
+        players: aiPlayers
+      });
+      
       // Mark this as an AI game
       await set(ref(db, 'rooms/' + roomCode + '/ai'), {
         difficulty: aiDifficulty,
-        active: true
+        active: true,
+        teamName: aiTeamName,
+        players: aiPlayers
       });
       
       // Enable AI mode in localStorage
@@ -401,13 +435,18 @@
       
       document.getElementById("roomDisplay").innerHTML = `
         <strong>Starting vs AI (${aiDifficulty})</strong><br>
-        Format: ${getFormatName(selectedFormat)}
+        Format: ${getFormatName(selectedFormat)}<br>
+        AI Team: ${aiTeamName}
       `;
       
       setTimeout(() => {
         window.location.href = `playing11.html?room=${roomCode}&player=player1`;
       }, 1500);
     }
+
+    window.viewHistory = function() {
+      window.location.href = "history.html";
+    };
 
     function getFormatName(format) {
       switch(format) {
