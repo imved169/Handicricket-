@@ -120,8 +120,8 @@
     
     <div id="choiceSection" style="display: none;">
       <p>You won the toss! Choose to:</p>
-      <button onclick="choose('bat')">Bat First</button>
-      <button onclick="choose('bowl')">Bowl First</button>
+      <button id="batBtn">Bat First</button>
+      <button id="bowlBtn">Bowl First</button>
     </div>
     
     <div id="waitingSection" class="waiting" style="display: none;">
@@ -163,6 +163,8 @@
       result: document.getElementById("result"),
       tossSection: document.getElementById("tossButtonSection"),
       choiceSection: document.getElementById("choiceSection"),
+      batBtn: document.getElementById("batBtn"),
+      bowlBtn: document.getElementById("bowlBtn"),
       formatDisplay: document.getElementById("formatDisplay"),
       waitingSection: document.getElementById("waitingSection"),
       coin: document.getElementById("coin"),
@@ -170,9 +172,9 @@
     };
 
     // Initialize UI
-    elements.roomCode.innerText = `Room Code: ${room}`;
-    elements.playerStatus.innerText = `You are ${player.toUpperCase()}`;
-    if (isAIMode) elements.playerStatus.innerText += " (vs AI)";
+    elements.roomCode.textContent = `Room Code: ${room}`;
+    elements.playerStatus.textContent = `You are ${player.toUpperCase()}`;
+    if (isAIMode) elements.playerStatus.textContent += " (vs AI)";
 
     // Game state
     const gameState = {
@@ -189,7 +191,7 @@
           "5": "5 Overs", "10": "10 Overs", "20": "T20",
           "50": "ODI", "test": "Test Match"
         };
-        elements.formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
+        elements.formatDisplay.textContent = `Match Format: ${formatNames[format]}`;
       });
 
       // Listen for toss winner
@@ -198,10 +200,10 @@
         if (!winner || gameState.tossCompleted) return;
         
         gameState.tossCompleted = true;
-        elements.result.innerText = `Toss won by ${winner.toUpperCase()}`;
+        elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
         elements.tossSection.style.display = "none";
         elements.coin.classList.remove("spinning");
-        elements.coin.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
+        elements.coin.textContent = winner === 'player1' ? 'HEADS' : 'TAILS';
         
         if (player === winner) {
           elements.choiceSection.style.display = "block";
@@ -259,7 +261,7 @@
         if (player === 'player1') {
           elements.tossSection.style.display = "block";
           elements.coin.style.display = "flex";
-          elements.playerStatus.innerText = "Your turn to toss!";
+          elements.playerStatus.textContent = "Your turn to toss!";
         } else {
           // AI will toss automatically
           performAIToss();
@@ -277,14 +279,14 @@
       
       if (opponentSnap.exists() && opponentSnap.val()) {
         // Both players ready
-        elements.playerStatus.innerText = "Both players ready!";
+        elements.playerStatus.textContent = "Both players ready!";
         
         // Player2 tosses in multiplayer
         if (player === 'player2') {
           elements.tossSection.style.display = "block";
           elements.coin.style.display = "flex";
         } else {
-          elements.playerStatus.innerText = "Waiting for opponent to toss...";
+          elements.playerStatus.textContent = "Waiting for opponent to toss...";
         }
       } else {
         setTimeout(checkOpponentReady, 1000);
@@ -295,7 +297,7 @@
     async function performAIToss() {
       elements.coin.style.display = "flex";
       elements.coin.classList.add("spinning");
-      elements.result.innerText = "AI is tossing the coin...";
+      elements.result.textContent = "AI is tossing the coin...";
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
@@ -307,7 +309,7 @@
     elements.tossBtn.addEventListener("click", async () => {
       elements.tossBtn.disabled = true;
       elements.coin.classList.add("spinning");
-      elements.result.innerText = "Tossing...";
+      elements.result.textContent = "Tossing...";
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
@@ -316,7 +318,15 @@
     });
 
     // Handle bat/bowl choice
-    window.choose = async (decision) => {
+    elements.batBtn.addEventListener("click", async () => {
+      await makeChoice('bat');
+    });
+
+    elements.bowlBtn.addEventListener("click", async () => {
+      await makeChoice('bowl');
+    });
+
+    async function makeChoice(decision) {
       elements.choiceSection.style.display = "none";
       elements.result.innerHTML += `<br>You chose to ${decision}`;
       
@@ -325,7 +335,7 @@
         battingFirst: decision === 'bat' ? player : opponent,
         bowlingFirst: decision === 'bowl' ? player : opponent
       });
-    };
+    }
 
     // Start the game
     initializeListeners();
