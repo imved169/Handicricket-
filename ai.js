@@ -1,4 +1,4 @@
-// ai.js - Enhanced AI opponent logic
+// ai.js - Enhanced AI opponent logic with toss decision support
 export class AIOpponent {
   constructor(difficulty = 'medium') {
     this.difficulty = difficulty;
@@ -8,6 +8,20 @@ export class AIOpponent {
     this.playerPattern = [];
     this.learningRate = 0.1;
     this.memorySize = 5;
+  }
+
+  // Enhanced to include toss decision making
+  makeTossDecision(gameState) {
+    // For toss decisions, gameState includes: format, isHome (if applicable)
+    const { format } = gameState;
+    
+    // AI prefers to bat first in shorter formats, bowl first in longer ones
+    if (format === '5' || format === '10' || format === '20') {
+      return Math.random() < 0.7 ? 'bat' : 'bowl';
+    } else {
+      // For ODI and Test matches, prefer bowling first
+      return Math.random() < 0.3 ? 'bat' : 'bowl';
+    }
   }
 
   makeDecision(gameState) {
@@ -145,7 +159,7 @@ export class AIOpponent {
         // Normal play with slight randomness
         const base = this.mediumAI(gameState);
         const variation = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
-        this.pattern.push(Math.max(0, Math.min(6, base + variation)));
+        this.pattern.push(Math.max(0, Math.min(6, base + variation));
       }
     }
   }
