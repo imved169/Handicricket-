@@ -158,7 +158,7 @@
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
     import { AIOpponent } from './ai.js';
 
-    // ========== DEBUGGING TOOLS ==========
+    // Debugging Tools
     function debugLog(message) {
       const consoleElement = document.getElementById('debugConsole');
       const entry = document.createElement('div');
@@ -179,7 +179,7 @@
       document.getElementById('errorSection').style.display = 'none';
     }
 
-    // ========== FIREBASE INITIALIZATION ==========
+    // Firebase Initialization
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
@@ -189,17 +189,10 @@
       appId: "1:356065986337:web:399102c5dabfca2b6fe060"
     };
 
-    let db;
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getDatabase(app);
-      debugLog("Firebase initialized successfully");
-    } catch (error) {
-      showError("Failed to initialize Firebase. Please refresh the page.");
-      throw error;
-    }
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    // ========== GAME INITIALIZATION ==========
+    // Game Initialization
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
@@ -212,8 +205,6 @@
     const isAIMode = room.includes('AI');
     const opponent = isAIMode ? 'AI' : (player === "player1" ? "player2" : "player1");
     const ai = isAIMode ? new AIOpponent('medium') : null;
-
-    debugLog(`Game initialized - Room: ${room}, Player: ${player}, Mode: ${isAIMode ? 'AI' : 'Multiplayer'}`);
 
     // DOM Elements
     const elements = {
@@ -235,7 +226,7 @@
     elements.roomCode.textContent = `Room Code: ${room}`;
     elements.playerStatus.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
 
-    // Game state
+    // Game State
     const gameState = {
       tossCompleted: false,
       decisionMade: false,
@@ -243,7 +234,7 @@
       firebaseConnected: false
     };
 
-    // ========== FIREBASE CONNECTION MONITORING ==========
+    // Firebase Connection Monitoring
     onValue(ref(db, ".info/connected"), (snap) => {
       gameState.firebaseConnected = snap.val() === true;
       debugLog(`Firebase connection: ${gameState.firebaseConnected ? 'Connected' : 'Disconnected'}`);
@@ -255,7 +246,7 @@
       }
     });
 
-    // ========== MAIN GAME FUNCTIONS ==========
+    // Main Game Functions
     async function initializeGame() {
       debugLog("Starting game initialization...");
       
@@ -264,10 +255,8 @@
           debugLog("Initializing AI mode game");
           
           // Set both players as ready in AI mode
-          await Promise.all([
-            set(ref(db, `rooms/${room}/${player}/ready`), true),
-            set(ref(db, `rooms/${room}/${opponent}/ready`), true)
-          ]);
+          await set(ref(db, `rooms/${room}/${player}/ready`), true);
+          await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
           
           debugLog("Both players marked as ready in AI mode");
           
@@ -337,7 +326,7 @@
       }
     }
 
-    // ========== EVENT LISTENERS ==========
+    // Event Listeners
     elements.tossBtn.addEventListener("click", async () => {
       debugLog("Toss button clicked");
       elements.tossBtn.disabled = true;
@@ -385,7 +374,7 @@
       }
     }
 
-    // ========== FIREBASE LISTENERS ==========
+    // Firebase Listeners
     function initializeListeners() {
       debugLog("Setting up Firebase listeners");
       
@@ -481,7 +470,7 @@
       }
     }
 
-    // ========== START THE GAME ==========
+    // Start the Game
     debugLog("Starting game setup...");
     initializeListeners();
     initializeGame();
