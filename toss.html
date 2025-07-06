@@ -67,21 +67,13 @@
       color: #000;
       box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
       animation: none;
-      transition: transform 0.5s ease-out;
     }
     .spinning {
       animation: spin 0.5s linear infinite;
     }
-    .flip-out {
-      animation: flipOut 0.5s ease-out forwards;
-    }
     @keyframes spin {
       from { transform: rotateY(0deg); }
       to { transform: rotateY(360deg); }
-    }
-    @keyframes flipOut {
-      0% { transform: rotateY(0deg); }
-      100% { transform: rotateY(180deg); }
     }
     .waiting {
       margin-top: 20px;
@@ -122,19 +114,6 @@
       max-height: 150px;
       overflow-y: auto;
     }
-    .loading {
-      margin: 20px 0;
-      display: none;
-    }
-    .loading-spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid #1e88e5;
-      width: 30px;
-      height: 30px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
   </style>
 </head>
 <body>
@@ -147,6 +126,7 @@
       Initializing game...
     </div>
     
+    <!-- Only show coin toss elements in multiplayer mode -->
     <div id="coin" class="coin" style="display: none;">TOSS</div>
     
     <div id="tossButtonSection" style="display: none;">
@@ -166,10 +146,7 @@
     </div>
 
     <div id="aiSection" class="ai-message" style="display: none;">
-      <div class="loading">
-        <div class="loading-spinner"></div>
-        <p>AI is making decision...</p>
-      </div>
+      AI is making decision...
     </div>
 
     <div id="errorSection" class="error-message" style="display: none;"></div>
@@ -182,7 +159,7 @@
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
     import { AIOpponent } from './ai.js';
 
-    // ========== DEBUGGING TOOLS ==========
+    // Debugging tools
     function debugLog(message) {
       const consoleElement = document.getElementById('debugConsole');
       const entry = document.createElement('div');
@@ -203,15 +180,7 @@
       document.getElementById('errorSection').style.display = 'none';
     }
 
-    function showLoading(containerId, show = true) {
-      const container = document.getElementById(containerId);
-      const loadingDiv = container.querySelector('.loading');
-      if (loadingDiv) {
-        loadingDiv.style.display = show ? 'block' : 'none';
-      }
-    }
-
-    // ========== FIREBASE INITIALIZATION ==========
+    // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
@@ -231,7 +200,7 @@
       throw error;
     }
 
-    // ========== GAME INITIALIZATION ==========
+    // Game initialization
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
@@ -275,7 +244,7 @@
       firebaseConnected: false
     };
 
-    // ========== FIREBASE CONNECTION MONITORING ==========
+    // Firebase connection monitoring
     onValue(ref(db, ".info/connected"), (snap) => {
       gameState.firebaseConnected = snap.val() === true;
       debugLog(`Firebase connection: ${gameState.firebaseConnected ? 'Connected' : 'Disconnected'}`);
@@ -287,46 +256,32 @@
       }
     });
 
-    // ========== MAIN GAME FUNCTIONS ==========
+    // Main game functions
     async function initializeGame() {
       debugLog("Starting game initialization...");
       
       try {
         if (isAIMode) {
           debugLog("Initializing AI mode game");
-          elements.playerStatus.textContent = "Setting up AI opponent...";
           
-          // Set both players as ready in AI mode
+          // In AI mode, skip toss and go straight to choice
+          elements.playerStatus.textContent = "Make your choice";
+          elements.choiceSection.style.display = "block";
+          
+          // Set both players as ready
           await Promise.all([
             set(ref(db, `rooms/${room}/${player}/ready`), true),
             set(ref(db, `rooms/${room}/${opponent}/ready`), true)
           ]);
-          
-          debugLog("Both players marked as ready in AI mode");
-          
-          if (player === 'player1') {
-            showTossInterface();
-          } else {
-            performAIToss();
-          }
         } else {
           debugLog("Initializing multiplayer game");
           await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          debugLog("Player ready status set");
           await checkOpponentReady();
         }
       } catch (error) {
         showError("Failed to initialize game. Please refresh.");
         debugLog(`Initialization error: ${error.message}`);
-        console.error(error);
       }
-    }
-
-    function showTossInterface() {
-      debugLog("Showing toss interface for player");
-      elements.tossSection.style.display = "block";
-      elements.coin.style.display = "flex";
-      elements.playerStatus.textContent = "Your turn to toss!";
     }
 
     async function checkOpponentReady() {
@@ -344,7 +299,6 @@
             elements.playerStatus.textContent = "Waiting for opponent to toss...";
           }
         } else {
-          debugLog("Opponent not ready yet, checking again in 1 second");
           setTimeout(checkOpponentReady, 1000);
         }
       } catch (error) {
@@ -353,101 +307,45 @@
       }
     }
 
-    async function performAIToss() {
-      debugLog("AI performing toss...");
+    function showTossInterface() {
+      debugLog("Showing toss interface for player");
+      elements.tossSection.style.display = "block";
       elements.coin.style.display = "flex";
-      elements.coin.classList.add("spinning");
-      elements.result.textContent = "AI is tossing the coin...";
-      
-      // Simulate AI thinking time
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        // Determine toss winner (50/50 chance)
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
-        debugLog(`AI toss result: ${winner}`);
-        
-        // Animate coin flip
-        elements.coin.classList.remove("spinning");
-        elements.coin.classList.add("flip-out");
-        
-        // Wait for animation to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Update coin display
-        elements.coin.textContent = winner === 'player1' ? 'HEADS' : 'TAILS';
-        elements.coin.classList.remove("flip-out");
-        
-        // Save result to database
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-        
-        // Show result message
-        elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
-        
-        // If AI won, make decision
-        if (winner === 'player2') {
-          await handleAIChoice();
-        }
-      } catch (error) {
-        showError("Failed to process AI toss");
-        debugLog(`AI toss error: ${error.message}`);
-      }
+      elements.playerStatus.textContent = "Your turn to toss!";
     }
 
-    // ========== EVENT LISTENERS ==========
+    // Event listeners
     elements.tossBtn.addEventListener("click", async () => {
       debugLog("Toss button clicked");
       elements.tossBtn.disabled = true;
       elements.coin.classList.add("spinning");
       elements.result.textContent = "Tossing...";
       
-      // Simulate coin flip
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        // Determine toss winner (50/50 chance)
         const winner = Math.random() < 0.5 ? 'player1' : 'player2';
         debugLog(`Toss result: ${winner}`);
-        
-        // Animate coin flip
-        elements.coin.classList.remove("spinning");
-        elements.coin.classList.add("flip-out");
-        
-        // Wait for animation to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Update coin display
-        elements.coin.textContent = winner === 'player1' ? 'HEADS' : 'TAILS';
-        elements.coin.classList.remove("flip-out");
-        
-        // Save result to database
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
         
-        // Show result message
         elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
         
-        // If player won, show choice buttons
         if (winner === player) {
           elements.choiceSection.style.display = "block";
-        } else if (isAIMode) {
-          await handleAIChoice();
         } else {
           elements.waitingSection.style.display = "block";
         }
       } catch (error) {
         showError("Failed to process toss");
-        debugLog(`Toss error: ${error.message}`);
         elements.tossBtn.disabled = false;
       }
     });
 
     elements.batBtn.addEventListener("click", async () => {
-      debugLog("Player chose to bat first");
       await makeChoice('bat');
     });
 
     elements.bowlBtn.addEventListener("click", async () => {
-      debugLog("Player chose to bowl first");
       await makeChoice('bowl');
     });
 
@@ -462,69 +360,48 @@
           battingFirst: decision === 'bat' ? player : opponent,
           bowlingFirst: decision === 'bowl' ? player : opponent
         });
-        debugLog("Choice saved successfully");
         
-        // Redirect to game after short delay
         setTimeout(() => {
           window.location.href = `game.html?room=${room}&player=${player}`;
         }, 2000);
       } catch (error) {
         showError("Failed to save your choice");
-        debugLog(`Choice error: ${error.message}`);
       }
     }
 
-    // ========== FIREBASE LISTENERS ==========
+    // Firebase listeners
     function initializeListeners() {
       debugLog("Setting up Firebase listeners");
       
       // Format listener
       onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-        if (!snap.exists()) {
-          debugLog("No format found in database");
-          return;
+        if (snap.exists()) {
+          gameState.format = snap.val() || "5";
+          const formatNames = {
+            "5": "5 Overs", "10": "10 Overs", "20": "T20",
+            "50": "ODI", "test": "Test Match"
+          };
+          elements.formatDisplay.textContent = `Match Format: ${formatNames[gameState.format]}`;
         }
-        
-        gameState.format = snap.val() || "5";
-        const formatNames = {
-          "5": "5 Overs", "10": "10 Overs", "20": "T20",
-          "50": "ODI", "test": "Test Match"
-        };
-        elements.formatDisplay.textContent = `Match Format: ${formatNames[gameState.format]}`;
-        debugLog(`Format set to: ${gameState.format}`);
-      }, (error) => {
-        showError("Error loading match format");
-        debugLog(`Format listener error: ${error.message}`);
       });
 
-      // Toss winner listener
-      onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
-        const winner = snap.val();
-        if (!winner || gameState.tossCompleted) return;
-        
-        gameState.tossCompleted = true;
-        elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
-        elements.tossSection.style.display = "none";
-        elements.coin.classList.remove("spinning");
-        elements.coin.textContent = winner === 'player1' ? 'HEADS' : 'TAILS';
-        debugLog(`Toss completed - winner: ${winner}`);
-        
-        if (player === winner) {
-          debugLog("Player won toss - showing choice buttons");
-          elements.choiceSection.style.display = "block";
-        } else {
-          if (isAIMode) {
-            debugLog("AI won toss - handling AI choice");
-            handleAIChoice();
+      // Toss winner listener (only for multiplayer)
+      if (!isAIMode) {
+        onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
+          const winner = snap.val();
+          if (!winner || gameState.tossCompleted) return;
+          
+          gameState.tossCompleted = true;
+          elements.tossSection.style.display = "none";
+          elements.coin.classList.remove("spinning");
+          
+          if (player === winner) {
+            elements.choiceSection.style.display = "block";
           } else {
-            debugLog("Waiting for opponent's choice");
             elements.waitingSection.style.display = "block";
           }
-        }
-      }, (error) => {
-        showError("Error processing toss result");
-        debugLog(`Toss winner listener error: ${error.message}`);
-      });
+        });
+      }
 
       // Decision listener
       onValue(ref(db, `rooms/${room}/decision`), (snap) => {
@@ -532,48 +409,15 @@
         if (!decision || gameState.decisionMade) return;
         
         gameState.decisionMade = true;
-        const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
-        elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decisionText}`;
-        debugLog(`Decision made: ${decision}`);
+        elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decision === 'bat' ? 'bat' : 'bowl'} first`;
         
-        // Redirect to game after short delay
         setTimeout(() => {
-          debugLog("Redirecting to game screen");
           window.location.href = `game.html?room=${room}&player=${player}`;
         }, 2000);
-      }, (error) => {
-        showError("Error processing game decision");
-        debugLog(`Decision listener error: ${error.message}`);
       });
     }
 
-    async function handleAIChoice() {
-      debugLog("Handling AI choice...");
-      elements.aiSection.style.display = "block";
-      elements.waitingSection.style.display = "none";
-      showLoading('aiSection', true);
-      
-      // AI takes 1-2 seconds to "think"
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-      
-      try {
-        const decision = ai.makeTossDecision({ format: gameState.format });
-        debugLog(`AI decided to: ${decision}`);
-        
-        await set(ref(db, `rooms/${room}/decision`), decision);
-        await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? 'player2' : 'player1',
-          bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
-        });
-      } catch (error) {
-        showError("AI failed to make decision");
-        debugLog(`AI choice error: ${error.message}`);
-      } finally {
-        showLoading('aiSection', false);
-      }
-    }
-
-    // ========== START THE GAME ==========
+    // Start the game
     debugLog("Starting game setup...");
     initializeListeners();
     initializeGame();
