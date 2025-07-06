@@ -968,6 +968,54 @@
     const room = params.get('room');
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
+    const isAIMode = room.includes('AI');
+
+    // AI Player Logic
+    class AIOpponent {
+      constructor(difficulty = 'medium') {
+        this.difficulty = difficulty;
+      }
+
+      makePlay(currentSituation) {
+        // Current situation includes:
+        // - runs, wickets, overs, target (if chasing)
+        // - isPowerplay, isDeadOver
+        // - currentBatterStats, currentBowlerStats
+        
+        // Simple AI logic - can be enhanced based on difficulty
+        if (currentSituation.isBatting) {
+          return this.makeBattingPlay(currentSituation);
+        } else {
+          return this.makeBowlingPlay(currentSituation);
+        }
+      }
+
+      makeBattingPlay(situation) {
+        // More aggressive in powerplay, more conservative when defending
+        const aggression = situation.isPowerplay ? 0.7 : 
+                          (situation.target ? (situation.runsRequired / situation.ballsRemaining > 6 ? 0.8 : 0.5) : 0.6);
+        
+        // Higher chance of playing big shots when aggressive
+        if (Math.random() < aggression * 0.3) {
+          return Math.floor(Math.random() * 3) + 4; // 4-6
+        } else {
+          return Math.floor(Math.random() * 4); // 0-3
+        }
+      }
+
+      makeBowlingPlay(situation) {
+        // More likely to bowl 0 when defending, mix it up otherwise
+        if (situation.target && situation.runsRequired < situation.ballsRemaining * 2) {
+          return Math.random() < 0.4 ? 0 : Math.floor(Math.random() * 3) + 1;
+        }
+        return Math.floor(Math.random() * 4); // 0-3
+      }
+    }
+
+    let aiOpponent = null;
+    if (isAIMode) {
+      aiOpponent = new AIOpponent('medium');
+    }
 
     const formatRules = {
       "5": { 
@@ -1458,11 +1506,9 @@
       isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
       
       // Update role text
-      const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
-      const decision = decisionSnap.val();
       roleText.textContent = isBatting ? 
-        `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'})` : 
-        `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'})`;
+        `You are Batting` : 
+        `You are Bowling`;
       
       if (isBatting) {
         showBatterSelection();
@@ -1582,33 +1628,189 @@
       }
     }
 
-    function initializeBatterStats() {
-      const roomRef = ref(db, `rooms/${room}`);
-      get(roomRef).then(snapshot => {
-        const data = snapshot.val();
-        
-        // Initialize for player1's team
-        if (data.player1?.playing11) {
-          data.player1.playing11.forEach(player => {
-            batterStats[player] = { runs: 0, balls: 0 };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
+    function showPlayerSelection(players, role) {
+      selectionTitle.textContent = `Select Next ${role === 'batter' ? 'Batter' : 'Bowler'}`;
+      playerList.innerHTML = '';
+      
+      players.forEach(player => {
+        const playerOption = document.createElement('div');
+        playerOption.className = 'player-option';
+        playerOption.textContent = player;
+        playerOption.addEventListener('click', () => {
+          document.querySelectorAll('.player-option').forEach(opt => opt.classList.remove('selected'));
+          playerOption.classList.add('selected');
+        });
+        playerList.appendChild(playerOption);
+      });
+      
+      playerSelectionModal.style.display = 'flex';
+    }
+
+    confirmPlayerSelection.addEventListener('click', async () => {
+      const selectedPlayer = document.querySelector('.player-option.selected');
+      if (!selectedPlayer) {
+        showNotification('Please select a player', 'warning');
+        return;
+      }
+      
+      try {
+        if (isBatting) {
+          currentBatter = selectedPlayer.textContent;
+          await set(ref(db, `rooms/${room}/currentBatter`), currentBatter);
+          if (!battersUsed.includes(currentBatter)) {
+            battersUsed.push(currentBatter);
+            batterWickets[currentBatter] = 0;
+          }
+        } else {
+          currentBowler = selectedPlayer.textContent;
+          await set(ref(db, `rooms/${room}/currentBowler`), currentBowler);
         }
         
-        // Initialize for player2's team
-        if (data.player2?.playing11) {
-          data.player2.playing11.forEach(player => {
-            batterStats[player] = { runs: 0, balls: 0 };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
+        playerSelectionModal.style.display = 'none';
+        enableButtons();
+        updateCurrentPlayers();
+        updatePlayingXI();
+        statusMessage.textContent = isBatting ? 'Select your batting number' : 'Select your bowling number';
+      } catch (error) {
+        showError('Failed to select player: ' + error.message);
+      }
+    });
+
+    // Card selection event listeners
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const value = parseInt(card.dataset.value);
+        
+        // Disable buttons while processing
+        disableButtons();
+        
+        // Show selected card
+        selectedValueEl.textContent = value;
+        selectedCardEl.style.display = 'block';
+        
+        try {
+          // Save player's play
+          await set(ref(db, `rooms/${room}/currentPlays/${player}`), value);
+          
+          // If AI mode, make AI play immediately
+          if (isAIMode) {
+            const currentSituation = {
+              isBatting: player === battingFirst,
+              runs: runs,
+              wickets: wickets,
+              overs: legalBalls / 6,
+              target: innings === 2 ? team1Score + 1 : null,
+              runsRequired: innings === 2 ? (team1Score + 1 - runs) : null,
+              ballsRemaining: currentFormat.totalOvers * 6 - legalBalls,
+              isPowerplay: isPowerplay,
+              isDeadOver: isDeadOver,
+              currentBatter: currentBatter,
+              currentBowler: currentBowler
+            };
+            
+            const aiPlay = aiOpponent.makePlay(currentSituation);
+            
+            // Small delay to simulate thinking
+            setTimeout(async () => {
+              await set(ref(db, `rooms/${room}/currentPlays/${opponent}`), aiPlay);
+            }, 1000 + Math.random() * 1000);
+          }
+        } catch (error) {
+          showError('Failed to save your play: ' + error.message);
+          enableButtons();
         }
       });
+    });
+
+    async function loadGameState() {
+      try {
+        // Load toss winner and decision
+        const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
+        tossWinner = tossSnap.val();
+        
+        const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
+        const decision = decisionSnap.val();
+        
+        battingFirst = decision === 'bat' ? tossWinner : (tossWinner === "player1" ? "player2" : "player1");
+        
+        // Set initial batting role
+        isBatting = (player === battingFirst);
+        roleText.textContent = isBatting ? 
+          `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'})` : 
+          `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'})`;
+        
+        // Load format
+        const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
+        const format = formatSnap.val() || "5";
+        currentFormat = formatRules[format];
+        isTestMatch = format === "test";
+        formatDisplay.textContent = `Match Format: ${currentFormat.name}`;
+        
+        // Load teams
+        const team1Snap = await get(ref(db, `rooms/${room}/player1/playing11`));
+        const team2Snap = await get(ref(db, `rooms/${room}/player2/playing11`));
+        
+        team1NameEl.textContent = `Team ${player === "player1" ? "1 (You)" : "1"}`;
+        team2NameEl.textContent = `Team ${player === "player2" ? "2 (You)" : "2"}`;
+        
+        team1PlayersEl.innerHTML = '';
+        team2PlayersEl.innerHTML = '';
+        
+        team1Snap.val().forEach(player => {
+          const li = document.createElement('li');
+          li.className = 'player-item';
+          li.textContent = player;
+          team1PlayersEl.appendChild(li);
+        });
+        
+        team2Snap.val().forEach(player => {
+          const li = document.createElement('li');
+          li.className = 'player-item';
+          li.textContent = player;
+          team2PlayersEl.appendChild(li);
+        });
+        
+        // Initialize stats
+        initializeBatterStats();
+        
+        // Show initial player selection
+        if (isBatting) {
+          showBatterSelection();
+        } else {
+          showBowlerSelection();
+        }
+        
+        // Show test controls if test match
+        testControls.style.display = isTestMatch ? 'flex' : 'none';
+      } catch (error) {
+        showError('Failed to load game state: ' + error.message);
+      }
+    }
+
+    function initializeBatterStats() {
+      // Initialize for player1's team
+      if (team1PlayersEl.children.length > 0) {
+        Array.from(team1PlayersEl.children).forEach(playerEl => {
+          const player = playerEl.textContent;
+          batterStats[player] = { runs: 0, balls: 0 };
+          batterWickets[player] = 0;
+          milestoneLevels.forEach(level => {
+            batterStats[player][`milestone${level}Notified`] = false;
+          });
+        });
+      }
+      
+      // Initialize for player2's team
+      if (team2PlayersEl.children.length > 0) {
+        Array.from(team2PlayersEl.children).forEach(playerEl => {
+          const player = playerEl.textContent;
+          batterStats[player] = { runs: 0, balls: 0 };
+          batterWickets[player] = 0;
+          milestoneLevels.forEach(level => {
+            batterStats[player][`milestone${level}Notified`] = false;
+          });
+        });
+      }
     }
 
     function checkBattingMilestones() {
@@ -1661,11 +1863,11 @@
       onValue(opponentRef, (snap) => {
         if (!snap.exists() || !snap.val()) {
           connectionStatus.textContent = "Opponent: Offline (Game Paused)";
-          connectionStatus.className = "offline";
+          connectionStatus.className = "connection-status offline";
           disableButtons();
         } else {
           connectionStatus.textContent = "Opponent: Online";
-          connectionStatus.className = "online";
+          connectionStatus.className = "connection-status online";
           if (playerSelectionModal.style.display !== 'flex') {
             enableButtons();
           }
@@ -1993,15 +2195,20 @@
       }
     }
 
+    function setupEventListeners() {
+      // Game control buttons
+      saveBtn.addEventListener('click', saveGame);
+      exitBtn.addEventListener('click', exitGame);
+      resetPlaysBtn.addEventListener('click', resetPlays);
+      declareBtn.addEventListener('click', declareInnings);
+      followOnBtn.addEventListener('click', enforceFollowOn);
+      
+      // Before unload handler
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
     // Start the game
     initGame();
-
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
-      if (gameInProgress) {
-        set(playerRef, false);
-      }
-    });
   </script>
 </body>
-  </html>
+        </html>
