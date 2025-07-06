@@ -1,166 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Toss Time</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { 
-      background: #061e3e; 
-      color: white; 
-      font-family: sans-serif; 
-      text-align: center; 
-      padding: 30px; 
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
     }
-    h2 { 
-      margin-bottom: 20px; 
+    .game-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      background: rgba(13, 42, 82, 0.8);
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     }
-    button { 
-      padding: 12px 24px; 
-      font-size: 16px; 
-      border: none; 
-      border-radius: 10px; 
-      background: #1e88e5; 
-      color: white; 
-      cursor: pointer; 
-      margin: 10px; 
+    h1 {
+      color: #FFD700;
+      margin-bottom: 25px;
+    }
+    .info-display {
+      background: #0d2a52;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 18px;
+    }
+    .button-group {
+      margin: 25px 0;
+    }
+    .game-button {
+      background: #1e88e5;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      margin: 10px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
       transition: all 0.3s;
+      min-width: 120px;
     }
-    button:hover { 
-      background: #1565c0; 
+    .game-button:hover {
+      background: #1565c0;
       transform: scale(1.05);
     }
-    button:disabled {
+    .game-button:disabled {
       background: #607d8b;
       cursor: not-allowed;
       transform: none;
     }
-    #result, #choiceSection { 
-      margin-top: 20px; 
-      font-size: 18px;
-    }
-    #formatDisplay { 
-      margin: 15px 0; 
-      font-size: 18px; 
-      color: #ffeb3b; 
-      font-weight: bold;
-    }
-    #roomCodeDisplay {
-      font-size: 20px;
-      margin-bottom: 15px;
-      background: #0d2a52;
-      padding: 10px;
-      border-radius: 8px;
-      display: inline-block;
-    }
-    .player-status {
-      margin-top: 15px;
-      padding: 10px;
-      background: #0d2a52;
-      border-radius: 8px;
+    .status-message {
+      margin: 20px 0;
       font-size: 16px;
+      min-height: 24px;
     }
-    .waiting {
-      margin-top: 20px;
-      font-size: 16px;
+    .waiting-message {
       color: #4CAF50;
-    }
-    .toss-container {
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 20px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 15px;
+      font-style: italic;
     }
     .ai-message {
-      color: #ff9800;
+      color: #FF9800;
       font-style: italic;
-      margin: 10px 0;
     }
     .error-message {
-      color: #ff5252;
+      color: #FF5252;
       font-weight: bold;
-      margin-top: 15px;
     }
-    .loading-message {
-      color: #bbbbbb;
-      font-style: italic;
+    .highlight {
+      color: #FFEB3B;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div class="toss-container">
-    <h2>🪙 Toss Time</h2>
-    <div id="roomCodeDisplay">Room Code: <span class="loading-message">Loading...</span></div>
-    <div id="formatDisplay">Match Format: <span class="loading-message">Loading...</span></div>
+  <div class="game-container">
+    <h1>🪙 Toss Time</h1>
     
-    <div class="player-status" id="playerStatus">
-      <span class="loading-message">Initializing game...</span>
+    <div class="info-display" id="roomCodeDisplay">
+      Room Code: <span class="highlight" id="roomCodeText">Loading...</span>
     </div>
     
-    <div id="choiceSection" style="display: none;">
-      <p>Choose to:</p>
-      <button id="batBtn">Bat First</button>
-      <button id="bowlBtn">Bowl First</button>
+    <div class="info-display" id="formatDisplay">
+      Match Format: <span class="highlight" id="formatText">Loading...</span>
     </div>
     
-    <div id="result"></div>
+    <div class="info-display" id="playerStatus">
+      <span id="statusText">Initializing game...</span>
+    </div>
     
-    <div id="waitingSection" class="waiting" style="display: none;">
+    <div class="button-group" id="choiceSection" style="display: none;">
+      <p>You have the choice:</p>
+      <button class="game-button" id="batBtn">Bat First</button>
+      <button class="game-button" id="bowlBtn">Bowl First</button>
+    </div>
+    
+    <div class="status-message" id="result"></div>
+    
+    <div class="status-message waiting-message" id="waitingSection" style="display: none;">
       Waiting for opponent's decision...
     </div>
 
-    <div id="aiSection" class="ai-message" style="display: none;">
+    <div class="status-message ai-message" id="aiSection" style="display: none;">
       AI is making decision...
     </div>
 
-    <div id="errorSection" class="error-message" style="display: none;"></div>
+    <div class="status-message error-message" id="errorSection" style="display: none;"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
     import { AIOpponent } from './ai.js';
 
-    // ========== GAME INITIALIZATION ==========
+    // Game configuration
     const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get('room');
-    const player = urlParams.get('player');
+    const roomCode = urlParams.get('room');
+    const playerRole = urlParams.get('player');
+    const isAIMode = roomCode.includes('AI');
+    const opponentRole = isAIMode ? 'AI' : (playerRole === "player1" ? "player2" : "player1");
 
-    if (!room || !player) {
-      showError("Missing room or player parameters in URL. Please join through the main menu.");
-      throw new Error("Missing required URL parameters");
-    }
-
-    const isAIMode = room.includes('AI');
-    const opponent = isAIMode ? 'AI' : (player === "player1" ? "player2" : "player1");
-
-    // DOM Elements
+    // DOM elements
     const elements = {
-      roomCode: document.getElementById("roomCodeDisplay"),
-      playerStatus: document.getElementById("playerStatus"),
+      roomCodeText: document.getElementById("roomCodeText"),
+      formatText: document.getElementById("formatText"),
+      statusText: document.getElementById("statusText"),
       result: document.getElementById("result"),
       choiceSection: document.getElementById("choiceSection"),
       batBtn: document.getElementById("batBtn"),
       bowlBtn: document.getElementById("bowlBtn"),
-      formatDisplay: document.getElementById("formatDisplay"),
       waitingSection: document.getElementById("waitingSection"),
       aiSection: document.getElementById("aiSection"),
       errorSection: document.getElementById("errorSection")
     };
 
     // Initialize UI
-    elements.roomCode.innerHTML = `Room Code: <strong>${room}</strong>`;
-    elements.playerStatus.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
+    elements.roomCodeText.textContent = roomCode;
+    elements.statusText.textContent = `You are ${playerRole.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
 
-    // Game state
-    const gameState = {
-      decisionMade: false,
-      format: '5',
-      firebaseConnected: false
-    };
-
-    // ========== FIREBASE INITIALIZATION ==========
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
@@ -170,89 +154,115 @@
       appId: "1:356065986337:web:399102c5dabfca2b6fe060"
     };
 
-    let db;
+    // Initialize Firebase
     try {
       const app = initializeApp(firebaseConfig);
-      db = getDatabase(app);
-      console.log("Firebase initialized successfully");
+      const db = getDatabase(app);
       
-      // Update UI to show connection is established
-      elements.playerStatus.textContent = `Connected as ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
-      
-      // Initialize game after Firebase is ready
-      initializeGame();
-      initializeListeners();
+      // Start game initialization
+      initializeGame(db);
     } catch (error) {
-      showError("Failed to initialize Firebase. Please refresh the page.");
-      console.error(error);
+      showError("Failed to connect to game server. Please refresh the page.");
+      console.error("Firebase initialization error:", error);
     }
 
     function showError(message) {
       elements.errorSection.textContent = message;
       elements.errorSection.style.display = 'block';
-      console.error(message);
     }
 
-    // ========== MAIN GAME FUNCTIONS ==========
-    async function initializeGame() {
+    async function initializeGame(db) {
       try {
+        // Set player as ready
+        await set(ref(db, `rooms/${roomCode}/${playerRole}/ready`), true);
+        
         if (isAIMode) {
-          // Set both players as ready in AI mode
-          await Promise.all([
-            set(ref(db, `rooms/${room}/${player}/ready`), true),
-            set(ref(db, `rooms/${room}/${opponent}/ready`), true)
-          ]);
+          // In AI mode, automatically set AI as ready
+          await set(ref(db, `rooms/${roomCode}/${opponentRole}/ready`), true);
           
-          if (player === 'player1') {
-            elements.choiceSection.style.display = "block";
-            elements.playerStatus.textContent = "Choose to bat or bowl first";
+          if (playerRole === 'player1') {
+            // Player 1 in AI mode gets direct choice
+            showChoiceButtons();
           } else {
-            await makeAIChoice();
+            // AI makes automatic decision
+            makeAIDecision(db);
           }
         } else {
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          await checkOpponentReady();
+          // Multiplayer mode - wait for opponent
+          waitForOpponent(db);
         }
         
-        // Load match format
-        const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
-        if (formatSnap.exists()) {
-          gameState.format = formatSnap.val() || "5";
+        // Set up realtime listeners
+        setupGameListeners(db);
+      } catch (error) {
+        showError("Game initialization failed. Please try again.");
+        console.error("Game initialization error:", error);
+      }
+    }
+
+    function showChoiceButtons() {
+      elements.statusText.textContent = "Choose to bat or bowl first";
+      elements.choiceSection.style.display = "block";
+    }
+
+    async function makeAIDecision(db) {
+      elements.aiSection.style.display = "block";
+      
+      // AI takes 1-2 seconds to "think"
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      try {
+        const ai = new AIOpponent('medium');
+        const decision = ai.makeTossDecision({ format: "5" }); // Default format
+        
+        await set(ref(db, `rooms/${roomCode}/decision`), decision);
+        await update(ref(db, `rooms/${roomCode}`), {
+          battingFirst: decision === 'bat' ? opponentRole : playerRole,
+          bowlingFirst: decision === 'bowl' ? opponentRole : playerRole
+        });
+      } catch (error) {
+        showError("AI decision failed");
+        console.error("AI decision error:", error);
+      }
+    }
+
+    function waitForOpponent(db) {
+      if (playerRole === 'player1') {
+        elements.waitingSection.style.display = "block";
+      } else {
+        showChoiceButtons();
+      }
+    }
+
+    function setupGameListeners(db) {
+      // Listen for format changes
+      onValue(ref(db, `rooms/${roomCode}/player1/format`), (snapshot) => {
+        if (snapshot.exists()) {
+          const format = snapshot.val();
           const formatNames = {
             "5": "5 Overs", "10": "10 Overs", "20": "T20",
             "50": "ODI", "test": "Test Match"
           };
-          elements.formatDisplay.innerHTML = `Match Format: <strong>${formatNames[gameState.format]}</strong>`;
+          elements.formatText.textContent = formatNames[format] || "Custom";
         }
-      } catch (error) {
-        showError("Failed to initialize game. Please refresh.");
-        console.error(error);
-      }
-    }
+      });
 
-    async function checkOpponentReady() {
-      try {
-        const opponentSnap = await get(ref(db, `rooms/${room}/${opponent}/ready`));
-        
-        if (opponentSnap.exists() && opponentSnap.val()) {
-          elements.playerStatus.textContent = "Both players ready!";
+      // Listen for game decisions
+      onValue(ref(db, `rooms/${roomCode}/decision`), (snapshot) => {
+        const decision = snapshot.val();
+        if (decision) {
+          const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
+          elements.result.textContent = `${isAIMode ? 'AI' : opponentRole.toUpperCase()} chose to ${decisionText}`;
           
-          if (player === 'player2') {
-            elements.choiceSection.style.display = "block";
-            elements.playerStatus.textContent = "Choose to bat or bowl first";
-          } else {
-            elements.waitingSection.style.display = "block";
-          }
-        } else {
-          setTimeout(checkOpponentReady, 1000);
+          // Redirect to game after short delay
+          setTimeout(() => {
+            window.location.href = `game.html?room=${roomCode}&player=${playerRole}`;
+          }, 2000);
         }
-      } catch (error) {
-        showError("Error checking opponent status");
-        console.error(error);
-      }
+      });
     }
 
-    // ========== EVENT LISTENERS ==========
+    // Button event listeners
     elements.batBtn.addEventListener("click", async () => {
       await makeChoice('bat');
     });
@@ -262,55 +272,20 @@
     });
 
     async function makeChoice(decision) {
-      elements.choiceSection.style.display = "none";
-      elements.result.innerHTML = `You chose to ${decision} first`;
-      
       try {
-        await set(ref(db, `rooms/${room}/decision`), decision);
-        await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? player : opponent,
-          bowlingFirst: decision === 'bowl' ? player : opponent
+        const db = getDatabase();
+        elements.choiceSection.style.display = "none";
+        elements.result.textContent = `You chose to ${decision} first`;
+        
+        await set(ref(db, `rooms/${roomCode}/decision`), decision);
+        await update(ref(db, `rooms/${roomCode}`), {
+          battingFirst: decision === 'bat' ? playerRole : opponentRole,
+          bowlingFirst: decision === 'bowl' ? playerRole : opponentRole
         });
       } catch (error) {
         showError("Failed to save your choice");
-        console.error(error);
+        console.error("Choice error:", error);
       }
-    }
-
-    async function makeAIChoice() {
-      elements.aiSection.style.display = "block";
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-      
-      try {
-        const ai = new AIOpponent('medium');
-        const decision = ai.makeTossDecision({ format: gameState.format });
-        
-        await set(ref(db, `rooms/${room}/decision`), decision);
-        await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? 'player2' : 'player1',
-          bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
-        });
-      } catch (error) {
-        showError("AI failed to make decision");
-        console.error(error);
-      }
-    }
-
-    // ========== FIREBASE LISTENERS ==========
-    function initializeListeners() {
-      // Decision listener
-      onValue(ref(db, `rooms/${room}/decision`), (snap) => {
-        const decision = snap.val();
-        if (!decision || gameState.decisionMade) return;
-        
-        gameState.decisionMade = true;
-        const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
-        elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decisionText}`;
-        
-        setTimeout(() => {
-          window.location.href = `game.html?room=${room}&player=${player}`;
-        }, 2000);
-      });
     }
   </script>
 </body>
