@@ -231,7 +231,8 @@
       tossCompleted: false,
       decisionMade: false,
       format: '5',
-      firebaseConnected: false
+      firebaseConnected: false,
+      aiReady: false
     };
 
     // Firebase Connection Monitoring
@@ -243,42 +244,50 @@
         showError("Connection to server lost. Trying to reconnect...");
       } else {
         hideError();
+        if (isAIMode && !gameState.aiReady) {
+          initializeAIGame();
+        }
       }
     });
 
     // Main Game Functions
-    async function initializeGame() {
-      debugLog("Starting game initialization...");
-      
+    async function initializeAIGame() {
       try {
-        if (isAIMode) {
-          debugLog("Initializing AI mode game");
-          
-          // Set both players as ready in AI mode
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
-          
-          debugLog("Both players marked as ready in AI mode");
-          
-          // Skip toss in AI mode - human player directly chooses bat/bowl
-          elements.tossSection.style.display = "none";
-          elements.coin.style.display = "none";
-          elements.playerStatus.textContent = "Choose to bat or bowl first";
-          elements.choiceSection.style.display = "block";
-          
-          // Automatically set human as toss winner in AI mode
-          await set(ref(db, `rooms/${room}/tossWinner`), player);
-          gameState.tossCompleted = true;
-        } else {
-          debugLog("Initializing multiplayer game");
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          debugLog("Player ready status set");
-          await checkOpponentReady();
-        }
+        debugLog("Initializing AI opponent...");
+        
+        // Set both players as ready in AI mode
+        await Promise.all([
+          set(ref(db, `rooms/${room}/${player}/ready`), true),
+          set(ref(db, `rooms/${room}/${opponent}/ready`), true)
+        ]);
+        
+        debugLog("AI opponent marked as ready");
+        gameState.aiReady = true;
+        
+        // Skip toss in AI mode - human player directly chooses bat/bowl
+        elements.tossSection.style.display = "none";
+        elements.coin.style.display = "none";
+        elements.playerStatus.textContent = "Choose to bat or bowl first";
+        elements.choiceSection.style.display = "block";
+        
+        // Automatically set human as toss winner in AI mode
+        await set(ref(db, `rooms/${room}/tossWinner`), player);
+        gameState.tossCompleted = true;
       } catch (error) {
-        showError("Failed to initialize game. Please refresh.");
+        showError("Failed to initialize AI opponent");
+        debugLog(`AI initialization error: ${error.message}`);
+      }
+    }
+
+    async function initializeMultiplayerGame() {
+      try {
+        debugLog("Initializing multiplayer game");
+        await set(ref(db, `rooms/${room}/${player}/ready`), true);
+        debugLog("Player ready status set");
+        await checkOpponentReady();
+      } catch (error) {
+        showError("Failed to initialize game");
         debugLog(`Initialization error: ${error.message}`);
-        console.error(error);
       }
     }
 
@@ -305,24 +314,6 @@
       } catch (error) {
         showError("Error checking opponent status");
         debugLog(`Error checking opponent: ${error.message}`);
-      }
-    }
-
-    async function performAIToss() {
-      debugLog("AI performing toss...");
-      elements.coin.style.display = "flex";
-      elements.coin.classList.add("spinning");
-      elements.result.textContent = "AI is tossing the coin...";
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
-        debugLog(`AI toss result: ${winner}`);
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-      } catch (error) {
-        showError("Failed to process AI toss");
-        debugLog(`AI toss error: ${error.message}`);
       }
     }
 
@@ -473,7 +464,12 @@
     // Start the Game
     debugLog("Starting game setup...");
     initializeListeners();
-    initializeGame();
+    
+    if (isAIMode) {
+      initializeAIGame();
+    } else {
+      initializeMultiplayerGame();
+    }
   </script>
 </body>
 </html>
