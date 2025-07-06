@@ -170,7 +170,9 @@
 
     const form = document.getElementById("playing11Form");
     const waitingMessage = document.getElementById("waitingMessage");
+    const submitBtn = document.getElementById("submitXI");
 
+    // Create player input fields
     for (let i = 1; i <= 11; i++) {
       const container = document.createElement("div");
       container.className = "player-input-container";
@@ -190,27 +192,58 @@
       form.appendChild(container);
     }
 
-    onValue(ref(db, `rooms/${room}`), (snapshot) => {
-      const roomData = snapshot.val();
-      if (!roomData) return;
-
-      const opponent = player === 'player1' ? 'player2' : 'player1';
-      if (roomData[opponent]?.playing11) {
-        waitingMessage.textContent = "Opponent has submitted their team!";
-        if (roomData[player]?.playing11) {
-          // Initialize spectator data structure
-          set(ref(db, `rooms/${room}/spectatorData`), {
-            overSummaries: {},
-            matchStats: {},
-            spectatorChat: {}
-          }).then(() => {
-            window.location.href = `toss.html?room=${room}&player=${player}`;
-          });
+    // Check if this is an AI game
+    const checkAIGame = async () => {
+      const snapshot = await get(ref(db, `rooms/${room}/ai`));
+      if (snapshot.exists() && snapshot.val().active) {
+        // This is an AI game
+        const playerSnapshot = await get(ref(db, `rooms/${room}/${player}`));
+        const playerData = playerSnapshot.val();
+        
+        if (playerData?.playing11) {
+          // Player has already submitted team, go to toss
+          window.location.href = `toss.html?room=${room}&player=${player}`;
+        } else {
+          // Show form for player to submit their team
+          waitingMessage.textContent = "Enter your team to play against AI";
         }
+        return true;
       }
-    });
+      return false;
+    };
 
-    document.getElementById("submitXI").addEventListener("click", async () => {
+    // Initialize game
+    const initGame = async () => {
+      const isAIGame = await checkAIGame();
+      
+      if (!isAIGame) {
+        // Regular game - wait for opponent
+        onValue(ref(db, `rooms/${room}`), (snapshot) => {
+          const roomData = snapshot.val();
+          if (!roomData) return;
+
+          const opponent = player === 'player1' ? 'player2' : 'player1';
+          
+          if (roomData[opponent]?.playing11) {
+            waitingMessage.textContent = "Opponent has submitted their team!";
+            
+            if (roomData[player]?.playing11) {
+              // Both teams ready - initialize spectator data and go to toss
+              set(ref(db, `rooms/${room}/spectatorData`), {
+                overSummaries: {},
+                matchStats: {},
+                spectatorChat: {}
+              }).then(() => {
+                window.location.href = `toss.html?room=${room}&player=${player}`;
+              });
+            }
+          }
+        });
+      }
+    };
+
+    // Handle form submission
+    submitBtn.addEventListener("click", async () => {
       const players = Array.from(form.elements)
         .filter(el => el.tagName === 'INPUT')
         .map(input => input.value.trim());
@@ -220,23 +253,21 @@
       }
 
       await set(ref(db, `rooms/${room}/${player}/playing11`), players);
-      waitingMessage.textContent = "Waiting for opponent...";
-      document.getElementById("submitXI").disabled = true;
-
-      const snapshot = await get(ref(db, `rooms/${room}`));
-      const roomData = snapshot.val();
       
-      const opponent = player === 'player1' ? 'player2' : 'player1';
-      if (roomData[opponent]?.playing11) {
-        // Initialize spectator data structure
-        await set(ref(db, `rooms/${room}/spectatorData`), {
-          overSummaries: {},
-          matchStats: {},
-          spectatorChat: {}
-        });
+      // Check if this is an AI game
+      const aiSnapshot = await get(ref(db, `rooms/${room}/ai`));
+      if (aiSnapshot.exists() && aiSnapshot.val().active) {
+        // For AI games, go directly to toss
         window.location.href = `toss.html?room=${room}&player=${player}`;
+      } else {
+        // For regular games, wait for opponent
+        waitingMessage.textContent = "Waiting for opponent...";
+        submitBtn.disabled = true;
       }
     });
+
+    // Start the game initialization
+    initGame();
   </script>
 </body>
 </html>
