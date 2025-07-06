@@ -155,6 +155,46 @@
     .difficulty-btn.active {
       background: linear-gradient(135deg, #1e88e5, #1565c0);
     }
+    /* New AI styles */
+    #aiDifficulty {
+      display: none;
+      margin-top: 15px;
+      text-align: center;
+      background: rgba(16, 45, 74, 0.5);
+      padding: 15px;
+      border-radius: 12px;
+      border: 1px solid rgba(30, 136, 229, 0.3);
+    }
+    #aiDifficulty h4 {
+      margin-top: 0;
+      color: #90caf9;
+    }
+    #aiDifficulty button {
+      width: 30%;
+      padding: 10px;
+      margin: 5px;
+      background: rgba(26, 58, 106, 0.7);
+      border: 2px solid #1e88e5;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    #aiDifficulty button:hover {
+      background: rgba(30, 136, 229, 0.5);
+    }
+    #aiDifficulty button.active {
+      background: linear-gradient(135deg, #1e88e5, #1565c0);
+      font-weight: bold;
+    }
+    #aiDifficulty button.start-ai-game {
+      width: 100%;
+      margin-top: 10px;
+      background: linear-gradient(135deg, #4caf50, #2e7d32);
+    }
+    #aiDifficulty button.start-ai-game:hover {
+      background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    }
   </style>
 </head>
 <body>
@@ -174,6 +214,16 @@
     <button onclick="createRoom()">Create Room</button>
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="spectateRoom()">Spectate Match</button>
+    <button onclick="playWithAI()">Play vs AI</button>
+    
+    <div id="aiDifficulty">
+      <h4>Select AI Difficulty:</h4>
+      <button onclick="setAIDifficulty('easy')" class="active">Easy</button>
+      <button onclick="setAIDifficulty('medium')">Medium</button>
+      <button onclick="setAIDifficulty('hard')">Hard</button>
+      <button onclick="startAIgame()" class="start-ai-game">Start AI Game</button>
+    </div>
+    
     <div id="roomDisplay"></div>
     <div id="spectatorDisplay"></div>
   </div>
@@ -200,6 +250,7 @@
     const db = getDatabase(app);
 
     let selectedFormat = "5";
+    let aiDifficulty = "easy";
 
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -305,6 +356,57 @@
       } else {
         alert("Invalid room code!");
       }
+    }
+
+    window.playWithAI = function() {
+      const teamName = document.getElementById("teamName").value.trim();
+      if (!teamName) return alert("Enter your team name first!");
+      
+      document.getElementById("aiDifficulty").style.display = "block";
+    }
+
+    window.setAIDifficulty = function(difficulty) {
+      aiDifficulty = difficulty;
+      document.querySelectorAll("#aiDifficulty button").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.textContent.toLowerCase().includes(difficulty)) {
+          btn.classList.add("active");
+        }
+      });
+    }
+
+    window.startAIgame = async function() {
+      const teamName = document.getElementById("teamName").value.trim();
+      if (!teamName) return alert("Enter your team name first!");
+      
+      const roomCode = generateRoomCode();
+      
+      // Set up the room with player as player1 and AI as player2
+      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
+        teamName: teamName,
+        format: selectedFormat,
+        online: true,
+        timestamp: Date.now()
+      });
+      
+      // Mark this as an AI game
+      await set(ref(db, 'rooms/' + roomCode + '/ai'), {
+        difficulty: aiDifficulty,
+        active: true
+      });
+      
+      // Enable AI mode in localStorage
+      localStorage.setItem("aiMode", "true");
+      localStorage.setItem("aiDifficulty", aiDifficulty);
+      
+      document.getElementById("roomDisplay").innerHTML = `
+        <strong>Starting vs AI (${aiDifficulty})</strong><br>
+        Format: ${getFormatName(selectedFormat)}
+      `;
+      
+      setTimeout(() => {
+        window.location.href = `playing11.html?room=${roomCode}&player=player1`;
+      }, 1500);
     }
 
     function getFormatName(format) {
