@@ -144,6 +144,7 @@
     const room = urlParams.get('room');
     const player = urlParams.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
+    const isAI = room.includes('AI'); // Check if playing against AI
     
     document.getElementById("roomCodeDisplay").innerText = `Room Code: ${room}`;
     document.getElementById("playerStatus").innerText = `You are ${player.toUpperCase()}`;
@@ -159,6 +160,23 @@
 
     // Check if both players are ready
     async function checkPlayersReady() {
+      if (isAI) {
+        // For AI mode, simulate opponent being ready immediately
+        playerStatus.innerText = "Both players ready!";
+        
+        // Only player2 can toss (player1 is the host)
+        if (player === 'player2') {
+          tossSection.style.display = "block";
+          coinElement.style.display = "flex";
+        } else {
+          playerStatus.innerText = "Waiting for opponent to toss...";
+          // If player1 against AI, AI (player2) will auto-toss
+          setTimeout(autoTossForAI, 1500);
+        }
+        return;
+      }
+
+      // Original multiplayer code
       const player1Snap = await get(ref(db, `rooms/${room}/player1/ready`));
       const player2Snap = await get(ref(db, `rooms/${room}/player2/ready`));
       
@@ -177,6 +195,35 @@
       } else {
         setTimeout(checkPlayersReady, 1000);
       }
+    }
+
+    // Auto toss for AI opponent
+    async function autoTossForAI() {
+      if (player !== 'player1') return; // Only for player1 against AI
+      
+      coinElement.style.display = "flex";
+      coinElement.classList.add("spinning");
+      resultDiv.innerText = "AI is tossing...";
+      
+      setTimeout(async () => {
+        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+        await set(ref(db, `rooms/${room}/tossWinner`), winner);
+        
+        coinElement.classList.remove("spinning");
+        coinElement.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
+        
+        // If AI won the toss, make a random choice
+        if (winner === 'player2') {
+          setTimeout(async () => {
+            const aiDecision = Math.random() < 0.5 ? 'bat' : 'bowl';
+            await set(ref(db, `rooms/${room}/decision`), aiDecision);
+            await update(ref(db, `rooms/${room}`), {
+              battingFirst: aiDecision === 'bat' ? 'player2' : 'player1',
+              bowlingFirst: aiDecision === 'bowl' ? 'player2' : 'player1'
+            });
+          }, 1500);
+        }
+      }, 1500);
     }
 
     // Display match format
@@ -212,6 +259,18 @@
         
         coinElement.classList.remove("spinning");
         coinElement.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
+        
+        // If playing against AI and AI wins, make a random choice
+        if (isAI && winner === 'player2') {
+          setTimeout(async () => {
+            const aiDecision = Math.random() < 0.5 ? 'bat' : 'bowl';
+            await set(ref(db, `rooms/${room}/decision`), aiDecision);
+            await update(ref(db, `rooms/${room}`), {
+              battingFirst: aiDecision === 'bat' ? 'player2' : 'player1',
+              bowlingFirst: aiDecision === 'bowl' ? 'player2' : 'player1'
+            });
+          }, 1500);
+        }
       }, 1500);
     });
 
