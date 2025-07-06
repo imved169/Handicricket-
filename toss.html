@@ -1,148 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Toss Time - HandiCricket</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Toss - HandiCricket</title>
   <style>
-    body { 
-      background: #061e3e; 
-      color: white; 
-      font-family: sans-serif; 
-      text-align: center; 
-      padding: 30px; 
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
     }
-    h2 { 
-      margin-bottom: 20px; 
+    h2 { margin-bottom: 10px; }
+    .toss-container {
+      max-width: 500px;
+      margin: auto;
+      padding: 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
     }
-    button { 
-      padding: 12px 24px; 
-      font-size: 16px; 
-      border: none; 
-      border-radius: 10px; 
-      background: #1e88e5; 
-      color: white; 
-      cursor: pointer; 
-      margin: 10px; 
-      transition: all 0.3s;
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: none;
+      background: #1e88e5;
+      color: white;
+      margin: 10px;
+      cursor: pointer;
     }
-    button:hover { 
-      background: #1565c0; 
-      transform: scale(1.05);
+    button:hover {
+      background: #1565c0;
     }
     button:disabled {
-      background: #607d8b;
+      background: gray;
       cursor: not-allowed;
-      transform: none;
-    }
-    #result, #choiceSection { 
-      margin-top: 20px; 
-      font-size: 18px;
-    }
-    #formatDisplay { 
-      margin: 15px 0; 
-      font-size: 18px; 
-      color: #ffeb3b; 
-      font-weight: bold;
-    }
-    #roomCodeDisplay {
-      font-size: 20px;
-      margin-bottom: 15px;
-      background: #0d2a52;
-      padding: 10px;
-      border-radius: 8px;
-      display: inline-block;
     }
     .coin {
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, #FFD700, #FFA500);
-      border-radius: 50%;
       margin: 20px auto;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: gold;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 24px;
       font-weight: bold;
-      color: #000;
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-      animation: none;
+      color: black;
+      box-shadow: 0 0 10px rgba(255,215,0,0.5);
     }
     .spinning {
       animation: spin 0.5s linear infinite;
     }
     @keyframes spin {
-      from { transform: rotateY(0deg); }
-      to { transform: rotateY(360deg); }
+      0% { transform: rotateY(0deg); }
+      100% { transform: rotateY(360deg); }
     }
-    .waiting {
-      margin-top: 20px;
-      font-size: 16px;
-      color: #4CAF50;
-    }
-    .toss-container {
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 20px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 15px;
-    }
-    .player-status {
-      margin-top: 15px;
-      padding: 10px;
-      background: #0d2a52;
-      border-radius: 8px;
-    }
-    .ai-message {
-      color: #ff9800;
-      font-style: italic;
-      margin: 10px 0;
-    }
-    .error-message {
-      color: #ff5252;
-      font-weight: bold;
-      margin-top: 15px;
-    }
+    .waiting { color: #4CAF50; margin-top: 10px; }
+    .ai-message { color: orange; margin-top: 10px; }
+    .error { color: red; margin-top: 10px; }
   </style>
 </head>
 <body>
   <div class="toss-container">
     <h2>🪙 Toss Time</h2>
-    <div id="roomCodeDisplay">Room Code: Loading...</div>
-    <div id="formatDisplay">Match Format: Loading...</div>
-    
-    <div class="player-status" id="playerStatus">
-      Initializing game...
-    </div>
-    
+    <div id="roomCode">Room: Loading...</div>
+    <div id="format">Format: Loading...</div>
+    <div id="status">Initializing...</div>
     <div id="coin" class="coin" style="display: none;">TOSS</div>
-    
+
     <div id="tossButtonSection" style="display: none;">
       <button id="tossBtn">Flip Coin</button>
     </div>
-    
+
     <div id="result"></div>
-    
+
     <div id="choiceSection" style="display: none;">
-      <p>You won the toss! Choose to:</p>
+      <p>You won the toss! Choose:</p>
       <button id="batBtn">Bat First</button>
       <button id="bowlBtn">Bowl First</button>
     </div>
-    
-    <div id="waitingSection" class="waiting" style="display: none;">
+
+    <div class="waiting" id="waitingSection" style="display: none;">
       Waiting for opponent's decision...
     </div>
-
-    <div id="aiSection" class="ai-message" style="display: none;">
-      AI is making decision...
+    <div class="ai-message" id="aiSection" style="display: none;">
+      AI is deciding...
     </div>
-
-    <div id="errorSection" class="error-message" style="display: none;"></div>
+    <div class="error" id="errorSection" style="display: none;"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import {
+      getDatabase, ref, get, set, update, onValue
+    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -157,271 +110,143 @@
     const db = getDatabase(app);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get('room');
-    const player = urlParams.get('player');
+    const room = urlParams.get("room");
+    const player = urlParams.get("player");
+    const isAIMode = room.includes("AI");
+    const opponent = player === "player1" ? "player2" : "player1";
 
-    if (!room || !player) {
-      document.getElementById('errorSection').textContent = "Missing room or player parameters in URL";
-      document.getElementById('errorSection').style.display = 'block';
-      throw new Error("Missing required URL parameters");
-    }
-
-    const isAIMode = room.includes('AI');
-    const opponent = isAIMode ? 'player2' : (player === "player1" ? "player2" : "player1");
-
-    // DOM Elements
-    const elements = {
-      roomCode: document.getElementById("roomCodeDisplay"),
-      playerStatus: document.getElementById("playerStatus"),
+    const refs = {
+      roomCode: document.getElementById("roomCode"),
+      format: document.getElementById("format"),
+      status: document.getElementById("status"),
+      coin: document.getElementById("coin"),
       tossBtn: document.getElementById("tossBtn"),
-      result: document.getElementById("result"),
       tossSection: document.getElementById("tossButtonSection"),
+      result: document.getElementById("result"),
       choiceSection: document.getElementById("choiceSection"),
       batBtn: document.getElementById("batBtn"),
       bowlBtn: document.getElementById("bowlBtn"),
-      formatDisplay: document.getElementById("formatDisplay"),
-      waitingSection: document.getElementById("waitingSection"),
-      coin: document.getElementById("coin"),
+      waiting: document.getElementById("waitingSection"),
       aiSection: document.getElementById("aiSection"),
-      errorSection: document.getElementById("errorSection")
+      error: document.getElementById("errorSection"),
     };
 
-    // Initialize UI
-    elements.roomCode.textContent = `Room Code: ${room}`;
-    elements.playerStatus.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
-
-    // Game state
     const gameState = {
       tossCompleted: false,
       decisionMade: false,
-      format: '5'
+      format: "5"
     };
 
-    // Debug logging function
-    function debugLog(message) {
-      console.log(`[DEBUG] ${new Date().toISOString()}: ${message}`);
+    refs.roomCode.textContent = `Room: ${room}`;
+    refs.status.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
+
+    function logError(msg) {
+      refs.error.textContent = msg;
+      refs.error.style.display = "block";
     }
 
-    // AI Decision Maker
-    function makeAIDecision(format) {
-      debugLog("AI making decision...");
-      // Simple AI - 60% chance to bat first in shorter formats
-      if (format === 'test') {
-        return Math.random() < 0.5 ? 'bat' : 'bowl';
-      } else {
-        return Math.random() < 0.6 ? 'bat' : 'bowl';
-      }
-    }
-
-    // Main game functions
-    async function initializeGame() {
-      debugLog("Starting game initialization...");
-      
-      try {
-        if (isAIMode) {
-          debugLog("Initializing AI mode game");
-          
-          // Set current player as ready
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          
-          // In AI mode, automatically set AI player as ready
-          if (player === 'player1') {
-            await set(ref(db, `rooms/${room}/player2/ready`), true);
-          }
-          
-          debugLog("Players marked as ready in AI mode");
-          
-          // In AI mode, only player1 can toss and always wins
-          if (player === 'player1') {
-            debugLog("Showing toss button for player 1 in AI mode");
-            elements.tossSection.style.display = "block";
-            elements.coin.style.display = "flex";
-            elements.playerStatus.textContent = "Your turn to toss!";
-          } else {
-            // Player 2 (AI) automatically loses toss
-            debugLog("AI player automatically loses toss");
-            elements.playerStatus.textContent = "Waiting for toss result...";
-            // Immediately set player1 as winner in database
-            await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
-          }
-        } else {
-          debugLog("Initializing multiplayer game");
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
-          debugLog("Player ready status set");
-          await checkOpponentReady();
-        }
-      } catch (error) {
-        showError("Failed to initialize game. Please refresh.");
-        debugLog(`Initialization error: ${error.message}`);
-        console.error(error);
+    async function init() {
+      await set(ref(db, `rooms/${room}/${player}/ready`), true);
+      if (isAIMode && player === "player1") {
+        await set(ref(db, `rooms/${room}/player2/ready`), true);
+        refs.coin.style.display = "flex";
+        refs.tossSection.style.display = "block";
+        refs.status.textContent = "Your turn to toss!";
+      } else if (!isAIMode) {
+        checkOpponentReady();
       }
     }
 
     async function checkOpponentReady() {
-      debugLog("Checking if opponent is ready...");
-      try {
-        const opponentSnap = await get(ref(db, `rooms/${room}/${opponent}/ready`));
-        
-        if (opponentSnap.exists() && opponentSnap.val()) {
-          elements.playerStatus.textContent = "Both players ready!";
-          
-          if (player === 'player2') {
-            elements.tossSection.style.display = "block";
-            elements.coin.style.display = "flex";
-          } else {
-            elements.playerStatus.textContent = "Waiting for opponent to toss...";
-          }
+      const snap = await get(ref(db, `rooms/${room}/${opponent}/ready`));
+      if (snap.exists() && snap.val()) {
+        if (player === "player2") {
+          refs.coin.style.display = "flex";
+          refs.tossSection.style.display = "block";
+          refs.status.textContent = "Your turn to toss!";
         } else {
-          setTimeout(checkOpponentReady, 1000);
+          refs.status.textContent = "Waiting for opponent to toss...";
         }
-      } catch (error) {
-        showError("Error checking opponent status");
-        debugLog(`Opponent check error: ${error.message}`);
+      } else {
+        setTimeout(checkOpponentReady, 1000);
       }
     }
 
-    // Event listeners
-    elements.tossBtn.addEventListener("click", async () => {
-      debugLog("Toss button clicked");
-      elements.tossBtn.disabled = true;
-      elements.coin.classList.add("spinning");
-      elements.result.textContent = "Tossing...";
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        // In AI mode, player1 always wins the toss
-        const winner = isAIMode ? 'player1' : (Math.random() < 0.5 ? 'player1' : 'player2');
-        debugLog(`Toss winner: ${winner}`);
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-      } catch (error) {
-        showError("Failed to process toss");
-        debugLog(`Toss error: ${error.message}`);
-        elements.tossBtn.disabled = false;
-      }
+    refs.tossBtn.addEventListener("click", async () => {
+      refs.tossBtn.disabled = true;
+      refs.coin.classList.add("spinning");
+      refs.result.textContent = "Tossing...";
+      await new Promise((r) => setTimeout(r, 1500));
+      const winner = isAIMode ? "player1" : (Math.random() < 0.5 ? "player1" : "player2");
+      await set(ref(db, `rooms/${room}/tossWinner`), winner);
     });
 
-    elements.batBtn.addEventListener("click", async () => {
-      debugLog("Player chose to bat first");
-      await makeChoice('bat');
-    });
+    refs.batBtn.onclick = () => makeChoice("bat");
+    refs.bowlBtn.onclick = () => makeChoice("bowl");
 
-    elements.bowlBtn.addEventListener("click", async () => {
-      debugLog("Player chose to bowl first");
-      await makeChoice('bowl');
-    });
+    async function makeChoice(choice) {
+      refs.choiceSection.style.display = "none";
+      refs.result.innerHTML += `<br>You chose to ${choice}`;
+      await set(ref(db, `rooms/${room}/decision`), choice);
+      await update(ref(db, `rooms/${room}`), {
+        battingFirst: choice === "bat" ? player : opponent,
+        bowlingFirst: choice === "bowl" ? player : opponent
+      });
+    }
 
-    async function makeChoice(decision) {
-      debugLog(`Processing player decision: ${decision}`);
-      elements.choiceSection.style.display = "none";
-      elements.result.innerHTML += `<br>You chose to ${decision}`;
-      
-      try {
+    function handleAIChoice() {
+      refs.aiSection.style.display = "block";
+      setTimeout(async () => {
+        const decision = Math.random() < 0.6 ? "bat" : "bowl";
         await set(ref(db, `rooms/${room}/decision`), decision);
         await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? player : opponent,
-          bowlingFirst: decision === 'bowl' ? player : opponent
+          battingFirst: decision === "bat" ? "player2" : "player1",
+          bowlingFirst: decision === "bowl" ? "player2" : "player1"
         });
-        debugLog("Decision saved to database");
-      } catch (error) {
-        showError("Failed to save your choice");
-        debugLog(`Decision save error: ${error.message}`);
-      }
+      }, 1500);
     }
 
-    // Firebase listeners
-    function initializeListeners() {
-      debugLog("Initializing Firebase listeners...");
-      
-      // Format listener
+    function listeners() {
       onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-        if (!snap.exists()) return;
-        
-        gameState.format = snap.val() || "5";
-        const formatNames = {
-          "5": "5 Overs", "10": "10 Overs", "20": "T20",
-          "50": "ODI", "test": "Test Match"
-        };
-        elements.formatDisplay.textContent = `Match Format: ${formatNames[gameState.format]}`;
-        debugLog(`Format set to: ${gameState.format}`);
+        if (snap.exists()) {
+          gameState.format = snap.val();
+          const names = { "5": "5 Overs", "10": "10 Overs", "20": "T20", "50": "ODI", "test": "Test" };
+          refs.format.textContent = `Format: ${names[gameState.format]}`;
+        }
       });
 
-      // Toss winner listener
       onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
         const winner = snap.val();
         if (!winner || gameState.tossCompleted) return;
-        
         gameState.tossCompleted = true;
-        debugLog(`Toss completed. Winner: ${winner}`);
-        elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
-        elements.tossSection.style.display = "none";
-        elements.coin.classList.remove("spinning");
-        elements.coin.textContent = winner === 'player1' ? 'HEADS' : 'TAILS';
-        
-        if (player === winner) {
-          elements.choiceSection.style.display = "block";
+        refs.result.textContent = `Toss won by ${winner.toUpperCase()}`;
+        refs.coin.classList.remove("spinning");
+        refs.coin.textContent = winner === "player1" ? "HEADS" : "TAILS";
+        refs.tossSection.style.display = "none";
+
+        if (winner === player) {
+          refs.choiceSection.style.display = "block";
+        } else if (isAIMode) {
+          handleAIChoice();
         } else {
-          if (isAIMode) {
-            handleAIChoice();
-          } else {
-            elements.waitingSection.style.display = "block";
-          }
+          refs.waiting.style.display = "block";
         }
       });
 
-      // Decision listener
       onValue(ref(db, `rooms/${room}/decision`), (snap) => {
         const decision = snap.val();
         if (!decision || gameState.decisionMade) return;
-        
         gameState.decisionMade = true;
-        debugLog(`Decision received: ${decision}`);
-        const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
-        elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decisionText}`;
-        
-        // Redirect to game after short delay
+        const who = isAIMode ? "AI" : opponent.toUpperCase();
+        refs.result.innerHTML += `<br>${who} chose to ${decision}`;
         setTimeout(() => {
-          debugLog("Redirecting to game page...");
           window.location.href = `game.html?room=${room}&player=${player}`;
         }, 2000);
       });
     }
 
-    async function handleAIChoice() {
-      debugLog("Handling AI choice...");
-      elements.aiSection.style.display = "block";
-      elements.waitingSection.style.display = "none";
-      
-      // AI takes 1-2 seconds to "think"
-      const thinkTime = 1000 + Math.random() * 1000;
-      debugLog(`AI thinking for ${thinkTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, thinkTime));
-      
-      try {
-        const decision = makeAIDecision(gameState.format);
-        debugLog(`AI decided to: ${decision}`);
-        
-        await set(ref(db, `rooms/${room}/decision`), decision);
-        await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? 'player2' : 'player1',
-          bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
-        });
-      } catch (error) {
-        showError("AI failed to make decision");
-        debugLog(`AI decision error: ${error.message}`);
-      }
-    }
-
-    function showError(message) {
-      debugLog(`Error: ${message}`);
-      elements.errorSection.textContent = message;
-      elements.errorSection.style.display = 'block';
-    }
-
-    // Start the game
-    debugLog("Starting game...");
-    initializeListeners();
-    initializeGame();
+    init();
+    listeners();
   </script>
 </body>
 </html>
