@@ -142,6 +142,20 @@
       color: #90caf9;
       font-size: 12px;
     }
+    .difficulty-selector {
+      margin: 15px 0;
+    }
+    .difficulty-btn {
+      width: 30%;
+      padding: 10px;
+      margin: 5px;
+      background: rgba(26, 58, 106, 0.7);
+      border: 2px solid #1e88e5;
+    }
+    .difficulty-btn.active {
+      background: linear-gradient(135deg, #1e88e5, #1565c0);
+    }
+    /* New AI styles */
     #aiDifficulty {
       display: none;
       margin-top: 15px;
@@ -181,6 +195,7 @@
     #aiDifficulty button.start-ai-game:hover {
       background: linear-gradient(135deg, #2e7d32, #1b5e20);
     }
+    /* View History button styles */
     button[onclick="viewHistory()"] {
       background: linear-gradient(135deg, #6a11cb, #2575fc);
     }
@@ -228,7 +243,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -276,6 +291,13 @@
         <small>Share this code with your opponent</small>
       `;
       
+      // Animate the display
+      const display = document.getElementById("roomDisplay");
+      display.style.animation = "none";
+      setTimeout(() => {
+        display.style.animation = "pulse 1.5s";
+      }, 10);
+      
       setTimeout(() => {
         window.location.href = `playing11.html?room=${roomCode}&player=player1`;
       }, 2000);
@@ -317,9 +339,18 @@
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
       if (snapshot.exists()) {
+        const roomData = snapshot.val();
+        const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
+        
+        if (spectatorCount >= 10) {
+          return alert("Spectator slots full! Max 10 spectators allowed.");
+        }
+        
         const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
         await set(ref(db, `rooms/${joinCode}/spectators/${spectatorId}`), {
-          joinedAt: Date.now()
+          joinedAt: Date.now(),
+          emoji: null,
+          vote: null
         });
         
         document.getElementById("spectatorDisplay").innerHTML = `
@@ -338,6 +369,7 @@
     window.playWithAI = function() {
       const teamName = document.getElementById("teamName").value.trim();
       if (!teamName) return alert("Enter your team name first!");
+      
       document.getElementById("aiDifficulty").style.display = "block";
     }
 
@@ -354,49 +386,65 @@
     window.startAIgame = async function() {
       const teamName = document.getElementById("teamName").value.trim();
       if (!teamName) return alert("Enter your team name first!");
-
-      const roomCode = "AI" + Math.floor(Math.random() * 100000);
-
-      // Human Player
-      await set(ref(db, `rooms/${roomCode}/player1`), {
+      
+      const roomCode = generateRoomCode();
+      
+      // Set up the room with player as player1
+      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
         teamName: teamName,
         format: selectedFormat,
-        playing11: [
-          "Player1", "Player2", "Player3", "Player4", "Player5",
-          "Player6", "Player7", "Player8", "Player9", "Player10", "Player11"
-        ],
-        teamReady: true,
-        ready: false
+        online: true,
+        timestamp: Date.now(),
+        isHuman: true
       });
-
-      // AI Player
-      await set(ref(db, `rooms/${roomCode}/player2`), {
-        teamName: "AI Challengers",
-        playing11: [
-          "AI1", "AI2", "AI3", "AI4", "AI5",
-          "AI6", "AI7", "AI8", "AI9", "AI10", "AI11"
-        ],
-        teamReady: true,
-        ready: false,
-        isAI: true
-      };
-
-      // Game Settings
-      await set(ref(db, `rooms/${roomCode}/mode`), "AI");
-      await set(ref(db, `rooms/${roomCode}/tossWinner`), "player1");
-      await set(ref(db, `rooms/${roomCode}/aiSettings`), {
+      
+      // Set AI team with predefined players
+      const aiTeamName = "AI Challengers";
+      const aiPlayers = ["Ved", "Bhavesh", "Minmay", "Deep", "Ghost", 
+                        "King", "Dead", "Soul", "Rishabh", "Jasprit", "Siraj"];
+      
+      // Set AI team with playing11 already submitted
+      await set(ref(db, 'rooms/' + roomCode + '/player2'), {
+        teamName: aiTeamName,
+        online: true,
+        timestamp: Date.now(),
+        isAI: true,
+        playing11: aiPlayers,
+        teamReady: true
+      });
+      
+      // Mark this as an AI game
+      await set(ref(db, 'rooms/' + roomCode + '/ai'), {
         difficulty: aiDifficulty,
-        timestamp: Date.now()
+        active: true,
+        teamName: aiTeamName,
+        players: aiPlayers
       });
-
+      
+      // Initialize spectator data
+      await set(ref(db, 'rooms/' + roomCode + '/spectatorData'), {
+        overSummaries: {},
+        matchStats: {},
+        spectatorChat: {}
+      });
+      
+      // Store game data in localStorage
+      localStorage.setItem("aiMode", "true");
+      localStorage.setItem("aiDifficulty", aiDifficulty);
+      localStorage.setItem("opponentTeam", JSON.stringify({
+        name: aiTeamName,
+        players: aiPlayers
+      }));
+      
       document.getElementById("roomDisplay").innerHTML = `
-        <strong>Starting AI Game</strong><br>
+        <strong>Starting vs AI (${aiDifficulty})</strong><br>
         Format: ${getFormatName(selectedFormat)}<br>
-        Difficulty: ${aiDifficulty}
+        AI Team: ${aiTeamName}
       `;
-
+      
+      // Redirect directly to playing11 screen
       setTimeout(() => {
-        window.location.href = `ai_game.html?room=${roomCode}&player=player1&format=${selectedFormat}&difficulty=${aiDifficulty}`;
+        window.location.href = `playing11.html?room=${roomCode}&player=player1`;
       }, 1500);
     };
 
@@ -431,12 +479,15 @@
         const gameEl = document.createElement("div");
         gameEl.className = "saved-game-item";
         gameEl.innerHTML = `
-          <strong>${game.players?.player1?.team || 'Team 1'} vs ${game.players?.player2?.team || 'Team 2'}</strong>
-          <div>Status: ${game.status || 'In Progress'}</div>
+          <strong>${game.players.player1.team} vs ${game.players.player2.team}</strong>
+          <div>Score: ${game.players.player1.score}-${game.players.player2.score}</div>
+          <div>Innings: ${game.innings} | Balls left: ${game.ballsRemaining}</div>
           <small>${new Date(game.timestamp).toLocaleString()}</small>
         `;
         gameEl.addEventListener("click", () => {
-          window.location.href = `game.html?room=${roomId}&player=player1`;
+          if (confirm("Resume this saved game?")) {
+            window.location.href = `game.html?room=${roomId}&player=player1`; 
+          }
         });
         container.appendChild(gameEl);
       });
@@ -444,6 +495,17 @@
 
     // Initialize
     loadSavedGames();
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
-</html>
+  </html>
