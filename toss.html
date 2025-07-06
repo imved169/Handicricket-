@@ -2,33 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>HandiCricket - AI Toss</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HandiCricket - Toss</title>
   <style>
     body {
       background-color: #0a2540;
       color: white;
       font-family: 'Segoe UI', sans-serif;
       text-align: center;
-      padding-top: 50px;
+      padding: 50px 20px;
     }
-    .card {
+    .box {
       background-color: #1a3a5d;
       padding: 20px;
-      margin: auto;
       border-radius: 12px;
-      width: 90%;
       max-width: 400px;
+      margin: auto;
       box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
     button {
-      padding: 10px 20px;
       margin: 10px;
+      padding: 10px 20px;
+      border: none;
       border-radius: 8px;
+      font-size: 16px;
       background-color: #00b894;
       color: white;
-      border: none;
-      font-size: 16px;
     }
     button:hover {
       background-color: #019874;
@@ -36,25 +35,17 @@
   </style>
 </head>
 <body>
-  <div class="card">
-    <h2 id="toss-status">Waiting for Toss...</h2>
-    <div id="batBowlChoice" style="display: none;">
-      <p>You won the toss! Choose:</p>
-      <button onclick="chooseInnings('bat')">Bat</button>
-      <button onclick="chooseInnings('bowl')">Bowl</button>
-    </div>
+  <div class="box">
+    <h2>Playing vs AI</h2>
+    <p>You won the toss! Choose:</p>
+    <button onclick="choose('bat')">Bat First</button>
+    <button onclick="choose('bowl')">Bowl First</button>
+    <p id="status"></p>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      set,
-      get,
-      onValue,
-      update
-    } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -70,69 +61,25 @@
     const db = getDatabase(app);
 
     const room = localStorage.getItem("roomCode");
-    const player = localStorage.getItem("player");
-    const opponent = player === "player1" ? "player2" : "player1";
-    const isAI = room.includes("AI");
+    const player = "player1"; // In AI mode, human is always player1
+    const opponent = "player2";
 
-    const tossRef = ref(db, `rooms/${room}/tossWinner`);
-    const decisionRef = ref(db, `rooms/${room}/decision`);
-    const battingRef = ref(db, `rooms/${room}/battingFirst`);
-    const bowlingRef = ref(db, `rooms/${room}/bowlingFirst`);
+    // Immediately set tossWinner = player1
+    set(ref(db, `rooms/${room}/tossWinner`), "player1");
 
-    const tossStatus = document.getElementById("toss-status");
-    const batBowlChoice = document.getElementById("batBowlChoice");
+    // Handle bat/bowl choice
+    window.choose = async function(decision) {
+      document.getElementById("status").innerText = `You chose to ${decision} first. Starting game...`;
 
-    function listenToToss() {
-      onValue(tossRef, (snapshot) => {
-        const winner = snapshot.val();
-        if (winner === player) {
-          tossStatus.innerText = "You won the toss!";
-          batBowlChoice.style.display = "block";
-        } else if (winner === opponent) {
-          tossStatus.innerText = "Opponent won the toss. Waiting for decision...";
-        }
-      });
-
-      onValue(decisionRef, (snapshot) => {
-        const decision = snapshot.val();
-        if (decision) {
-          setTimeout(() => {
-            window.location.href = "game.html";
-          }, 1000);
-        }
-      });
-    }
-
-    async function setupAIToss() {
-      await set(tossRef, "player1");
-      tossStatus.innerText = "You are playing against AI. You won the toss!";
-      batBowlChoice.style.display = "block";
-      listenToToss(); // start listening only after toss set
-    }
-
-    async function setupMultiplayerToss() {
-      const tossSnap = await get(tossRef);
-      if (!tossSnap.exists() && player === "player2") {
-        const winner = Math.random() < 0.5 ? "player1" : "player2";
-        await set(tossRef, winner);
-      }
-      listenToToss();
-    }
-
-    // init
-    if (isAI && player === "player1") {
-      setupAIToss();
-    } else {
-      setupMultiplayerToss();
-    }
-
-    // Handle bat/bowl selection
-    window.chooseInnings = async function(choice) {
-      await set(decisionRef, choice);
+      await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
-        battingFirst: choice === "bat" ? player : opponent,
-        bowlingFirst: choice === "bat" ? opponent : player
+        battingFirst: decision === "bat" ? player : opponent,
+        bowlingFirst: decision === "bat" ? opponent : player
       });
+
+      setTimeout(() => {
+        window.location.href = "game.html";
+      }, 1200);
     };
   </script>
 </body>
