@@ -52,10 +52,7 @@
     <h2>🤖 HandiCricket: Player vs AI</h2>
     <div id="gameStatus">Initializing...</div>
     <div class="scoreboard" id="scoreBoard">Score: 0/0 (0.0)</div>
-    <div id="cardOptions" style="display:none;">
-      <p>Choose your card (0–6):</p>
-      <div id="cardButtons"></div>
-    </div>
+    <div id="cardOptions" style="display:none;"></div>
     <div class="ai-thinking" id="aiThinking" style="display:none;">AI is thinking<span id="dots">.</span></div>
     <div id="resultMessage" style="margin-top: 15px;"></div>
   </div>
@@ -69,29 +66,27 @@
     const player = urlParams.get('player');
     const format = urlParams.get('format') || '5';
     const difficulty = urlParams.get('difficulty') || 'medium';
+    const oversLimit = parseInt(format);
 
     const opponent = player === 'player1' ? 'player2' : 'player1';
     const ai = new AIOpponent(difficulty);
+
+    let innings = 1;
+    let isPlayerBatting = true;
+    let firstInningsScore = 0;
 
     const state = {
       score: 0,
       wickets: 0,
       balls: 0,
-      overs: 0,
-      gameStarted: false,
-      tossWinner: null,
-      batting: null
     };
 
     const gameStatus = document.getElementById("gameStatus");
     const scoreBoard = document.getElementById("scoreBoard");
-    const cardButtons = document.getElementById("cardButtons");
+    const cardOptions = document.getElementById("cardOptions");
     const resultMessage = document.getElementById("resultMessage");
     const aiThinking = document.getElementById("aiThinking");
-    const cardOptions = document.getElementById("cardOptions");
     const dots = document.getElementById("dots");
-
-    let dotsInterval;
 
     function updateScoreboard() {
       const oversText = `${Math.floor(state.balls / 6)}.${state.balls % 6}`;
@@ -99,101 +94,137 @@
     }
 
     function showCardOptions() {
-      cardButtons.innerHTML = "";
+      cardOptions.innerHTML = "";
       for (let i = 0; i <= 6; i++) {
         const btn = document.createElement("button");
         btn.textContent = i;
         btn.onclick = () => playCard(i);
-        cardButtons.appendChild(btn);
+        cardOptions.appendChild(btn);
       }
       cardOptions.style.display = "block";
-    }
-
-    function playCard(playerCard) {
-      cardOptions.style.display = "none";
-      aiThinking.style.display = "block";
-      startDotAnimation();
-
-      setTimeout(() => {
-        stopDotAnimation();
-        const aiCard = ai.makeDecision({
-          runs: state.score,
-          wickets: state.wickets,
-          ballsLeft: 6 * Number(format) - state.balls
-        });
-
-        if (playerCard === aiCard) {
-          state.wickets++;
-          resultMessage.innerHTML = `<span class="highlight">Out!</span> You played ${playerCard}, AI guessed ${aiCard}.`;
-        } else {
-          state.score += playerCard;
-          resultMessage.innerHTML = `You scored ${playerCard} runs. AI played ${aiCard}.`;
-        }
-
-        state.balls++;
-        updateScoreboard();
-
-        if (state.wickets >= 10 || state.balls >= 6 * Number(format)) {
-          gameStatus.textContent = "Innings Over!";
-          resultMessage.innerHTML += `<br><strong>Final Score: ${state.score}/${state.wickets}</strong>`;
-        } else {
-          aiThinking.style.display = "none";
-          showCardOptions();
-        }
-      }, 1500);
     }
 
     function startDotAnimation() {
       let count = 1;
       dots.textContent = '.';
-      dotsInterval = setInterval(() => {
+      return setInterval(() => {
         count = (count % 3) + 1;
         dots.textContent = '.'.repeat(count);
       }, 300);
     }
 
-    function stopDotAnimation() {
-      clearInterval(dotsInterval);
+    function playCard(playerCard) {
+      cardOptions.style.display = "none";
+      aiThinking.style.display = "block";
+      const anim = startDotAnimation();
+
+      setTimeout(() => {
+        clearInterval(anim);
+        aiThinking.style.display = "none";
+        const aiCard = ai.makeDecision({
+          runs: state.score,
+          wickets: state.wickets,
+          ballsLeft: oversLimit * 6 - state.balls,
+          target: innings === 2 ? firstInningsScore + 1 : null
+        });
+
+        let msg = "";
+        if (playerCard === aiCard) {
+          state.wickets++;
+          msg = `<span class='highlight'>WICKET!</span> You: ${playerCard}, AI: ${aiCard}`;
+        } else {
+          state.score += playerCard;
+          msg = `You scored ${playerCard}. AI played ${aiCard}`;
+        }
+
+        state.balls++;
+        resultMessage.innerHTML = msg;
+        updateScoreboard();
+
+        if (state.wickets >= 10 || state.balls >= oversLimit * 6 || (innings === 2 && state.score > firstInningsScore)) {
+          if (innings === 1) {
+            firstInningsScore = state.score;
+            innings = 2;
+            isPlayerBatting = false;
+            gameStatus.textContent = `Innings Break. Target: ${firstInningsScore + 1}`;
+            resetState();
+            setTimeout(() => {
+              gameStatus.textContent = "AI is batting now.";
+              showAIBatting();
+            }, 2000);
+          } else {
+            endGame();
+          }
+        } else {
+          showCardOptions();
+        }
+      }, 1500);
     }
 
-    onValue(ref(db, `rooms/${room}/tossWinner`), async (snap) => {
-      if (!snap.exists()) return;
-      const winner = snap.val();
-      state.tossWinner = winner;
+    function resetState() {
+      state.score = 0;
+      state.wickets = 0;
+      state.balls = 0;
+      resultMessage.innerHTML = "";
+      updateScoreboard();
+    }
 
-      if (winner === opponent && opponent === 'player2') {
-        const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
-        if (!decisionSnap.exists()) {
-          const tossChoice = ai.makeTossDecision({ format });
-          await set(ref(db, `rooms/${room}/decision`), tossChoice);
-          await update(ref(db, `rooms/${room}`), {
-            battingFirst: tossChoice === 'bat' ? 'player2' : 'player1',
-            bowlingFirst: tossChoice === 'bowl' ? 'player2' : 'player1'
-          });
+    function showAIBatting() {
+      const interval = setInterval(() => {
+        const aiBat = ai.makeDecision({
+          runs: state.score,
+          wickets: state.wickets,
+          ballsLeft: oversLimit * 6 - state.balls,
+          target: firstInningsScore + 1
+        });
+        const playerBall = Math.floor(Math.random() * 7);
+
+        let msg = "";
+        if (aiBat === playerBall) {
+          state.wickets++;
+          msg = `<span class='highlight'>WICKET!</span> AI: ${aiBat}, You: ${playerBall}`;
+        } else {
+          state.score += aiBat;
+          msg = `AI scored ${aiBat}. You bowled ${playerBall}`;
         }
+
+        state.balls++;
+        resultMessage.innerHTML = msg;
+        updateScoreboard();
+
+        if (state.wickets >= 10 || state.balls >= oversLimit * 6 || state.score > firstInningsScore) {
+          clearInterval(interval);
+          endGame();
+        }
+      }, 2000);
+    }
+
+    function endGame() {
+      let result = "";
+      if (state.score > firstInningsScore) {
+        result = isPlayerBatting ? "You Win!" : "AI Wins!";
+      } else if (state.score < firstInningsScore) {
+        result = isPlayerBatting ? "AI Wins!" : "You Win!";
+      } else {
+        result = "Match Drawn!";
       }
-    });
+      gameStatus.textContent = result;
+      resultMessage.innerHTML += `<br><strong>Final Score: ${state.score}/${state.wickets}</strong>`;
+      cardOptions.style.display = "none";
+    }
 
     onValue(ref(db, `rooms/${room}/decision`), (snap) => {
       if (!snap.exists()) return;
       const decision = snap.val();
-
-      const isPlayerBatting =
-        (decision === 'bat' && player === 'player1') ||
-        (decision === 'bowl' && player === 'player2');
-
-      state.batting = isPlayerBatting;
-      gameStatus.textContent = isPlayerBatting
-        ? "You are batting first."
-        : "You are bowling first.";
-
+      isPlayerBatting = decision === 'bat';
+      gameStatus.textContent = isPlayerBatting ? "You are batting first." : "AI is batting first.";
       if (isPlayerBatting) {
+        updateScoreboard();
         showCardOptions();
       } else {
-        gameStatus.textContent += " (AI bowling coming soon)";
+        resetState();
+        showAIBatting();
       }
-
-      updateScoreboard();
     });
   </script>
 </body>
