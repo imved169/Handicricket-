@@ -230,6 +230,7 @@
       <button onclick="setAIDifficulty('medium')">Medium</button>
       <button onclick="setAIDifficulty('hard')">Hard</button>
       <button onclick="startAIgame()" class="start-ai-game">Start AI Game</button>
+      <button onclick="startAIgameLegacy()" class="start-ai-game" style="background: linear-gradient(135deg, #ff9800, #f57c00); margin-top: 5px;">Start Legacy AI Game</button>
     </div>
     
     <div id="roomDisplay"></div>
@@ -448,6 +449,52 @@
       }, 1500);
     };
 
+    // Legacy AI Game implementation
+    window.startAIgameLegacy = async function() {
+      const teamName = document.getElementById("teamName").value.trim();
+      if (!teamName) {
+        alert("Please enter your team name!");
+        return;
+      }
+
+      const format = selectedFormat;
+      const difficulty = aiDifficulty;
+
+      const roomCode = "AI" + Math.floor(Math.random() * 100000);
+
+      await set(ref(db, `rooms/${roomCode}/player1`), {
+        teamName: teamName,
+        format: format,
+        playing11: [
+          "Player1", "Player2", "Player3", "Player4", "Player5",
+          "Player6", "Player7", "Player8", "Player9", "Player10", "Player11"
+        ],
+        teamReady: true,
+        ready: false
+      });
+
+      await set(ref(db, `rooms/${roomCode}/player2`), {
+        teamName: "AI Challengers",
+        playing11: [
+          "AI1", "AI2", "AI3", "AI4", "AI5",
+          "AI6", "AI7", "AI8", "AI9", "AI10", "AI11"
+        ],
+        teamReady: true,
+        ready: false
+      });
+
+      await set(ref(db, `rooms/${roomCode}/mode`), "AI");
+      await set(ref(db, `rooms/${roomCode}/tossWinner`), "player1");
+
+      document.getElementById("roomDisplay").innerHTML = `
+        <strong>Starting Legacy AI Game</strong><br>
+        Format: ${getFormatName(format)}<br>
+        Difficulty: ${difficulty}
+      `;
+
+      window.location.href = `ai-game.html?room=${roomCode}&player=player1&format=${format}&difficulty=${difficulty}`;
+    };
+
     window.viewHistory = function() {
       window.location.href = "history.html";
     };
@@ -508,4 +555,4 @@
     document.head.appendChild(style);
   </script>
 </body>
-  </html>
+</html>
