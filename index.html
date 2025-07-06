@@ -389,36 +389,28 @@
       
       const roomCode = generateRoomCode();
       
-      // Set up the room with player as player1 and AI as player2
+      // Set up the room with player as player1
       await set(ref(db, 'rooms/' + roomCode + '/player1'), {
         teamName: teamName,
         format: selectedFormat,
         online: true,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        isHuman: true
       });
       
       // Set AI team with predefined players
       const aiTeamName = "AI Challengers";
-      const aiPlayers = {
-        1: "Ved",
-        2: "Bhavesh",
-        3: "Minmay",
-        4: "Deep",
-        5: "Ghost",
-        6: "King",
-        7: "Dead",
-        8: "Soul",
-        9: "Rishabh",
-        10: "Jasprit",
-        11: "Siraj"
-      };
+      const aiPlayers = ["Ved", "Bhavesh", "Minmay", "Deep", "Ghost", 
+                        "King", "Dead", "Soul", "Rishabh", "Jasprit", "Siraj"];
       
+      // Set AI team with playing11 already submitted
       await set(ref(db, 'rooms/' + roomCode + '/player2'), {
         teamName: aiTeamName,
         online: true,
         timestamp: Date.now(),
         isAI: true,
-        players: aiPlayers
+        playing11: aiPlayers,
+        teamReady: true
       });
       
       // Mark this as an AI game
@@ -429,9 +421,20 @@
         players: aiPlayers
       });
       
-      // Enable AI mode in localStorage
+      // Initialize spectator data
+      await set(ref(db, 'rooms/' + roomCode + '/spectatorData'), {
+        overSummaries: {},
+        matchStats: {},
+        spectatorChat: {}
+      });
+      
+      // Store game data in localStorage
       localStorage.setItem("aiMode", "true");
       localStorage.setItem("aiDifficulty", aiDifficulty);
+      localStorage.setItem("opponentTeam", JSON.stringify({
+        name: aiTeamName,
+        players: aiPlayers
+      }));
       
       document.getElementById("roomDisplay").innerHTML = `
         <strong>Starting vs AI (${aiDifficulty})</strong><br>
@@ -439,10 +442,11 @@
         AI Team: ${aiTeamName}
       `;
       
+      // Redirect directly to playing11 screen
       setTimeout(() => {
         window.location.href = `playing11.html?room=${roomCode}&player=player1`;
       }, 1500);
-    }
+    };
 
     window.viewHistory = function() {
       window.location.href = "history.html";
@@ -504,4 +508,4 @@
     document.head.appendChild(style);
   </script>
 </body>
-</html>
+  </html>
