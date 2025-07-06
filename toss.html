@@ -158,7 +158,7 @@
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
     import { AIOpponent } from './ai.js';
 
-    // Debugging Tools
+    // ========== DEBUGGING TOOLS ==========
     function debugLog(message) {
       const consoleElement = document.getElementById('debugConsole');
       const entry = document.createElement('div');
@@ -179,7 +179,7 @@
       document.getElementById('errorSection').style.display = 'none';
     }
 
-    // Firebase Initialization
+    // ========== FIREBASE INITIALIZATION ==========
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
@@ -189,10 +189,17 @@
       appId: "1:356065986337:web:399102c5dabfca2b6fe060"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    let db;
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      debugLog("Firebase initialized successfully");
+    } catch (error) {
+      showError("Failed to initialize Firebase. Please refresh the page.");
+      throw error;
+    }
 
-    // Game Initialization
+    // ========== GAME INITIALIZATION ==========
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
@@ -205,6 +212,8 @@
     const isAIMode = room.includes('AI');
     const opponent = isAIMode ? 'AI' : (player === "player1" ? "player2" : "player1");
     const ai = isAIMode ? new AIOpponent('medium') : null;
+
+    debugLog(`Game initialized - Room: ${room}, Player: ${player}, Mode: ${isAIMode ? 'AI' : 'Multiplayer'}`);
 
     // DOM Elements
     const elements = {
@@ -226,16 +235,15 @@
     elements.roomCode.textContent = `Room Code: ${room}`;
     elements.playerStatus.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
 
-    // Game State
+    // Game state
     const gameState = {
       tossCompleted: false,
       decisionMade: false,
       format: '5',
-      firebaseConnected: false,
-      aiReady: false
+      firebaseConnected: false
     };
 
-    // Firebase Connection Monitoring
+    // ========== FIREBASE CONNECTION MONITORING ==========
     onValue(ref(db, ".info/connected"), (snap) => {
       gameState.firebaseConnected = snap.val() === true;
       debugLog(`Firebase connection: ${gameState.firebaseConnected ? 'Connected' : 'Disconnected'}`);
@@ -244,50 +252,40 @@
         showError("Connection to server lost. Trying to reconnect...");
       } else {
         hideError();
-        if (isAIMode && !gameState.aiReady) {
-          initializeAIGame();
-        }
       }
     });
 
-    // Main Game Functions
-    async function initializeAIGame() {
+    // ========== MAIN GAME FUNCTIONS ==========
+    async function initializeGame() {
+      debugLog("Starting game initialization...");
+      
       try {
-        debugLog("Initializing AI opponent...");
-        
-        // Set both players as ready in AI mode
-        await Promise.all([
-          set(ref(db, `rooms/${room}/${player}/ready`), true),
-          set(ref(db, `rooms/${room}/${opponent}/ready`), true)
-        ]);
-        
-        debugLog("AI opponent marked as ready");
-        gameState.aiReady = true;
-        
-        // Skip toss in AI mode - human player directly chooses bat/bowl
-        elements.tossSection.style.display = "none";
-        elements.coin.style.display = "none";
-        elements.playerStatus.textContent = "Choose to bat or bowl first";
-        elements.choiceSection.style.display = "block";
-        
-        // Automatically set human as toss winner in AI mode
-        await set(ref(db, `rooms/${room}/tossWinner`), player);
-        gameState.tossCompleted = true;
+        // In AI mode, automatically set AI as ready and show toss to Player 1
+        if (isAIMode) {
+          debugLog("Initializing AI mode game");
+          
+          // Set AI player as ready
+          await set(ref(db, `rooms/${room}/AI/ready`), true);
+          
+          // Set human player as ready
+          await set(ref(db, `rooms/${room}/${player}/ready`), true);
+          
+          debugLog("Both players marked as ready in AI mode");
+          
+          // In AI mode, always show toss button to Player 1 immediately
+          elements.tossSection.style.display = "block";
+          elements.coin.style.display = "flex";
+          elements.playerStatus.textContent = "Your turn to toss!";
+        } else {
+          debugLog("Initializing multiplayer game");
+          await set(ref(db, `rooms/${room}/${player}/ready`), true);
+          debugLog("Player ready status set");
+          await checkOpponentReady();
+        }
       } catch (error) {
-        showError("Failed to initialize AI opponent");
-        debugLog(`AI initialization error: ${error.message}`);
-      }
-    }
-
-    async function initializeMultiplayerGame() {
-      try {
-        debugLog("Initializing multiplayer game");
-        await set(ref(db, `rooms/${room}/${player}/ready`), true);
-        debugLog("Player ready status set");
-        await checkOpponentReady();
-      } catch (error) {
-        showError("Failed to initialize game");
+        showError("Failed to initialize game. Please refresh.");
         debugLog(`Initialization error: ${error.message}`);
+        console.error(error);
       }
     }
 
@@ -317,7 +315,25 @@
       }
     }
 
-    // Event Listeners
+    async function performAIToss() {
+      debugLog("AI performing toss...");
+      elements.coin.style.display = "flex";
+      elements.coin.classList.add("spinning");
+      elements.result.textContent = "AI is tossing the coin...";
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      try {
+        const winner = Math.random() < 0.5 ? 'player1' : 'AI';
+        debugLog(`AI toss result: ${winner}`);
+        await set(ref(db, `rooms/${room}/tossWinner`), winner);
+      } catch (error) {
+        showError("Failed to process AI toss");
+        debugLog(`AI toss error: ${error.message}`);
+      }
+    }
+
+    // ========== EVENT LISTENERS ==========
     elements.tossBtn.addEventListener("click", async () => {
       debugLog("Toss button clicked");
       elements.tossBtn.disabled = true;
@@ -327,7 +343,9 @@
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+        const winner = isAIMode ? 
+          (Math.random() < 0.5 ? 'player1' : 'AI') : 
+          (Math.random() < 0.5 ? 'player1' : 'player2');
         debugLog(`Toss result: ${winner}`);
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
       } catch (error) {
@@ -365,7 +383,7 @@
       }
     }
 
-    // Firebase Listeners
+    // ========== FIREBASE LISTENERS ==========
     function initializeListeners() {
       debugLog("Setting up Firebase listeners");
       
@@ -452,8 +470,8 @@
         
         await set(ref(db, `rooms/${room}/decision`), decision);
         await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? 'player2' : 'player1',
-          bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
+          battingFirst: decision === 'bat' ? 'AI' : 'player1',
+          bowlingFirst: decision === 'bowl' ? 'AI' : 'player1'
         });
       } catch (error) {
         showError("AI failed to make decision");
@@ -461,15 +479,10 @@
       }
     }
 
-    // Start the Game
+    // ========== START THE GAME ==========
     debugLog("Starting game setup...");
     initializeListeners();
-    
-    if (isAIMode) {
-      initializeAIGame();
-    } else {
-      initializeMultiplayerGame();
-    }
+    initializeGame();
   </script>
 </body>
 </html>
