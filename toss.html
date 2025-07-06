@@ -45,12 +45,15 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import {
-      getDatabase, ref, set, onValue, get
+      getDatabase,
+      ref,
+      set,
+      get,
+      onValue,
+      update
     } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
     const firebaseConfig = {
@@ -73,20 +76,20 @@
 
     const tossRef = ref(db, `rooms/${room}/tossWinner`);
     const decisionRef = ref(db, `rooms/${room}/decision`);
+    const battingRef = ref(db, `rooms/${room}/battingFirst`);
+    const bowlingRef = ref(db, `rooms/${room}/bowlingFirst`);
 
     const tossStatus = document.getElementById("toss-status");
     const batBowlChoice = document.getElementById("batBowlChoice");
 
-    const listenForToss = () => {
+    function listenToToss() {
       onValue(tossRef, (snapshot) => {
         const winner = snapshot.val();
-        if (!winner) return;
-
         if (winner === player) {
           tossStatus.innerText = "You won the toss!";
           batBowlChoice.style.display = "block";
-        } else {
-          tossStatus.innerText = "Opponent won the toss. Waiting for their decision...";
+        } else if (winner === opponent) {
+          tossStatus.innerText = "Opponent won the toss. Waiting for decision...";
         }
       });
 
@@ -98,42 +101,38 @@
           }, 1000);
         }
       });
-    };
-
-    // ✅ AI Mode Fix: Wait for Firebase set
-    if (isAI && player === "player1") {
-      const handleAIToss = async () => {
-        await set(tossRef, "player1");
-        tossStatus.innerText = "You are playing against AI. You won the toss!";
-        batBowlChoice.style.display = "block";
-
-        // Start listening AFTER set completes
-        listenForToss();
-      };
-      handleAIToss();
-    } else {
-      // Multiplayer mode
-      if (player === "player2") {
-        get(tossRef).then(snapshot => {
-          if (!snapshot.exists()) {
-            const tossWinner = Math.random() < 0.5 ? "player1" : "player2";
-            set(tossRef, tossWinner);
-          }
-        });
-      }
-
-      // Listen normally
-      listenForToss();
     }
 
-    // Bat/Bowl selection logic
-    window.chooseInnings = function (choice) {
-      set(decisionRef, choice);
-      const batting = choice === "bat" ? player : opponent;
-      const bowling = choice === "bat" ? opponent : player;
+    async function setupAIToss() {
+      await set(tossRef, "player1");
+      tossStatus.innerText = "You are playing against AI. You won the toss!";
+      batBowlChoice.style.display = "block";
+      listenToToss(); // start listening only after toss set
+    }
 
-      set(ref(db, `rooms/${room}/battingFirst`), batting);
-      set(ref(db, `rooms/${room}/bowlingFirst`), bowling);
+    async function setupMultiplayerToss() {
+      const tossSnap = await get(tossRef);
+      if (!tossSnap.exists() && player === "player2") {
+        const winner = Math.random() < 0.5 ? "player1" : "player2";
+        await set(tossRef, winner);
+      }
+      listenToToss();
+    }
+
+    // init
+    if (isAI && player === "player1") {
+      setupAIToss();
+    } else {
+      setupMultiplayerToss();
+    }
+
+    // Handle bat/bowl selection
+    window.chooseInnings = async function(choice) {
+      await set(decisionRef, choice);
+      await update(ref(db, `rooms/${room}`), {
+        battingFirst: choice === "bat" ? player : opponent,
+        bowlingFirst: choice === "bat" ? opponent : player
+      });
     };
   </script>
 </body>
