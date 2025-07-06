@@ -140,20 +140,26 @@
     refs.roomCode.textContent = `Room: ${room}`;
     refs.status.textContent = `You are ${player.toUpperCase()}${isAIMode ? " (vs AI)" : ""}`;
 
-    function logError(msg) {
-      refs.error.textContent = msg;
-      refs.error.style.display = "block";
-    }
+    async function initializeGame() {
+      try {
+        await set(ref(db, `rooms/${room}/${player}/ready`), true);
 
-    async function init() {
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
-      if (isAIMode && player === "player1") {
-        await set(ref(db, `rooms/${room}/player2/ready`), true);
-        refs.coin.style.display = "flex";
-        refs.tossSection.style.display = "block";
-        refs.status.textContent = "Your turn to toss!";
-      } else if (!isAIMode) {
-        checkOpponentReady();
+        if (isAIMode && player === "player1") {
+          await set(ref(db, `rooms/${room}/player2/ready`), true);
+          await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
+
+          refs.coin.style.display = "flex";
+          refs.tossSection.style.display = "block";
+          refs.status.textContent = "Your turn to toss!";
+        } else if (isAIMode && player === "player2") {
+          refs.status.textContent = "Waiting for toss result...";
+        } else {
+          checkOpponentReady();
+        }
+      } catch (err) {
+        refs.error.textContent = "Initialization error.";
+        refs.error.style.display = "block";
+        console.error(err);
       }
     }
 
@@ -245,7 +251,7 @@
       });
     }
 
-    init();
+    initializeGame();
     listeners();
   </script>
 </body>
