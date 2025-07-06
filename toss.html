@@ -182,7 +182,8 @@
       formatDisplay: document.getElementById("formatDisplay"),
       waitingSection: document.getElementById("waitingSection"),
       coin: document.getElementById("coin"),
-      aiSection: document.getElementById("aiSection")
+      aiSection: document.getElementById("aiSection"),
+      errorSection: document.getElementById("errorSection")
     };
 
     // Initialize UI
@@ -196,8 +197,14 @@
       format: '5'
     };
 
+    // Debug logging function
+    function debugLog(message) {
+      console.log(`[DEBUG] ${new Date().toISOString()}: ${message}`);
+    }
+
     // AI Decision Maker
     function makeAIDecision(format) {
+      debugLog("AI making decision...");
       // Simple AI - 60% chance to bat first in shorter formats
       if (format === 'test') {
         return Math.random() < 0.5 ? 'bat' : 'bowl';
@@ -208,32 +215,46 @@
 
     // Main game functions
     async function initializeGame() {
+      debugLog("Starting game initialization...");
+      
       try {
         if (isAIMode) {
+          debugLog("Initializing AI mode game");
+          
           // Set both players as ready in AI mode
           await Promise.all([
             set(ref(db, `rooms/${room}/${player}/ready`), true),
             set(ref(db, `rooms/${room}/${opponent}/ready`), true)
           ]);
           
+          debugLog("Both players marked as ready in AI mode");
+          
+          // Only show toss button for player1 in AI mode
           if (player === 'player1') {
+            debugLog("Showing toss button for player 1 in AI mode");
             elements.tossSection.style.display = "block";
             elements.coin.style.display = "flex";
             elements.playerStatus.textContent = "Your turn to toss!";
           } else {
-            await performAIToss();
+            // Player 2 (AI) waits for toss result
+            debugLog("AI player waiting for toss result");
+            elements.playerStatus.textContent = "Waiting for toss...";
           }
         } else {
+          debugLog("Initializing multiplayer game");
           await set(ref(db, `rooms/${room}/${player}/ready`), true);
+          debugLog("Player ready status set");
           await checkOpponentReady();
         }
       } catch (error) {
         showError("Failed to initialize game. Please refresh.");
+        debugLog(`Initialization error: ${error.message}`);
         console.error(error);
       }
     }
 
     async function checkOpponentReady() {
+      debugLog("Checking if opponent is ready...");
       try {
         const opponentSnap = await get(ref(db, `rooms/${room}/${opponent}/ready`));
         
@@ -251,26 +272,18 @@
         }
       } catch (error) {
         showError("Error checking opponent status");
+        debugLog(`Opponent check error: ${error.message}`);
       }
     }
 
     async function performAIToss() {
-      elements.coin.style.display = "flex";
-      elements.coin.classList.add("spinning");
-      elements.result.textContent = "AI is tossing the coin...";
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
-        await set(ref(db, `rooms/${room}/tossWinner`), winner);
-      } catch (error) {
-        showError("Failed to process AI toss");
-      }
+      debugLog("AI should not perform toss - this function should never be called");
+      showError("System error: AI attempted to toss");
     }
 
     // Event listeners
     elements.tossBtn.addEventListener("click", async () => {
+      debugLog("Toss button clicked");
       elements.tossBtn.disabled = true;
       elements.coin.classList.add("spinning");
       elements.result.textContent = "Tossing...";
@@ -279,22 +292,27 @@
       
       try {
         const winner = Math.random() < 0.5 ? 'player1' : 'player2';
+        debugLog(`Toss winner: ${winner}`);
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
       } catch (error) {
         showError("Failed to process toss");
+        debugLog(`Toss error: ${error.message}`);
         elements.tossBtn.disabled = false;
       }
     });
 
     elements.batBtn.addEventListener("click", async () => {
+      debugLog("Player chose to bat first");
       await makeChoice('bat');
     });
 
     elements.bowlBtn.addEventListener("click", async () => {
+      debugLog("Player chose to bowl first");
       await makeChoice('bowl');
     });
 
     async function makeChoice(decision) {
+      debugLog(`Processing player decision: ${decision}`);
       elements.choiceSection.style.display = "none";
       elements.result.innerHTML += `<br>You chose to ${decision}`;
       
@@ -304,13 +322,17 @@
           battingFirst: decision === 'bat' ? player : opponent,
           bowlingFirst: decision === 'bowl' ? player : opponent
         });
+        debugLog("Decision saved to database");
       } catch (error) {
         showError("Failed to save your choice");
+        debugLog(`Decision save error: ${error.message}`);
       }
     }
 
     // Firebase listeners
     function initializeListeners() {
+      debugLog("Initializing Firebase listeners...");
+      
       // Format listener
       onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
         if (!snap.exists()) return;
@@ -321,6 +343,7 @@
           "50": "ODI", "test": "Test Match"
         };
         elements.formatDisplay.textContent = `Match Format: ${formatNames[gameState.format]}`;
+        debugLog(`Format set to: ${gameState.format}`);
       });
 
       // Toss winner listener
@@ -329,6 +352,7 @@
         if (!winner || gameState.tossCompleted) return;
         
         gameState.tossCompleted = true;
+        debugLog(`Toss completed. Winner: ${winner}`);
         elements.result.textContent = `Toss won by ${winner.toUpperCase()}`;
         elements.tossSection.style.display = "none";
         elements.coin.classList.remove("spinning");
@@ -351,25 +375,31 @@
         if (!decision || gameState.decisionMade) return;
         
         gameState.decisionMade = true;
+        debugLog(`Decision received: ${decision}`);
         const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
         elements.result.innerHTML += `<br>${isAIMode ? 'AI' : opponent.toUpperCase()} chose to ${decisionText}`;
         
         // Redirect to game after short delay
         setTimeout(() => {
+          debugLog("Redirecting to game page...");
           window.location.href = `game.html?room=${room}&player=${player}`;
         }, 2000);
       });
     }
 
     async function handleAIChoice() {
+      debugLog("Handling AI choice...");
       elements.aiSection.style.display = "block";
       elements.waitingSection.style.display = "none";
       
       // AI takes 1-2 seconds to "think"
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+      const thinkTime = 1000 + Math.random() * 1000;
+      debugLog(`AI thinking for ${thinkTime}ms`);
+      await new Promise(resolve => setTimeout(resolve, thinkTime));
       
       try {
         const decision = makeAIDecision(gameState.format);
+        debugLog(`AI decided to: ${decision}`);
         
         await set(ref(db, `rooms/${room}/decision`), decision);
         await update(ref(db, `rooms/${room}`), {
@@ -378,16 +408,18 @@
         });
       } catch (error) {
         showError("AI failed to make decision");
+        debugLog(`AI decision error: ${error.message}`);
       }
     }
 
     function showError(message) {
-      const errorElement = document.getElementById('errorSection');
-      errorElement.textContent = message;
-      errorElement.style.display = 'block';
+      debugLog(`Error: ${message}`);
+      elements.errorSection.textContent = message;
+      elements.errorSection.style.display = 'block';
     }
 
     // Start the game
+    debugLog("Starting game...");
     initializeListeners();
     initializeGame();
   </script>
