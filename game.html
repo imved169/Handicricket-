@@ -448,9 +448,9 @@
         totalOvers: 5, 
         totalWickets: 11, 
         powerplayOvers: 2, 
-        powerplayWicketValue: 0.5, // 2 wickets to get batter out
-        regularWicketValue: 1.0,   // 1 wicket to get batter out
-        livesPerPlayer: 2,
+        powerplayWicketValue: 0.5, // 2 wickets to get batter out in powerplay
+        regularWicketValue: 1.0,   // 1 wicket to get batter out otherwise
+        livesPerPlayer: 2,         // Keep this for backward compatibility
         deadOvers: []
       },
       "10": { 
@@ -478,8 +478,8 @@
         totalOvers: 50, 
         totalWickets: 11, 
         powerplayOvers: [1,10, 21,30, 41,42], 
-        powerplayWicketValue: 0.25, // 4 wickets to get batter out
-        regularWicketValue: 0.5,    // 2 wickets to get batter out
+        powerplayWicketValue: 0.25, // 4 wickets to get batter out in powerplay
+        regularWicketValue: 0.5,    // 2 wickets to get batter out otherwise
         livesPerPlayer: 4,
         deadOvers: [11,20, 31,40]
       },
@@ -488,7 +488,7 @@
         totalOvers: Infinity, 
         totalWickets: 30, 
         powerplayOvers: 0, 
-        powerplayWicketValue: 0.33,
+        powerplayWicketValue: 0.33, // 3 wickets to get batter out
         regularWicketValue: 0.33,
         livesPerPlayer: 3,
         deadOvers: []
@@ -520,7 +520,7 @@
     const maxOversPerDay = 90;
     let isPowerplay = false;
     let isDeadOver = false;
-    let batterLives = {};
+    let batterWickets = {}; // Track fractional wickets per batter
     let zerosThisOver = { player1: 0, player2: 0 };
     let currentOver = 0;
     let deadOversSelected = [];
@@ -589,6 +589,7 @@
         if (data.player1?.playing11) {
           data.player1.playing11.forEach(player => {
             batterStats[player] = { runs: 0, balls: 0 };
+            batterWickets[player] = 0; // Initialize wicket counter
             milestoneLevels.forEach(level => {
               batterStats[player][`milestone${level}Notified`] = false;
             });
@@ -599,6 +600,7 @@
         if (data.player2?.playing11) {
           data.player2.playing11.forEach(player => {
             batterStats[player] = { runs: 0, balls: 0 };
+            batterWickets[player] = 0; // Initialize wicket counter
             milestoneLevels.forEach(level => {
               batterStats[player][`milestone${level}Notified`] = false;
             });
@@ -729,7 +731,7 @@
         wickets: wickets,
         partnership: runs - lastWicketScore,
         requiredRate: requiredRate,
-        batterLives: currentBatter ? batterLives[currentBatter] : null,
+        batterWickets: currentBatter ? batterWickets[currentBatter] : null,
         isPowerplay: isPowerplay
       });
 
@@ -924,7 +926,7 @@
         currentBatter: currentBatter,
         currentBowler: currentBowler,
         ballsRemaining: currentFormat.totalOvers * 6 - legalBalls,
-        batterLives: batterLives,
+        batterWickets: batterWickets,
         bowlerOvers: bowlerOvers,
         runs: runs,
         wickets: wickets,
@@ -1022,8 +1024,8 @@
         scoreboard.innerHTML = `
           <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
           <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
-          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
-          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
+          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets)}</div>
+          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets)}</div>
           <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
       } else {
@@ -1098,7 +1100,7 @@
         if (selectionType === "batter") {
           currentBatter = playerName;
           battersUsed.push(playerName);
-          batterLives[playerName] = currentFormat.livesPerPlayer;
+          batterWickets[playerName] = 0; // Initialize wicket counter
           currentBatterEl.innerText = playerName;
           await set(ref(db, `rooms/${room}/currentBatter`), playerName);
         } else {
@@ -1121,7 +1123,7 @@
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
         const availableBatters = players.filter(p => !battersUsed.includes(p) || 
-          (batterLives[p] !== undefined && batterLives[p] > 0));
+          (batterWickets[p] !== undefined && batterWickets[p] < 1.0));
         
         if (availableBatters.length === 0) {
           alert("All batters are out!");
@@ -1132,11 +1134,10 @@
         selectionList.innerHTML = "";
         
         availableBatters.forEach(player => {
-          const livesLeft = batterLives[player] !== undefined ? 
-                          batterLives[player] : currentFormat.livesPerPlayer;
+          const wicketsLost = batterWickets[player] || 0;
           const playerEl = document.createElement("div");
           playerEl.className = "player-item";
-          playerEl.textContent = `${player} (${livesLeft} lives left)`;
+          playerEl.textContent = `${player} (${(1.0 - wicketsLost).toFixed(2)}/1.0 wickets left)`;
           playerEl.dataset.name = player;
           playerEl.addEventListener("click", function() {
             document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
@@ -1381,42 +1382,37 @@
         }
         else if (batCard === bowlCard && batCard > 0) {
           // Wicket logic with fractional wickets
-          if (currentBatter && batterLives[currentBatter] !== undefined) {
-            batterLives[currentBatter] -= 1;
-            
-            let wicketValue;
-            if (isTestMatch) {
-              wicketValue = 0.33;
-            } 
-            else if (currentFormat.name === "ODI") {
-              wicketValue = isPowerplay ? 0.25 : 0.5;
-            }
-            else {
-              wicketValue = isPowerplay ? 0.5 : 1.0;
-            }
-            
-            // Track fractional wickets internally
-            const newWickets = wickets + wicketValue;
-            
-            // Check if batter is fully out
-            if (batterLives[currentBatter] <= 0) {
-              // When batter is out, add exactly 1.0 to displayed wickets
-              wickets = Math.floor(wickets) + 1.0;
-              isPlayerOut = true;
-              outcome = "WICKET! (Out)";
-            } else {
-              // Still fractional wickets remaining
-              wickets = newWickets;
-              outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
-            }
-          } else {
-            // Fallback if batter lives not tracked
-            wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
-            wickets += wicketValue;
-            outcome = "WICKET!";
-            isWicket = true;
+          let wicketValue;
+          if (isTestMatch) {
+            wicketValue = 0.33;
+          } 
+          else if (currentFormat.name === "ODI") {
+            wicketValue = isPowerplay ? 0.25 : 0.5;
           }
+          else {
+            wicketValue = isPowerplay ? 0.5 : 1.0;
+          }
+          
+          // Track fractional wickets per batter
+          if (!batterWickets[currentBatter]) {
+            batterWickets[currentBatter] = 0;
+          }
+          
+          batterWickets[currentBatter] += wicketValue;
+          wickets += wicketValue;
+          
+          // Check if batter is out (reached 1.0 wicket)
+          if (batterWickets[currentBatter] >= 1.0) {
+            isPlayerOut = true;
+            outcome = "WICKET! (Out)";
+            // Round up to whole number for display
+            wickets = Math.ceil(wickets);
+          } else {
+            outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
+          }
+          
           isLegalBall = true;
+          isWicket = true;
         }
         else if (batCard === 0 && bowlCard > 0) {
           if (zerosThisOver[battingPlayer] > 3) {
@@ -1540,8 +1536,8 @@
           currentBatterEl.innerText = batter;
           if (!battersUsed.includes(batter)) {
             battersUsed.push(batter);
-            if (batterLives[batter] === undefined) {
-              batterLives[batter] = currentFormat.livesPerPlayer;
+            if (batterWickets[batter] === undefined) {
+              batterWickets[batter] = 0;
             }
           }
         }
@@ -1677,7 +1673,7 @@
       oversToday = 0;
       battersUsed = [];
       bowlerOvers = {};
-      batterLives = {};
+      batterWickets = {};
       freeHit = false;
       freeHitNextBall = false;
       currentBatter = null;
@@ -1735,13 +1731,16 @@
     function endMatch() {
       let result = "";
       let winner = "";
+      let winMargin = 0;
       
       if (isTestMatch) {
         if (team1Score > team2Score) {
-          result = `Team 1 wins by ${team1Score - team2Score} runs`;
+          winMargin = team1Score - team2Score;
+          result = `Team 1 wins by ${winMargin} runs`;
           winner = "player1";
         } else if (team2Score > team1Score) {
-          result = `Team 2 wins by ${10 - Math.floor(team2Wickets)} wickets`;
+          winMargin = 10 - Math.floor(team2Wickets);
+          result = `Team 2 wins by ${winMargin} wickets`;
           winner = "player2";
         } else {
           result = "Match drawn";
@@ -1749,16 +1748,19 @@
       } else {
         if (innings === 2) {
           if (team2Score > team1Score) {
-            result = `Team 2 wins by ${currentFormat.totalWickets - Math.floor(team2Wickets)} wickets`;
+            winMargin = currentFormat.totalWickets - Math.floor(team2Wickets);
+            result = `Team 2 wins by ${winMargin} wickets`;
             winner = "player2";
           } else if (team1Score > team2Score) {
-            result = `Team 1 wins by ${team1Score - team2Score} runs`;
+            winMargin = team1Score - team2Score;
+            result = `Team 1 wins by ${winMargin} runs`;
             winner = "player1";
           } else {
             result = "Match tied";
           }
         } else {
-          result = `Team 1 wins by ${currentFormat.totalWickets - Math.floor(team1Wickets)} wickets`;
+          winMargin = currentFormat.totalWickets - Math.floor(team1Wickets);
+          result = `Team 1 wins by ${winMargin} wickets`;
           winner = "player1";
         }
       }
@@ -1776,8 +1778,10 @@
         // Highlight winning team in scoreboard
         if (winner === "player1") {
           document.getElementById('team1Name').classList.add('team-winner');
+          document.getElementById('team1Players').classList.add('team-winner');
         } else {
           document.getElementById('team2Name').classList.add('team-winner');
+          document.getElementById('team2Players').classList.add('team-winner');
         }
       }
       
@@ -1788,7 +1792,7 @@
       
       // Redirect to results page after delay
       setTimeout(() => {
-        window.location.href = `result.html?room=${room}&player=${player}&winner=${winner}`;
+        window.location.href = `result.html?room=${room}&player=${player}&winner=${winner}&result=${encodeURIComponent(result)}`;
       }, 5000);
     }
 
@@ -1814,7 +1818,7 @@
           innings = savedData.innings || 1;
           currentInningRuns = savedData.currentInningRuns || 0;
           currentInningWickets = savedData.currentInningWickets || 0;
-          batterLives = savedData.batterLives || {};
+          batterWickets = savedData.batterWickets || {};
           bowlerOvers = savedData.bowlerOvers || {};
           team1Score = savedData.players?.player1?.score || 0;
           team2Score = savedData.players?.player2?.score || 0;
@@ -1841,7 +1845,7 @@
       currentFormat = formatRules[format];
       isTestMatch = format === "test";
       
-      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 outs/wicket" : currentFormat.livesPerPlayer + " lives/batter"}`;
+      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
       
       testControls.style.display = isTestMatch ? "flex" : "none";
       followOnBtn.style.display = "none";
@@ -1899,4 +1903,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
