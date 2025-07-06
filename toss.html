@@ -260,22 +260,26 @@
       debugLog("Starting game initialization...");
       
       try {
-        // In AI mode, automatically set AI as ready and show toss to Player 1
         if (isAIMode) {
           debugLog("Initializing AI mode game");
           
-          // Set AI player as ready
-          await set(ref(db, `rooms/${room}/AI/ready`), true);
-          
-          // Set human player as ready
-          await set(ref(db, `rooms/${room}/${player}/ready`), true);
+          // Set both players as ready in AI mode
+          await Promise.all([
+            set(ref(db, `rooms/${room}/${player}/ready`), true),
+            set(ref(db, `rooms/${room}/${opponent}/ready`), true)
+          ]);
           
           debugLog("Both players marked as ready in AI mode");
           
-          // In AI mode, always show toss button to Player 1 immediately
-          elements.tossSection.style.display = "block";
-          elements.coin.style.display = "flex";
-          elements.playerStatus.textContent = "Your turn to toss!";
+          if (player === 'player1') {
+            debugLog("Showing toss button for player 1");
+            elements.tossSection.style.display = "block";
+            elements.coin.style.display = "flex";
+            elements.playerStatus.textContent = "Your turn to toss!";
+          } else {
+            debugLog("AI player - performing automatic toss");
+            await performAIToss();
+          }
         } else {
           debugLog("Initializing multiplayer game");
           await set(ref(db, `rooms/${room}/${player}/ready`), true);
@@ -324,7 +328,7 @@
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        const winner = Math.random() < 0.5 ? 'player1' : 'AI';
+        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
         debugLog(`AI toss result: ${winner}`);
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
       } catch (error) {
@@ -343,9 +347,7 @@
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        const winner = isAIMode ? 
-          (Math.random() < 0.5 ? 'player1' : 'AI') : 
-          (Math.random() < 0.5 ? 'player1' : 'player2');
+        const winner = Math.random() < 0.5 ? 'player1' : 'player2';
         debugLog(`Toss result: ${winner}`);
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
       } catch (error) {
@@ -470,8 +472,8 @@
         
         await set(ref(db, `rooms/${room}/decision`), decision);
         await update(ref(db, `rooms/${room}`), {
-          battingFirst: decision === 'bat' ? 'AI' : 'player1',
-          bowlingFirst: decision === 'bowl' ? 'AI' : 'player1'
+          battingFirst: decision === 'bat' ? 'player2' : 'player1',
+          bowlingFirst: decision === 'bowl' ? 'player2' : 'player1'
         });
       } catch (error) {
         showError("AI failed to make decision");
