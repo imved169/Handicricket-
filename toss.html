@@ -1,143 +1,62 @@
-<!-- ✅ Toss.html (Updated for AI mode - Direct Choice for Player 1) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Toss Time</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HandiCricket - Toss</title>
   <style>
     body {
-      background: #061e3e;
+      background-color: #0a2540;
       color: white;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
       text-align: center;
+      padding-top: 50px;
+    }
+    .card {
+      background-color: #1a3a5d;
       padding: 20px;
-      margin: 0;
+      margin: auto;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
-    .game-container {
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 20px;
-      background: rgba(13, 42, 82, 0.8);
-      border-radius: 15px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    }
-    h1 {
-      color: #FFD700;
-      margin-bottom: 25px;
-    }
-    .info-display {
-      background: #0d2a52;
-      padding: 12px;
-      border-radius: 8px;
-      margin: 15px 0;
-      font-size: 18px;
-    }
-    .button-group {
-      margin: 25px 0;
-    }
-    .game-button {
-      background: #1e88e5;
-      color: white;
-      border: none;
-      padding: 12px 25px;
+    button {
+      padding: 10px 20px;
       margin: 10px;
       border-radius: 8px;
+      background-color: #00b894;
+      color: white;
+      border: none;
       font-size: 16px;
-      cursor: pointer;
-      transition: all 0.3s;
-      min-width: 120px;
     }
-    .game-button:hover {
-      background: #1565c0;
-      transform: scale(1.05);
-    }
-    .game-button:disabled {
-      background: #607d8b;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .status-message {
-      margin: 20px 0;
-      font-size: 16px;
-      min-height: 24px;
-    }
-    .waiting-message {
-      color: #4CAF50;
-      font-style: italic;
-    }
-    .ai-message {
-      color: #FF9800;
-      font-style: italic;
-    }
-    .error-message {
-      color: #FF5252;
-      font-weight: bold;
-    }
-    .highlight {
-      color: #FFEB3B;
-      font-weight: bold;
+    button:hover {
+      background-color: #019874;
     }
   </style>
 </head>
 <body>
-  <div class="game-container">
-    <h1>🪙 Toss Time</h1>
-    
-    <div class="info-display">
-      Room Code: <span class="highlight" id="roomCodeText">Loading...</span>
+  <div class="card">
+    <h2 id="toss-status">Waiting for Toss...</h2>
+    <div id="batBowlChoice" style="display: none;">
+      <p>You won the toss! Choose:</p>
+      <button onclick="chooseInnings('bat')">Bat</button>
+      <button onclick="chooseInnings('bowl')">Bowl</button>
     </div>
-    
-    <div class="info-display">
-      Match Format: <span class="highlight" id="formatText">Loading...</span>
-    </div>
-    
-    <div class="info-display">
-      <span id="statusText">Initializing game...</span>
-    </div>
-    
-    <div class="button-group" id="choiceSection" style="display: none;">
-      <p>You won the toss! Choose to:</p>
-      <button class="game-button" id="batBtn">Bat First</button>
-      <button class="game-button" id="bowlBtn">Bowl First</button>
-    </div>
-    
-    <div class="status-message" id="result"></div>
-    <div class="status-message waiting-message" id="waitingSection" style="display: none;">
-      Waiting for opponent's decision...
-    </div>
-    <div class="status-message ai-message" id="aiSection" style="display: none;">
-      AI is making decision...
-    </div>
-    <div class="status-message error-message" id="errorSection" style="display: none;"></div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get('room');
-    const player = urlParams.get('player');
-    const isAIMode = room.includes('AI');
-    const opponent = player === 'player1' ? 'player2' : 'player1';
-
-    const elements = {
-      roomCodeText: document.getElementById("roomCodeText"),
-      formatText: document.getElementById("formatText"),
-      statusText: document.getElementById("statusText"),
-      result: document.getElementById("result"),
-      choiceSection: document.getElementById("choiceSection"),
-      batBtn: document.getElementById("batBtn"),
-      bowlBtn: document.getElementById("bowlBtn"),
-      waitingSection: document.getElementById("waitingSection"),
-      aiSection: document.getElementById("aiSection"),
-      errorSection: document.getElementById("errorSection")
-    };
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import {
+      getDatabase, ref, set, onValue, get, child
+    } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
+      databaseURL: "https://handicricket-d1ab7-default-rtdb.firebaseio.com",
       projectId: "handicricket-d1ab7",
       storageBucket: "handicricket-d1ab7.appspot.com",
       messagingSenderId: "356065986337",
@@ -147,85 +66,75 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    elements.roomCodeText.textContent = room;
-    elements.statusText.textContent = `You are ${player.toUpperCase()}${isAIMode ? ' (vs AI)' : ''}`;
+    const room = localStorage.getItem("roomCode");
+    const player = localStorage.getItem("player");
+    const opponent = player === "player1" ? "player2" : "player1";
+    const isAI = room.includes("AI");
 
-    async function initializeGame() {
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
+    const tossRef = ref(db, `rooms/${room}/tossWinner`);
+    const decisionRef = ref(db, `rooms/${room}/decision`);
+    const formatRef = ref(db, `rooms/${room}/format`);
 
-      if (isAIMode) {
-        await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
+    const tossStatus = document.getElementById("toss-status");
+    const batBowlChoice = document.getElementById("batBowlChoice");
 
-        // ✅ Player 1 gets direct choice
-        if (player === 'player1') {
-          await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
-          elements.result.textContent = "You won the toss!";
-          elements.choiceSection.style.display = 'block';
-          elements.statusText.textContent = "Choose to bat or bowl first";
-        } else {
-          elements.statusText.textContent = "Waiting for toss result...";
-        }
-      } else {
-        checkMultiplayerReadiness();
+    // Show format (optional)
+    get(formatRef).then(snapshot => {
+      if (snapshot.exists()) {
+        const format = snapshot.val();
+        tossStatus.innerText = `Format: ${format.toUpperCase()} - Waiting for Toss...`;
       }
+    });
 
-      setupListeners();
+    // 🧠 If AI mode, player1 gets auto toss win
+    if (isAI && player === "player1") {
+      set(tossRef, "player1");
+      tossStatus.innerText = "You are playing against AI. You won the toss!";
+      batBowlChoice.style.display = "block";
     }
 
-    function checkMultiplayerReadiness() {
-      const opponentRef = ref(db, `rooms/${room}/${opponent}/ready`);
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          if (player === 'player2') {
-            elements.result.textContent = "You won the toss!";
-            elements.choiceSection.style.display = 'block';
-          } else {
-            elements.statusText.textContent = "Waiting for opponent to toss...";
-          }
+    // Normal Toss (only player2 tosses)
+    if (!isAI && player === "player2") {
+      get(tossRef).then(snapshot => {
+        if (!snapshot.exists()) {
+          const tossWinner = Math.random() < 0.5 ? "player1" : "player2";
+          set(tossRef, tossWinner);
         }
       });
     }
 
-    function setupListeners() {
-      onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-        if (snap.exists()) {
-          const format = snap.val();
-          const formatNames = {
-            "5": "5 Overs", "10": "10 Overs", "20": "T20",
-            "50": "ODI", "test": "Test Match"
-          };
-          elements.formatText.textContent = formatNames[format] || "Unknown";
-        }
-      });
+    // Listen for toss result
+    onValue(tossRef, (snapshot) => {
+      const winner = snapshot.val();
+      if (!winner) return;
 
-      onValue(ref(db, `rooms/${room}/decision`), (snap) => {
-        if (snap.exists()) {
-          const decision = snap.val();
-          const decisionText = decision === 'bat' ? 'bat first' : 'bowl first';
-          const decider = isAIMode ? "AI" : opponent.toUpperCase();
-          elements.result.textContent += `\n${decider} chose to ${decisionText}`;
-          setTimeout(() => {
-            window.location.href = `game.html?room=${room}&player=${player}`;
-          }, 2000);
-        }
-      });
+      if (winner === player) {
+        tossStatus.innerText = "You won the toss!";
+        batBowlChoice.style.display = "block";
+      } else {
+        tossStatus.innerText = "Opponent won the toss. Waiting for their decision...";
+      }
+    });
+
+    // Listen for bat/bowl decision
+    onValue(decisionRef, (snapshot) => {
+      const decision = snapshot.val();
+      if (decision) {
+        setTimeout(() => {
+          window.location.href = "game.html";
+        }, 1000);
+      }
+    });
+
+    // Handle user choice
+    window.chooseInnings = function (choice) {
+      set(decisionRef, choice);
+      const batting = choice === "bat" ? player : opponent;
+      const bowling = choice === "bat" ? opponent : player;
+
+      set(ref(db, `rooms/${room}/battingFirst`), batting);
+      set(ref(db, `rooms/${room}/bowlingFirst`), bowling);
     }
-
-    elements.batBtn.onclick = () => makeChoice("bat");
-    elements.bowlBtn.onclick = () => makeChoice("bowl");
-
-    async function makeChoice(decision) {
-      elements.choiceSection.style.display = "none";
-      elements.result.textContent = `You chose to ${decision} first`;
-
-      await set(ref(db, `rooms/${room}/decision`), decision);
-      await update(ref(db, `rooms/${room}`), {
-        battingFirst: decision === "bat" ? player : opponent,
-        bowlingFirst: decision === "bowl" ? player : opponent
-      });
-    }
-
-    initializeGame();
   </script>
 </body>
 </html>
