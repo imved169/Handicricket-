@@ -448,8 +448,8 @@
         totalOvers: 5, 
         totalWickets: 11, 
         powerplayOvers: 2, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        powerplayWicketValue: 0.5, // 2 wickets to get batter out
+        regularWicketValue: 1.0,   // 1 wicket to get batter out
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -459,7 +459,7 @@
         totalWickets: 11, 
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        regularWicketValue: 1.0,
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -469,7 +469,7 @@
         totalWickets: 11, 
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        regularWicketValue: 1.0,
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -478,8 +478,8 @@
         totalOvers: 50, 
         totalWickets: 11, 
         powerplayOvers: [1,10, 21,30, 41,42], 
-        powerplayWicketValue: 0.25,
-        regularWicketValue: 0.5,
+        powerplayWicketValue: 0.25, // 4 wickets to get batter out
+        regularWicketValue: 0.5,    // 2 wickets to get batter out
         livesPerPlayer: 4,
         deadOvers: [11,20, 31,40]
       },
@@ -1014,13 +1014,8 @@
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
       
-      let displayWickets;
-      if (isTestMatch) {
-        displayWickets = Math.floor(wickets / 3);
-      } else {
-        displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
-      }
-
+      // Display wickets as whole numbers when batter is out
+      const displayWickets = Math.floor(wickets);
       let totalWickets = currentFormat.totalWickets;
 
       if (isTestMatch) {
@@ -1385,46 +1380,39 @@
           isLegalBall = true;
         }
         else if (batCard === bowlCard && batCard > 0) {
-          // Wicket logic
+          // Wicket logic with fractional wickets
           if (currentBatter && batterLives[currentBatter] !== undefined) {
             batterLives[currentBatter] -= 1;
             
-            let wicketValue = 0;
+            let wicketValue;
             if (isTestMatch) {
               wicketValue = 0.33;
             } 
             else if (currentFormat.name === "ODI") {
-              if (isPowerplay) {
-                wicketValue = 0.25;
-              } else {
-                const currentWicketFraction = wickets % 1;
-                wicketValue = 1 - currentWicketFraction;
-                if (wicketValue > 0.5) wicketValue = 0.5;
-              }
+              wicketValue = isPowerplay ? 0.25 : 0.5;
             }
             else {
-              if (isPowerplay) {
-                wicketValue = 0.5;
-              } else {
-                const currentWicketFraction = wickets % 1;
-                wicketValue = 1 - currentWicketFraction;
-              }
+              wicketValue = isPowerplay ? 0.5 : 1.0;
             }
             
-            wickets += wicketValue;
-            outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
+            // Track fractional wickets internally
+            const newWickets = wickets + wicketValue;
             
+            // Check if batter is fully out
             if (batterLives[currentBatter] <= 0) {
+              // When batter is out, add exactly 1.0 to displayed wickets
+              wickets = Math.floor(wickets) + 1.0;
               isPlayerOut = true;
-              outcome = "WICKET! (Player out)";
-              wickets = Math.ceil(wickets);
+              outcome = "WICKET! (Out)";
+            } else {
+              // Still fractional wickets remaining
+              wickets = newWickets;
+              outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
             }
           } else {
-            if (isPowerplay) {
-              wickets += currentFormat.powerplayWicketValue;
-            } else {
-              wickets += currentFormat.regularWicketValue;
-            }
+            // Fallback if batter lives not tracked
+            wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
+            wickets += wicketValue;
             outcome = "WICKET!";
             isWicket = true;
           }
