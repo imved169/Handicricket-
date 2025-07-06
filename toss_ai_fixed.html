@@ -1,0 +1,172 @@
+<!-- toss_ai_fixed.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Toss Time</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+    }
+    .game-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      background: rgba(13, 42, 82, 0.8);
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      color: #FFD700;
+      margin-bottom: 25px;
+    }
+    .info-display {
+      background: #0d2a52;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 18px;
+    }
+    .button-group {
+      margin: 25px 0;
+    }
+    .game-button {
+      background: #1e88e5;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      margin: 10px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      min-width: 120px;
+    }
+    .game-button:hover {
+      background: #1565c0;
+      transform: scale(1.05);
+    }
+    .status-message {
+      margin: 20px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>🪙 Toss Time</h1>
+
+    <div class="info-display">
+      Room Code: <span id="roomCodeText">Loading...</span>
+    </div>
+
+    <div class="info-display">
+      <span id="statusText">Initializing game...</span>
+    </div>
+
+    <div class="button-group" id="choiceSection" style="display: none;">
+      <p>You won the toss! Choose to:</p>
+      <button class="game-button" id="batBtn">Bat First</button>
+      <button class="game-button" id="bowlBtn">Bowl First</button>
+    </div>
+
+    <div class="status-message" id="result"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    const isAIMode = room.includes('AI');
+    const opponent = player === 'player1' ? 'player2' : 'player1';
+
+    const app = initializeApp({
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      databaseURL: "https://handicricket-d1ab7-default-rtdb.firebaseio.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    });
+
+    const db = getDatabase(app);
+
+    const roomCodeText = document.getElementById("roomCodeText");
+    const statusText = document.getElementById("statusText");
+    const resultText = document.getElementById("result");
+    const choiceSection = document.getElementById("choiceSection");
+    const batBtn = document.getElementById("batBtn");
+    const bowlBtn = document.getElementById("bowlBtn");
+
+    roomCodeText.textContent = room;
+
+    async function init() {
+      await set(ref(db, `rooms/${room}/${player}/ready`), true);
+      if (isAIMode) {
+        await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
+        if (player === 'player1') {
+          await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
+          statusText.textContent = "You are playing against AI. You won the toss!";
+          choiceSection.style.display = "block";
+        } else {
+          statusText.textContent = "Waiting for Player 1's decision...";
+        }
+      } else {
+        const opponentRef = ref(db, `rooms/${room}/${opponent}/ready`);
+        onValue(opponentRef, (snap) => {
+          if (snap.exists() && snap.val()) {
+            if (player === 'player2') {
+              set(ref(db, `rooms/${room}/tossWinner`), Math.random() < 0.5 ? 'player1' : 'player2');
+            }
+          }
+        });
+
+        onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
+          const winner = snap.val();
+          if (winner === player) {
+            statusText.textContent = "You won the toss!";
+            choiceSection.style.display = "block";
+          } else {
+            statusText.textContent = "Opponent won the toss. Waiting for decision...";
+          }
+        });
+      }
+
+      // Redirect after decision
+      onValue(ref(db, `rooms/${room}/decision`), (snap) => {
+        if (snap.exists()) {
+          setTimeout(() => {
+            window.location.href = `game.html?room=${room}&player=${player}`;
+          }, 1000);
+        }
+      });
+    }
+
+    async function makeChoice(decision) {
+      resultText.textContent = `You chose to ${decision} first.`;
+      choiceSection.style.display = "none";
+
+      await set(ref(db, `rooms/${room}/decision`), decision);
+      await update(ref(db, `rooms/${room}`), {
+        battingFirst: decision === "bat" ? player : opponent,
+        bowlingFirst: decision === "bowl" ? player : opponent
+      });
+    }
+
+    batBtn.onclick = () => makeChoice("bat");
+    bowlBtn.onclick = () => makeChoice("bowl");
+
+    init();
+  </script>
+</body>
+</html>
