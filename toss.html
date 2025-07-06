@@ -236,19 +236,18 @@
     async function initializeGame() {
       try {
         if (isAIMode) {
+          // In AI mode, mark both players as ready immediately
           await Promise.all([
             set(ref(db, `rooms/${room}/${player}/ready`), true),
             set(ref(db, `rooms/${room}/${opponent}/ready`), true)
           ]);
           
-          if (player === 'player1') {
-            elements.tossSection.style.display = "block";
-            elements.coin.style.display = "flex";
-            elements.playerStatus.textContent = "Your turn to toss!";
-          } else {
-            await performAIToss();
-          }
+          // Always show toss button for human player in AI mode
+          elements.tossSection.style.display = "block";
+          elements.coin.style.display = "flex";
+          elements.playerStatus.textContent = "Your turn to toss!";
         } else {
+          // Regular multiplayer mode
           await set(ref(db, `rooms/${room}/${player}/ready`), true);
           await checkOpponentReady();
         }
@@ -264,6 +263,7 @@
         if (opponentSnap.exists() && opponentSnap.val()) {
           elements.playerStatus.textContent = "Both players ready!";
           
+          // In multiplayer, player2 tosses first
           if (player === 'player2') {
             elements.tossSection.style.display = "block";
             elements.coin.style.display = "flex";
