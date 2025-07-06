@@ -73,63 +73,60 @@
 
     const tossRef = ref(db, `rooms/${room}/tossWinner`);
     const decisionRef = ref(db, `rooms/${room}/decision`);
-    const formatRef = ref(db, `rooms/${room}/format`);
 
     const tossStatus = document.getElementById("toss-status");
     const batBowlChoice = document.getElementById("batBowlChoice");
 
-    // Show format name if available
-    get(formatRef).then(snapshot => {
-      if (snapshot.exists()) {
-        const format = snapshot.val();
-        tossStatus.innerText = `Format: ${format.toUpperCase()} - Waiting for Toss...`;
-      }
-    });
+    const listenForToss = () => {
+      onValue(tossRef, (snapshot) => {
+        const winner = snapshot.val();
+        if (!winner) return;
 
-    // ✅ AI Mode: player1 auto-wins toss and chooses
+        if (winner === player) {
+          tossStatus.innerText = "You won the toss!";
+          batBowlChoice.style.display = "block";
+        } else {
+          tossStatus.innerText = "Opponent won the toss. Waiting for their decision...";
+        }
+      });
+
+      onValue(decisionRef, (snapshot) => {
+        const decision = snapshot.val();
+        if (decision) {
+          setTimeout(() => {
+            window.location.href = "game.html";
+          }, 1000);
+        }
+      });
+    };
+
+    // ✅ AI Mode Fix: Wait for Firebase set
     if (isAI && player === "player1") {
-      const assignTossToAI = async () => {
+      const handleAIToss = async () => {
         await set(tossRef, "player1");
         tossStatus.innerText = "You are playing against AI. You won the toss!";
         batBowlChoice.style.display = "block";
+
+        // Start listening AFTER set completes
+        listenForToss();
       };
-      assignTossToAI();
+      handleAIToss();
+    } else {
+      // Multiplayer mode
+      if (player === "player2") {
+        get(tossRef).then(snapshot => {
+          if (!snapshot.exists()) {
+            const tossWinner = Math.random() < 0.5 ? "player1" : "player2";
+            set(tossRef, tossWinner);
+          }
+        });
+      }
+
+      // Listen normally
+      listenForToss();
     }
 
-    // Multiplayer toss (only player2 performs it)
-    if (!isAI && player === "player2") {
-      get(tossRef).then(snapshot => {
-        if (!snapshot.exists()) {
-          const tossWinner = Math.random() < 0.5 ? "player1" : "player2";
-          set(tossRef, tossWinner);
-        }
-      });
-    }
-
-    // Show toss result
-    onValue(tossRef, (snapshot) => {
-      const winner = snapshot.val();
-      if (!winner) return;
-
-      if (winner === player) {
-        tossStatus.innerText = "You won the toss!";
-        batBowlChoice.style.display = "block";
-      } else {
-        tossStatus.innerText = "Opponent won the toss. Waiting for their decision...";
-      }
-    });
-
-    // If decision is made, redirect to game
-    onValue(decisionRef, (snapshot) => {
-      const decision = snapshot.val();
-      if (decision) {
-        setTimeout(() => {
-          window.location.href = "game.html";
-        }, 1000);
-      }
-    });
-
-    // Handle bat/bowl selection
+    // Bat/Bowl selection logic
     window.chooseInnings = function (choice) {
       set(decisionRef, choice);
       const batting = choice === "bat" ? player : opponent;
