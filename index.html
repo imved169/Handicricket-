@@ -142,50 +142,18 @@
       color: #90caf9;
       font-size: 12px;
     }
-    #aiDifficulty {
-      display: none;
-      margin-top: 15px;
-      text-align: center;
-      background: rgba(16, 45, 74, 0.5);
-      padding: 15px;
-      border-radius: 12px;
-      border: 1px solid rgba(30, 136, 229, 0.3);
+    .difficulty-selector {
+      margin: 15px 0;
     }
-    #aiDifficulty h4 {
-      margin-top: 0;
-      color: #90caf9;
-    }
-    #aiDifficulty button {
+    .difficulty-btn {
       width: 30%;
       padding: 10px;
       margin: 5px;
       background: rgba(26, 58, 106, 0.7);
       border: 2px solid #1e88e5;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
     }
-    #aiDifficulty button:hover {
-      background: rgba(30, 136, 229, 0.5);
-    }
-    #aiDifficulty button.active {
+    .difficulty-btn.active {
       background: linear-gradient(135deg, #1e88e5, #1565c0);
-      font-weight: bold;
-    }
-    #aiDifficulty button.start-ai-game {
-      width: 100%;
-      margin-top: 10px;
-      background: linear-gradient(135deg, #4caf50, #2e7d32);
-    }
-    #aiDifficulty button.start-ai-game:hover {
-      background: linear-gradient(135deg, #2e7d32, #1b5e20);
-    }
-    button[onclick="viewHistory()"] {
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
-    }
-    button[onclick="viewHistory()"]:hover {
-      background: linear-gradient(135deg, #2575fc, #6a11cb);
     }
   </style>
 </head>
@@ -206,17 +174,6 @@
     <button onclick="createRoom()">Create Room</button>
     <button onclick="joinRoom()">Join Room</button>
     <button onclick="spectateRoom()">Spectate Match</button>
-    <button onclick="playWithAI()">Play vs AI</button>
-    <button onclick="viewHistory()">📊 View History</button>
-    
-    <div id="aiDifficulty">
-      <h4>Select AI Difficulty:</h4>
-      <button onclick="setAIDifficulty('easy')" class="active">Easy</button>
-      <button onclick="setAIDifficulty('medium')">Medium</button>
-      <button onclick="setAIDifficulty('hard')">Hard</button>
-      <button onclick="startAIgame()" class="start-ai-game">Start AI Game</button>
-    </div>
-    
     <div id="roomDisplay"></div>
     <div id="spectatorDisplay"></div>
   </div>
@@ -243,7 +200,6 @@
     const db = getDatabase(app);
 
     let selectedFormat = "5";
-    let aiDifficulty = "easy";
 
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -275,6 +231,13 @@
         Format: ${getFormatName(selectedFormat)}<br>
         <small>Share this code with your opponent</small>
       `;
+      
+      // Animate the display
+      const display = document.getElementById("roomDisplay");
+      display.style.animation = "none";
+      setTimeout(() => {
+        display.style.animation = "pulse 1.5s";
+      }, 10);
       
       setTimeout(() => {
         window.location.href = `playing11.html?room=${roomCode}&player=player1`;
@@ -317,6 +280,13 @@
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
       if (snapshot.exists()) {
+        const roomData = snapshot.val();
+        const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
+        
+        if (spectatorCount >= 10) {
+          return alert("Spectator slots full! Max 10 spectators allowed.");
+        }
+        
         const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
         await set(ref(db, `rooms/${joinCode}/spectators/${spectatorId}`), {
           joinedAt: Date.now(),
@@ -336,96 +306,6 @@
         alert("Invalid room code!");
       }
     }
-
-    window.playWithAI = function() {
-      const teamName = document.getElementById("teamName").value.trim();
-      if (!teamName) return alert("Enter your team name first!");
-      
-      document.getElementById("aiDifficulty").style.display = "block";
-    }
-
-    window.setAIDifficulty = function(difficulty) {
-      aiDifficulty = difficulty;
-      document.querySelectorAll("#aiDifficulty button").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.textContent.toLowerCase().includes(difficulty)) {
-          btn.classList.add("active");
-        }
-      });
-    }
-
-    window.startAIgame = async function() {
-      const teamName = document.getElementById("teamName").value.trim();
-      if (!teamName) return alert("Enter your team name first!");
-      
-      const roomCode = generateRoomCode() + "AI";
-      
-      // Set up human player
-      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
-        teamName: teamName,
-        format: selectedFormat,
-        online: true,
-        timestamp: Date.now(),
-        isHuman: true
-      });
-      
-      // Set up AI opponent with predefined players
-      const aiTeamName = `AI Challengers (${aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1)})`;
-      const aiPlayers = {
-        "1": { name: "AI Batsman 1", type: "batsman" },
-        "2": { name: "AI Batsman 2", type: "batsman" },
-        "3": { name: "AI All-rounder", type: "allrounder" },
-        "4": { name: "AI Wicketkeeper", type: "wicketkeeper" },
-        "5": { name: "AI Bowler 1", type: "bowler" },
-        "6": { name: "AI Bowler 2", type: "bowler" },
-        "7": { name: "AI Bowler 3", type: "bowler" },
-        "8": { name: "AI Bowler 4", type: "bowler" },
-        "9": { name: "AI Bowler 5", type: "bowler" },
-        "10": { name: "AI Bowler 6", type: "bowler" },
-        "11": { name: "AI Captain", type: "captain" }
-      };
-      
-      // Set up AI player with ready status
-      await set(ref(db, 'rooms/' + roomCode + '/player2'), {
-        teamName: aiTeamName,
-        format: selectedFormat,
-        online: true,
-        timestamp: Date.now(),
-        isAI: true,
-        difficulty: aiDifficulty,
-        players: aiPlayers,
-        teamReady: true
-      });
-      
-      // Set game settings
-      await set(ref(db, 'rooms/' + roomCode + '/gameSettings'), {
-        isAIGame: true,
-        difficulty: aiDifficulty,
-        status: "waitingForPlayer1",
-        timestamp: Date.now()
-      });
-      
-      // Store AI settings in localStorage
-      localStorage.setItem("aiGameSettings", JSON.stringify({
-        difficulty: aiDifficulty,
-        aiTeamName: aiTeamName,
-        aiPlayers: aiPlayers
-      }));
-      
-      document.getElementById("roomDisplay").innerHTML = `
-        <strong>Starting vs AI (${aiDifficulty})</strong><br>
-        Format: ${getFormatName(selectedFormat)}<br>
-        AI Team: ${aiTeamName}
-      `;
-      
-      setTimeout(() => {
-        window.location.href = `playing11.html?room=${roomCode}&player=player1&ai=true`;
-      }, 1500);
-    };
-
-    window.viewHistory = function() {
-      window.location.href = "history.html";
-    };
 
     function getFormatName(format) {
       switch(format) {
