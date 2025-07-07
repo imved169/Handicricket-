@@ -94,6 +94,11 @@
       color: #FFD700;
       font-weight: bold;
     }
+    .player-count {
+      font-size: 0.8em;
+      color: #FFD700;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -104,6 +109,7 @@
       <p>Room: <span class="highlight" id="roomCode"></span></p>
       <p>Format: <span class="highlight" id="matchFormat"></span></p>
       <p>Mode: <span class="highlight">VS AI</span></p>
+      <p>Note: <span class="highlight">You are setting both teams' playing XIs</span></p>
     </div>
     
     <div class="team-section">
@@ -112,6 +118,7 @@
         <input type="text" id="playerName" placeholder="Enter player name">
         <button onclick="addPlayer()">Add</button>
       </div>
+      <div class="player-count">Players added: <span id="playerCount">0</span>/11</div>
       <ul id="playerList"></ul>
     </div>
     
@@ -121,6 +128,7 @@
         <input type="text" id="aiPlayerName" placeholder="Enter AI player name">
         <button onclick="addAIPlayer()">Add</button>
       </div>
+      <div class="player-count">Players added: <span id="aiPlayerCount">0</span>/11</div>
       <ul id="aiPlayerList"></ul>
     </div>
     
@@ -129,7 +137,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -164,12 +172,20 @@
     let players = [];
     let aiPlayers = [];
 
+    function updateCounters() {
+      document.getElementById('playerCount').textContent = players.length;
+      document.getElementById('aiPlayerCount').textContent = aiPlayers.length;
+    }
+
     function addPlayer() {
       const name = document.getElementById('playerName').value.trim();
       if (name && players.length < 11) {
         players.push(name);
         updatePlayerList();
         document.getElementById('playerName').value = '';
+        updateCounters();
+      } else if (players.length >= 11) {
+        alert('You have already selected 11 players for your team');
       }
     }
 
@@ -179,6 +195,9 @@
         aiPlayers.push(name);
         updateAIPlayerList();
         document.getElementById('aiPlayerName').value = '';
+        updateCounters();
+      } else if (aiPlayers.length >= 11) {
+        alert('You have already selected 11 players for the AI team');
       }
     }
 
@@ -211,11 +230,13 @@
     window.removePlayer = function(index) {
       players.splice(index, 1);
       updatePlayerList();
+      updateCounters();
     }
 
     window.removeAIPlayer = function(index) {
       aiPlayers.splice(index, 1);
       updateAIPlayerList();
+      updateCounters();
     }
 
     async function submitTeams() {
@@ -243,6 +264,9 @@
         alert('Error saving teams: ' + error.message);
       }
     }
+
+    // Initialize counters
+    updateCounters();
   </script>
 </body>
 </html>
