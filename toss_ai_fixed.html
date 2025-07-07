@@ -1,9 +1,8 @@
-<!-- toss_ai_fixed.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Toss Time</title>
+  <title>Toss Time (AI Mode)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -56,18 +55,26 @@
       margin: 20px 0;
       font-size: 16px;
     }
+    .ai-thinking {
+      color: #FF9800;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
   <div class="game-container">
-    <h1>🪙 Toss Time</h1>
-
+    <h1>🪙 AI Toss Time</h1>
+    
     <div class="info-display">
       Room Code: <span id="roomCodeText">Loading...</span>
     </div>
-
+    
     <div class="info-display">
-      <span id="statusText">Initializing game...</span>
+      Difficulty: <span id="difficultyText">Loading...</span>
+    </div>
+    
+    <div class="info-display">
+      <span id="statusText">Initializing AI game...</span>
     </div>
 
     <div class="button-group" id="choiceSection" style="display: none;">
@@ -77,22 +84,23 @@
     </div>
 
     <div class="status-message" id="result"></div>
+    <div class="status-message ai-thinking" id="aiThinking" style="display: none;">
+      AI is making its decision...
+    </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
-    const isAIMode = room.includes('AI');
-    const opponent = player === 'player1' ? 'player2' : 'player1';
+    const difficulty = urlParams.get('difficulty') || 'medium';
 
     const app = initializeApp({
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
-      databaseURL: "https://handicricket-d1ab7-default-rtdb.firebaseio.com",
       projectId: "handicricket-d1ab7",
       storageBucket: "handicricket-d1ab7.appspot.com",
       messagingSenderId: "356065986337",
@@ -101,71 +109,58 @@
 
     const db = getDatabase(app);
 
+    // DOM elements
     const roomCodeText = document.getElementById("roomCodeText");
+    const difficultyText = document.getElementById("difficultyText");
     const statusText = document.getElementById("statusText");
     const resultText = document.getElementById("result");
     const choiceSection = document.getElementById("choiceSection");
     const batBtn = document.getElementById("batBtn");
     const bowlBtn = document.getElementById("bowlBtn");
+    const aiThinking = document.getElementById("aiThinking");
 
-    roomCodeText.textContent = room;
-
+    // Initialize game
     async function init() {
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
-      if (isAIMode) {
-        await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
-        if (player === 'player1') {
-          await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
-          statusText.textContent = "You are playing against AI. You won the toss!";
-          choiceSection.style.display = "block";
-        } else {
-          statusText.textContent = "Waiting for Player 1's decision...";
-        }
-      } else {
-        const opponentRef = ref(db, `rooms/${room}/${opponent}/ready`);
-        onValue(opponentRef, (snap) => {
-          if (snap.exists() && snap.val()) {
-            if (player === 'player2') {
-              set(ref(db, `rooms/${room}/tossWinner`), Math.random() < 0.5 ? 'player1' : 'player2');
-            }
-          }
-        });
-
-        onValue(ref(db, `rooms/${room}/tossWinner`), (snap) => {
-          const winner = snap.val();
-          if (winner === player) {
-            statusText.textContent = "You won the toss!";
-            choiceSection.style.display = "block";
-          } else {
-            statusText.textContent = "Opponent won the toss. Waiting for decision...";
-          }
-        });
-      }
-
-      // Redirect after decision
-      onValue(ref(db, `rooms/${room}/decision`), (snap) => {
-        if (snap.exists()) {
-          setTimeout(() => {
-            window.location.href = `game.html?room=${room}&player=${player}`;
-          }, 1000);
-        }
+      roomCodeText.textContent = room;
+      difficultyText.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+      
+      // Player automatically wins toss in AI mode
+      statusText.textContent = "You won the toss! Choose to bat or bowl first";
+      choiceSection.style.display = "block";
+      
+      // Set up AI opponent
+      await set(ref(db, `rooms/${room}/player2`), {
+        teamName: `AI Challengers (${difficulty})`,
+        isAI: true,
+        difficulty: difficulty,
+        timestamp: Date.now()
       });
     }
 
+    // Make toss choice
     async function makeChoice(decision) {
-      resultText.textContent = `You chose to ${decision} first.`;
       choiceSection.style.display = "none";
-
+      resultText.textContent = `You chose to ${decision} first`;
+      
+      // Set decision in database
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
-        battingFirst: decision === "bat" ? player : opponent,
-        bowlingFirst: decision === "bowl" ? player : opponent
+        battingFirst: decision === "bat" ? player : "player2",
+        bowlingFirst: decision === "bowl" ? player : "player2",
+        tossWinner: player
       });
+      
+      // Redirect to game screen
+      setTimeout(() => {
+        window.location.href = `game.html?room=${room}&player=${player}`;
+      }, 1500);
     }
 
+    // Event listeners
     batBtn.onclick = () => makeChoice("bat");
     bowlBtn.onclick = () => makeChoice("bowl");
 
+    // Initialize
     init();
   </script>
 </body>
