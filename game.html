@@ -138,64 +138,7 @@
       border-radius: 8px;
       font-weight: bold;
     }
-    /* Enhanced batter selection styles */
-    .batter-stats {
-      font-size: 0.8em;
-      color: #aaa;
-      margin-top: 3px;
-    }
-    
-    .batter-item {
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      margin: 5px 0;
-      background: #1e88e5;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .batter-item:hover {
-      background: #1565c0;
-      transform: translateX(5px);
-    }
-    
-    .batter-item.selected {
-      background: #0d47a1;
-      border-left: 4px solid #ffeb3b;
-    }
-    
-    .batter-status {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 5px;
-      font-size: 0.8em;
-    }
-    
-    .batter-runs {
-      color: #4CAF50;
-    }
-    
-    .batter-balls {
-      color: #FFC107;
-    }
-    
-    .batter-sr {
-      color: #9C27B0;
-    }
-    
-    .wickets-left {
-      color: #F44336;
-      font-weight: bold;
-    }
-    /* Enhanced bowler selection styles */
-    .bowler-stats {
-      font-size: 0.8em;
-      color: #aaa;
-      margin-top: 3px;
-    }
-    /* Spectator features */
+    /* Enhanced spectator features */
     #spectatorEngagement {
       position: fixed;
       bottom: 20px;
@@ -1140,8 +1083,7 @@
         showBatterSelection();
       }
       
-      // FIX: Show bowler selection at start of innings when bowling
-      if (!isBatting && !currentBowler) {
+      if (!isBatting && (!currentBowler || legalBalls % 6 === 0)) {
         showBowlerSelection();
       }
     }
@@ -1149,7 +1091,7 @@
     // Set up selection modal for batters/bowlers
     function setupSelectionModal() {
       confirmSelection.addEventListener("click", async () => {
-        const selectedPlayer = document.querySelector(".batter-item.selected") || document.querySelector(".player-item.selected");
+        const selectedPlayer = document.querySelector(".player-item.selected");
         if (!selectedPlayer) return;
 
         const playerName = selectedPlayer.dataset.name;
@@ -1174,24 +1116,17 @@
       });
     }
 
-    // Enhanced batter selection modal
+    // Show batter selection modal
     async function showBatterSelection() {
       disableButtons();
       try {
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
-        
-        // Get current match state to calculate required stats
-        const currentRuns = innings === 1 ? runs : runs - team1Score;
-        const ballsRemaining = currentFormat.totalOvers * 6 - legalBalls;
-        
-        const availableBatters = players.filter(p => 
-          !battersUsed.includes(p) || 
-          (batterWickets[p] !== undefined && batterWickets[p] < 1.0)
-        );
+        const availableBatters = players.filter(p => !battersUsed.includes(p) || 
+          (batterWickets[p] !== undefined && batterWickets[p] < 1.0));
         
         if (availableBatters.length === 0) {
-          showStatus("All batters are out!", 'alert');
+          alert("All batters are out!");
           return;
         }
 
@@ -1199,43 +1134,28 @@
         selectionList.innerHTML = "";
         
         availableBatters.forEach(player => {
-          const stats = batterStats[player] || { runs: 0, balls: 0 };
           const wicketsLost = batterWickets[player] || 0;
-          const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
-          const wicketsLeft = (1.0 - wicketsLost).toFixed(2);
-          
-          const batterEl = document.createElement("div");
-          batterEl.className = "batter-item";
-          batterEl.innerHTML = `
-            <div>${player}</div>
-            <div class="batter-stats">
-              <div class="batter-status">
-                <span class="batter-runs">${stats.runs} runs</span>
-                <span class="batter-balls">${stats.balls} balls</span>
-                <span class="batter-sr">SR: ${strikeRate}</span>
-              </div>
-              <div class="wickets-left">${wicketsLeft}/1.0 wickets left</div>
-            </div>
-          `;
-          batterEl.dataset.name = player;
-          batterEl.addEventListener("click", function() {
-            document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
+          const playerEl = document.createElement("div");
+          playerEl.className = "player-item";
+          playerEl.textContent = `${player} (${(1.0 - wicketsLost).toFixed(2)}/1.0 wickets left)`;
+          playerEl.dataset.name = player;
+          playerEl.addEventListener("click", function() {
+            document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
             this.classList.add("selected");
           });
-          selectionList.appendChild(batterEl);
+          selectionList.appendChild(playerEl);
         });
 
         selectionModal.style.display = "flex";
-        showStatus("Select your next batter...");
-        
+        status.innerText = "Selecting batter...";
       } catch (error) {
         console.error("Batter selection error:", error);
-        showStatus("Error loading batters", 'alert');
+        alert("Error loading batters. Please try again.");
         enableButtons();
       }
     }
 
-    // Show bowler selection modal - FIXED VERSION
+    // Show bowler selection modal
     async function showBowlerSelection() {
       disableButtons();
       try {
@@ -1254,19 +1174,11 @@
         
         availableBowlers.forEach(player => {
           const oversBowled = bowlerOvers[player] || 0;
-          const wicketsTaken = bowlerStats[player]?.wickets || 0;
-          const runsConceded = bowlerStats[player]?.runs || 0;
-          
           const playerEl = document.createElement("div");
           playerEl.className = "player-item";
-          playerEl.innerHTML = `
-            <div>${player}</div>
-            <div class="bowler-stats">
-              ${oversBowled.toFixed(1)} overs | 
-              ${wicketsTaken} wickets | 
-              ${runsConceded} runs
-            </div>
-          `;
+          playerEl.textContent = isTestMatch ? 
+            `${player} (${oversBowled.toFixed(1)} overs)` : 
+            `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
           playerEl.dataset.name = player;
           playerEl.addEventListener("click", function() {
             document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
@@ -1609,7 +1521,6 @@
           if ((isPlayerOut || isWicket) && player === battingPlayer) {
             showBatterSelection();
           } else if (isLegalBall && legalBalls % 6 === 0 && player === bowlingPlayer) {
-            // FIX: Show bowler selection after every over
             showBowlerSelection();
           } else {
             status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
@@ -1793,7 +1704,6 @@
       if (isBatting) {
         showBatterSelection();
       } else {
-        // FIX: Show bowler selection at start of innings when bowling
         showBowlerSelection();
       }
     }
