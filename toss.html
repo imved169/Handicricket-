@@ -150,44 +150,50 @@
     elements.statusText.textContent = `You are ${player.toUpperCase()}${isAIMode ? ' (vs AI)' : ''}`;
 
     async function initializeGame() {
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
+      try {
+        await set(ref(db, `rooms/${room}/${player}/ready`), true);
 
-      if (isAIMode) {
-        await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
-
-        // Enhanced AI Mode Handling
-        if (player === 'player1') {
-          // Player 1 in AI mode gets direct choice
-          await set(ref(db, `rooms/${room}/tossWinner`), 'player1');
-          elements.result.textContent = "You won the toss!";
-          elements.choiceSection.style.display = 'block';
-          elements.statusText.textContent = "Choose to bat or bowl first";
-        } else {
-          // AI (as player2) makes automatic decision
-          elements.aiSection.style.display = 'block';
-          elements.statusText.textContent = "AI is deciding...";
+        if (isAIMode) {
+          // AI Mode - Immediate choice for Player 1
+          await set(ref(db, `rooms/${room}/${opponent}/ready`), true);
           
-          // AI makes random decision after delay
-          setTimeout(async () => {
-            const decision = Math.random() > 0.5 ? 'bat' : 'bowl';
-            await set(ref(db, `rooms/${room}/tossWinner`), 'player2');
-            await set(ref(db, `rooms/${room}/decision`), decision);
-            await update(ref(db, `rooms/${room}`), {
-              battingFirst: decision === "bat" ? 'player2' : 'player1',
-              bowlingFirst: decision === "bat" ? 'player1' : 'player2'
-            });
+          if (player === 'player1') {
+            // Player 1 gets immediate choice in AI mode
+            await set(ref(db, `rooms/${room}/tossWinner`), player);
+            elements.result.textContent = "You won the toss!";
+            elements.choiceSection.style.display = 'block';
+            elements.statusText.textContent = "Choose to bat or bowl first";
+          } else {
+            // AI Player makes automatic decision
+            elements.aiSection.style.display = 'block';
+            elements.statusText.textContent = "AI is deciding...";
             
-            elements.aiSection.textContent = `AI chose to ${decision} first`;
-            setTimeout(() => {
-              window.location.href = `game.html?room=${room}&player=${player}`;
-            }, 1500);
-          }, 2000);
+            setTimeout(async () => {
+              const decision = Math.random() > 0.5 ? 'bat' : 'bowl';
+              await set(ref(db, `rooms/${room}/tossWinner`), opponent);
+              await set(ref(db, `rooms/${room}/decision`), decision);
+              await update(ref(db, `rooms/${room}`), {
+                battingFirst: decision === "bat" ? opponent : player,
+                bowlingFirst: decision === "bat" ? player : opponent
+              });
+              
+              elements.aiSection.textContent = `AI chose to ${decision} first`;
+              setTimeout(() => {
+                window.location.href = `game.html?room=${room}&player=${player}`;
+              }, 1500);
+            }, 2000);
+          }
+        } else {
+          // Multiplayer mode
+          checkMultiplayerReadiness();
         }
-      } else {
-        checkMultiplayerReadiness();
-      }
 
-      setupListeners();
+        setupListeners();
+      } catch (error) {
+        elements.errorSection.style.display = 'block';
+        elements.errorSection.textContent = `Error: ${error.message}`;
+        console.error("Game initialization error:", error);
+      }
     }
 
     function checkMultiplayerReadiness() {
@@ -237,19 +243,24 @@
     elements.bowlBtn.onclick = () => makeChoice("bowl");
 
     async function makeChoice(decision) {
-      elements.choiceSection.style.display = "none";
-      elements.result.textContent = `You chose to ${decision} first`;
+      try {
+        elements.choiceSection.style.display = "none";
+        elements.result.textContent = `You chose to ${decision} first`;
 
-      await set(ref(db, `rooms/${room}/decision`), decision);
-      await update(ref(db, `rooms/${room}`), {
-        battingFirst: decision === "bat" ? player : opponent,
-        bowlingFirst: decision === "bat" ? opponent : player
-      });
-      
-      // Redirect after short delay
-      setTimeout(() => {
-        window.location.href = `game.html?room=${room}&player=${player}`;
-      }, 1500);
+        await set(ref(db, `rooms/${room}/decision`), decision);
+        await update(ref(db, `rooms/${room}`), {
+          battingFirst: decision === "bat" ? player : opponent,
+          bowlingFirst: decision === "bat" ? opponent : player
+        });
+
+        setTimeout(() => {
+          window.location.href = `game.html?room=${room}&player=${player}`;
+        }, 1500);
+      } catch (error) {
+        elements.errorSection.style.display = 'block';
+        elements.errorSection.textContent = `Error saving choice: ${error.message}`;
+        console.error("Choice error:", error);
+      }
     }
 
     initializeGame();
