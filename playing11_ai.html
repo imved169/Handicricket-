@@ -1,0 +1,248 @@
+<!-- playing11_ai.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Playing XI (AI Mode)</title>
+  <style>
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: rgba(13, 42, 82, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      color: #FFD700;
+      text-align: center;
+    }
+    .team-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #0d2a52;
+      border-radius: 10px;
+    }
+    h2 {
+      color: #1e88e5;
+      border-bottom: 1px solid #1e88e5;
+      padding-bottom: 5px;
+    }
+    .player-input {
+      display: flex;
+      margin: 10px 0;
+    }
+    .player-input input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      margin-right: 10px;
+    }
+    .player-input button {
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    #playerList, #aiPlayerList {
+      list-style: none;
+      padding: 0;
+    }
+    #playerList li, #aiPlayerList li {
+      padding: 10px;
+      background: rgba(30, 136, 229, 0.2);
+      margin: 5px 0;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .submit-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      width: 100%;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.3s;
+    }
+    .submit-btn:hover {
+      background: #388E3C;
+    }
+    .info-box {
+      background: #0d2a52;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .highlight {
+      color: #FFD700;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Select Playing XI</h1>
+    
+    <div class="info-box">
+      <p>Room: <span class="highlight" id="roomCode"></span></p>
+      <p>Format: <span class="highlight" id="matchFormat"></span></p>
+      <p>Mode: <span class="highlight">VS AI</span></p>
+    </div>
+    
+    <div class="team-section">
+      <h2>Your Team</h2>
+      <div class="player-input">
+        <input type="text" id="playerName" placeholder="Enter player name">
+        <button onclick="addPlayer()">Add</button>
+      </div>
+      <ul id="playerList"></ul>
+    </div>
+    
+    <div class="team-section">
+      <h2>AI Team</h2>
+      <div class="player-input">
+        <input type="text" id="aiPlayerName" placeholder="Enter AI player name">
+        <button onclick="addAIPlayer()">Add</button>
+      </div>
+      <ul id="aiPlayerList"></ul>
+    </div>
+    
+    <button class="submit-btn" onclick="submitTeams()">Submit Teams</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room');
+    const player = urlParams.get('player');
+    const difficulty = urlParams.get('difficulty') || 'medium';
+
+    document.getElementById('roomCode').textContent = room;
+    
+    // Load format from Firebase
+    const formatRef = ref(db, `rooms/${room}/player1/format`);
+    onValue(formatRef, (snap) => {
+      const format = snap.val() || "5";
+      const formatNames = {
+        "5": "5 Overs", "10": "10 Overs", "20": "T20", 
+        "50": "ODI", "test": "Test Match"
+      };
+      document.getElementById('matchFormat').textContent = formatNames[format] || "Unknown";
+    });
+
+    let players = [];
+    let aiPlayers = [];
+
+    function addPlayer() {
+      const name = document.getElementById('playerName').value.trim();
+      if (name && players.length < 11) {
+        players.push(name);
+        updatePlayerList();
+        document.getElementById('playerName').value = '';
+      }
+    }
+
+    function addAIPlayer() {
+      const name = document.getElementById('aiPlayerName').value.trim();
+      if (name && aiPlayers.length < 11) {
+        aiPlayers.push(name);
+        updateAIPlayerList();
+        document.getElementById('aiPlayerName').value = '';
+      }
+    }
+
+    function updatePlayerList() {
+      const list = document.getElementById('playerList');
+      list.innerHTML = '';
+      players.forEach((player, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${player}
+          <button onclick="removePlayer(${index})">Remove</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function updateAIPlayerList() {
+      const list = document.getElementById('aiPlayerList');
+      list.innerHTML = '';
+      aiPlayers.forEach((player, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${player}
+          <button onclick="removeAIPlayer(${index})">Remove</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    window.removePlayer = function(index) {
+      players.splice(index, 1);
+      updatePlayerList();
+    }
+
+    window.removeAIPlayer = function(index) {
+      aiPlayers.splice(index, 1);
+      updateAIPlayerList();
+    }
+
+    async function submitTeams() {
+      if (players.length !== 11 || aiPlayers.length !== 11) {
+        alert('Please select exactly 11 players for both teams');
+        return;
+      }
+
+      try {
+        // Save human team
+        await set(ref(db, `rooms/${room}/player1/playing11`), players);
+        
+        // Save AI team
+        await set(ref(db, `rooms/${room}/player2/playing11`), aiPlayers);
+        
+        // Mark both teams as ready
+        await update(ref(db, `rooms/${room}`), {
+          'player1/ready': true,
+          'player2/ready': true
+        });
+
+        // Redirect to AI toss page
+        window.location.href = `toss_ai.html?room=${room}&player=${player}`;
+      } catch (error) {
+        alert('Error saving teams: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
