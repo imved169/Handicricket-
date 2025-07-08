@@ -93,12 +93,6 @@
       background: #0d2a52;
       border-radius: 8px;
     }
-    .toss-choice {
-      margin: 10px 0;
-      padding: 10px;
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 8px;
-    }
   </style>
 </head>
 <body>
@@ -111,13 +105,11 @@
       Waiting for both players...
     </div>
     
-    <div id="tossChoiceSection" style="display: none;">
-      <p>Choose Heads or Tails:</p>
-      <button onclick="chooseToss('heads')">Heads</button>
-      <button onclick="chooseToss('tails')">Tails</button>
-    </div>
-    
     <div id="coin" class="coin" style="display: none;">TOSS</div>
+    
+    <div id="tossButtonSection" style="display: none;">
+      <button id="tossBtn">Flip Coin</button>
+    </div>
     
     <div id="result"></div>
     
@@ -133,7 +125,20 @@
   </div>
 
   <script type="module">
-    import { db, ref, set, get, onValue, update } from "./firebase.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
@@ -143,8 +148,9 @@
     document.getElementById("roomCodeDisplay").innerText = `Room Code: ${room}`;
     document.getElementById("playerStatus").innerText = `You are ${player.toUpperCase()}`;
 
-    const tossChoiceSection = document.getElementById("tossChoiceSection");
+    const tossBtn = document.getElementById("tossBtn");
     const resultDiv = document.getElementById("result");
+    const tossSection = document.getElementById("tossButtonSection");
     const choiceSection = document.getElementById("choiceSection");
     const formatDisplay = document.getElementById("formatDisplay");
     const waitingSection = document.getElementById("waitingSection");
@@ -161,9 +167,13 @@
         // Both players are ready
         playerStatus.innerText = "Both players ready!";
         
-        // Show toss choice section
-        tossChoiceSection.style.display = "block";
-        coinElement.style.display = "flex";
+        // Only player2 can toss (player1 is the host)
+        if (player === 'player2') {
+          tossSection.style.display = "block";
+          coinElement.style.display = "flex";
+        } else {
+          playerStatus.innerText = "Waiting for opponent to toss...";
+        }
       } else {
         setTimeout(checkPlayersReady, 1000);
       }
@@ -189,45 +199,21 @@
       checkPlayersReady();
     }
 
-    // Handle toss choice selection
-    window.chooseToss = async (choice) => {
-      tossChoiceSection.style.display = "none";
-      resultDiv.innerText = `You chose ${choice}`;
-      
-      await set(ref(db, `rooms/${room}/tossChoices`), {
-        [player]: choice,
-        [opponent]: choice === 'heads' ? 'tails' : 'heads'
-      });
-      
-      // Wait for both choices
-      const checkChoices = setInterval(async () => {
-        const choicesSnap = await get(ref(db, `rooms/${room}/tossChoices`));
-        if (choicesSnap.exists() && 
-            choicesSnap.val()[player] && 
-            choicesSnap.val()[opponent]) {
-          clearInterval(checkChoices);
-          performToss();
-        }
-      }, 500);
-    };
-
-    // Perform the toss
-    async function performToss() {
+    // Initialize the toss process
+    tossBtn.addEventListener("click", async () => {
+      tossBtn.disabled = true;
       coinElement.classList.add("spinning");
       resultDiv.innerText = "Tossing...";
       
+      // Add some delay for dramatic effect
       setTimeout(async () => {
         const winner = Math.random() < 0.5 ? 'player1' : 'player2';
         await set(ref(db, `rooms/${room}/tossWinner`), winner);
         
         coinElement.classList.remove("spinning");
-        const choicesSnap = await get(ref(db, `rooms/${room}/tossChoices`));
-        const choices = choicesSnap.val();
-        coinElement.innerText = winner === player ? 
-          choices[player].toUpperCase() : 
-          choices[opponent].toUpperCase();
+        coinElement.innerText = winner === 'player1' ? 'HEADS' : 'TAILS';
       }, 1500);
-    }
+    });
 
     // Listen for toss winner
     onValue(ref(db, `rooms/${room}/tossWinner`), async (snap) => {
@@ -235,6 +221,7 @@
       if (!winner) return;
 
       resultDiv.innerText = `Toss won by ${winner.toUpperCase()}`;
+      tossSection.style.display = "none";
       
       if (player === winner) {
         choiceSection.style.display = "block";
@@ -269,11 +256,6 @@
 
     // Initialize the page
     setPlayerReady();
-    
-    // Cleanup on exit
-    window.addEventListener('beforeunload', async () => {
-      await set(ref(db, `rooms/${room}/${player}/ready`), false);
-    });
   </script>
 </body>
 </html>

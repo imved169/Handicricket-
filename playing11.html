@@ -126,7 +126,20 @@
   </div>
 
   <script type="module">
-    import { db, ref, set, get, onValue } from "./firebase.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
+      authDomain: "handicricket-d1ab7.firebaseapp.com",
+      projectId: "handicricket-d1ab7",
+      storageBucket: "handicricket-d1ab7.appspot.com",
+      messagingSenderId: "356065986337",
+      appId: "1:356065986337:web:399102c5dabfca2b6fe060"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
@@ -206,28 +219,22 @@
         return alert("All 11 player names are required!");
       }
 
-      try {
-        await set(ref(db, `rooms/${room}/${player}/playing11`), players);
-        waitingMessage.textContent = "Waiting for opponent...";
-        document.getElementById("submitXI").disabled = true;
+      await set(ref(db, `rooms/${room}/${player}/playing11`), players);
+      waitingMessage.textContent = "Waiting for opponent...";
+      document.getElementById("submitXI").disabled = true;
 
-        const snapshot = await get(ref(db, `rooms/${room}`));
-        const roomData = snapshot.val();
-        
-        const opponent = player === 'player1' ? 'player2' : 'player1';
-        if (roomData[opponent]?.playing11) {
-          // Initialize spectator data structure
-          await set(ref(db, `rooms/${room}/spectatorData`), {
-            overSummaries: {},
-            matchStats: {},
-            spectatorChat: {}
-          });
-          window.location.href = `toss.html?room=${room}&player=${player}`;
-        }
-      } catch (error) {
-        console.error("Error submitting playing XI:", error);
-        alert("Failed to submit playing XI. Please try again.");
-        document.getElementById("submitXI").disabled = false;
+      const snapshot = await get(ref(db, `rooms/${room}`));
+      const roomData = snapshot.val();
+      
+      const opponent = player === 'player1' ? 'player2' : 'player1';
+      if (roomData[opponent]?.playing11) {
+        // Initialize spectator data structure
+        await set(ref(db, `rooms/${room}/spectatorData`), {
+          overSummaries: {},
+          matchStats: {},
+          spectatorChat: {}
+        });
+        window.location.href = `toss.html?room=${room}&player=${player}`;
       }
     });
   </script>
