@@ -378,6 +378,37 @@
       text-shadow: 0 0 15px rgba(76, 175, 80, 0.7);
     }
     
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+    }
+    
+    .loading-spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     /* Animations */
     @keyframes boundary {
       0% { transform: scale(1); }
@@ -430,9 +461,89 @@
         font-size: 18px;
       }
     }
+
+    /* New Styles for Loading States */
+    .loading-text {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #fff;
+    }
+    
+    .team-winner {
+      color: #4CAF50 !important;
+      font-weight: bold;
+      text-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+    }
+    
+    .milestone-notification {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-size: 20px;
+      z-index: 1001;
+      animation: fadeInOut 3s forwards;
+    }
+    
+    @keyframes fadeInOut {
+      0% { opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    
+    .milestone-notification.batting {
+      border-left: 5px solid #4CAF50;
+    }
+    
+    .milestone-notification.bowling {
+      border-left: 5px solid #2196F3;
+    }
+    
+    .milestone-notification.error {
+      border-left: 5px solid #F44336;
+    }
+    
+    .milestone-notification.info {
+      border-left: 5px solid #FFC107;
+    }
+    
+    .milestone-notification.winner {
+      border-left: 5px solid #9C27B0;
+      font-size: 24px;
+    }
+    
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: #f00;
+      animation: confetti-fall 5s linear forwards;
+      z-index: 1000;
+    }
+    
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100vh) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div id="loadingText" class="loading-text">Initializing game...</div>
+  </div>
+
   <div id="spectatorCount">👥 Spectators: 0</div>
   <div id="miniScorecard">
     <div id="miniScore">0/0</div>
@@ -664,6 +775,8 @@
     const opponentReadyStatus = document.getElementById("opponentReadyStatus");
     const autoStartTimerEl = document.getElementById("autoStartTimer");
     const startInningsText = document.getElementById("startInningsText");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = document.getElementById("loadingText");
 
     // Firebase references
     const playerRef = ref(db, `rooms/${room}/${player}/online`);
@@ -684,6 +797,16 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const savedGameRef = ref(db, `savedGames/${room}`);
+
+    // Show/hide loading overlay
+    function showLoading(message) {
+      loadingText.textContent = message;
+      loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      loadingOverlay.style.display = 'none';
+    }
 
     // Initialize batter stats with milestone tracking
     function initializeBatterStats() {
@@ -1001,21 +1124,24 @@
           return false;
         }
 
-        if (data.player1?.playing11) {
-          team1NameEl.innerText = data.player1.teamName || "Team 1";
-          team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
-        } else {
-          return false;
+        // Only require our own team to be loaded initially
+        if (data[player]?.playing11) {
+          team1NameEl.innerText = data.player1?.teamName || "Team 1";
+          team2NameEl.innerText = data.player2?.teamName || "Team 2";
+          
+          // Load our team
+          const ourTeamEl = player === "player1" ? team1PlayersEl : team2PlayersEl;
+          ourTeamEl.innerHTML = data[player].playing11.map(p => `<li>${p}</li>`).join("");
+          
+          // Load opponent team if available
+          const opponentTeamEl = player === "player1" ? team2PlayersEl : team1PlayersEl;
+          if (data[opponent]?.playing11) {
+            opponentTeamEl.innerHTML = data[opponent].playing11.map(p => `<li>${p}</li>`).join("");
+          }
+          
+          return true;
         }
-        
-        if (data.player2?.playing11) {
-          team2NameEl.innerText = data.player2.teamName || "Team 2";
-          team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
-        } else {
-          return false;
-        }
-
-        return true;
+        return false;
       } catch (error) {
         console.error("Error loading playing XI:", error);
         showNotification("Error loading teams", 'error');
@@ -1349,7 +1475,7 @@
           get(ref(db, `rooms/${room}/tossWinner`)),
           get(ref(db, `rooms/${room}/battingFirst`)),
           get(ref(db, `rooms/${room}/decision`)),
-          get(ref(db, `rooms/${room}/${opponent}/playing11`))
+          get(ref(db, `rooms/${opponent}/playing11`))
         ]);
         
         tossWinner = tossSnap.val();
@@ -2198,6 +2324,7 @@
     // Initialize the game
     async function initGame() {
       try {
+        showLoading("Connecting to game...");
         initializationAttempts++;
         
         if (initializationAttempts > maxInitializationAttempts) {
@@ -2214,6 +2341,15 @@
         if (!roomSnap.exists()) {
           showNotification("Room does not exist!", 'error');
           setTimeout(() => window.location.href = "index.html", 2000);
+          return;
+        }
+
+        const roomData = roomSnap.val();
+        
+        // Check toss status first
+        if (!roomData.tossWinner || !roomData.battingFirst) {
+          showNotification("Toss not completed yet!", 'info');
+          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
           return;
         }
 
@@ -2244,43 +2380,23 @@
         }
 
         // Get toss and batting first info
-        const [tossSnap, battingFirstSnap] = await Promise.all([
-          get(ref(db, `rooms/${room}/tossWinner`)),
-          get(ref(db, `rooms/${room}/battingFirst`))
-        ]);
+        tossWinner = roomData.tossWinner;
+        battingFirst = roomData.battingFirst;
         
-        tossWinner = tossSnap.val();
-        battingFirst = battingFirstSnap.val();
-        
-        // If toss hasn't been completed yet, redirect to toss screen
-        if (!tossWinner || !battingFirst) {
-          showNotification("Toss not completed yet!", 'info');
-          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
-          return;
-        }
-
-        // Load teams - don't redirect if teams aren't loaded yet
+        // Load teams - don't fail if teams aren't loaded yet
         const teamsLoaded = await loadPlaying11();
         if (!teamsLoaded) {
-          showNotification("Waiting for both teams to submit their playing XI...", 'info');
-          // Instead of redirecting, we'll wait and check again
-          setTimeout(initGame, 3000); // Check again in 3 seconds
+          showLoading("Waiting for your team to be submitted...");
+          setTimeout(initGame, 3000);
           return;
         }
 
         // Set game format
-        const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
-        const format = formatSnap.val() || "5";
+        const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
         isTestMatch = format === "test";
         
         formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
-        
-        // Initialize test controls if needed
-        const testControls = document.getElementById("testControls");
-        if (testControls) {
-          testControls.style.display = isTestMatch ? "flex" : "none";
-        }
         
         // Initialize batter stats
         initializeBatterStats();
@@ -2325,10 +2441,11 @@
         // Initial UI update
         updateScoreboard();
         status.innerText = "Game ready!";
+        hideLoading();
       } catch (error) {
         console.error("Initialization error:", error);
         showNotification("Failed to initialize game", 'error');
-        setTimeout(() => window.location.href = "index.html", 2000);
+        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
       }
     }
 
