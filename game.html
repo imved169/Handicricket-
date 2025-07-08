@@ -629,6 +629,10 @@
     let tossWinner = null;
     let battingFirst = null;
     const milestoneLevels = [50, 100, 150, 200, 250, 300, 350, 400];
+    let batterSelected = false;
+    let bowlerSelected = false;
+    let initializationAttempts = 0;
+    const maxInitializationAttempts = 10;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -978,7 +982,7 @@
         count--;
         countdownEl.textContent = count;
         if (count <= 0) {
-          clearInterval(countdown);
+          clearInterval(countdownInterval);
           overlay.remove();
         }
       }, 1000);
@@ -993,22 +997,25 @@
         const data = snapshot.val();
 
         if (!data) {
-          showNotification("Room not found! Returning to home.", 'error');
-          setTimeout(() => window.location.href = "index.html", 2000);
+          showNotification("Room data not loaded yet", 'info');
           return false;
         }
 
         if (data.player1?.playing11) {
           team1NameEl.innerText = data.player1.teamName || "Team 1";
           team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
+        } else {
+          return false;
         }
         
         if (data.player2?.playing11) {
           team2NameEl.innerText = data.player2.teamName || "Team 2";
           team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
+        } else {
+          return false;
         }
 
-        return data.player1?.playing11 && data.player2?.playing11;
+        return true;
       } catch (error) {
         console.error("Error loading playing XI:", error);
         showNotification("Error loading teams", 'error');
@@ -1055,7 +1062,7 @@
             connectionStatus.textContent = "Opponent: Online";
             connectionStatus.className = "online";
             if (!selectionModal.style.display || selectionModal.style.display === "none") {
-              enableButtons();
+              updateButtonStates();
             }
           }
         }
@@ -1167,6 +1174,20 @@
       }
     }
 
+    // Update button states based on selection status
+    function updateButtonStates() {
+      const bothReady = batterSelected && bowlerSelected;
+      
+      buttons.forEach(btn => {
+        btn.disabled = !bothReady;
+        btn.style.opacity = bothReady ? '1' : '0.6';
+      });
+
+      status.innerText = bothReady ? 
+        (freeHit ? "FREE HIT! Play your card..." : "Play your card...") :
+        "Waiting for batter/bowler selection...";
+    }
+
     // Disable all card buttons
     function disableButtons() {
       buttons.forEach(btn => {
@@ -1178,14 +1199,16 @@
       }
     }
 
-    // Enable all card buttons
+    // Enable all card buttons if both players are selected
     function enableButtons() {
-      buttons.forEach(btn => {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-      });
-      if (startInningsBtn.style.display !== "none") {
-        startInningsBtn.disabled = false;
+      if (batterSelected && bowlerSelected) {
+        buttons.forEach(btn => {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        });
+        if (startInningsBtn.style.display !== "none") {
+          startInningsBtn.disabled = false;
+        }
       }
     }
 
@@ -1343,6 +1366,11 @@
         currentBatterEl.innerText = "-";
         currentBowlerEl.innerText = "-";
 
+        // Disable buttons until selections are made
+        batterSelected = false;
+        bowlerSelected = false;
+        updateButtonStates();
+
         if (isBatting && !currentBatter) {
           showBatterSelection();
         } else if (!isBatting && !currentBowler) {
@@ -1376,16 +1404,17 @@
             batterWickets[playerName] = batterWickets[playerName] || 0;
             currentBatterEl.innerText = playerName;
             await set(batterRef, playerName);
+            batterSelected = true;
           } else {
             currentBowler = playerName;
             bowlerOvers[playerName] = bowlerOvers[playerName] || 0;
             currentBowlerEl.innerText = playerName;
             await set(bowlerRef, playerName);
+            bowlerSelected = true;
           }
 
           selectionModal.style.display = "none";
-          enableButtons();
-          status.innerText = freeHit ? "FREE HIT! Play your card..." : "Play your card...";
+          updateButtonStates();
         } catch (error) {
           console.error("Error confirming selection:", error);
           showNotification("Error selecting player", 'error');
@@ -1456,7 +1485,7 @@
       } catch (error) {
         console.error("Batter selection error:", error);
         showNotification("Error loading batters", 'error');
-        enableButtons();
+        updateButtonStates();
       }
     }
 
@@ -1513,7 +1542,7 @@
       } catch (error) {
         console.error("Bowler selection error:", error);
         showNotification("Error loading bowlers", 'error');
-        enableButtons();
+        updateButtonStates();
       }
     }
 
@@ -1842,16 +1871,17 @@
         await resetPlays();
         
         if ((isPlayerOut || isWicket) && player === battingPlayer) {
+          batterSelected = false;
           showBatterSelection();
         } else if (isLegalBall && legalBalls % 6 === 0) {
+          bowlerSelected = false;
           if (player === bowlingPlayer) {
             showBowlerSelection();
           } else {
             status.innerText = "Waiting for opponent to select bowler...";
           }
         } else {
-          status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
-          enableButtons();
+          updateButtonStates();
         }
       }, 1500);
     }
@@ -1896,12 +1926,14 @@
         if (batter && batter !== currentBatter) {
           currentBatter = batter;
           currentBatterEl.innerText = batter;
+          batterSelected = true;
           if (!battersUsed.includes(batter)) {
             battersUsed.push(batter);
             if (batterWickets[batter] === undefined) {
               batterWickets[batter] = 0;
             }
           }
+          updateButtonStates();
         }
       });
 
@@ -1911,6 +1943,8 @@
         if (bowler && bowler !== currentBowler) {
           currentBowler = bowler;
           currentBowlerEl.innerText = bowler;
+          bowlerSelected = true;
+          updateButtonStates();
         }
       });
 
@@ -1966,7 +2000,7 @@
             const opponentOnline = await get(opponentRef);
             if (!opponentOnline.exists() || !opponentOnline.val()) {
               status.innerText = "Opponent is offline!";
-              enableButtons();
+              updateButtonStates();
               return;
             }
             
@@ -1976,7 +2010,7 @@
           } catch (error) {
             console.error("Error submitting play:", error);
             status.innerText = "Error submitting play - try again";
-            enableButtons();
+            updateButtonStates();
           }
         });
       });
@@ -2046,6 +2080,8 @@
       freeHitNextBall = false;
       currentBatter = null;
       currentBowler = null;
+      batterSelected = false;
+      bowlerSelected = false;
       zerosThisOver = { player1: 0, player2: 0 };
       fallOfWickets = [];
       
@@ -2075,7 +2111,7 @@
       setTimeout(() => {
         if (daysRemaining > 0) {
           oversToday = 0;
-          enableButtons();
+          updateButtonStates();
           status.innerText = `Day ${6 - daysRemaining} starting...`;
           updateScoreboard();
           updateSpectatorData();
@@ -2162,7 +2198,16 @@
     // Initialize the game
     async function initGame() {
       try {
+        initializationAttempts++;
+        
+        if (initializationAttempts > maxInitializationAttempts) {
+          showNotification("Failed to initialize after multiple attempts", 'error');
+          setTimeout(() => window.location.href = "index.html", 2000);
+          return;
+        }
+        
         gameInProgress = true;
+        status.innerText = "Initializing game...";
         
         // Check if room exists
         const roomSnap = await get(roomRef);
@@ -2198,11 +2243,28 @@
           }
         }
 
-        // Load teams
+        // Get toss and batting first info
+        const [tossSnap, battingFirstSnap] = await Promise.all([
+          get(ref(db, `rooms/${room}/tossWinner`)),
+          get(ref(db, `rooms/${room}/battingFirst`))
+        ]);
+        
+        tossWinner = tossSnap.val();
+        battingFirst = battingFirstSnap.val();
+        
+        // If toss hasn't been completed yet, redirect to toss screen
+        if (!tossWinner || !battingFirst) {
+          showNotification("Toss not completed yet!", 'info');
+          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
+          return;
+        }
+
+        // Load teams - don't redirect if teams aren't loaded yet
         const teamsLoaded = await loadPlaying11();
         if (!teamsLoaded) {
-          showNotification("Both teams haven't submitted yet!", 'error');
-          setTimeout(() => window.location.href = `playing11.html?room=${room}&player=${player}`, 2000);
+          showNotification("Waiting for both teams to submit their playing XI...", 'info');
+          // Instead of redirecting, we'll wait and check again
+          setTimeout(initGame, 3000); // Check again in 3 seconds
           return;
         }
 
