@@ -744,6 +744,9 @@
     let bowlerSelected = false;
     let initializationAttempts = 0;
     const maxInitializationAttempts = 10;
+    let connectionHeartbeatInterval;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -788,15 +791,15 @@
     const inningsReadyRef = ref(db, `rooms/${room}/inningsReady`);
     const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime`);
     const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings`);
-    const declaredRef = ref(db, `rooms/${room}/declared`);
-    const followOnRef = ref(db, `rooms/${room}/followOn`);
-    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
-    const reactionsRef = ref(db, `rooms/${room}/reactions`);
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
-    const liveStateRef = ref(db, `rooms/${room}/liveState`);
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
-    const savedGameRef = ref(db, `savedGames/${room}`);
+    const declaredRef = ref(db, `rooms/${room}/declared");
+    const followOnRef = ref(db, `rooms/${room}/followOn");
+    const spectatorsRef = ref(db, `rooms/${room}/spectators");
+    const reactionsRef = ref(db, `rooms/${room}/reactions");
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
+    const liveStateRef = ref(db, `rooms/${room}/liveState");
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
+    const resultRef = ref(db, `rooms/${room}/result");
+    const savedGameRef = ref(db, `savedGames/${room}");
 
     // Show/hide loading overlay
     function showLoading(message) {
@@ -1149,19 +1152,34 @@
       }
     }
 
-    // Monitor connection status
+    // Monitor connection status with heartbeat
     function setupConnectionMonitoring() {
-      // Set initial online status
-      set(playerRef, { 
-        status: true, 
-        timestamp: Date.now(),
-        playerName: player,
-        teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
-      });
+      // Set initial online status with more detailed info
+      const updateConnectionStatus = async () => {
+        try {
+          await set(playerRef, { 
+            status: true, 
+            timestamp: Date.now(),
+            playerName: player,
+            teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent,
+            innings: innings,
+            role: isBatting ? 'batting' : 'bowling'
+          });
+        } catch (error) {
+          console.error("Error updating connection status:", error);
+        }
+      };
+
+      // Initial update
+      updateConnectionStatus();
       
-      const connectionTimeout = 15000;
+      // Set up heartbeat (update every 5 seconds)
+      connectionHeartbeatInterval = setInterval(updateConnectionStatus, 5000);
+      
+      const connectionTimeout = 15000; // 15 seconds
       let disconnectTimer;
       
+      // Listen for opponent connection status
       onValue(opponentRef, (snap) => {
         if (!snap.exists() || !snap.val()) {
           // Opponent disconnected
@@ -1194,18 +1212,9 @@
         }
       });
       
-      // Update our online status periodically
-      setInterval(() => {
-        set(playerRef, { 
-          status: true, 
-          timestamp: Date.now(),
-          playerName: player,
-          teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
-        });
-      }, 5000);
-      
       // Clean up on page unload
       window.addEventListener('beforeunload', () => {
+        clearInterval(connectionHeartbeatInterval);
         set(playerRef, { 
           status: false, 
           timestamp: Date.now(),
@@ -1213,6 +1222,38 @@
           teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
         });
       });
+    }
+
+    // Handle reconnection attempts
+    function attemptReconnect() {
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        showNotification("Failed to reconnect after multiple attempts", 'error');
+        setTimeout(() => window.location.href = "index.html", 2000);
+        return;
+      }
+      
+      reconnectAttempts++;
+      showLoading(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
+      
+      // Check connection status again after delay
+      setTimeout(() => {
+        get(opponentRef).then(snap => {
+          if (snap.exists() && snap.val()) {
+            // Reconnected successfully
+            hideLoading();
+            reconnectAttempts = 0;
+            connectionStatus.textContent = "Opponent: Online";
+            connectionStatus.className = "online";
+            updateButtonStates();
+          } else {
+            // Still disconnected, try again
+            attemptReconnect();
+          }
+        }).catch(error => {
+          console.error("Reconnection error:", error);
+          attemptReconnect();
+        });
+      }, 3000);
     }
 
     // Handle back button
