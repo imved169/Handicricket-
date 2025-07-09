@@ -164,6 +164,15 @@
             color: #90caf9;
             font-size: 12px;
         }
+        #roomDisplay {
+            font-size: 18px; 
+            margin: 15px 0;
+            padding: 12px;
+            background: rgba(30, 136, 229, 0.2);
+            border-radius: 12px;
+            text-align: center;
+            border-left: 3px solid #1e88e5;
+        }
     </style>
 </head>
 <body>
@@ -173,30 +182,19 @@
         
         <div class="menu">
             <input type="text" id="teamName" placeholder="Enter Team Name" />
-            <button id="create-game" class="btn">Create Game</button>
-            <button id="join-game" class="btn">Join Game</button>
-        </div>
-        
-        <div id="join-form" class="hidden">
-            <input type="text" id="game-id" placeholder="Enter Game ID" maxlength="4">
-            <button id="confirm-join" class="btn">Join</button>
-            <button id="back-btn" class="btn secondary">Back</button>
-        </div>
-        
-        <div id="game-created" class="hidden">
-            <p>Your Game ID:</p>
-            <div id="game-code" class="game-code"></div>
-            <p>Share this with your opponent</p>
-            <div class="loader"></div>
-            <p id="waiting-text">Waiting for opponent...</p>
-        </div>
-
-        <div id="format-selector" class="hidden format-selector">
-            <button class="format-btn active" data-format="5">5 Overs</button>
-            <button class="format-btn" data-format="10">10 Overs</button>
-            <button class="format-btn" data-format="20">20 Overs</button>
-            <button class="format-btn" data-format="50">50 Overs</button>
-            <button class="format-btn" data-format="test">Test Match</button>
+            <input type="text" id="joinCode" placeholder="Enter Room Code (if joining)" />
+            
+            <div class="format-selector">
+                <button class="format-btn active" data-format="5">5 Overs</button>
+                <button class="format-btn" data-format="10">10 Overs</button>
+                <button class="format-btn" data-format="20">20 Overs</button>
+                <button class="format-btn" data-format="50">50 Overs</button>
+                <button class="format-btn" data-format="test">Test Match</button>
+            </div>
+            
+            <button id="createRoom" class="btn">Create Room</button>
+            <button id="joinRoom" class="btn">Join Room</button>
+            <div id="roomDisplay"></div>
         </div>
     </div>
 
@@ -208,14 +206,9 @@
     <script type="module">
         import { db, ref, set, onValue, get, child } from './firebase.js';
         
-        // Generate 4-letter game ID
-        function generateId() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let result = '';
-            for (let i = 0; i < 4; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
+        // Generate room code
+        function generateRoomCode() {
+            return Math.random().toString(36).substring(2, 7).toUpperCase();
         }
 
         function getFormatName(format) {
@@ -230,15 +223,11 @@
         }
         
         // DOM elements
-        const createBtn = document.getElementById('create-game');
-        const joinBtn = document.getElementById('join-game');
-        const joinForm = document.getElementById('join-form');
-        const gameCreated = document.getElementById('game-created');
-        const gameCode = document.getElementById('game-code');
-        const confirmJoin = document.getElementById('confirm-join');
-        const backBtn = document.getElementById('back-btn');
+        const createRoomBtn = document.getElementById('createRoom');
+        const joinRoomBtn = document.getElementById('joinRoom');
         const teamNameInput = document.getElementById('teamName');
-        const formatSelector = document.getElementById('format-selector');
+        const joinCodeInput = document.getElementById('joinCode');
+        const roomDisplay = document.getElementById('roomDisplay');
         let selectedFormat = "5";
         
         // Format selection
@@ -250,90 +239,80 @@
             });
         });
         
-        // Create new game
-        createBtn.addEventListener('click', async () => {
+        // Create Room
+        createRoomBtn.addEventListener('click', async () => {
             const teamName = teamNameInput.value.trim();
             if (!teamName) {
                 alert("Please enter your team name first!");
                 return;
             }
             
-            const gameId = generateId();
-            gameCode.textContent = gameId;
-            gameCreated.classList.remove('hidden');
-            document.querySelector('.menu').classList.add('hidden');
-            
-            // Save to Firebase
-            await set(ref(db, `games/${gameId}`), {
-                created: Date.now(),
-                status: 'waiting',
+            const roomCode = generateRoomCode();
+            await set(ref(db, 'rooms/' + roomCode + '/player1'), {
+                teamName: teamName,
                 format: selectedFormat,
-                players: { 
-                    player1: {
-                        team: teamName,
-                        online: true
-                    }
-                }
+                online: true,
+                timestamp: Date.now()
             });
             
-            localStorage.setItem('gameId', gameId);
+            roomDisplay.innerHTML = `
+                <strong>Room Created!</strong><br>
+                Code: ${roomCode}<br>
+                Format: ${getFormatName(selectedFormat)}<br>
+                <small>Share this code with your opponent</small>
+            `;
+            
+            // Animate the display
+            roomDisplay.style.animation = "none";
+            setTimeout(() => {
+                roomDisplay.style.animation = "pulse 1.5s";
+            }, 10);
+            
+            localStorage.setItem('roomCode', roomCode);
             localStorage.setItem('player', 'player1');
             localStorage.setItem('teamName', teamName);
             
-            // Wait for player2
-            onValue(ref(db, `games/${gameId}/players/player2`), (snapshot) => {
-                if (snapshot.exists()) {
-                    window.location.href = 'game.html';
-                }
-            });
+            setTimeout(() => {
+                window.location.href = `game.html?room=${roomCode}&player=player1`;
+            }, 2000);
         });
         
-        // Join existing game
-        joinBtn.addEventListener('click', () => {
+        // Join Room
+        joinRoomBtn.addEventListener('click', async () => {
             const teamName = teamNameInput.value.trim();
-            if (!teamName) {
-                alert("Please enter your team name first!");
-                return;
-            }
-            joinForm.classList.remove('hidden');
-            document.querySelector('.menu').classList.add('hidden');
-        });
-        
-        confirmJoin.addEventListener('click', async () => {
-            const gameId = document.getElementById('game-id').value.trim().toUpperCase();
-            const teamName = teamNameInput.value.trim();
+            const joinCode = joinCodeInput.value.trim().toUpperCase();
             
-            if (gameId.length !== 4) {
-                alert('Please enter a valid 4-character ID');
+            if (!teamName || !joinCode) {
+                alert("Please enter both team name and room code!");
                 return;
             }
             
-            if (!teamName) {
-                alert("Please enter your team name first!");
-                return;
-            }
-            
-            // Check if game exists
-            const snapshot = await get(ref(db, `games/${gameId}`));
+            const dbRef = ref(db);
+            const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
             if (snapshot.exists()) {
-                localStorage.setItem('gameId', gameId);
+                await set(ref(db, 'rooms/' + joinCode + '/player2'), {
+                    teamName: teamName,
+                    online: true,
+                    timestamp: Date.now()
+                });
+                
+                const format = snapshot.val().player1?.format || "5";
+                roomDisplay.innerHTML = `
+                    <strong>Joining Room...</strong><br>
+                    Code: ${joinCode}<br>
+                    Format: ${getFormatName(format)}
+                `;
+                
+                localStorage.setItem('roomCode', joinCode);
                 localStorage.setItem('player', 'player2');
                 localStorage.setItem('teamName', teamName);
                 
-                // Register player2
-                await set(ref(db, `games/${gameId}/players/player2`), {
-                    team: teamName,
-                    online: true
-                });
-                window.location.href = 'game.html';
+                setTimeout(() => {
+                    window.location.href = `game.html?room=${joinCode}&player=player2`;
+                }, 1500);
             } else {
-                alert('Game not found');
+                alert("Invalid room code!");
             }
-        });
-        
-        backBtn.addEventListener('click', () => {
-            joinForm.classList.add('hidden');
-            document.querySelector('.menu').classList.remove('hidden');
         });
 
         // Load saved games
@@ -355,18 +334,29 @@
                 gameEl.innerHTML = `
                     <strong>${game.players.player1.team} vs ${game.players.player2?.team || 'Waiting...'}</strong>
                     <div>Format: ${getFormatName(game.format)}</div>
-                    <small>Created: ${new Date(game.created).toLocaleString()}</small>
+                    <small>Created: ${new Date(game.timestamp).toLocaleString()}</small>
                 `;
                 gameEl.addEventListener("click", () => {
                     if (confirm("Resume this saved game?")) {
-                        localStorage.setItem('gameId', roomId);
+                        localStorage.setItem('roomCode', roomId);
                         localStorage.setItem('player', 'player1');
-                        window.location.href = 'game.html';
+                        window.location.href = `game.html?room=${roomId}&player=player1`;
                     }
                 });
                 container.appendChild(gameEl);
             });
         }
+
+        // Add animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.02); }
+                100% { transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
 
         // Initialize
         loadSavedGames();
