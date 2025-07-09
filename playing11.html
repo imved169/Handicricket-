@@ -13,6 +13,7 @@
       display: flex; 
       flex-direction: column; 
       align-items: center;
+      min-height: 100vh;
     }
     h2 { 
       margin-bottom: 15px;
@@ -23,37 +24,81 @@
       background: #123456;
       padding: 25px;
       border-radius: 16px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       max-width: 450px;
       width: 100%;
+      transition: transform 0.3s ease;
+    }
+    .container:hover {
+      transform: translateY(-5px);
     }
     input {
       width: 100%;
       padding: 12px;
       margin: 10px 0;
       border-radius: 8px;
-      background: rgba(255,255,255,0.1);
       border: 2px solid #1e88e5;
+      font-size: 16px;
+      background: rgba(255,255,255,0.1);
       color: white;
+      transition: all 0.3s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: #4caf50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+      background: rgba(255,255,255,0.15);
     }
     button { 
       width: 100%; 
       padding: 14px; 
       margin-top: 20px;
       border-radius: 10px; 
-      background: #1e88e5;
+      background: linear-gradient(135deg, #1e88e5, #1565c0);
       color: white; 
+      font-size: 16px; 
       border: none;
       cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    button:hover { 
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    button:active {
+      transform: translateY(0);
     }
     #roomCode { 
       margin: 15px 0;
       font-weight: bold; 
+      font-size: 18px;
+      color: #90caf9;
       text-align: center;
+      padding: 10px;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      width: 100%;
     }
     #waitingMessage { 
-      margin: 20px 0;
+      margin: 20px 0 15px;
       color: #ffeb3b;
       text-align: center;
+      font-size: 16px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 235, 59, 0.1);
+    }
+    #spectatorNote {
+      margin-top: 20px;
+      padding: 12px;
+      background: rgba(26, 58, 106, 0.7);
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      border-left: 3px solid #1e88e5;
     }
     .player-input-container {
       display: flex;
@@ -64,16 +109,20 @@
       width: 30px;
       margin-right: 10px;
       color: #90caf9;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <h2>Enter Your Playing XI</h2>
   <div id="roomCode"></div>
-  <div class="container">
+  <div class="container" id="formContainer">
     <form id="playing11Form"></form>
     <button id="submitXI">Submit Playing XI</button>
     <div id="waitingMessage"></div>
+    <div id="spectatorNote">
+      Spectators can join using the room code after both teams submit
+    </div>
   </div>
 
   <script type="module">
@@ -95,8 +144,29 @@
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
+    let gameInProgress = true;
 
     document.getElementById("roomCode").innerText = "Room Code: " + room;
+
+    // Back button handling
+    window.addEventListener('beforeunload', (e) => {
+      if (gameInProgress) {
+        e.preventDefault();
+        e.returnValue = 'Are you sure you want to leave? Your progress may be lost.';
+        return e.returnValue;
+      }
+    });
+
+    if (window.history && window.history.pushState) {
+      window.history.pushState('forward', null, './');
+      window.onpopstate = function() {
+        if (confirm("Do you really want to exit? Your progress will be lost!")) {
+          window.location.href = "index.html";
+        } else {
+          window.history.pushState('forward', null, './');
+        }
+      };
+    }
 
     const form = document.getElementById("playing11Form");
     const waitingMessage = document.getElementById("waitingMessage");
@@ -128,7 +198,14 @@
       if (roomData[opponent]?.playing11) {
         waitingMessage.textContent = "Opponent has submitted their team!";
         if (roomData[player]?.playing11) {
-          window.location.href = `toss.html?room=${room}&player=${player}`;
+          // Initialize spectator data structure
+          set(ref(db, `rooms/${room}/spectatorData`), {
+            overSummaries: {},
+            matchStats: {},
+            spectatorChat: {}
+          }).then(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          });
         }
       }
     });
@@ -151,6 +228,12 @@
       
       const opponent = player === 'player1' ? 'player2' : 'player1';
       if (roomData[opponent]?.playing11) {
+        // Initialize spectator data structure
+        await set(ref(db, `rooms/${room}/spectatorData`), {
+          overSummaries: {},
+          matchStats: {},
+          spectatorChat: {}
+        });
         window.location.href = `toss.html?room=${room}&player=${player}`;
       }
     });
