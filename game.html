@@ -1,38 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HandiCricket - Game</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HandiCricket - Game</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <h1>🏏 HandiCricket</h1>
-    
-    <div class="scoreboard">
-      <div id="score">0/0</div>
-      <div id="overs">0.0</div>
+    <div class="container">
+        <h1>🏏 HandiCricket</h1>
+        
+        <div class="game-info">
+            <div>Game ID: <span id="game-id"></span></div>
+            <div>You are: <span id="player-role"></span></div>
+        </div>
+        
+        <div class="scoreboard">
+            <div id="score">0/0</div>
+            <div id="overs">0.0</div>
+            <div id="target" class="hidden">Target: <span id="target-runs"></span></div>
+        </div>
+        
+        <div id="game-status">Setting up game...</div>
+        
+        <div id="toss-section" class="hidden">
+            <h3>Toss Time!</h3>
+            <button id="heads" class="btn">Heads</button>
+            <button id="tails" class="btn">Tails</button>
+        </div>
+        
+        <div id="batting-choice" class="hidden">
+            <h3>You won the toss!</h3>
+            <button id="bat-first" class="btn">Bat First</button>
+            <button id="bowl-first" class="btn">Bowl First</button>
+        </div>
+        
+        <div id="game-section" class="hidden">
+            <div class="cards">
+                <button class="card" data-value="0">0</button>
+                <button class="card" data-value="1">1</button>
+                <button class="card" data-value="2">2</button>
+                <button class="card" data-value="3">3</button>
+                <button class="card" data-value="4">4</button>
+                <button class="card" data-value="5">5</button>
+                <button class="card" data-value="6">6</button>
+            </div>
+            
+            <div id="ball-result"></div>
+        </div>
+        
+        <div id="game-over" class="hidden">
+            <h2 id="result-message"></h2>
+            <button id="new-game" class="btn">New Game</button>
+        </div>
     </div>
-    
-    <div id="status">Game ready!</div>
-    
-    <div class="cards">
-      <button class="card" data-value="0">0</button>
-      <button class="card" data-value="1">1</button>
-      <button class="card" data-value="2">2</button>
-      <button class="card" data-value="3">3</button>
-      <button class="card" data-value="4">4</button>
-      <button class="card" data-value="5">5</button>
-      <button class="card" data-value="6">6</button>
-    </div>
-    
-    <div class="players">
-      <div>Batter: <span id="batter">-</span></div>
-      <div>Bowler: <span id="bowler">-</span></div>
-    </div>
-  </div>
 
-  <script type="module" src="game.js"></script>
+    <script type="module">
+        import { db, ref, set, onValue, get } from './firebase.js';
+        
+        // Game state
+        const state = {
+            gameId: localStorage.getItem('gameId'),
+            player: localStorage.getItem('player'),
+            opponent: null,
+            isBatting: false,
+            runs: 0,
+            wickets: 0,
+            balls: 0,
+            target: 0,
+            innings: 1
+        };
+        
+        // Initialize game
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!state.gameId || !state.player) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            state.opponent = state.player === 'player1' ? 'player2' : 'player1';
+            
+            // Display game info
+            document.getElementById('game-id').textContent = state.gameId;
+            document.getElementById('player-role').textContent = state.player;
+            
+            // Listen for game changes
+            const gameRef = ref(db, `games/${state.gameId}`);
+            onValue(gameRef, (snapshot) => {
+                const game = snapshot.val();
+                if (!game) {
+                    alert('Game ended');
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                handleGameState(game);
+            });
+        });
+        
+        function handleGameState(game) {
+            switch (game.status) {
+                case 'toss':
+                    handleToss(game);
+                    break;
+                case 'batting-choice':
+                    handleBattingChoice(game);
+                    break;
+                case 'playing':
+                    handlePlaying(game);
+                    break;
+                case 'completed':
+                    handleGameEnd(game);
+                    break;
+                default:
+                    document.getElementById('game-status').textContent = 'Waiting...';
+            }
+        }
+        
+        function handleToss(game) {
+            document.getElementById('toss-section').classList.remove('hidden');
+            document.getElementById('game-status').textContent = 'Call the toss!';
+            
+            // If already called
+            if (game.toss?.[state.player]) {
+                document.getElementById('toss-section').classList.add('hidden');
+                document.getElementById('game-status').textContent = 'Waiting for opponent...';
+                return;
+            }
+            
+            // Toss handlers
+            document.getElementById('heads').onclick = () => callToss('heads');
+            document.getElementById('tails').onclick = () => callToss('tails');
+        }
+        
+        async function callToss(call) {
+            await set(ref(db, `games/${state.gameId}/toss/${state.player}`), call);
+            
+            // Check if both called
+            const toss = await get(ref(db, `games/${state.gameId}/toss`));
+            if (toss.val()?.player1 && toss.val()?.player2) {
+                const result = Math.random() < 0.5 ? 'heads' : 'tails';
+                const winner = toss.val()[state.player] === result ? state.player : state.opponent;
+                
+                await set(ref(db, `games/${state.gameId}`), {
+                    status: 'batting-choice',
+                    tossWinner: winner,
+                    tossResult: result
+                });
+            }
+        }
+        
+        function handleBattingChoice(game) {
+            if (game.tossWinner === state.player) {
+                document.getElementById('batting-choice').classList.remove('hidden');
+                document.getElementById('game-status').textContent = 'Choose to bat or bowl';
+                
+                document.getElementById('bat-first').onclick = () => setChoice(state.player);
+                document.getElementById('bowl-first').onclick = () => setChoice(state.opponent);
+            } else {
+                document.getElementById('game-status').textContent = 'Opponent won toss, waiting...';
+            }
+        }
+        
+        async function setChoice(battingFirst) {
+            await set(ref(db, `games/${state.gameId}`), {
+                status: 'playing',
+                battingFirst: battingFirst,
+                innings: 1,
+                score: { runs: 0, wickets: 0, balls: 0 }
+            });
+        }
+        
+        function handlePlaying(game) {
+            // Update UI
+            document.getElementById('toss-section').classList.add('hidden');
+            document.getElementById('batting-choice').classList.add('hidden');
+            document.getElementById('game-section').classList.remove('hidden');
+            
+            // Update state
+            state.isBatting = game.battingFirst === state.player;
+            state.runs = game.score?.runs || 0;
+            state.wickets = game.score?.wickets || 0;
+            state.balls = game.score?.balls || 0;
+            state.innings = game.innings || 1;
+            state.target = game.target || 0;
+            
+            // Show target if chasing
+            if (state.innings === 2 && state.target > 0) {
+                document.getElementById('target').classList.remove('hidden');
+                document.getElementById('target-runs').textContent = state.target;
+            }
+            
+            updateUI();
+            
+            // Card handlers
+            document.querySelectorAll('.card').forEach(card => {
+                card.onclick = () => playCard(parseInt(card.dataset.value));
+            });
+            
+            // Listen for plays
+            onValue(ref(db, `games/${state.gameId}/plays`), async (snapshot) => {
+                const plays = snapshot.val();
+                if (!plays?.player1 || !plays?.player2) return;
+                
+                const batterCard = state.isBatting ? plays[state.player] : plays[state.opponent];
+                const bowlerCard = state.isBatting ? plays[state.opponent] : plays[state.player];
+                
+                const outcome = calculateOutcome(batterCard, bowlerCard);
+                updateScore(outcome);
+                
+                // Reset plays
+                await set(ref(db, `games/${state.gameId}/plays`), {
+                    player1: null,
+                    player2: null
+                });
+            });
+        }
+        
+        async function playCard(card) {
+            await set(ref(db, `games/${state.gameId}/plays/${state.player}`), card);
+            document.getElementById('ball-result').textContent = 'Waiting for opponent...';
+        }
+        
+        function calculateOutcome(bat, bowl) {
+            // No Ball
+            if (bat === 0 && bowl === 0) {
+                return { runs: 1, wicket: false, message: "No Ball! +1 run" };
+            }
+            // Wicket
+            if (bat === bowl && bat > 0) {
+                return { runs: 0, wicket: true, message: "Wicket!" };
+            }
+            // Batter played 0
+            if (bat === 0) {
+                return { runs: bowl, wicket: false, message: `${bowl} runs (batter missed)` };
+            }
+            // Bowler played 0
+            if (bowl === 0) {
+                return { runs: bat, wicket: false, message: `${bat} runs!` };
+            }
+            // Normal runs
+            return { runs: bat, wicket: false, message: `${bat} runs!` };
+        }
+        
+        function updateScore(outcome) {
+            state.runs += outcome.runs;
+            if (outcome.wicket) state.wickets++;
+            state.balls++;
+            
+            // Update UI
+            document.getElementById('score').textContent = `${state.runs}/${state.wickets}`;
+            document.getElementById('overs').textContent = `${Math.floor(state.balls/6)}.${state.balls%6}`;
+            document.getElementById('ball-result').textContent = outcome.message;
+            
+            // Check game end
+            checkGameEnd();
+            
+            // Update Firebase
+            set(ref(db, `games/${state.gameId}/score`), {
+                runs: state.runs,
+                wickets: state.wickets,
+                balls: state.balls
+            });
+        }
+        
+        function checkGameEnd() {
+            const maxBalls = 30; // 5 overs
+            const maxWickets = 10;
+            
+            // First innings end
+            if (state.innings === 1 && (state.wickets >= maxWickets || state.balls >= maxBalls)) {
+                endInnings();
+            }
+            // Second innings end
+            else if (state.innings === 2) {
+                if (state.runs >= state.target) {
+                    endGame(true);
+                } else if (state.wickets >= maxWickets || state.balls >= maxBalls) {
+                    endGame(false);
+                }
+            }
+        }
+        
+        async function endInnings() {
+            const target = state.runs + 1;
+            
+            await set(ref(db, `games/${state.gameId}`), {
+                status: 'playing',
+                innings: 2,
+                target: target,
+                score: { runs: 0, wickets: 0, balls: 0 }
+            });
+            
+            // Reset state
+            state.innings = 2;
+            state.runs = 0;
+            state.wickets = 0;
+            state.balls = 0;
+            state.isBatting = !state.isBatting;
+            state.target = target;
+            
+            // Update UI
+            document.getElementById('target').classList.remove('hidden');
+            document.getElementById('target-runs').textContent = target;
+            document.getElementById('ball-result').textContent = `Target: ${target}`;
+        }
+        
+        async function endGame(isWin) {
+            await set(ref(db, `games/${state.gameId}/status`), 'completed');
+            
+            // Show result
+            document.getElementById('game-section').classList.add('hidden');
+            document.getElementById('game-over').classList.remove('hidden');
+            
+            const message = isWin ? 
+                `You won by ${state.isBatting ? state.target - state.runs : 10 - state.wickets} ${state.isBatting ? 'runs' : 'wickets'}!` :
+                `You lost by ${state.isBatting ? state.runs - state.target : state.wickets} ${state.isBatting ? 'runs' : 'wickets'}`;
+            
+            document.getElementById('result-message').textContent = message;
+            
+            // New game handler
+            document.getElementById('new-game').onclick = () => {
+                localStorage.clear();
+                window.location.href = 'index.html';
+            };
+        }
+        
+        function handleGameEnd() {
+            document.getElementById('game-section').classList.add('hidden');
+            document.getElementById('game-over').classList.remove('hidden');
+            document.getElementById('result-message').textContent = 'Game over!';
+        }
+        
+        function updateUI() {
+            document.getElementById('game-status').textContent = 
+                state.isBatting ? 'You are batting' : 'You are bowling';
+        }
+    </script>
 </body>
 </html>
