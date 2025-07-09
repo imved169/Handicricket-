@@ -48,7 +48,7 @@
       margin-bottom: 20px;
     }
     
-    .player-list, .selected-team {
+    .player-list, .selected-team, .role-assignment {
       flex: 1;
       background-color: white;
       padding: 15px;
@@ -103,6 +103,7 @@
       font-size: 16px;
       cursor: pointer;
       transition: background-color 0.3s;
+      margin-top: 10px;
     }
     
     .btn:hover {
@@ -112,6 +113,26 @@
     .btn:disabled {
       background-color: #95a5a6;
       cursor: not-allowed;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .player-role {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+    
+    .player-role select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
     }
   </style>
 </head>
@@ -139,8 +160,16 @@
       </div>
       
       <div class="selected-team">
-        <h3>Your Team (0/11)</h3>
+        <h3>Your Team (<span id="selected-count">0</span>/11)</h3>
         <ul id="selected-players"></ul>
+      </div>
+      
+      <div class="role-assignment hidden" id="role-assignment">
+        <h3>Assign Roles</h3>
+        <div id="role-list">
+          <!-- Will be populated by JS -->
+        </div>
+        <button id="confirm-roles" class="btn">Confirm Roles</button>
       </div>
     </div>
     
@@ -162,6 +191,10 @@
     const availablePlayersList = document.getElementById('available-players');
     const selectedPlayersList = document.getElementById('selected-players');
     const confirmBtn = document.getElementById('confirm-team');
+    const roleAssignment = document.getElementById('role-assignment');
+    const roleList = document.getElementById('role-list');
+    const confirmRolesBtn = document.getElementById('confirm-roles');
+    const selectedCount = document.getElementById('selected-count');
     let selectedPlayers = [];
     
     // Populate available players
@@ -201,8 +234,7 @@
         selectedPlayersList.appendChild(li);
       });
       
-      document.querySelector('.selected-team h3').textContent = 
-        `Your Team (${selectedPlayers.length}/11)`;
+      selectedCount.textContent = selectedPlayers.length;
     }
     
     function deselectPlayer(player, element) {
@@ -233,32 +265,68 @@
       }
       localStorage.setItem('format', format);
       
+      // Show role assignment section
+      roleAssignment.classList.remove('hidden');
+      document.querySelector('.player-list').classList.add('hidden');
+      document.querySelector('.selected-team').classList.add('hidden');
+      confirmBtn.classList.add('hidden');
+      
+      // Populate role assignment
+      roleList.innerHTML = '';
+      selectedPlayers.forEach(player => {
+        const div = document.createElement('div');
+        div.className = 'player-role';
+        div.innerHTML = `
+          <span>${player}</span>
+          <select class="role-select" data-player="${player}">
+            <option value="batter">Batter</option>
+            <option value="bowler">Bowler</option>
+            <option value="allrounder">All-Rounder</option>
+            <option value="wicketkeeper">Wicket Keeper</option>
+          </select>
+        `;
+        roleList.appendChild(div);
+      });
+    });
+    
+    confirmRolesBtn.addEventListener('click', async () => {
+      const roles = {};
+      document.querySelectorAll('.role-select').forEach(select => {
+        roles[select.dataset.player] = select.value;
+      });
+      
       try {
-        // Save team to Firebase
-        await set(ref(db, `rooms/${roomId}/teams/${player}`), {
-          players: selectedPlayers,
-          format: format
-        });
+        // Save roles to Firebase
+        await set(ref(db, `rooms/${roomId}/teams/${player}/roles`), roles);
+        
+        // Save roles to localStorage
+        if (player === 'player1') {
+          localStorage.setItem('team1Roles', JSON.stringify(roles));
+        } else {
+          localStorage.setItem('team2Roles', JSON.stringify(roles));
+        }
         
         // Show confirmation
-        confirmBtn.textContent = 'Team Submitted!';
-        confirmBtn.style.backgroundColor = '#27ae60';
+        confirmRolesBtn.textContent = 'Roles Submitted!';
+        confirmRolesBtn.style.backgroundColor = '#27ae60';
         
         // Wait for opponent's team
         const teamsRef = ref(db, `rooms/${roomId}/teams`);
         onValue(teamsRef, (snapshot) => {
           const teams = snapshot.val();
-          if (teams && teams.player1 && teams.player2) {
-            // Both teams submitted
+          if (teams && teams.player1 && teams.player1.players && 
+              teams.player2 && teams.player2.players &&
+              teams.player1.roles && teams.player2.roles) {
+            // Both teams and roles submitted
             window.location.href = 'toss.html';
           }
         }, { onlyOnce: false });
         
       } catch (error) {
-        console.error('Error saving team:', error);
-        alert('Error saving team. Please try again.');
-        confirmBtn.textContent = 'Confirm Team';
-        confirmBtn.style.backgroundColor = '#3498db';
+        console.error('Error saving roles:', error);
+        alert('Error saving roles. Please try again.');
+        confirmRolesBtn.textContent = 'Confirm Roles';
+        confirmRolesBtn.style.backgroundColor = '#3498db';
       }
     });
     
