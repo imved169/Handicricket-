@@ -72,10 +72,8 @@
             <button id="new-game" class="btn">New Game</button>
         </div>
         
-        <!-- Add milestone notifications container -->
         <div id="notifications"></div>
         
-        <!-- Add chat container -->
         <div id="chat-container" class="hidden">
             <div id="chat-messages"></div>
             <div class="chat-input">
@@ -98,11 +96,51 @@
         
         // Format rules
         const formatRules = {
-            "5": { name: "5 Overs", totalOvers: 5, totalWickets: 11, powerplayOvers: 2, powerplayWicketValue: 0.5 },
-            "10": { name: "10 Overs", totalOvers: 10, totalWickets: 11, powerplayOvers: 3, powerplayWicketValue: 0.5 },
-            "20": { name: "T20", totalOvers: 20, totalWickets: 11, powerplayOvers: 6, powerplayWicketValue: 0.5 },
-            "50": { name: "ODI", totalOvers: 50, totalWickets: 11, powerplayOvers: [1,10,21,30,41,42], powerplayWicketValue: 0.25 },
-            "test": { name: "Test", totalOvers: Infinity, totalWickets: 30, powerplayOvers: 0, powerplayWicketValue: 0.33 }
+            "5": { 
+                name: "5 Overs", 
+                totalOvers: 5, 
+                totalWickets: 11, 
+                powerplayOvers: 2, 
+                powerplayWicketValue: 0.5,
+                maxBowlerOvers: 1,
+                deadOvers: 0
+            },
+            "10": { 
+                name: "10 Overs", 
+                totalOvers: 10, 
+                totalWickets: 11, 
+                powerplayOvers: 3, 
+                powerplayWicketValue: 0.5,
+                maxBowlerOvers: 2,
+                deadOvers: 0
+            },
+            "20": { 
+                name: "T20", 
+                totalOvers: 20, 
+                totalWickets: 11, 
+                powerplayOvers: 6, 
+                powerplayWicketValue: 0.5,
+                maxBowlerOvers: 4,
+                deadOvers: 0
+            },
+            "50": { 
+                name: "ODI", 
+                totalOvers: 50, 
+                totalWickets: 11, 
+                powerplayOvers: [1,10,21,30,41,42], 
+                powerplayWicketValue: 0.25,
+                maxBowlerOvers: 10,
+                deadOvers: 10
+            },
+            "test": { 
+                name: "Test", 
+                totalOvers: Infinity, 
+                totalWickets: 30, 
+                powerplayOvers: 0, 
+                powerplayWicketValue: 0.33,
+                maxBowlerOvers: Infinity,
+                deadOvers: 0
+            }
         };
         
         // Game state
@@ -122,12 +160,17 @@
             format: null,
             team1Score: 0,
             team2Score: 0,
+            team1Wickets: 0,
+            team2Wickets: 0,
             currentBatter: null,
             currentBowler: null,
             batterStats: {},
             bowlerStats: {},
             fallOfWickets: [],
             teamPlayers: [],
+            zerosThisOver: { player1: 0, player2: 0 },
+            powerplayActive: false,
+            deadOversUsed: 0,
             team1Name: localStorage.getItem('team1Name') || 'Team 1',
             team2Name: localStorage.getItem('team2Name') || 'Team 2'
         };
@@ -150,6 +193,9 @@
             state.format = formatRules[format];
             document.getElementById('match-format').textContent = state.format.name;
             
+            // Initialize player stats
+            initializePlayerStats();
+            
             // Listen for game changes
             const gameRef = ref(db, `games/${state.gameId}`);
             onValue(gameRef, (snapshot) => {
@@ -166,6 +212,24 @@
             // Initialize chat
             setupChat();
         });
+        
+        function initializePlayerStats() {
+            // Initialize batter stats
+            state.batterStats = {};
+            const battingTeam = state.isBatting ? state.player : state.opponent;
+            const batters = battingTeam === "player1" ? state.teamPlayers : state.teamPlayers;
+            batters.forEach(player => {
+                state.batterStats[player] = { runs: 0, balls: 0, dots: 0, fours: 0, sixes: 0 };
+            });
+            
+            // Initialize bowler stats
+            state.bowlerStats = {};
+            const bowlingTeam = state.isBatting ? state.opponent : state.player;
+            const bowlers = bowlingTeam === "player1" ? state.teamPlayers : state.teamPlayers;
+            bowlers.forEach(player => {
+                state.bowlerStats[player] = { overs: 0, maidens: 0, runs: 0, wickets: 0 };
+            });
+        }
         
         function handleGameState(game) {
             switch (game.status) {
@@ -190,14 +254,12 @@
             document.getElementById('toss-section').classList.remove('hidden');
             document.getElementById('game-status').textContent = 'Call the toss!';
             
-            // If already called
             if (game.toss?.[state.player]) {
                 document.getElementById('toss-section').classList.add('hidden');
                 document.getElementById('game-status').textContent = 'Waiting for opponent...';
                 return;
             }
             
-            // Toss handlers
             document.getElementById('heads').onclick = () => callToss('heads');
             document.getElementById('tails').onclick = () => callToss('tails');
         }
@@ -205,7 +267,6 @@
         async function callToss(call) {
             await set(ref(db, `games/${state.gameId}/toss/${state.player}`), call);
             
-            // Check if both called
             const toss = await get(ref(db, `games/${state.gameId}/toss`));
             if (toss.val()?.player1 && toss.val()?.player2) {
                 const result = Math.random() < 0.5 ? 'heads' : 'tails';
@@ -241,12 +302,10 @@
         }
         
         function handlePlaying(game) {
-            // Update UI
             document.getElementById('toss-section').classList.add('hidden');
             document.getElementById('batting-choice').classList.add('hidden');
             document.getElementById('game-section').classList.remove('hidden');
             
-            // Update state
             state.isBatting = game.battingFirst === state.player ? game.innings === 1 : game.innings === 2;
             state.runs = game.score?.runs || 0;
             state.wickets = game.score?.wickets || 0;
@@ -257,7 +316,6 @@
             state.freeHit = game.freeHit || false;
             state.freeHitNextBall = game.freeHitNextBall || false;
             
-            // Initialize players if not set
             if (state.teamPlayers.length === 0) {
                 const team1 = JSON.parse(localStorage.getItem('team1') || '[]');
                 const team2 = JSON.parse(localStorage.getItem('team2') || '[]');
@@ -269,7 +327,6 @@
                 }
             }
             
-            // Show target if chasing
             if (state.innings === 2 && state.target > 0) {
                 document.getElementById('target').classList.remove('hidden');
                 document.getElementById('target-runs').textContent = state.target;
@@ -278,12 +335,10 @@
             
             updateUI();
             
-            // Card handlers
             document.querySelectorAll('.card').forEach(card => {
                 card.onclick = () => playCard(parseInt(card.dataset.value));
             });
             
-            // Listen for plays
             onValue(ref(db, `games/${state.gameId}/plays`), async (snapshot) => {
                 const plays = snapshot.val();
                 if (!plays?.player1 || !plays?.player2) return;
@@ -294,7 +349,6 @@
                 const outcome = calculateOutcome(batterCard, bowlerCard);
                 updateScore(outcome);
                 
-                // Reset plays
                 await set(ref(db, `games/${state.gameId}/plays`), {
                     player1: null,
                     player2: null
@@ -303,7 +357,34 @@
         }
         
         function calculateOutcome(bat, bowl) {
-            // No Ball
+            // Check for zero card limitations
+            if (bat === 0) {
+                state.zerosThisOver[state.player]++;
+                if (state.zerosThisOver[state.player] > 3) {
+                    return {
+                        runs: state.isBatting ? -5 : 1,
+                        wicket: false,
+                        message: state.isBatting ? "Too many zeros! -5 runs" : "NO BALL! +1 run (Too many zeros)",
+                        freeHitNextBall: !state.isBatting,
+                        legalBall: false
+                    };
+                }
+            }
+            
+            if (bowl === 0) {
+                state.zerosThisOver[state.opponent]++;
+                if (state.zerosThisOver[state.opponent] > 3) {
+                    return {
+                        runs: 1,
+                        wicket: false,
+                        message: "NO BALL! +1 run (Too many zeros)",
+                        freeHitNextBall: true,
+                        legalBall: false
+                    };
+                }
+            }
+            
+            // No Ball (both 0)
             if (bat === 0 && bowl === 0) {
                 return { 
                     runs: 1, 
@@ -396,6 +477,23 @@
                 (state.format.name === "ODI" ? 0.5 : 1.0);
         }
         
+        function checkPowerplayStatus() {
+            const currentOver = Math.floor(state.legalBalls / 6) + 1;
+            
+            if (Array.isArray(state.format.powerplayOvers)) {
+                for (let i = 0; i < state.format.powerplayOvers.length; i += 2) {
+                    if (currentOver >= state.format.powerplayOvers[i] && 
+                        currentOver <= state.format.powerplayOvers[i+1]) {
+                        state.powerplayActive = true;
+                        return;
+                    }
+                }
+                state.powerplayActive = false;
+            } else {
+                state.powerplayActive = currentOver <= state.format.powerplayOvers;
+            }
+        }
+        
         async function playCard(card) {
             await set(ref(db, `games/${state.gameId}/plays/${state.player}`), card);
             document.getElementById('ball-result').textContent = 'Waiting for opponent...';
@@ -414,10 +512,8 @@
                 state.freeHit = outcome.freeHit;
             }
             
-            // Update player stats
             updatePlayerStats(outcome);
             
-            // Check for new batter if wicket fell
             if (outcome.wicket && (outcome.wicketValue || 1) >= 1.0) {
                 const nextBatterIndex = state.teamPlayers.indexOf(state.currentBatter) + 1;
                 if (nextBatterIndex < state.teamPlayers.length) {
@@ -425,7 +521,6 @@
                 }
             }
             
-            // Update UI
             document.getElementById('score').textContent = `${state.runs}/${Math.floor(state.wickets)}`;
             document.getElementById('overs').textContent = `${Math.floor(state.legalBalls/6)}.${state.legalBalls%6}`;
             document.getElementById('ball-result').textContent = outcome.message;
@@ -434,13 +529,9 @@
                 updateRequiredRate();
             }
             
-            // Check milestones
             checkMilestones();
-            
-            // Check game end
             checkGameEnd();
             
-            // Update Firebase
             set(ref(db, `games/${state.gameId}/score`), {
                 runs: state.runs,
                 wickets: state.wickets,
@@ -454,22 +545,28 @@
         function updatePlayerStats(outcome) {
             if (state.currentBatter) {
                 state.batterStats[state.currentBatter] = state.batterStats[state.currentBatter] || { 
-                    runs: 0, balls: 0, fours: 0, sixes: 0 
+                    runs: 0, balls: 0, dots: 0, fours: 0, sixes: 0 
                 };
                 state.batterStats[state.currentBatter].runs += outcome.runs;
                 if (outcome.legalBall) state.batterStats[state.currentBatter].balls++;
                 
+                if (outcome.runs === 0 && outcome.legalBall) state.batterStats[state.currentBatter].dots++;
                 if (outcome.runs === 4) state.batterStats[state.currentBatter].fours++;
                 if (outcome.runs === 6) state.batterStats[state.currentBatter].sixes++;
             }
             
             if (state.currentBowler) {
                 state.bowlerStats[state.currentBowler] = state.bowlerStats[state.currentBowler] || { 
-                    wickets: 0, runs: 0, balls: 0 
+                    overs: 0, maidens: 0, runs: 0, wickets: 0 
                 };
                 state.bowlerStats[state.currentBowler].runs += outcome.runs;
                 if (outcome.legalBall) state.bowlerStats[state.currentBowler].balls++;
                 if (outcome.wicket) state.bowlerStats[state.currentBowler].wickets += outcome.wicketValue || 1;
+                
+                if (state.legalBalls % 6 === 0 && 
+                    state.bowlerStats[state.currentBowler].runs === 0) {
+                    state.bowlerStats[state.currentBowler].maidens++;
+                }
             }
             
             if (outcome.wicket && (outcome.wicketValue || 1) >= 1.0) {
@@ -517,11 +614,9 @@
             const ballsLeft = state.format.totalOvers * 6 - state.legalBalls;
             const wicketsLeft = state.format.totalWickets - Math.floor(state.wickets);
             
-            // First innings end
             if (state.innings === 1 && (state.wickets >= state.format.totalWickets || state.legalBalls >= state.format.totalOvers * 6)) {
                 endInnings();
             }
-            // Second innings end
             else if (state.innings === 2) {
                 if (state.runs >= state.target) {
                     endGame(true);
@@ -543,7 +638,6 @@
                 freeHitNextBall: false
             });
             
-            // Reset state
             state.innings = 2;
             state.runs = 0;
             state.wickets = 0;
@@ -553,18 +647,19 @@
             state.target = target;
             state.freeHit = false;
             state.freeHitNextBall = false;
+            state.zerosThisOver = { player1: 0, player2: 0 };
             
-            // Update UI
             document.getElementById('target').classList.remove('hidden');
             document.getElementById('target-runs').textContent = target;
             document.getElementById('ball-result').textContent = `Target: ${target}`;
             updateRequiredRate();
+            
+            initializePlayerStats();
         }
         
         async function endGame(isWin) {
             await set(ref(db, `games/${state.gameId}/status`), 'completed');
             
-            // Show result
             document.getElementById('game-section').classList.add('hidden');
             document.getElementById('game-over').classList.remove('hidden');
             
@@ -574,19 +669,17 @@
             
             document.getElementById('result-message').textContent = message;
             
-            // Show match summary
             const summary = document.getElementById('match-summary');
             summary.innerHTML = `
                 <h3>Match Summary</h3>
-                <p><strong>Team 1:</strong> ${state.team1Score}/${Math.floor(state.team1Wickets || 0)}</p>
-                <p><strong>Team 2:</strong> ${state.runs}/${Math.floor(state.wickets)}</p>
+                <p><strong>${state.team1Name}:</strong> ${state.team1Score}/${Math.floor(state.team1Wickets || 0)}</p>
+                <p><strong>${state.team2Name}:</strong> ${state.runs}/${Math.floor(state.wickets)}</p>
                 <h4>Fall of Wickets:</h4>
                 <ul>
                     ${state.fallOfWickets.map(w => `<li>${w.score}/${Math.floor(state.wickets)} - ${w.batter} (${w.over})</li>`).join('')}
                 </ul>
             `;
             
-            // New game handler
             document.getElementById('new-game').onclick = () => {
                 localStorage.clear();
                 window.location.href = 'index.html';
@@ -608,19 +701,13 @@
             document.getElementById('score').textContent = `${state.runs}/${Math.floor(state.wickets)}`;
             document.getElementById('overs').textContent = `${Math.floor(state.legalBalls/6)}.${state.legalBalls%6}`;
             
-            // Powerplay indicator
-            const currentOver = Math.floor(state.legalBalls / 6);
-            const isPowerplay = Array.isArray(state.format.powerplayOvers) ? 
-                state.format.powerplayOvers.some((pp, i) => i % 2 === 0 && currentOver >= pp - 1 && currentOver <= state.format.powerplayOvers[i+1] - 1) :
-                currentOver < state.format.powerplayOvers;
-            
-            document.getElementById('powerplay-indicator').classList.toggle('hidden', !isPowerplay);
+            checkPowerplayStatus();
+            document.getElementById('powerplay-indicator').classList.toggle('hidden', !state.powerplayActive);
             document.getElementById('freehit-indicator').classList.toggle('hidden', !state.freeHit);
             
             updatePlayerUI();
         }
         
-        // Chat functionality
         function setupChat() {
             const chatRef = ref(db, `games/${state.gameId}/chat`);
             
@@ -679,7 +766,6 @@
                 isEmoji: true
             });
             
-            // Show local emoji animation
             const emojiElement = document.createElement('div');
             emojiElement.className = 'emoji-animation';
             emojiElement.textContent = emoji;
@@ -687,26 +773,22 @@
             setTimeout(() => emojiElement.remove(), 2000);
         }
         
-        // Milestone notifications
         function checkMilestones() {
             if (!state.currentBatter) return;
             
             const batterStats = state.batterStats[state.currentBatter] || { runs: 0, balls: 0 };
             const bowlerStats = state.bowlerStats[state.currentBowler] || { wickets: 0 };
             
-            // Half-century
             if (batterStats.runs >= 50 && !batterStats.fiftyNotified) {
                 showNotification(`${state.currentBatter} scores a half-century!`, 'milestone');
                 batterStats.fiftyNotified = true;
             }
             
-            // Century
             if (batterStats.runs >= 100 && !batterStats.centuryNotified) {
                 showNotification(`${state.currentBatter} scores a century! 💯`, 'milestone');
                 batterStats.centuryNotified = true;
             }
             
-            // 5-wicket haul
             if (bowlerStats.wickets >= 5 && !bowlerStats.fiveWicketsNotified) {
                 showNotification(`${state.currentBowler} takes a 5-wicket haul!`, 'milestone');
                 bowlerStats.fiveWicketsNotified = true;
