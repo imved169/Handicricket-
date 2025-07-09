@@ -485,8 +485,6 @@
     let bowlerStats = {};
     let autoStartTimer;
     let countdownInterval;
-    let tossWinner = null;
-    let battingFirst = null;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -541,13 +539,6 @@
         
         // Show transition overlay
         const overlay = showTransitionOverlay("Starting Second Innings...", 3);
-        
-        // Clear all current plays and selections
-        await update(ref(db, `rooms/${room}`), {
-          currentPlays: { player1: null, player2: null },
-          currentBatter: null,
-          currentBowler: null
-        });
         
         // Proceed to second innings after delay
         setTimeout(() => {
@@ -929,13 +920,8 @@
     // Set up player roles (batting/bowling)
     async function setupRole() {
       const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-      tossWinner = tossSnap.val();
-      
-      const battingFirstSnap = await get(ref(db, `rooms/${room}/battingFirst`));
-      battingFirst = battingFirstSnap.val();
-      
-      // Determine if current player is batting in this innings
-      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+      const tossWinner = tossSnap.val();
+      isBatting = player === tossWinner;
 
       const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
       const decision = decisionSnap.val();
@@ -945,10 +931,6 @@
       roleText.innerText = isBatting ? 
         `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'}) vs ${opponentTeam}` : 
         `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'}) vs ${opponentTeam}`;
-
-      // Reset current batter/bowler display
-      currentBatterEl.innerText = "-";
-      currentBowlerEl.innerText = "-";
 
       if (isBatting && !currentBatter) {
         showBatterSelection();
@@ -1203,12 +1185,10 @@
           return;
         }
 
-        // Determine batting and bowling players based on innings
-        const battingPlayer = innings % 2 === 1 ? battingFirst : (battingFirst === "player1" ? "player2" : "player1");
-        const bowlingPlayer = battingPlayer === "player1" ? "player2" : "player1";
-
-        const batCard = plays[battingPlayer];
-        const bowlCard = plays[bowlingPlayer];
+        const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
+        const tossWinner = tossSnap.val();
+        const batCard = plays[tossWinner];
+        const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
 
         let outcome = "";
         let isLegalBall = false;
@@ -1216,8 +1196,8 @@
         let isPlayerOut = false;
         let runsScored = 0;
 
-        if (batCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlCard === 0) zerosThisOver[bowlingPlayer]++;
+        if (batCard === 0) zerosThisOver[player]++;
+        if (bowlCard === 0) zerosThisOver[opponent]++;
 
         // Check for free hit next ball
         if (freeHitNextBall) {
@@ -1299,7 +1279,7 @@
           isLegalBall = true;
         }
         else if (batCard === 0 && bowlCard > 0) {
-          if (zerosThisOver[battingPlayer] > 3) {
+          if (zerosThisOver[player] > 3) {
             runs -= 5;
             outcome = "4th 0 in over! -5 runs";
           } else {
@@ -1316,7 +1296,7 @@
           isLegalBall = true;
         }
         else if (bowlCard === 0 && batCard > 0) {
-          if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
+          if (zerosThisOver[opponent] > 3 && !isTestMatch) {
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
@@ -1402,9 +1382,9 @@
         setTimeout(async () => {
           await resetPlays();
           
-          if ((isPlayerOut || isWicket) && player === battingPlayer) {
+          if ((isPlayerOut || isWicket) && player === tossWinner) {
             showBatterSelection();
-          } else if (isLegalBall && legalBalls % 6 === 0 && player === bowlingPlayer) {
+          } else if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
             showBowlerSelection();
           } else {
             status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
@@ -1501,7 +1481,7 @@
       
       if (innings === 1) {
         team1Score = currentInningRuns;
-        team1Wickets = wickets;
+        team1Wickets = currentInningWickets;
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
         // Show the start innings button for non-test matches
@@ -1520,7 +1500,7 @@
         }
       } else {
         team2Score = currentInningRuns;
-        team2Wickets = wickets;
+        team2Wickets = currentInningWickets;
         status.innerText = `Team 2 scored ${team2Score} runs!`;
       }
       
@@ -1560,15 +1540,8 @@
       batterLives = {};
       freeHit = false;
       freeHitNextBall = false;
-      currentBatter = null;
-      currentBowler = null;
+      isBatting = !isBatting;
       zerosThisOver = { player1: 0, player2: 0 };
-      
-      // Clear current plays
-      set(ref(db, `rooms/${room}/currentPlays`), { player1: null, player2: null });
-      
-      // Toggle batting role based on innings
-      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
       
       // Reset innings button state
       startInningsBtn.style.display = "none";
@@ -1579,11 +1552,6 @@
       // Clear Firebase state
       set(ref(db, `rooms/${room}/inningsReady`), false);
       set(ref(db, `rooms/${room}/autoStartTime`), null);
-      set(ref(db, `rooms/${room}/currentBatter`), null);
-      set(ref(db, `rooms/${room}/currentBowler`), null);
-      
-      // Update role text
-      setupRole();
       
       if (isBatting) {
         showBatterSelection();
@@ -1645,13 +1613,6 @@
     // Initialize the game
     async function initGame() {
       gameInProgress = true;
-      
-      // Get toss winner and batting first team
-      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-      tossWinner = tossSnap.val();
-      
-      const battingFirstSnap = await get(ref(db, `rooms/${room}/battingFirst`));
-      battingFirst = battingFirstSnap.val();
       
       // Check for saved game
       const savedGameSnap = await get(ref(db, `savedGames/${room}`));
@@ -1746,4 +1707,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
