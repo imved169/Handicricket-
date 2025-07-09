@@ -30,6 +30,7 @@
       justify-content: center;
       gap: 12px;
       max-width: 500px;
+      position: relative;
     }
     
     button.card { 
@@ -60,6 +61,60 @@
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
+    }
+    
+    /* Selection Modal - Positioned above cards */
+    .selection-modal { 
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 400px;
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 15px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      display: none;
+    }
+    
+    .selection-list { 
+      max-height: 40vh;
+      overflow-y: auto;
+      margin: 10px 0;
+      padding-right: 5px;
+    }
+    
+    /* Player Items */
+    .player-item, .batter-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    
+    .player-item:hover, .batter-item:hover {
+      background: rgba(30, 136, 229, 0.4);
+      transform: translateX(5px);
+    }
+    
+    .player-item.selected, .batter-item.selected {
+      background: rgba(13, 71, 161, 0.6);
+      border-left: 3px solid #ffeb3b;
+    }
+    
+    .batter-stats, .bowler-stats {
+      font-size: 0.85em;
+      color: #aaa;
+      margin-top: 3px;
+      display: flex;
+      justify-content: space-between;
     }
     
     /* Scoreboard and Game Info */
@@ -134,67 +189,6 @@
     .dead-over {
       background: #f44336;
       color: white;
-    }
-    
-    /* Selection Modal */
-    .selection-modal { 
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      backdrop-filter: blur(5px);
-    }
-    
-    .selection-box { 
-      background: linear-gradient(145deg, #123456, #0a1f3a);
-      padding: 25px;
-      border-radius: 15px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .selection-list { 
-      max-height: 60vh;
-      overflow-y: auto;
-      margin: 15px 0;
-      padding-right: 10px;
-    }
-    
-    /* Player Items */
-    .player-item, .batter-item {
-      padding: 12px;
-      margin: 8px 0;
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      border-left: 3px solid transparent;
-    }
-    
-    .player-item:hover, .batter-item:hover {
-      background: rgba(30, 136, 229, 0.4);
-      transform: translateX(5px);
-    }
-    
-    .player-item.selected, .batter-item.selected {
-      background: rgba(13, 71, 161, 0.6);
-      border-left: 3px solid #ffeb3b;
-    }
-    
-    .batter-stats, .bowler-stats {
-      font-size: 0.85em;
-      color: #aaa;
-      margin-top: 5px;
-      display: flex;
-      justify-content: space-between;
     }
     
     /* Team Displays */
@@ -443,6 +437,11 @@
       #scoreboard {
         grid-template-columns: 1fr 1fr;
       }
+      
+      .selection-modal {
+        width: 95%;
+        max-height: 50vh;
+      }
     }
     
     @media (max-width: 480px) {
@@ -454,6 +453,15 @@
         width: 50px;
         height: 50px;
         font-size: 18px;
+      }
+      
+      .selection-modal {
+        padding: 10px;
+      }
+      
+      .player-item, .batter-item {
+        padding: 8px;
+        font-size: 14px;
       }
     }
   </style>
@@ -488,6 +496,14 @@
   <div id="status">Initializing game...</div>
 
   <div class="card-row" id="cardButtons">
+    <!-- Selection Modal - Now positioned above the cards -->
+    <div id="selectionModal" class="selection-modal">
+      <h3 id="selectionTitle">Select Next Batter</h3>
+      <div id="selectionList" class="selection-list"></div>
+      <button id="confirmSelection" style="width: 100%; margin-top: 10px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm</button>
+    </div>
+    
+    <!-- Card buttons -->
     <button class="card" data-value="0">0</button>
     <button class="card" data-value="1">1</button>
     <button class="card" data-value="2">2</button>
@@ -515,14 +531,6 @@
         <h4 id="team2Name">Team 2</h4>
         <ul id="team2Players"></ul>
       </div>
-    </div>
-  </div>
-
-  <div id="selectionModal" style="display: none;">
-    <div class="selection-box">
-      <h3 id="selectionTitle">Select Next Batter</h3>
-      <div id="selectionList" class="selection-list"></div>
-      <button id="confirmSelection" style="width: 100%; margin-top: 15px; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm</button>
     </div>
   </div>
 
@@ -1327,7 +1335,7 @@
           get(ref(db, `rooms/${room}/tossWinner`)),
           get(ref(db, `rooms/${room}/battingFirst`)),
           get(ref(db, `rooms/${room}/decision`)),
-          get(ref(db, `${opponent}/playing11`))
+          get(ref(db, `rooms/${room}/${opponent}/playing11`))
         ]);
         
         tossWinner = tossSnap.val();
@@ -1404,24 +1412,39 @@
     async function showBatterSelection() {
       disableButtons();
       try {
+        status.innerText = "Loading batters...";
+        
+        // Verify room data exists first
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists() || !roomSnap.val()[player]) {
+          showNotification("Game data not loaded", 'error');
+          enableButtons();
+          return;
+        }
+
+        // Get player data
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
         
         if (!players || players.length === 0) {
           showNotification("No batters available", 'error');
+          enableButtons();
           return;
         }
         
-        const availableBatters = players.filter(p => 
-          !battersUsed.includes(p) || 
-          (batterWickets[p] !== undefined && batterWickets[p] < 1.0)
-        );
+        // Filter available batters
+        const availableBatters = players.filter(p => {
+          const wicketsUsed = batterWickets[p] || 0;
+          return !battersUsed.includes(p) || wicketsUsed < 1.0;
+        });
         
         if (availableBatters.length === 0) {
           showNotification("All batters are out!", 'error');
+          enableButtons();
           return;
         }
 
+        // Update selection UI
         selectionTitle.textContent = "Select Next Batter";
         selectionList.innerHTML = "";
         
@@ -1458,12 +1481,13 @@
           selectionList.appendChild(batterEl);
         });
 
-        selectionModal.style.display = "flex";
+        // Show modal above cards
+        selectionModal.style.display = "block";
         status.innerText = "Select your next batter...";
       } catch (error) {
         console.error("Batter selection error:", error);
         showNotification("Error loading batters", 'error');
-        updateButtonStates();
+        enableButtons();
       }
     }
 
@@ -1471,11 +1495,14 @@
     async function showBowlerSelection() {
       disableButtons();
       try {
+        status.innerText = "Loading bowlers...";
+        
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
         
         if (!players || players.length === 0) {
           showNotification("No bowlers available", 'error');
+          enableButtons();
           return;
         }
         
@@ -1484,6 +1511,7 @@
         
         if (availableBowlers.length === 0) {
           showNotification("All bowlers have bowled their maximum overs!", 'error');
+          enableButtons();
           return;
         }
 
@@ -1515,12 +1543,13 @@
           selectionList.appendChild(playerEl);
         });
 
-        selectionModal.style.display = "flex";
+        // Show modal above cards
+        selectionModal.style.display = "block";
         status.innerText = "Select your next bowler...";
       } catch (error) {
         console.error("Bowler selection error:", error);
         showNotification("Error loading bowlers", 'error');
-        updateButtonStates();
+        enableButtons();
       }
     }
 
