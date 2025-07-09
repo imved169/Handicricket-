@@ -12,12 +12,21 @@
         <p>The digital cricket card game</p>
         
         <div class="menu">
+            <input type="text" id="team-name" placeholder="Enter Team Name" maxlength="20">
+            <select id="game-format">
+                <option value="5">5 Overs</option>
+                <option value="10">10 Overs</option>
+                <option value="20" selected>T20 (20 Overs)</option>
+                <option value="50">ODI (50 Overs)</option>
+                <option value="test">Test Match</option>
+            </select>
             <button id="create-game" class="btn">Create Game</button>
             <button id="join-game" class="btn">Join Game</button>
         </div>
         
         <div id="join-form" class="hidden">
             <input type="text" id="game-id" placeholder="Enter Game ID" maxlength="4">
+            <input type="text" id="player-name" placeholder="Your Name" maxlength="20">
             <button id="confirm-join" class="btn">Join</button>
             <button id="back-btn" class="btn secondary">Back</button>
         </div>
@@ -28,13 +37,13 @@
             <p>Share this with your opponent</p>
             <div class="loader"></div>
             <p id="waiting-text">Waiting for opponent...</p>
+            <div id="connection-status" class="hidden">Opponent: <span>Offline</span></div>
         </div>
     </div>
 
     <script type="module">
-        import { db, ref, set, onValue } from './firebase.js';
+        import { db, ref, set, get, onValue } from './firebase.js';
         
-        // Generate 4-letter game ID
         function generateId() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let result = '';
@@ -44,7 +53,6 @@
             return result;
         }
         
-        // DOM elements
         const createBtn = document.getElementById('create-game');
         const joinBtn = document.getElementById('join-game');
         const joinForm = document.getElementById('join-form');
@@ -52,33 +60,52 @@
         const gameCode = document.getElementById('game-code');
         const confirmJoin = document.getElementById('confirm-join');
         const backBtn = document.getElementById('back-btn');
+        const connectionStatus = document.getElementById('connection-status');
         
-        // Create new game
         createBtn.addEventListener('click', async () => {
+            const teamName = document.getElementById('team-name').value.trim();
+            const format = document.getElementById('game-format').value;
+            
+            if (!teamName) {
+                alert('Please enter your team name');
+                return;
+            }
+            
             const gameId = generateId();
             gameCode.textContent = gameId;
             gameCreated.classList.remove('hidden');
             document.querySelector('.menu').classList.add('hidden');
             
-            // Save to Firebase
             await set(ref(db, `games/${gameId}`), {
                 created: Date.now(),
                 status: 'waiting',
-                players: { player1: true }
+                format: format,
+                teams: {
+                    player1: {
+                        name: teamName,
+                        players: []
+                    }
+                }
             });
             
             localStorage.setItem('gameId', gameId);
             localStorage.setItem('player', 'player1');
+            localStorage.setItem('teamName', teamName);
+            localStorage.setItem('format', format);
             
-            // Wait for player2
-            onValue(ref(db, `games/${gameId}/players/player2`), (snapshot) => {
+            // Monitor opponent connection
+            onValue(ref(db, `games/${gameId}/teams/player2`), (snapshot) => {
                 if (snapshot.exists()) {
-                    window.location.href = 'game.html';
+                    connectionStatus.classList.remove('hidden');
+                    connectionStatus.querySelector('span').textContent = 'Online';
+                    connectionStatus.querySelector('span').className = 'online';
+                    setTimeout(() => {
+                        window.location.href = 'playing11.html';
+                    }, 1000);
                 }
             });
         });
         
-        // Join existing game
         joinBtn.addEventListener('click', () => {
             joinForm.classList.remove('hidden');
             document.querySelector('.menu').classList.add('hidden');
@@ -86,21 +113,32 @@
         
         confirmJoin.addEventListener('click', async () => {
             const gameId = document.getElementById('game-id').value.trim().toUpperCase();
-            if (gameId.length === 4) {
-                // Check if game exists
-                const snapshot = await get(ref(db, `games/${gameId}`));
-                if (snapshot.exists()) {
-                    localStorage.setItem('gameId', gameId);
-                    localStorage.setItem('player', 'player2');
-                    
-                    // Register player2
-                    await set(ref(db, `games/${gameId}/players/player2`), true);
-                    window.location.href = 'game.html';
-                } else {
-                    alert('Game not found');
-                }
-            } else {
+            const playerName = document.getElementById('player-name').value.trim();
+            
+            if (gameId.length !== 4) {
                 alert('Please enter a valid 4-character ID');
+                return;
+            }
+            
+            if (!playerName) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            const snapshot = await get(ref(db, `games/${gameId}`));
+            if (snapshot.exists()) {
+                localStorage.setItem('gameId', gameId);
+                localStorage.setItem('player', 'player2');
+                localStorage.setItem('teamName', playerName);
+                
+                await set(ref(db, `games/${gameId}/teams/player2`), {
+                    name: playerName,
+                    players: []
+                });
+                
+                window.location.href = 'playing11.html';
+            } else {
+                alert('Game not found');
             }
         });
         
