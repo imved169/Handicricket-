@@ -10,6 +10,16 @@
   <div class="container">
     <h1>🏏 Match Toss</h1>
     
+    <div class="team-info">
+      <div>
+        <strong>Team 1:</strong> <span id="team1-name"></span>
+      </div>
+      <div>
+        <strong>Team 2:</strong> <span id="team2-name"></span>
+      </div>
+      <div id="connection-status">Opponent: <span>Offline</span></div>
+    </div>
+    
     <div id="toss-waiting" class="hidden">
       <p>Waiting for opponent to join the toss...</p>
     </div>
@@ -21,6 +31,7 @@
     </div>
     
     <div id="toss-result" class="hidden">
+      <div class="coin" id="coin">?</div>
       <p id="toss-outcome"></p>
       <div id="batting-choice" class="hidden">
         <p>You won the toss! Choose to:</p>
@@ -39,6 +50,27 @@
     const roomId = localStorage.getItem('roomId');
     const player = localStorage.getItem('player');
     const opponent = player === 'player1' ? 'player2' : 'player1';
+    
+    // Display team names
+    onValue(ref(db, `rooms/${roomId}/teams`), (snapshot) => {
+      const teams = snapshot.val();
+      if (teams) {
+        document.getElementById('team1-name').textContent = teams.player1?.name || 'Waiting...';
+        document.getElementById('team2-name').textContent = teams.player2?.name || 'Waiting...';
+      }
+    });
+    
+    // Monitor opponent connection
+    onValue(ref(db, `rooms/${roomId}/teams/${opponent}`), (snapshot) => {
+      const statusElement = document.getElementById('connection-status').querySelector('span');
+      if (snapshot.exists()) {
+        statusElement.textContent = 'Online';
+        statusElement.className = 'online';
+      } else {
+        statusElement.textContent = 'Offline';
+        statusElement.className = 'offline';
+      }
+    });
     
     const tossWaiting = document.getElementById('toss-waiting');
     const tossOptions = document.getElementById('toss-options');
@@ -89,7 +121,12 @@
             status: 'complete'
           });
           
-          // Show result
+          // Show result with coin animation
+          const coin = document.getElementById('coin');
+          coin.textContent = result === 'heads' ? 'H' : 'T';
+          coin.classList.add('flip');
+          setTimeout(() => coin.classList.remove('flip'), 1000);
+          
           tossOutcome.textContent = `Toss was ${result}. ${winner === player ? 'You' : 'Opponent'} won!`;
           
           if (winner === player) {
