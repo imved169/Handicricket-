@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toss | HandiCricket</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 Match Toss</h1>
+    
+    <div id="toss-waiting" class="hidden">
+      <p>Waiting for opponent to join the toss...</p>
+    </div>
+    
+    <div id="toss-options" class="hidden">
+      <p>Call the toss:</p>
+      <button id="call-heads" class="btn">Heads</button>
+      <button id="call-tails" class="btn">Tails</button>
+    </div>
+    
+    <div id="toss-result" class="hidden">
+      <p id="toss-outcome"></p>
+      <div id="batting-choice" class="hidden">
+        <p>You won the toss! Choose to:</p>
+        <button id="choose-bat" class="btn">Bat First</button>
+        <button id="choose-bowl" class="btn">Bowl First</button>
+      </div>
+      <div id="waiting-choice" class="hidden">
+        <p>Waiting for opponent to choose...</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { db, ref, set, onValue } from './firebase.js';
+    
+    const roomId = localStorage.getItem('roomId');
+    const player = localStorage.getItem('player');
+    const opponent = player === 'player1' ? 'player2' : 'player1';
+    
+    const tossWaiting = document.getElementById('toss-waiting');
+    const tossOptions = document.getElementById('toss-options');
+    const tossResult = document.getElementById('toss-result');
+    const tossOutcome = document.getElementById('toss-outcome');
+    const battingChoice = document.getElementById('batting-choice');
+    const waitingChoice = document.getElementById('waiting-choice');
+    
+    // Check if opponent has joined
+    const roomRef = ref(db, `rooms/${roomId}/teams`);
+    onValue(roomRef, (snapshot) => {
+      const teams = snapshot.val();
+      if (teams && teams.player1 && teams.player2) {
+        tossWaiting.classList.add('hidden');
+        tossOptions.classList.remove('hidden');
+      }
+    });
+    
+    // Toss call handlers
+    document.getElementById('call-heads').addEventListener('click', () => makeTossCall('heads'));
+    document.getElementById('call-tails').addEventListener('click', () => makeTossCall('tails'));
+    
+    async function makeTossCall(call) {
+      tossOptions.classList.add('hidden');
+      tossResult.classList.remove('hidden');
+      
+      // Save toss call to Firebase
+      await set(ref(db, `rooms/${roomId}/toss`), {
+        [player]: call,
+        status: 'pending'
+      });
+      
+      // Listen for toss result
+      const tossRef = ref(db, `rooms/${roomId}/toss`);
+      onValue(tossRef, (snapshot) => {
+        const tossData = snapshot.val();
+        
+        if (tossData && tossData[player] && tossData[opponent]) {
+          // Both players have called
+          const result = Math.random() < 0.5 ? 'heads' : 'tails';
+          const winner = tossData[player] === result ? player : opponent;
+          
+          // Update toss result
+          set(ref(db, `rooms/${roomId}/toss`), {
+            ...tossData,
+            result: result,
+            winner: winner,
+            status: 'complete'
+          });
+          
+          // Show result
+          tossOutcome.textContent = `Toss was ${result}. ${winner === player ? 'You' : 'Opponent'} won!`;
+          
+          if (winner === player) {
+            battingChoice.classList.remove('hidden');
+          } else {
+            waitingChoice.classList.remove('hidden');
+          }
+        }
+        
+        // Listen for batting choice
+        if (tossData && tossData.battingFirst) {
+          localStorage.setItem('battingFirst', tossData.battingFirst);
+          window.location.href = 'game.html';
+        }
+      });
+    }
+    
+    // Batting choice handlers
+    document.getElementById('choose-bat').addEventListener('click', () => makeBattingChoice(player));
+    document.getElementById('choose-bowl').addEventListener('click', () => makeBattingChoice(opponent));
+    
+    async function makeBattingChoice(battingFirst) {
+      await set(ref(db, `rooms/${roomId}/toss/battingFirst`), battingFirst);
+    }
+  </script>
+</body>
+</html>
