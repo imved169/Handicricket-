@@ -5,309 +5,505 @@
   <title>HandiCricket - Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { background: #061e3e; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-    .card-row { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-    button.card { width: 60px; height: 60px; font-size: 20px; border-radius: 12px; border: none; background: #1e88e5; color: white; }
-    button.card:disabled { background: #607d8b; color: #ccc; }
-    #scoreboard, #roleText { margin-top: 10px; font-size: 18px; }
-    #status { margin-top: 15px; font-size: 16px; color: #ffeb3b; }
-    .free-hit-indicator {
-      background: #4CAF50;
-      color: white;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      margin-left: 10px;
-      display: inline-block;
+    /* Base Styles */
+    body { 
+      background: #061e3e; 
+      color: white; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      text-align: center; 
+      padding: 20px;
+      margin: 0;
+      overflow-x: hidden;
     }
-    .powerplay-indicator {
-      background: #ffeb3b;
-      color: #000;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      margin-left: 10px;
-      display: inline-block;
+    
+    h2 { 
+      margin: 10px 0 20px;
+      color: #ffeb3b;
+      text-shadow: 0 0 5px rgba(255, 235, 59, 0.5);
     }
-    .dead-over {
-      background: #f44336;
-      color: white;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-    }
-    .selection-modal { 
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.8); display: flex; justify-content: center; 
-      align-items: center; z-index: 100; 
-    }
-    .selection-box { 
-      background: #123456; padding: 20px; border-radius: 10px; 
-      width: 300px; max-width: 90%; 
-    }
-    .selection-list { 
-      max-height: 300px; overflow-y: auto; margin: 15px 0; 
-      text-align: left; 
-    }
-    .player-item { 
-      padding: 8px; margin: 5px 0; background: #1e88e5; 
-      border-radius: 5px; cursor: pointer; 
-    }
-    .player-item:hover { background: #1565c0; }
-    .player-item.selected { background: #0d47a1; }
-    .test-controls { 
-      margin: 15px 0; 
+    
+    /* Card Buttons */
+    .card-row { 
+      margin: 25px auto;
       display: flex;
+      flex-wrap: wrap;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
+      max-width: 500px;
+      position: relative;
     }
-    .test-controls button {
-      padding: 10px 15px;
-      font-size: 14px;
-      background: #ff9800;
+    
+    button.card { 
+      width: 70px;
+      height: 70px;
+      font-size: 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s;
     }
-    .test-controls button:hover {
-      background: #f57c00;
+    
+    button.card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
     }
-    .innings-display {
-      background: #0d2a52;
-      padding: 10px;
-      border-radius: 8px;
+    
+    button.card:active {
+      transform: translateY(1px);
+    }
+    
+    button.card:disabled { 
+      background: #607d8b;
+      color: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    /* Selection Modal - Positioned above cards */
+    .selection-modal { 
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 400px;
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 15px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      display: none;
+    }
+    
+    .selection-list { 
+      max-height: 40vh;
+      overflow-y: auto;
       margin: 10px 0;
-      text-align: left;
+      padding-right: 5px;
     }
-    #formatDisplay {
-      font-weight: bold;
+    
+    /* Player Items */
+    .player-item, .batter-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    
+    .player-item:hover, .batter-item:hover {
+      background: rgba(30, 136, 229, 0.4);
+      transform: translateX(5px);
+    }
+    
+    .player-item.selected, .batter-item.selected {
+      background: rgba(13, 71, 161, 0.6);
+      border-left: 3px solid #ffeb3b;
+    }
+    
+    .batter-stats, .bowler-stats {
+      font-size: 0.85em;
+      color: #aaa;
+      margin-top: 3px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    /* Scoreboard and Game Info */
+    #scoreboard { 
+      background: rgba(13, 42, 82, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px auto;
+      max-width: 500px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      text-align: center;
+    }
+    
+    #scoreboard div {
+      padding: 5px;
+    }
+    
+    #scoreboard strong {
+      font-size: 1.2em;
       color: #4caf50;
+    }
+    
+    #teamStatus {
+      background: rgba(13, 42, 82, 0.8);
+      padding: 12px;
+      border-radius: 10px;
+      margin: 15px auto;
+      max-width: 500px;
+    }
+    
+    #currentPlayers {
+      display: flex;
+      justify-content: space-around;
       margin-bottom: 10px;
     }
-    #teamStatus {
+    
+    #status {
       margin: 15px 0;
       padding: 10px;
-      background: #0d2a52;
-      border-radius: 8px;
-    }
-    #specialAlerts {
-      margin: 10px 0;
-    }
-    .alert {
-      display: none;
-      padding: 10px;
-      margin: 5px;
-      border-radius: 5px;
-      font-weight: bold;
-      text-align: center;
-    }
-    #powerplayAlert { background: yellow; color: black; }
-    #freeHitAlert { background: green; color: white; }
-    #deadOverAlert { background: red; color: white; }
-    #gameControls {
+      font-size: 18px;
+      color: #ffeb3b;
+      min-height: 60px;
       display: flex;
-      gap: 10px;
-      margin-top: 15px;
+      align-items: center;
       justify-content: center;
     }
-    #connectionStatus {
-      padding: 8px;
-      border-radius: 5px;
-      text-align: center;
-      margin: 10px auto;
-      max-width: 400px;
-    }
-    .online { background: #4CAF50; }
-    .offline { background: #F44336; }
-    #saveBtn { background: #FF9800; }
-    #saveBtn:hover { background: #F57C00; }
-    #exitBtn { background: #f44336; }
-    #exitBtn:hover { background: #d32f2f; }
-    #resetPlaysBtn { background: #9c27b0; }
-    #resetPlaysBtn:hover { background: #7b1fa2; }
-    #spectatorCount {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: #1e88e5;
+    
+    /* Indicators */
+    .free-hit-indicator,
+    .powerplay-indicator,
+    .dead-over {
       padding: 5px 10px;
       border-radius: 15px;
       font-size: 14px;
+      font-weight: bold;
+      margin: 0 5px;
+      display: inline-block;
     }
-    #targetDisplay {
-      margin: 15px 0;
-      padding: 10px;
-      background: #0d2a52;
+    
+    .free-hit-indicator {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .powerplay-indicator {
+      background: #ffeb3b;
+      color: #000;
+    }
+    
+    .dead-over {
+      background: #f44336;
+      color: white;
+    }
+    
+    /* Team Displays */
+    #playingXISection {
+      margin: 30px auto;
+      max-width: 800px;
+    }
+    
+    .team-container {
+      display: inline-block;
+      vertical-align: top;
+      width: 45%;
+      min-width: 300px;
+      margin: 10px;
+      background: rgba(13, 42, 82, 0.6);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .team-container h4 {
+      margin: 0 0 15px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .team-container ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      text-align: left;
+    }
+    
+    .team-container li {
+      padding: 8px 0;
+      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Controls */
+    #gameControls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px auto;
+      justify-content: center;
+      max-width: 500px;
+    }
+    
+    #gameControls button {
+      padding: 12px 20px;
+      border: none;
       border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    #saveBtn { 
+      background: #FF9800;
+      color: white;
+    }
+    
+    #saveBtn:hover {
+      background: #F57C00;
+    }
+    
+    #exitBtn { 
+      background: #f44336;
+      color: white;
+    }
+    
+    #exitBtn:hover {
+      background: #d32f2f;
+    }
+    
+    #resetPlaysBtn { 
+      background: #9c27b0;
+      color: white;
+    }
+    
+    #resetPlaysBtn:hover {
+      background: #7b1fa2;
+    }
+    
+    /* Connection Status */
+    #connectionStatus {
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 15px auto;
+      max-width: 300px;
       font-weight: bold;
     }
-    /* Enhanced spectator features */
-    #spectatorEngagement {
+    
+    .online { 
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .offline { 
+      background: #F44336;
+      color: white;
+    }
+    
+    /* Spectator Elements */
+    #spectatorCount {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(0,0,0,0.7);
-      padding: 10px;
-      border-radius: 10px;
-      z-index: 100;
+      top: 10px;
+      right: 10px;
+      background: rgba(30, 136, 229, 0.8);
+      padding: 5px 12px;
+      border-radius: 15px;
+      font-size: 14px;
+      z-index: 50;
     }
-    #liveReactions span {
-      font-size: 24px;
-      margin: 0 5px;
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    #liveReactions span:hover {
-      transform: scale(1.2);
-    }
-    .meter-bar {
-      height: 10px;
-      background: linear-gradient(to right, #f44336, #ffeb3b, #4CAF50);
-      width: 100%;
-      border-radius: 5px;
-      margin-top: 8px;
-    }
+    
     #miniScorecard {
       position: fixed;
       top: 10px;
       left: 10px;
       background: rgba(0,0,0,0.7);
-      padding: 8px 12px;
+      padding: 8px 15px;
       border-radius: 8px;
       font-size: 14px;
-      z-index: 100;
+      z-index: 50;
       display: flex;
-      gap: 10px;
+      gap: 15px;
+      align-items: center;
     }
-    .milestone-notification {
-      position: fixed;
-      bottom: 20%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.8);
-      color: gold;
-      padding: 12px 24px;
-      border-radius: 24px;
-      animation: fadeInOut 3s;
-      z-index: 1000;
+    
+    /* Target Display */
+    #targetDisplay {
+      background: rgba(13, 42, 82, 0.8);
+      padding: 12px;
+      border-radius: 10px;
+      margin: 15px auto;
+      max-width: 500px;
       font-weight: bold;
-      box-shadow: 0 0 15px gold;
     }
-    @keyframes fadeInOut {
-      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      10% { opacity: 1; transform: translateX(-50%) translateY(0); }
-      90% { opacity: 1; transform: translateX(-50%) translateY(0); }
-      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-    }
+    
     .required-rate {
       color: #ff9800;
-      font-weight: bold;
     }
-    /* New styles for innings transition */
-    #startInningsBtn {
-      margin: 20px auto;
-      padding: 12px 24px;
-      font-size: 18px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      display: none;
-      transition: all 0.3s;
+    
+    /* Animations */
+    @keyframes boundary {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
     }
-    #startInningsBtn:hover {
-      background: #45a049;
-      transform: scale(1.05);
+    
+    @keyframes wicket {
+      0% { transform: rotate(0deg); }
+      25% { transform: rotate(10deg); }
+      50% { transform: rotate(-10deg); }
+      75% { transform: rotate(5deg); }
+      100% { transform: rotate(0deg); }
     }
-    #startInningsBtn:disabled {
-      background: #607d8b;
-      cursor: not-allowed;
+    
+    .boundary-animation {
+      animation: boundary 0.5s ease-in-out;
     }
-    .transition-overlay {
+    
+    .wicket-animation {
+      animation: wicket 0.7s ease-in-out;
+    }
+    
+    /* Milestone Notifications */
+    .milestone-notification {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       background: rgba(0,0,0,0.8);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      flex-direction: column;
-      animation: fadeIn 0.5s;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .transition-message {
-      font-size: 24px;
-      margin-bottom: 20px;
       color: white;
-      text-align: center;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-size: 20px;
+      z-index: 1001;
+      animation: fadeInOut 3s forwards;
     }
-    .transition-countdown {
-      font-size: 48px;
-      font-weight: bold;
-      color: #4CAF50;
-      margin: 20px 0;
+    
+    @keyframes fadeInOut {
+      0% { opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; }
     }
-    .opponent-ready {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 15px;
-      color: #4CAF50;
-      font-weight: bold;
+    
+    .milestone-notification.batting {
+      border-left: 5px solid #4CAF50;
     }
-    .opponent-ready span {
-      margin-left: 10px;
+    
+    .milestone-notification.bowling {
+      border-left: 5px solid #2196F3;
     }
-    .ready-checkmark {
-      color: #4CAF50;
+    
+    .milestone-notification.error {
+      border-left: 5px solid #F44336;
+    }
+    
+    .milestone-notification.info {
+      border-left: 5px solid #FFC107;
+    }
+    
+    .milestone-notification.winner {
+      border-left: 5px solid #9C27B0;
       font-size: 24px;
     }
-    .auto-start-timer {
-      margin-top: 15px;
-      font-size: 16px;
-      color: #ff9800;
+    
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: #f00;
+      animation: confetti-fall 5s linear forwards;
+      z-index: 1000;
+    }
+    
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100vh) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .team-container {
+        width: 100%;
+        min-width: auto;
+      }
+      
+      button.card {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+      }
+      
+      #scoreboard {
+        grid-template-columns: 1fr 1fr;
+      }
+      
+      .selection-modal {
+        width: 95%;
+        max-height: 50vh;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #scoreboard {
+        grid-template-columns: 1fr;
+      }
+      
+      button.card {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+      }
+      
+      .selection-modal {
+        padding: 10px;
+      }
+      
+      .player-item, .batter-item {
+        padding: 8px;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="spectatorCount">Spectators: 0</div>
+  <div id="spectatorCount">👥 Spectators: 0</div>
   <div id="miniScorecard">
     <div id="miniScore">0/0</div>
     <div id="miniOvers">0.0</div>
   </div>
   
-  <h2>🏏 HandiCricket - Game</h2>
+  <h2>🏏 HandiCricket</h2>
   <div id="formatDisplay"></div>
   <div id="roleText"></div>
+  
   <div id="teamStatus">
-    <div id="currentPlayers" style="font-weight: bold; font-size: 16px;">
-      Batter: <span id="currentBatter">-</span> | Bowler: <span id="currentBowler">-</span>
+    <div id="currentPlayers">
+      <div>Batter: <span id="currentBatter">-</span></div>
+      <div>Bowler: <span id="currentBowler">-</span></div>
     </div>
-    <div id="scoreboard">Runs: 0 | Wickets: 0 | Overs: 0.0</div>
+    <div id="scoreboard">
+      <div>Runs: <strong>0</strong></div>
+      <div>Wickets: <strong>0/11</strong></div>
+      <div>Overs: <strong>0.0</strong></div>
+    </div>
   </div>
   
   <div id="targetDisplay" style="display: none;">
     <div class="target-text">Target: <span id="targetRuns">0</span> runs | <span id="requiredRate" class="required-rate">RR: 0.00</span></div>
   </div>
   
-  <div id="specialAlerts">
-    <div id="powerplayAlert" class="alert">POWERPLAY</div>
-    <div id="freeHitAlert" class="alert">FREE HIT</div>
-    <div id="deadOverAlert" class="alert">DEAD OVER</div>
-  </div>
-  <div id="freeHitIndicator" class="free-hit-indicator" style="display:none;">FREE HIT</div>
-  <div id="status">Waiting for players...</div>
-
-  <div id="testControls" class="test-controls" style="display: none;">
-    <button id="declareInning">Declare Innings</button>
-    <button id="enforceFollowOn" style="display: none;">Enforce Follow-On</button>
-  </div>
+  <div id="status">Initializing game...</div>
 
   <div class="card-row" id="cardButtons">
+    <!-- Selection Modal - Now positioned above the cards -->
+    <div id="selectionModal" class="selection-modal">
+      <h3 id="selectionTitle">Select Next Batter</h3>
+      <div id="selectionList" class="selection-list"></div>
+      <button id="confirmSelection" style="width: 100%; margin-top: 10px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm</button>
+    </div>
+    
+    <!-- Card buttons -->
     <button class="card" data-value="0">0</button>
     <button class="card" data-value="1">1</button>
     <button class="card" data-value="2">2</button>
@@ -317,45 +513,24 @@
     <button class="card" data-value="6">6</button>
   </div>
 
-  <!-- Enhanced Start Innings Button -->
-  <button id="startInningsBtn">
+  <button id="startInningsBtn" style="display: none;">
     <div id="startInningsText">Start Second Innings</div>
-    <div id="opponentReadyStatus" class="opponent-ready" style="display: none;">
-      <span class="ready-checkmark">✓</span>
-      <span>Opponent Ready</span>
+    <div id="opponentReadyStatus" style="display: none;">
+      <span>✓ Opponent Ready</span>
     </div>
-    <div id="autoStartTimer" class="auto-start-timer" style="display: none;"></div>
+    <div id="autoStartTimer" style="display: none;"></div>
   </button>
 
-  <div id="playingXISection" style="margin-top: 30px;">
-    <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
-      <div>
+  <div id="playingXISection">
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+      <div class="team-container">
         <h4 id="team1Name">Team 1</h4>
-        <ul id="team1Players" style="text-align: left;"></ul>
+        <ul id="team1Players"></ul>
       </div>
-      <div>
+      <div class="team-container">
         <h4 id="team2Name">Team 2</h4>
-        <ul id="team2Players" style="text-align: left;"></ul>
+        <ul id="team2Players"></ul>
       </div>
-    </div>
-  </div>
-
-  <div id="selectionModal" class="selection-modal" style="display: none;">
-    <div class="selection-box">
-      <h3 id="selectionTitle">Select Next Batter</h3>
-      <div id="selectionList" class="selection-list"></div>
-      <button id="confirmSelection" style="width: 100%;">Confirm</button>
-    </div>
-  </div>
-
-  <div id="spectatorEngagement">
-    <div id="liveReactions">
-      <span title="Fire!">🔥</span>
-      <span title="Great play!">👏</span>
-      <span title="Wow!">😲</span>
-    </div>
-    <div id="momentumMeter">
-      <div class="meter-bar"></div>
     </div>
   </div>
 
@@ -371,8 +546,9 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, get, update, push, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
       authDomain: "handicricket-d1ab7.firebaseapp.com",
@@ -382,14 +558,17 @@
       appId: "1:356065986337:web:399102c5dabfca2b6fe060"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Get URL parameters
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
+    // Game format rules
     const formatRules = {
       "5": { 
         name: "5 Overs", 
@@ -397,7 +576,7 @@
         totalWickets: 11, 
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        regularWicketValue: 1.0,
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -407,7 +586,7 @@
         totalWickets: 11, 
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        regularWicketValue: 1.0,
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -417,7 +596,7 @@
         totalWickets: 11, 
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
-        regularWicketValue: 1,
+        regularWicketValue: 1.0,
         livesPerPlayer: 2,
         deadOvers: []
       },
@@ -468,23 +647,24 @@
     const maxOversPerDay = 90;
     let isPowerplay = false;
     let isDeadOver = false;
-    let batterLives = {};
+    let batterWickets = {};
     let zerosThisOver = { player1: 0, player2: 0 };
-    let currentOver = 0;
-    let deadOversSelected = [];
     let bowlerRuns = {};
     let gameInProgress = true;
     let lastOverRuns = 0;
     let lastOverWickets = 0;
     let lastWicketScore = 0;
     let ballByBall = {};
-    const playerRef = ref(db, `rooms/${room}/${player}/online`);
-    const opponentRef = ref(db, `rooms/${room}/${opponent}/online`);
-    let playTimeout;
+    let fallOfWickets = [];
     let batterStats = {};
     let bowlerStats = {};
     let autoStartTimer;
     let countdownInterval;
+    let tossWinner = null;
+    let battingFirst = null;
+    const milestoneLevels = [50, 100, 150, 200, 250, 300, 350, 400];
+    let batterSelected = false;
+    let bowlerSelected = false;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -501,14 +681,7 @@
     const team2NameEl = document.getElementById("team2Name");
     const team1PlayersEl = document.getElementById("team1Players");
     const team2PlayersEl = document.getElementById("team2Players");
-    const testControls = document.getElementById("testControls");
-    const declareBtn = document.getElementById("declareInning");
-    const followOnBtn = document.getElementById("enforceFollowOn");
     const formatDisplay = document.getElementById("formatDisplay");
-    const powerplayAlert = document.getElementById("powerplayAlert");
-    const freeHitAlert = document.getElementById("freeHitAlert");
-    const deadOverAlert = document.getElementById("deadOverAlert");
-    const freeHitIndicator = document.getElementById("freeHitIndicator");
     const saveBtn = document.getElementById("saveBtn");
     const exitBtn = document.getElementById("exitBtn");
     const resetPlaysBtn = document.getElementById("resetPlaysBtn");
@@ -524,29 +697,159 @@
     const autoStartTimerEl = document.getElementById("autoStartTimer");
     const startInningsText = document.getElementById("startInningsText");
 
+    // Firebase references
+    const playerRef = ref(db, `rooms/${room}/${player}/online`);
+    const opponentRef = ref(db, `rooms/${room}/${opponent}/online`);
+    const roomRef = ref(db, `rooms/${room}`);
+    const playsRef = ref(db, `rooms/${room}/currentPlays`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter`);
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
+    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady`);
+    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime`);
+    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings`);
+    const declaredRef = ref(db, `rooms/${room}/declared`);
+    const followOnRef = ref(db, `rooms/${room}/followOn`);
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
+    const reactionsRef = ref(db, `rooms/${room}/reactions`);
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
+    const liveStateRef = ref(db, `rooms/${room}/liveState`);
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
+    const resultRef = ref(db, `rooms/${room}/result`);
+    const savedGameRef = ref(db, `savedGames/${room}`);
+
+    // Initialize batter stats with milestone tracking
+    function initializeBatterStats() {
+      get(roomRef).then(snapshot => {
+        const data = snapshot.val();
+        
+        if (data.player1?.playing11) {
+          data.player1.playing11.forEach(player => {
+            batterStats[player] = { 
+              runs: 0, 
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              centuryNotified: false,
+              fiftyNotified: false
+            };
+            batterWickets[player] = 0;
+            milestoneLevels.forEach(level => {
+              batterStats[player][`milestone${level}Notified`] = false;
+            });
+          });
+        }
+        
+        if (data.player2?.playing11) {
+          data.player2.playing11.forEach(player => {
+            batterStats[player] = { 
+              runs: 0, 
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              centuryNotified: false,
+              fiftyNotified: false
+            };
+            batterWickets[player] = 0;
+            milestoneLevels.forEach(level => {
+              batterStats[player][`milestone${level}Notified`] = false;
+            });
+          });
+        }
+      }).catch(error => {
+        console.error("Error initializing batter stats:", error);
+      });
+    }
+
+    // Check for batting milestones (50, 100, 150, etc.)
+    function checkBattingMilestones() {
+      if (!currentBatter) return;
+
+      const batterRuns = batterStats[currentBatter]?.runs || 0;
+      
+      // Check for 50, 100, etc.
+      for (const milestone of milestoneLevels) {
+        if (batterRuns >= milestone && 
+            !batterStats[currentBatter][`milestone${milestone}Notified`]) {
+          
+          showNotification(`${currentBatter} scores ${milestone} runs! 🎉`, 'batting');
+          batterStats[currentBatter][`milestone${milestone}Notified`] = true;
+          
+          if (milestone >= 150) {
+            createConfetti();
+          }
+          break;
+        }
+      }
+      
+      // Special handling for 50 and 100
+      if (batterRuns >= 50 && !batterStats[currentBatter].fiftyNotified) {
+        showNotification(`${currentBatter} scores a half-century!`, 'batting');
+        batterStats[currentBatter].fiftyNotified = true;
+      }
+      
+      if (batterRuns >= 100 && !batterStats[currentBatter].centuryNotified) {
+        showNotification(`${currentBatter} scores a century! 💯`, 'batting');
+        batterStats[currentBatter].centuryNotified = true;
+        createConfetti();
+      }
+    }
+
+    // Show notification with different styles
+    function showNotification(message, type = 'info') {
+      const notif = document.createElement('div');
+      notif.className = `milestone-notification ${type}`;
+      notif.textContent = message;
+      document.body.appendChild(notif);
+      
+      // Position randomly but within view
+      notif.style.left = `${Math.random() * 60 + 20}%`;
+      notif.style.top = `${Math.random() * 60 + 20}%`;
+      
+      setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => notif.remove(), 500);
+      }, 2500);
+    }
+
+    // Create confetti effect
+    function createConfetti() {
+      const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff'];
+      for (let i = 0; i < 150; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.width = `${Math.random() * 10 + 5}px`;
+        confetti.style.height = `${Math.random() * 10 + 5}px`;
+        confetti.style.animationDuration = `${Math.random() * 3 + 2}s`;
+        confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 5000);
+      }
+    }
+
     // Function to start the second innings
     async function startSecondInnings() {
       try {
         disableButtons();
         status.innerText = "Starting second innings...";
         
-        // Update Firebase to signal innings change
-        await set(ref(db, `rooms/${room}/inningsReady`), true);
+        if (countdownInterval) clearInterval(countdownInterval);
         
-        // Set auto-start time (30 seconds from now)
-        const autoStartTime = Date.now() + 30000;
-        await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+        await set(startSecondInningsRef, true);
         
-        // Show transition overlay
-        const overlay = showTransitionOverlay("Starting Second Innings...", 3);
+        // Reset game state for new innings
+        await update(roomRef, {
+          currentPlays: { player1: null, player2: null },
+          currentBatter: null,
+          currentBowler: null,
+          inningsReady: null,
+          autoStartTime: null
+        });
         
-        // Proceed to second innings after delay
-        setTimeout(() => {
-          innings++;
-          startInningsBtn.style.display = "none";
-          resetInning();
-          overlay.remove();
-        }, 3000);
+        innings++;
+        startInningsBtn.style.display = "none";
+        resetInning();
       } catch (error) {
         console.error("Error starting second innings:", error);
         status.innerText = "Error starting second innings. Please try again.";
@@ -557,45 +860,64 @@
     // Update spectator data with match details
     function updateSpectatorData() {
       const currentOver = Math.floor(legalBalls / 6);
+      
+      // Update over summaries
       if (currentOver > lastOverRuns) {
         const overSummary = `Over ${currentOver}: ${runs - lastOverRuns} runs, ${wickets - lastOverWickets} wickets`;
-        set(ref(db, `rooms/${room}/overSummaries/${currentOver}`), overSummary);
+        set(ref(db, `${overSummariesRef.path}/${currentOver}`), overSummary);
         lastOverRuns = runs;
         lastOverWickets = wickets;
       }
 
-      const runRate = (runs / (legalBalls / 6)).toFixed(2);
+      // Calculate match stats
+      const runRate = legalBalls > 0 ? (runs / (legalBalls / 6)).toFixed(2) : "0.00";
       const boundaries = Object.values(ballByBall).filter(ball => [4,6].includes(ball.runs)).length;
-      const requiredRate = innings === 2 ? ((team1Score - runs + 1) / ((currentFormat.totalOvers * 6 - legalBalls) / 6)).toFixed(2) : null;
+      const requiredRate = innings === 2 ? ((team1Score - runs + 1) / Math.max(1, (currentFormat.totalOvers * 6 - legalBalls) / 6)).toFixed(2) : null;
 
-      set(ref(db, `rooms/${room}/matchStats`), {
+      // Update match stats
+      set(matchStatsRef, {
         runRate: runRate,
         boundaries: boundaries,
         dotBalls: Object.values(ballByBall).filter(ball => ball.runs === 0).length,
-        wickets: wickets,
+        wickets: Math.floor(wickets),
         partnership: runs - lastWicketScore,
         requiredRate: requiredRate,
-        batterLives: currentBatter ? batterLives[currentBatter] : null,
-        isPowerplay: isPowerplay
+        currentOver: `${currentOver}.${legalBalls % 6}`,
+        isPowerplay: isPowerplay,
+        isDeadOver: isDeadOver,
+        freeHit: freeHit,
+        fallOfWickets: fallOfWickets.slice(-5)
       });
 
-      set(ref(db, `rooms/${room}/liveState`), {
+      // Update live state
+      set(liveStateRef, {
         runs: runs,
-        wickets: wickets,
+        wickets: Math.floor(wickets),
         legalBalls: legalBalls,
         currentBatter: currentBatter,
         currentBowler: currentBowler,
         isPowerplay: isPowerplay,
         isDeadOver: isDeadOver,
         freeHit: freeHit,
-        innings: innings
+        innings: innings,
+        timestamp: Date.now()
       });
     }
 
     // Update free hit display
     function updateFreeHitDisplay() {
-      freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
-      freeHitAlert.style.display = freeHit ? "block" : "none";
+      const freeHitIndicator = document.getElementById("freeHitIndicator");
+      const freeHitAlert = document.getElementById("freeHitAlert");
+      
+      if (freeHit) {
+        freeHitIndicator.style.display = "inline-block";
+        freeHitAlert.style.display = "block";
+        document.getElementById("status").classList.add("free-hit");
+      } else {
+        freeHitIndicator.style.display = "none";
+        freeHitAlert.style.display = "none";
+        document.getElementById("status").classList.remove("free-hit");
+      }
     }
 
     // Update target display for 2nd innings
@@ -638,108 +960,118 @@
     function checkMilestones() {
       if (currentBatter && batterStats[currentBatter]?.runs >= 100 && 
           !batterStats[currentBatter].centuryNotified) {
-        showNotification(`${currentBatter} scores a century! 🎉`);
+        showNotification(`${currentBatter} scores a century! 🎉`, 'batting');
         batterStats[currentBatter].centuryNotified = true;
+        createConfetti();
       }
+      
       if (currentBowler && bowlerStats[currentBowler]?.wickets >= 5 && 
           !bowlerStats[currentBowler].fiveWicketNotified) {
-        showNotification(`${currentBowler} takes 5 wickets! 🎯`);
+        showNotification(`${currentBowler} takes 5 wickets! 🎯`, 'bowling');
         bowlerStats[currentBowler].fiveWicketNotified = true;
+        createConfetti();
       }
-    }
-
-    // Show notification
-    function showNotification(message) {
-      const notif = document.createElement('div');
-      notif.className = 'milestone-notification';
-      notif.textContent = message;
-      document.body.appendChild(notif);
-      setTimeout(() => notif.remove(), 3000);
-    }
-
-    // Show transition overlay with countdown
-    function showTransitionOverlay(message, duration = 5) {
-      const overlay = document.createElement('div');
-      overlay.className = 'transition-overlay';
-      
-      const messageEl = document.createElement('div');
-      messageEl.className = 'transition-message';
-      messageEl.textContent = message;
-      
-      const countdownEl = document.createElement('div');
-      countdownEl.className = 'transition-countdown';
-      countdownEl.textContent = duration;
-      
-      overlay.appendChild(messageEl);
-      overlay.appendChild(countdownEl);
-      document.body.appendChild(overlay);
-      
-      let count = duration;
-      const countdown = setInterval(() => {
-        count--;
-        countdownEl.textContent = count;
-        if (count <= 0) {
-          clearInterval(countdown);
-          overlay.remove();
-        }
-      }, 1000);
-      
-      return overlay;
     }
 
     // Load playing 11 from Firebase
     async function loadPlaying11() {
-      const roomRef = ref(db, `rooms/${room}`);
-      const snapshot = await get(roomRef);
-      const data = snapshot.val();
+      try {
+        const snapshot = await get(roomRef);
+        const data = snapshot.val();
 
-      if (!data) {
-        alert("Room data not found! Returning to home.");
-        window.location.href = "index.html";
+        if (!data) {
+          showNotification("Room data not loaded yet", 'info');
+          return false;
+        }
+
+        // Only require our own team to be loaded initially
+        if (data[player]?.playing11) {
+          team1NameEl.innerText = data.player1?.teamName || "Team 1";
+          team2NameEl.innerText = data.player2?.teamName || "Team 2";
+          
+          // Load our team
+          const ourTeamEl = player === "player1" ? team1PlayersEl : team2PlayersEl;
+          ourTeamEl.innerHTML = data[player].playing11.map(p => `<li>${p}</li>`).join("");
+          
+          // Load opponent team if available
+          const opponentTeamEl = player === "player1" ? team2PlayersEl : team1PlayersEl;
+          if (data[opponent]?.playing11) {
+            opponentTeamEl.innerHTML = data[opponent].playing11.map(p => `<li>${p}</li>`).join("");
+          }
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Error loading playing XI:", error);
+        showNotification("Error loading teams", 'error');
         return false;
       }
-
-      if (data.player1?.playing11) {
-        team1NameEl.innerText = data.player1.teamName || "Team 1";
-        team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
-        // Initialize batter stats
-        data.player1.playing11.forEach(player => {
-          batterStats[player] = { runs: 0, balls: 0, centuries: 0, halfCenturies: 0 };
-        });
-      }
-      
-      if (data.player2?.playing11) {
-        team2NameEl.innerText = data.player2.teamName || "Team 2";
-        team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
-        // Initialize bowler stats
-        data.player2.playing11.forEach(player => {
-          bowlerStats[player] = { wickets: 0, runs: 0, overs: 0 };
-        });
-      }
-
-      return data.player1?.playing11 && data.player2?.playing11;
     }
 
     // Monitor connection status
     function setupConnectionMonitoring() {
-      set(playerRef, true);
+      // Set initial online status
+      set(playerRef, { 
+        status: true, 
+        timestamp: Date.now(),
+        playerName: player,
+        teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
+      });
+      
+      const connectionTimeout = 15000;
+      let disconnectTimer;
       
       onValue(opponentRef, (snap) => {
         if (!snap.exists() || !snap.val()) {
+          // Opponent disconnected
           connectionStatus.textContent = "Opponent: Offline (Game Paused)";
           connectionStatus.className = "offline";
           disableButtons();
+          
+          // Start disconnect timer
+          clearTimeout(disconnectTimer);
+          disconnectTimer = setTimeout(() => {
+            status.textContent = "Opponent disconnected - game will end soon";
+          }, 30000);
         } else {
-          connectionStatus.textContent = "Opponent: Online";
-          connectionStatus.className = "online";
-          if (!selectionModal.style.display || selectionModal.style.display === "none") {
-            enableButtons();
+          // Opponent is online
+          clearTimeout(disconnectTimer);
+          const lastSeen = snap.val().timestamp || 0;
+          const timeDiff = Date.now() - lastSeen;
+          
+          if (timeDiff > connectionTimeout) {
+            connectionStatus.textContent = "Opponent: Lagging (Slow Connection)";
+            connectionStatus.className = "offline";
+            disableButtons();
+          } else {
+            connectionStatus.textContent = "Opponent: Online";
+            connectionStatus.className = "online";
+            if (!selectionModal.style.display || selectionModal.style.display === "none") {
+              updateButtonStates();
+            }
           }
         }
       });
       
+      // Update our online status periodically
+      setInterval(() => {
+        set(playerRef, { 
+          status: true, 
+          timestamp: Date.now(),
+          playerName: player,
+          teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
+        });
+      }, 5000);
+      
+      // Clean up on page unload
       window.addEventListener('beforeunload', () => {
-        set(playerRef, false);
+        set(playerRef, { 
+          status: false, 
+          timestamp: Date.now(),
+          playerName: player,
+          teamName: player === "player1" ? team1NameEl.textContent : team2NameEl.textContent
+        });
       });
     }
 
@@ -748,7 +1080,7 @@
       window.addEventListener('beforeunload', (e) => {
         if (gameInProgress) {
           e.preventDefault();
-          e.returnValue = 'Are you sure you want to leave?';
+          e.returnValue = 'Are you sure you want to leave? Your progress may be lost.';
           return e.returnValue;
         }
       });
@@ -768,64 +1100,101 @@
 
     // Save game state
     async function saveGameState() {
-      const gameState = {
-        timestamp: Date.now(),
-        players: {
-          player1: { 
-            team: document.getElementById('team1Name').textContent,
-            score: team1Score 
+      try {
+        const gameState = {
+          timestamp: Date.now(),
+          players: {
+            player1: { 
+              team: team1NameEl.textContent,
+              score: team1Score,
+              wickets: team1Wickets
+            },
+            player2: { 
+              team: team2NameEl.textContent,
+              score: team2Score,
+              wickets: team2Wickets
+            }
           },
-          player2: { 
-            team: document.getElementById('team2Name').textContent,
-            score: team2Score 
-          }
-        },
-        innings: innings,
-        currentBatter: currentBatter,
-        currentBowler: currentBowler,
-        ballsRemaining: currentFormat.totalOvers * 6 - legalBalls,
-        batterLives: batterLives,
-        bowlerOvers: bowlerOvers,
-        runs: runs,
-        wickets: wickets,
-        currentInningRuns: currentInningRuns,
-        currentInningWickets: currentInningWickets,
-        batterStats: batterStats,
-        bowlerStats: bowlerStats
-      };
-      
-      await set(ref(db, `savedGames/${room}`), gameState);
-      await set(playerRef, false);
-      alert("Game saved! You can resume from the home screen.");
-      window.location.href = "index.html";
+          innings: innings,
+          currentBatter: currentBatter,
+          currentBowler: currentBowler,
+          ballsRemaining: currentFormat.totalOvers * 6 - legalBalls,
+          batterWickets: batterWickets,
+          bowlerOvers: bowlerOvers,
+          runs: runs,
+          wickets: wickets,
+          currentInningRuns: currentInningRuns,
+          currentInningWickets: currentInningWickets,
+          batterStats: batterStats,
+          bowlerStats: bowlerStats,
+          fallOfWickets: fallOfWickets,
+          format: currentFormat.name
+        };
+        
+        await set(savedGameRef, gameState);
+        await set(playerRef, false);
+        showNotification("Game saved successfully!", 'info');
+        setTimeout(() => window.location.href = "index.html", 1500);
+      } catch (error) {
+        console.error("Error saving game:", error);
+        showNotification("Failed to save game", 'error');
+      }
     }
 
     // Reset game state
     async function resetGame() {
-      await update(ref(db, `rooms/${room}`), {
-        currentPlays: null,
-        currentBatter: null,
-        currentBowler: null,
-        inningsReady: null,
-        startSecondInnings: null,
-        autoStartTime: null
+      try {
+        await update(roomRef, {
+          currentPlays: null,
+          currentBatter: null,
+          currentBowler: null,
+          inningsReady: null,
+          startSecondInnings: null,
+          autoStartTime: null,
+          declared: null,
+          followOn: null
+        });
+        await set(playerRef, false);
+      } catch (error) {
+        console.error("Error resetting game:", error);
+      }
+    }
+
+    // Update button states based on selection status
+    function updateButtonStates() {
+      const bothReady = batterSelected && bowlerSelected;
+      
+      buttons.forEach(btn => {
+        btn.disabled = !bothReady;
+        btn.style.opacity = bothReady ? '1' : '0.6';
       });
-      await set(playerRef, false);
+
+      status.innerText = bothReady ? 
+        (freeHit ? "FREE HIT! Play your card..." : "Play your card...") :
+        "Waiting for batter/bowler selection...";
     }
 
     // Disable all card buttons
     function disableButtons() {
-      buttons.forEach(btn => btn.disabled = true);
+      buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+      });
       if (startInningsBtn.style.display !== "none") {
         startInningsBtn.disabled = true;
       }
     }
 
-    // Enable all card buttons
+    // Enable all card buttons if both players are selected
     function enableButtons() {
-      buttons.forEach(btn => btn.disabled = false);
-      if (startInningsBtn.style.display !== "none") {
-        startInningsBtn.disabled = false;
+      if (batterSelected && bowlerSelected) {
+        buttons.forEach(btn => {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        });
+        if (startInningsBtn.style.display !== "none") {
+          startInningsBtn.disabled = false;
+        }
       }
     }
 
@@ -836,31 +1205,33 @@
       isPowerplay = false;
       isDeadOver = false;
       
-      powerplayAlert.style.display = "none";
-      deadOverAlert.style.display = "none";
-
       if (isTestMatch) return;
 
+      // Handle array-based powerplay overs (for ODI format)
       if (Array.isArray(currentFormat.powerplayOvers)) {
         for (let i = 0; i < currentFormat.powerplayOvers.length; i += 2) {
-          if (currentOver >= currentFormat.powerplayOvers[i] - 1 && 
-              currentOver <= currentFormat.powerplayOvers[i+1] - 1) {
+          const startOver = currentFormat.powerplayOvers[i] - 1;
+          const endOver = currentFormat.powerplayOvers[i+1] - 1;
+          
+          if (currentOver >= startOver && currentOver <= endOver) {
             isPowerplay = true;
-            powerplayAlert.style.display = "block";
             break;
           }
         }
-      } else if (currentOver < currentFormat.powerplayOvers) {
+      } 
+      // Handle simple powerplay (first X overs)
+      else if (currentOver < currentFormat.powerplayOvers) {
         isPowerplay = true;
-        powerplayAlert.style.display = "block";
       }
 
-      if (currentFormat.deadOvers?.length > 0) {
+      // Check for dead overs (ODI format)
+      if (Array.isArray(currentFormat.deadOvers) && currentFormat.deadOvers.length > 0) {
         for (let i = 0; i < currentFormat.deadOvers.length; i += 2) {
-          if (currentOver >= currentFormat.deadOvers[i] - 1 && 
-              currentOver <= currentFormat.deadOvers[i+1] - 1) {
+          const startOver = currentFormat.deadOvers[i] - 1;
+          const endOver = currentFormat.deadOvers[i+1] - 1;
+          
+          if (currentOver >= startOver && currentOver <= endOver) {
             isDeadOver = true;
-            deadOverAlert.style.display = "block";
             break;
           }
         }
@@ -873,42 +1244,82 @@
     function updateScoreboard() {
       const overs = Math.floor(legalBalls / 6);
       const balls = legalBalls % 6;
+      const displayWickets = Math.floor(wickets);
+      const totalWickets = currentFormat.totalWickets;
       
-      let displayWickets;
-      if (isTestMatch) {
-        displayWickets = Math.floor(wickets / 3);
-      } else {
-        displayWickets = wickets % 1 === 0 ? wickets : wickets.toFixed(2).replace(/\.?0+$/, '');
-      }
+      // Basic score display
+      let scoreHTML = `
+        <div>Runs: <strong>${runs}</strong></div>
+        <div>Wickets: <strong>${displayWickets}/${totalWickets}</strong></div>
+        <div>Overs: <strong>${overs}.${balls}</strong></div>
+      `;
 
-      let totalWickets = currentFormat.totalWickets;
-
+      // Add format-specific info
       if (isTestMatch) {
-        scoreboard.innerHTML = `
-          <div><strong>Innings ${innings}</strong> | Day ${6 - daysRemaining}</div>
-          <div>Current: ${currentInningRuns}/${displayWickets} (${overs}.${balls})</div>
-          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets/3)}</div>
-          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets/3)}</div>
+        const currentDay = 6 - daysRemaining;
+        scoreHTML += `
+          <div><strong>Innings ${innings}/4</strong></div>
+          <div>Day ${currentDay}/5</div>
+          <div>Team 1: ${team1Score}/${Math.floor(team1Wickets)}</div>
+          <div>Team 2: ${team2Score}/${Math.floor(team2Wickets)}</div>
           <div>Overs today: ${oversToday}/${maxOversPerDay}</div>
         `;
       } else {
-        scoreboard.innerHTML = `Runs: ${runs} | Wickets: ${displayWickets}/${totalWickets} | Overs: ${overs}.${balls}`;
+        const remainingBalls = (currentFormat.totalOvers * 6) - legalBalls;
+        const remainingOvers = Math.floor(remainingBalls / 6) + (remainingBalls % 6) / 10;
+        
+        scoreHTML += `
+          <div>Remaining: ${remainingBalls} balls</div>
+          <div>Run Rate: ${(runs / (legalBalls / 6)).toFixed(2)}</div>
+        `;
+
+        // Powerplay info
+        if (currentFormat.powerplayOvers > 0) {
+          const powerplayDone = Array.isArray(currentFormat.powerplayOvers) ? 
+            currentOver >= currentFormat.powerplayOvers[currentFormat.powerplayOvers.length - 1] :
+            currentOver >= currentFormat.powerplayOvers;
+            
+          scoreHTML += `<div>Powerplay: ${powerplayDone ? 'Completed' : 'Active'}</div>`;
+        }
+
+        // Target info for second innings
+        if (innings === 2) {
+          const target = team1Score + 1;
+          const needed = target - runs;
+          const ballsRemaining = currentFormat.totalOvers * 6 - legalBalls;
+          const requiredRate = ballsRemaining > 0 ? (needed / (ballsRemaining / 6)).toFixed(2) : 0;
+          
+          scoreHTML += `
+            <div>Target: <strong>${target}</strong></div>
+            <div>Need: ${needed} runs in ${ballsRemaining} balls</div>
+            <div>Req. Rate: <strong>${requiredRate}</strong></div>
+          `;
+        }
       }
 
-      updateTargetDisplay();
+      // Add indicators for special overs
+      if (isPowerplay) {
+        scoreHTML += '<div class="powerplay-indicator">POWERPLAY</div>';
+      }
+      if (isDeadOver) {
+        scoreHTML += '<div class="dead-over">DEAD OVER</div>';
+      }
+      if (freeHit) {
+        scoreHTML += '<div class="free-hit-indicator">FREE HIT</div>';
+      }
+
+      scoreboard.innerHTML = scoreHTML;
       updateMiniScorecard();
-      checkPowerplayStatus();
+      updateTargetDisplay();
       updateMomentum();
-      checkMilestones();
     }
 
-    // Reset plays after each ball - IMPROVED VERSION
+    // Reset plays after each ball
     async function resetPlays() {
       try {
-        // Clear both players' plays atomically
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
+        await update(playsRef, {
+          player1: null,
+          player2: null
         });
         enableButtons();
       } catch (error) {
@@ -919,92 +1330,163 @@
 
     // Set up player roles (batting/bowling)
     async function setupRole() {
-      const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-      const tossWinner = tossSnap.val();
-      isBatting = player === tossWinner;
+      try {
+        const [tossSnap, battingFirstSnap, decisionSnap, teamSnap] = await Promise.all([
+          get(ref(db, `rooms/${room}/tossWinner`)),
+          get(ref(db, `rooms/${room}/battingFirst`)),
+          get(ref(db, `rooms/${room}/decision`)),
+          get(ref(db, `rooms/${room}/${opponent}/playing11`))
+        ]);
+        
+        tossWinner = tossSnap.val();
+        battingFirst = battingFirstSnap.val();
+        const decision = decisionSnap.val();
+        const opponentTeam = teamSnap.val()?.[0] || "Opponent";
 
-      const decisionSnap = await get(ref(db, `rooms/${room}/decision`));
-      const decision = decisionSnap.val();
-      const teamSnap = await get(ref(db, `rooms/${room}/${opponent}/playing11`));
-      const opponentTeam = teamSnap.val()?.[0] || "Opponent";
+        isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
 
-      roleText.innerText = isBatting ? 
-        `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'}) vs ${opponentTeam}` : 
-        `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'}) vs ${opponentTeam}`;
+        roleText.innerText = isBatting ? 
+          `You are Batting (${decision === 'bat' ? 'chose to bat' : 'chose to bowl'}) vs ${opponentTeam}` : 
+          `You are Bowling (${decision === 'bowl' ? 'chose to bowl' : 'chose to bat'}) vs ${opponentTeam}`;
 
-      if (isBatting && !currentBatter) {
-        showBatterSelection();
-      }
-      
-      if (!isBatting && (!currentBowler || legalBalls % 6 === 0)) {
-        showBowlerSelection();
+        currentBatterEl.innerText = "-";
+        currentBowlerEl.innerText = "-";
+
+        // Disable buttons until selections are made
+        batterSelected = false;
+        bowlerSelected = false;
+        updateButtonStates();
+
+        if (isBatting && !currentBatter) {
+          showBatterSelection();
+        } else if (!isBatting && !currentBowler) {
+          showBowlerSelection();
+        }
+      } catch (error) {
+        console.error("Error setting up role:", error);
+        showNotification("Error determining your role", 'error');
       }
     }
 
     // Set up selection modal for batters/bowlers
     function setupSelectionModal() {
       confirmSelection.addEventListener("click", async () => {
-        const selectedPlayer = document.querySelector(".player-item.selected");
-        if (!selectedPlayer) return;
+        const selectedPlayer = document.querySelector(".batter-item.selected") || 
+                             document.querySelector(".player-item.selected");
+        if (!selectedPlayer) {
+          showNotification("Please select a player", 'error');
+          return;
+        }
 
         const playerName = selectedPlayer.dataset.name;
         const selectionType = selectionTitle.textContent.includes("Batter") ? "batter" : "bowler";
 
-        if (selectionType === "batter") {
-          currentBatter = playerName;
-          battersUsed.push(playerName);
-          batterLives[playerName] = currentFormat.livesPerPlayer;
-          currentBatterEl.innerText = playerName;
-          await set(ref(db, `rooms/${room}/currentBatter`), playerName);
-        } else {
-          currentBowler = playerName;
-          bowlerOvers[playerName] = bowlerOvers[playerName] || 0;
-          currentBowlerEl.innerText = playerName;
-          await set(ref(db, `rooms/${room}/currentBowler`), playerName);
-        }
+        try {
+          if (selectionType === "batter") {
+            currentBatter = playerName;
+            if (!battersUsed.includes(playerName)) {
+              battersUsed.push(playerName);
+            }
+            batterWickets[playerName] = batterWickets[playerName] || 0;
+            currentBatterEl.innerText = playerName;
+            await set(batterRef, playerName);
+            batterSelected = true;
+          } else {
+            currentBowler = playerName;
+            bowlerOvers[playerName] = bowlerOvers[playerName] || 0;
+            currentBowlerEl.innerText = playerName;
+            await set(bowlerRef, playerName);
+            bowlerSelected = true;
+          }
 
-        selectionModal.style.display = "none";
-        enableButtons();
-        status.innerText = "Play your card...";
+          selectionModal.style.display = "none";
+          updateButtonStates();
+        } catch (error) {
+          console.error("Error confirming selection:", error);
+          showNotification("Error selecting player", 'error');
+        }
       });
     }
 
-    // Show batter selection modal
+    // Enhanced batter selection modal
     async function showBatterSelection() {
       disableButtons();
       try {
-        const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
-        const players = snapshot.val();
-        const availableBatters = players.filter(p => !battersUsed.includes(p) || 
-          (batterLives[p] !== undefined && batterLives[p] > 0));
+        status.innerText = "Loading batters...";
         
-        if (availableBatters.length === 0) {
-          alert("All batters are out!");
+        // Verify room data exists first
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists() || !roomSnap.val()[player]) {
+          showNotification("Game data not loaded", 'error');
+          enableButtons();
           return;
         }
 
+        // Get player data
+        const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
+        const players = snapshot.val();
+        
+        if (!players || players.length === 0) {
+          showNotification("No batters available", 'error');
+          enableButtons();
+          return;
+        }
+        
+        // Filter available batters
+        const availableBatters = players.filter(p => {
+          const wicketsUsed = batterWickets[p] || 0;
+          return !battersUsed.includes(p) || wicketsUsed < 1.0;
+        });
+        
+        if (availableBatters.length === 0) {
+          showNotification("All batters are out!", 'error');
+          enableButtons();
+          return;
+        }
+
+        // Update selection UI
         selectionTitle.textContent = "Select Next Batter";
         selectionList.innerHTML = "";
         
         availableBatters.forEach(player => {
-          const livesLeft = batterLives[player] !== undefined ? 
-                          batterLives[player] : currentFormat.livesPerPlayer;
-          const playerEl = document.createElement("div");
-          playerEl.className = "player-item";
-          playerEl.textContent = `${player} (${livesLeft} lives left)`;
-          playerEl.dataset.name = player;
-          playerEl.addEventListener("click", function() {
-            document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
+          const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+          const wicketsLost = batterWickets[player] || 0;
+          const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
+          const wicketsLeft = (1.0 - wicketsLost).toFixed(2);
+          
+          const batterEl = document.createElement("div");
+          batterEl.className = "batter-item";
+          batterEl.dataset.name = player;
+          batterEl.innerHTML = `
+            <div>${player}</div>
+            <div class="batter-stats">
+              <div class="batter-status">
+                <span>${stats.runs} runs</span>
+                <span>${stats.balls} balls</span>
+                <span>SR: ${strikeRate}</span>
+              </div>
+              <div class="batter-status">
+                <span>${stats.fours} fours</span>
+                <span>${stats.sixes} sixes</span>
+                <span>${wicketsLeft}/1.0 wickets</span>
+              </div>
+            </div>
+          `;
+          
+          batterEl.addEventListener("click", function() {
+            document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
             this.classList.add("selected");
           });
-          selectionList.appendChild(playerEl);
+          
+          selectionList.appendChild(batterEl);
         });
 
-        selectionModal.style.display = "flex";
-        status.innerText = "Selecting batter...";
+        // Show modal above cards
+        selectionModal.style.display = "block";
+        status.innerText = "Select your next batter...";
       } catch (error) {
         console.error("Batter selection error:", error);
-        alert("Error loading batters. Please try again.");
+        showNotification("Error loading batters", 'error');
         enableButtons();
       }
     }
@@ -1013,13 +1495,23 @@
     async function showBowlerSelection() {
       disableButtons();
       try {
+        status.innerText = "Loading bowlers...";
+        
         const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
         const players = snapshot.val();
+        
+        if (!players || players.length === 0) {
+          showNotification("No bowlers available", 'error');
+          enableButtons();
+          return;
+        }
+        
         const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
         const availableBowlers = players.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
         
         if (availableBowlers.length === 0) {
-          alert("All bowlers have bowled their maximum overs!");
+          showNotification("All bowlers have bowled their maximum overs!", 'error');
+          enableButtons();
           return;
         }
 
@@ -1028,82 +1520,121 @@
         
         availableBowlers.forEach(player => {
           const oversBowled = bowlerOvers[player] || 0;
+          const stats = bowlerStats[player] || { wickets: 0, runs: 0 };
+          const economy = oversBowled > 0 ? (stats.runs / oversBowled).toFixed(2) : "0.00";
+          
           const playerEl = document.createElement("div");
           playerEl.className = "player-item";
-          playerEl.textContent = isTestMatch ? 
-            `${player} (${oversBowled.toFixed(1)} overs)` : 
-            `${player} (${oversBowled}/${maxOversPerBowler} overs)`;
           playerEl.dataset.name = player;
+          playerEl.innerHTML = `
+            <div>${player}</div>
+            <div class="bowler-stats">
+              <div>${oversBowled.toFixed(1)} overs</div>
+              <div>${stats.wickets} wickets</div>
+              <div>ER: ${economy}</div>
+            </div>
+          `;
+          
           playerEl.addEventListener("click", function() {
             document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
             this.classList.add("selected");
           });
+          
           selectionList.appendChild(playerEl);
         });
 
-        selectionModal.style.display = "flex";
-        status.innerText = "Selecting bowler...";
+        // Show modal above cards
+        selectionModal.style.display = "block";
+        status.innerText = "Select your next bowler...";
       } catch (error) {
         console.error("Bowler selection error:", error);
-        alert("Error loading bowlers. Please try again.");
+        showNotification("Error loading bowlers", 'error');
         enableButtons();
       }
     }
 
     // Set up test match controls
     function setupTestControls() {
+      const declareBtn = document.getElementById("declareInning");
+      const followOnBtn = document.getElementById("enforceFollowOn");
+      
+      if (!declareBtn || !followOnBtn) return;
+      
       declareBtn.addEventListener("click", async () => {
         if (confirm("Are you sure you want to declare this innings?")) {
-          await set(ref(db, `rooms/${room}/declared`), true);
-          endInning();
+          try {
+            disableButtons();
+            status.innerText = "Innings declared!";
+            
+            if (innings === 1) {
+              team1Score = currentInningRuns;
+              team1Wickets = wickets;
+            } else {
+              team2Score = currentInningRuns;
+              team2Wickets = wickets;
+            }
+            
+            await set(declaredRef, true);
+            endInning();
+          } catch (error) {
+            console.error("Error declaring innings:", error);
+            showNotification("Error declaring innings", 'error');
+            enableButtons();
+          }
         }
       });
 
       followOnBtn.addEventListener("click", async () => {
-        if (confirm("Enforce follow-on and make Team 2 bat again?")) {
-          innings = 2;
-          resetInning();
-          await set(ref(db, `rooms/${room}/followOn`), false);
+        const lead = team1Score - team2Score;
+        if (confirm(`Enforce follow-on with a lead of ${lead} runs?`)) {
+          try {
+            disableButtons();
+            status.innerText = "Follow-on enforced!";
+            
+            innings = 2;
+            await set(followOnRef, false);
+            resetInning();
+            
+            followOnBtn.style.display = "none";
+          } catch (error) {
+            console.error("Error enforcing follow-on:", error);
+            showNotification("Error enforcing follow-on", 'error');
+            enableButtons();
+          }
         }
       });
     }
 
     // Set up the innings button with enhanced functionality
     function setupInningsButton() {
-      // Handle button click
       startInningsBtn.addEventListener("click", startSecondInnings);
 
-      // Listen for opponent's readiness
-      onValue(ref(db, `rooms/${room}/inningsReady`), (snap) => {
+      onValue(inningsReadyRef, (snap) => {
         if (!snap.exists()) return;
         
         const isReady = snap.val();
         
         if (isReady && innings === 1 && !isTestMatch) {
-          // Only update UI if we're the one who didn't click ready
-          if (!startInningsBtn.disabled) {
-            opponentReadyStatus.style.display = "flex";
-            startInningsText.textContent = "Ready to Start";
-            startInningsBtn.disabled = false;
-            
-            // Update status message
-            status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
-          }
+          opponentReadyStatus.style.display = "flex";
+          startInningsText.textContent = "Ready to Start";
+          startInningsBtn.disabled = false;
+          
+          status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
         }
       });
 
-      // Listen for auto-start time
-      onValue(ref(db, `rooms/${room}/autoStartTime`), (snap) => {
-        if (!snap.exists() || !snap.val()) return;
+      onValue(autoStartTimeRef, (snap) => {
+        if (!snap.exists() || !snap.val()) {
+          autoStartTimerEl.style.display = "none";
+          return;
+        }
         
         const startTime = snap.val();
         const now = Date.now();
         
         if (startTime > now) {
-          // Show countdown timer
           autoStartTimerEl.style.display = "block";
           
-          // Update countdown every second
           if (countdownInterval) clearInterval(countdownInterval);
           countdownInterval = setInterval(() => {
             const remaining = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
@@ -1117,401 +1648,407 @@
         }
       });
 
-      // Listen for second innings start command
-      onValue(ref(db, `rooms/${room}/startSecondInnings`), (snap) => {
+      onValue(startSecondInningsRef, (snap) => {
         if (snap.exists() && snap.val() && innings === 1 && !isTestMatch) {
-          // Show transition animation
-          const overlay = showTransitionOverlay("Second Innings Starting!", 3);
-          
-          // Proceed after animation
-          setTimeout(() => {
-            innings++;
-            startInningsBtn.style.display = "none";
-            resetInning();
-            overlay.remove();
-          }, 3000);
+          innings++;
+          startInningsBtn.style.display = "none";
+          resetInning();
         }
       });
     }
 
-    // Set up Firebase listeners - IMPROVED VERSION
-    function setupFirebaseListeners() {
-      // Clear any existing timeout when new plays come in
-      if (playTimeout) {
-        clearTimeout(playTimeout);
+    // Process the outcome of a ball
+    async function processBallOutcome(batCard, bowlCard, battingPlayer, bowlingPlayer) {
+      let outcome = "";
+      let isLegalBall = false;
+      let isWicket = false;
+      let isPlayerOut = false;
+      let runsScored = 0;
+      let boundary = false;
+      let isSix = false;
+
+      // Track zeros for both players
+      if (batCard === 0) zerosThisOver[battingPlayer]++;
+      if (bowlCard === 0) zerosThisOver[bowlingPlayer]++;
+
+      // Handle free hit for next ball
+      if (freeHitNextBall) {
+        freeHit = true;
+        freeHitNextBall = false;
+        updateFreeHitDisplay();
       }
 
-      // Set a new timeout (10 seconds)
-      playTimeout = setTimeout(async () => {
-        if (status.textContent.includes("Waiting for opponent")) {
-          console.log("Timeout reached, resetting plays");
-          await resetPlays();
-          status.innerText = "Timeout - Resetting plays...";
+      // 1. Check for no ball (both 0)
+      if (batCard === 0 && bowlCard === 0) {
+        if (!isTestMatch) {
+          outcome = "NO BALL! +1 run (Free Hit next ball)";
+          runs += 1;
+          currentInningRuns += 1;
+          freeHitNextBall = true;
+          isLegalBall = false;
+        } else {
+          outcome = "No run (Test Match)";
         }
-      }, 10000);
-
-      onValue(ref(db, `rooms/${room}`), (snap) => {
-        const data = snap.val();
-        if (!data) return;
-
-        if (data.player1?.playing11) {
-          team1NameEl.innerText = data.player1.teamName || "Team 1";
-          team1PlayersEl.innerHTML = data.player1.playing11.map(p => `<li>${p}</li>`).join("");
+      } 
+      // 2. Handle free hit balls
+      else if (freeHit) {
+        if (batCard === bowlCard && batCard > 0) {
+          outcome = "Wicket on Free Hit (not out)";
+          isWicket = false;
+        } else {
+          runsScored = batCard;
+          runs += batCard;
+          currentInningRuns += batCard;
+          outcome = `${batCard} Run(s)! (Free Hit)`;
+          if (batCard === 4 || batCard === 6) boundary = true;
+          if (batCard === 6) isSix = true;
+        }
+        freeHit = false;
+        updateFreeHitDisplay();
+        isLegalBall = true;
+      }
+      // 3. Handle wickets (same number > 0)
+      else if (batCard === bowlCard && batCard > 0) {
+        let wicketValue;
+        if (isTestMatch) {
+          wicketValue = 0.33;
+        } 
+        else if (currentFormat.name === "ODI") {
+          wicketValue = isPowerplay ? 0.25 : 0.5;
+        }
+        else {
+          wicketValue = isPowerplay ? 0.5 : 1.0;
         }
         
-        if (data.player2?.playing11) {
-          team2NameEl.innerText = data.player2.teamName || "Team 2";
-          team2PlayersEl.innerHTML = data.player2.playing11.map(p => `<li>${p}</li>`).join("");
+        batterWickets[currentBatter] = (batterWickets[currentBatter] || 0) + wicketValue;
+        wickets += wicketValue;
+        
+        if (batterWickets[currentBatter] >= 1.0) {
+          isPlayerOut = true;
+          outcome = "WICKET! (Out)";
+          wickets = Math.ceil(wickets);
+          batterWickets[currentBatter] = 0;
+          fallOfWickets.push({
+            score: runs,
+            over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
+            batter: currentBatter
+          });
+        } else {
+          outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
         }
-      });
+        
+        isLegalBall = true;
+        isWicket = true;
+      }
+      // 4. Handle batter playing 0
+      else if (batCard === 0 && bowlCard > 0) {
+        if (zerosThisOver[battingPlayer] > 3) {
+          runs -= 5;
+          outcome = "4th 0 in over! -5 runs";
+        } else {
+          if (isTestMatch) {
+            bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
+            outcome = `Bowler's ${bowlCard} runs added to their stats`;
+          } else {
+            runsScored = bowlCard;
+            runs += bowlCard;
+            currentInningRuns += bowlCard;
+            outcome = `Batter played 0. Runs = ${bowlCard}`;
+            if (bowlCard === 4 || bowlCard === 6) boundary = true;
+            if (bowlCard === 6) isSix = true;
+          }
+        }
+        isLegalBall = true;
+      }
+      // 5. Handle bowler playing 0
+      else if (bowlCard === 0 && batCard > 0) {
+        if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
+          outcome = "4th 0 in over! No ball";
+          runs += 1;
+          freeHitNextBall = true;
+        } else {
+          if (isTestMatch) {
+            runsScored = batCard;
+            runs += batCard;
+            currentInningRuns += batCard;
+            outcome = `${batCard} Run(s)!`;
+            if (batCard === 4 || batCard === 6) boundary = true;
+            if (batCard === 6) isSix = true;
+          } else {
+            outcome = "DOT BALL!";
+          }
+        }
+        isLegalBall = true;
+      }
+      // 6. Normal runs
+      else {
+        runsScored = batCard;
+        runs += batCard;
+        currentInningRuns += batCard;
+        outcome = `${batCard} Run(s)!`;
+        if (batCard === 4 || batCard === 6) boundary = true;
+        if (batCard === 6) isSix = true;
+        isLegalBall = true;
+      }
 
-      onValue(ref(db, `rooms/${room}/currentPlays`), async (snap) => {
+      // Update batter stats
+      if (currentBatter && runsScored > 0) {
+        batterStats[currentBatter] = batterStats[currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+        batterStats[currentBatter].runs += runsScored;
+        batterStats[currentBatter].balls += 1;
+        
+        if (batCard === 4) batterStats[currentBatter].fours += 1;
+        if (batCard === 6) batterStats[currentBatter].sixes += 1;
+      }
+      
+      // Update bowler stats
+      if (currentBowler) {
+        bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
+        if (isWicket) bowlerStats[currentBowler].wickets += 1;
+        bowlerStats[currentBowler].runs += runsScored;
+      }
+
+      // Record ball in ball-by-ball
+      ballByBall[legalBalls] = {
+        runs: runsScored,
+        wicket: isWicket || isPlayerOut,
+        batter: currentBatter,
+        bowler: currentBowler,
+        timestamp: Date.now(),
+        outcome: outcome
+      };
+
+      // Record last wicket score for partnership
+      if (isWicket) {
+        lastWicketScore = runs;
+      }
+
+      // Handle legal balls
+      if (isLegalBall) {
+        legalBalls++;
+        if (isTestMatch) oversToday++;
+        
+        if (currentBowler) {
+          bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
+          if (legalBalls % 6 === 0) {
+            bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
+            zerosThisOver = { player1: 0, player2: 0 };
+          }
+        }
+        
+        // Check for end of day's play in test matches
+        if (isTestMatch && oversToday >= maxOversPerDay) {
+          endDaysPlay();
+          return;
+        }
+      }
+
+      // Update UI
+      status.innerText = outcome;
+      updateScoreboard();
+      updateSpectatorData();
+      
+      // Check for milestones
+      checkMilestones();
+      checkBattingMilestones();
+
+      // Check for match/innings end conditions
+      if (innings === 2 && runs > team1Score) {
+        endMatch();
+        return;
+      }
+      
+      if ((isTestMatch && currentInningWickets >= 30) || 
+          (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
+        endInning();
+        return;
+      }
+
+      // Prepare for next ball
+      setTimeout(async () => {
+        await resetPlays();
+        
+        if ((isPlayerOut || isWicket) && player === battingPlayer) {
+          batterSelected = false;
+          showBatterSelection();
+        } else if (isLegalBall && legalBalls % 6 === 0) {
+          bowlerSelected = false;
+          if (player === bowlingPlayer) {
+            showBowlerSelection();
+          } else {
+            status.innerText = "Waiting for opponent to select bowler...";
+          }
+        } else {
+          updateButtonStates();
+        }
+      }, 1500);
+    }
+
+    // Set up Firebase listeners
+    function setupFirebaseListeners() {
+      let playTimeout;
+
+      // Handle plays from both players
+      onValue(playsRef, async (snap) => {
         const plays = snap.val();
         
-        // Skip if data is null or incomplete
         if (!plays || plays.player1 === undefined || plays.player2 === undefined) {
           return;
         }
 
-        // Skip if either play is still null (not submitted yet)
         if (plays.player1 === null || plays.player2 === null) {
           return;
         }
 
-        // First check connection status
-        const connectionSnap = await get(ref(db, `rooms/${room}/${opponent}/online`));
+        // Check opponent connection
+        const connectionSnap = await get(opponentRef);
         if (!connectionSnap.exists() || !connectionSnap.val()) {
           status.innerText = "Opponent disconnected. Waiting...";
           return;
         }
 
-        const tossSnap = await get(ref(db, `rooms/${room}/tossWinner`));
-        const tossWinner = tossSnap.val();
-        const batCard = plays[tossWinner];
-        const bowlCard = plays[tossWinner === "player1" ? "player2" : "player1"];
+        // Determine batting and bowling players
+        const battingPlayer = innings % 2 === 1 ? battingFirst : (battingFirst === "player1" ? "player2" : "player1");
+        const bowlingPlayer = battingPlayer === "player1" ? "player2" : "player1";
 
-        let outcome = "";
-        let isLegalBall = false;
-        let isWicket = false;
-        let isPlayerOut = false;
-        let runsScored = 0;
+        const batCard = plays[battingPlayer];
+        const bowlCard = plays[bowlingPlayer];
 
-        if (batCard === 0) zerosThisOver[player]++;
-        if (bowlCard === 0) zerosThisOver[opponent]++;
-
-        // Check for free hit next ball
-        if (freeHitNextBall) {
-          freeHit = true;
-          freeHitNextBall = false;
-          updateFreeHitDisplay();
-        }
-
-        if (batCard === 0 && bowlCard === 0) {
-          if (!isTestMatch) {
-            outcome = "NO BALL! +1 run (Free Hit next ball)";
-            runs += 1;
-            currentInningRuns += 1;
-            freeHitNextBall = true;
-            isLegalBall = false;
-          } else {
-            outcome = "No run (Test Match)";
-          }
-        } 
-        else if (freeHit) {
-          // Handle free hit ball
-          if (batCard === bowlCard && batCard > 0) {
-            outcome = "Wicket on Free Hit (not out)";
-            isWicket = false;
-          } else {
-            runsScored = batCard;
-            runs += batCard;
-            currentInningRuns += batCard;
-            outcome = `${batCard} Run(s)! (Free Hit)`;
-          }
-          freeHit = false;
-          updateFreeHitDisplay();
-          isLegalBall = true;
-        }
-        else if (batCard === bowlCard && batCard > 0) {
-          // Wicket logic
-          if (currentBatter && batterLives[currentBatter] !== undefined) {
-            batterLives[currentBatter] -= 1;
-            
-            let wicketValue = 0;
-            if (isTestMatch) {
-              wicketValue = 0.33;
-            } 
-            else if (currentFormat.name === "ODI") {
-              if (isPowerplay) {
-                wicketValue = 0.25;
-              } else {
-                const currentWicketFraction = wickets % 1;
-                wicketValue = 1 - currentWicketFraction;
-                if (wicketValue > 0.5) wicketValue = 0.5;
-              }
-            }
-            else {
-              if (isPowerplay) {
-                wicketValue = 0.5;
-              } else {
-                const currentWicketFraction = wickets % 1;
-                wicketValue = 1 - currentWicketFraction;
-              }
-            }
-            
-            wickets += wicketValue;
-            outcome = `WICKET! (${batterLives[currentBatter]} lives left)`;
-            
-            if (batterLives[currentBatter] <= 0) {
-              isPlayerOut = true;
-              outcome = "WICKET! (Player out)";
-              wickets = Math.ceil(wickets);
-            }
-          } else {
-            if (isPowerplay) {
-              wickets += currentFormat.powerplayWicketValue;
-            } else {
-              wickets += currentFormat.regularWicketValue;
-            }
-            outcome = "WICKET!";
-            isWicket = true;
-          }
-          isLegalBall = true;
-        }
-        else if (batCard === 0 && bowlCard > 0) {
-          if (zerosThisOver[player] > 3) {
-            runs -= 5;
-            outcome = "4th 0 in over! -5 runs";
-          } else {
-            if (isTestMatch) {
-              bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
-              outcome = `Bowler's ${bowlCard} runs added to their stats`;
-            } else {
-              runsScored = bowlCard;
-              runs += bowlCard;
-              currentInningRuns += bowlCard;
-              outcome = `Batter played 0. Runs = ${bowlCard}`;
-            }
-          }
-          isLegalBall = true;
-        }
-        else if (bowlCard === 0 && batCard > 0) {
-          if (zerosThisOver[opponent] > 3 && !isTestMatch) {
-            outcome = "4th 0 in over! No ball";
-            runs += 1;
-            freeHitNextBall = true;
-          } else {
-            if (isTestMatch) {
-              runsScored = batCard;
-              runs += batCard;
-              currentInningRuns += batCard;
-              outcome = `${batCard} Run(s)!`;
-            } else {
-              outcome = "DOT BALL!";
-            }
-          }
-          isLegalBall = true;
-        }
-        else {
-          runsScored = batCard;
-          runs += batCard;
-          currentInningRuns += batCard;
-          outcome = `${batCard} Run(s)!`;
-          isLegalBall = true;
-        }
-
-        // Update player stats
-        if (currentBatter && runsScored > 0) {
-          batterStats[currentBatter] = batterStats[currentBatter] || { runs: 0, balls: 0 };
-          batterStats[currentBatter].runs += runsScored;
-          batterStats[currentBatter].balls += 1;
-        }
-        
-        if (currentBowler && isWicket) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
-          bowlerStats[currentBowler].wickets += 1;
-        }
-
-        // Record ball data for spectators
-        ballByBall[legalBalls] = {
-          runs: batCard,
-          wicket: isWicket || isPlayerOut,
-          batter: currentBatter,
-          bowler: currentBowler,
-          timestamp: Date.now()
-        };
-
-        if (isWicket) {
-          lastWicketScore = runs;
-        }
-
-        if (isLegalBall) {
-          legalBalls++;
-          if (isTestMatch) oversToday++;
-          
-          if (currentBowler) {
-            bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
-            if (legalBalls % 6 === 0) {
-              bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
-              zerosThisOver = { player1: 0, player2: 0 };
-            }
-          }
-          
-          if (isTestMatch && oversToday >= maxOversPerDay) {
-            endDaysPlay();
-            return;
-          }
-        }
-
-        status.innerText = outcome;
-        updateScoreboard();
-        updateSpectatorData();
-        
-        // Check for match completion in 2nd innings
-        if (innings === 2 && runs > team1Score) {
-          endMatch();
-          return;
-        }
-        
-        if ((isTestMatch && currentInningWickets >= 30) || 
-            (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
-          endInning();
-          return;
-        }
-
-        setTimeout(async () => {
-          await resetPlays();
-          
-          if ((isPlayerOut || isWicket) && player === tossWinner) {
-            showBatterSelection();
-          } else if (isLegalBall && legalBalls % 6 === 0 && player !== tossWinner) {
-            showBowlerSelection();
-          } else {
-            status.innerText = freeHit ? "FREE HIT! Play your next card." : "Play your next card.";
-            enableButtons();
-          }
-        }, 1500);
+        // Process the outcome
+        await processBallOutcome(batCard, bowlCard, battingPlayer, bowlingPlayer);
       });
 
-      onValue(ref(db, `rooms/${room}/currentBatter`), (snap) => {
+      // Listen for current batter changes
+      onValue(batterRef, (snap) => {
         const batter = snap.val();
         if (batter && batter !== currentBatter) {
           currentBatter = batter;
           currentBatterEl.innerText = batter;
+          batterSelected = true;
           if (!battersUsed.includes(batter)) {
             battersUsed.push(batter);
-            if (batterLives[batter] === undefined) {
-              batterLives[batter] = currentFormat.livesPerPlayer;
+            if (batterWickets[batter] === undefined) {
+              batterWickets[batter] = 0;
             }
           }
+          updateButtonStates();
         }
       });
 
-      onValue(ref(db, `rooms/${room}/currentBowler`), (snap) => {
+      // Listen for current bowler changes
+      onValue(bowlerRef, (snap) => {
         const bowler = snap.val();
         if (bowler && bowler !== currentBowler) {
           currentBowler = bowler;
           currentBowlerEl.innerText = bowler;
+          bowlerSelected = true;
+          updateButtonStates();
         }
       });
 
-      onValue(ref(db, `rooms/${room}/followOn`), (snap) => {
-        const followOn = snap.val();
-        followOnBtn.style.display = followOn ? "block" : "none";
+      // Listen for follow-on status
+      onValue(followOnRef, (snap) => {
+        const followOnBtn = document.getElementById("enforceFollowOn");
+        if (followOnBtn) {
+          followOnBtn.style.display = snap.exists() && snap.val() ? "block" : "none";
+        }
       });
 
-      // Spectator count listener
-      onValue(ref(db, `rooms/${room}/spectators`), (snap) => {
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
         const spectators = snap.val() || {};
-        spectatorCountEl.textContent = `Spectators: ${Object.keys(spectators).length}`;
+        spectatorCountEl.textContent = `👥 Spectators: ${Object.keys(spectators).length}`;
       });
 
-      // Live reactions listener
-      onValue(ref(db, `rooms/${room}/reactions`), (snap) => {
+      // Listen for reactions
+      onValue(reactionsRef, (snap) => {
         const reactions = snap.val();
         if (!reactions) return;
+        
         const lastReaction = Object.values(reactions).pop();
-        if (lastReaction.player !== player) {
-          const reactionEl = document.createElement('div');
-          reactionEl.textContent = lastReaction.emoji;
-          reactionEl.style.position = 'fixed';
-          reactionEl.style.fontSize = '48px';
-          reactionEl.style.animation = 'fadeInOut 2s';
-          reactionEl.style.zIndex = '999';
-          reactionEl.style.left = `${Math.random() * 70 + 15}%`;
-          reactionEl.style.top = `${Math.random() * 70 + 15}%`;
-          document.body.appendChild(reactionEl);
-          setTimeout(() => reactionEl.remove(), 2000);
+        if (lastReaction && lastReaction.player !== player) {
+          showReaction(lastReaction.emoji);
         }
       });
     }
 
-    // Set up card button events - IMPROVED VERSION
-    buttons.forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const val = parseInt(btn.dataset.value);
-        disableButtons();
-        status.innerText = "Waiting for opponent...";
-        
-        try {
-          // Check if opponent is online first
-          const opponentOnline = await get(ref(db, `rooms/${room}/${opponent}/online`));
-          if (!opponentOnline.exists() || !opponentOnline.val()) {
-            status.innerText = "Opponent is offline!";
-            enableButtons();
-            return;
-          }
+    // Show reaction emoji
+    function showReaction(emoji) {
+      const reactionEl = document.createElement('div');
+      reactionEl.textContent = emoji;
+      reactionEl.style.position = 'fixed';
+      reactionEl.style.fontSize = '48px';
+      reactionEl.style.animation = 'fadeInOut 2s';
+      reactionEl.style.zIndex = '999';
+      reactionEl.style.left = `${Math.random() * 70 + 15}%`;
+      reactionEl.style.top = `${Math.random() * 70 + 15}%`;
+      document.body.appendChild(reactionEl);
+      setTimeout(() => reactionEl.remove(), 2000);
+    }
+
+    // Set up card button events
+    function setupCardButtons() {
+      buttons.forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const val = parseInt(btn.dataset.value);
+          disableButtons();
+          status.innerText = "Waiting for opponent...";
           
-          // Submit play with timestamp
-          await update(ref(db, `rooms/${room}`), {
-            [`currentPlays/${player}`]: val,
-            [`lastPlayTime/${player}`]: Date.now()
-          });
-        } catch (error) {
-          console.error("Error submitting play:", error);
-          status.innerText = "Error submitting play - try again";
-          enableButtons();
-        }
+          try {
+            const opponentOnline = await get(opponentRef);
+            if (!opponentOnline.exists() || !opponentOnline.val()) {
+              status.innerText = "Opponent is offline!";
+              updateButtonStates();
+              return;
+            }
+            
+            await update(playsRef, {
+              [player]: val
+            });
+          } catch (error) {
+            console.error("Error submitting play:", error);
+            status.innerText = "Error submitting play - try again";
+            updateButtonStates();
+          }
+        });
       });
-    });
+    }
 
     // End current inning
     async function endInning() {
       disableButtons();
       
+      // Update team scores
       if (innings === 1) {
         team1Score = currentInningRuns;
-        team1Wickets = currentInningWickets;
+        team1Wickets = wickets;
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
-        // Show the start innings button for non-test matches
         if (!isTestMatch) {
           startInningsBtn.style.display = "block";
           status.innerText += " Click 'Start Second Innings' when ready.";
           
-          // Update Firebase to notify opponent
-          await set(ref(db, `rooms/${room}/inningsReady`), false);
+          await set(inningsReadyRef, false);
           
-          // Set auto-start time (30 seconds from now)
+          // Set auto-start timer for 30 seconds
           const autoStartTime = Date.now() + 30000;
-          await set(ref(db, `rooms/${room}/autoStartTime`), autoStartTime);
+          await set(autoStartTimeRef, autoStartTime);
           
           return;
         }
       } else {
         team2Score = currentInningRuns;
-        team2Wickets = currentInningWickets;
+        team2Wickets = wickets;
         status.innerText = `Team 2 scored ${team2Score} runs!`;
       }
       
+      // Check for follow-on in test matches
       const followOnPossible = isTestMatch && innings === 2 && team1Score - team2Score >= 200;
       
       if (followOnPossible) {
         status.innerText = `Team 1 can enforce follow-on (lead of ${team1Score - team2Score})`;
-        followOnBtn.style.display = "block";
-        await set(ref(db, `rooms/${room}/followOn`), true);
+        await set(followOnRef, true);
       } else {
-        // For test matches, automatically proceed to next innings
         if (isTestMatch) {
           innings++;
           if (innings > 2) {
@@ -1520,7 +2057,6 @@
           }
           resetInning();
         }
-        // For limited overs, wait for button click
       }
       
       updateScoreboard();
@@ -1528,7 +2064,7 @@
     }
 
     // Reset inning state
-    function resetInning() {
+    async function resetInning() {
       runs = 0;
       wickets = 0;
       currentInningRuns = 0;
@@ -1537,27 +2073,31 @@
       oversToday = 0;
       battersUsed = [];
       bowlerOvers = {};
-      batterLives = {};
+      batterWickets = {};
       freeHit = false;
       freeHitNextBall = false;
-      isBatting = !isBatting;
+      currentBatter = null;
+      currentBowler = null;
+      batterSelected = false;
+      bowlerSelected = false;
       zerosThisOver = { player1: 0, player2: 0 };
+      fallOfWickets = [];
       
-      // Reset innings button state
+      await update(playsRef, { player1: null, player2: null });
+      
+      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+      
       startInningsBtn.style.display = "none";
       opponentReadyStatus.style.display = "none";
       autoStartTimerEl.style.display = "none";
       startInningsText.textContent = "Start Second Innings";
       
-      // Clear Firebase state
-      set(ref(db, `rooms/${room}/inningsReady`), false);
-      set(ref(db, `rooms/${room}/autoStartTime`), null);
+      await set(inningsReadyRef, false);
+      await set(autoStartTimeRef, null);
+      await set(batterRef, null);
+      await set(bowlerRef, null);
       
-      if (isBatting) {
-        showBatterSelection();
-      } else {
-        showBowlerSelection();
-      }
+      setupRole();
     }
 
     // End day's play (Test matches)
@@ -1569,7 +2109,7 @@
       setTimeout(() => {
         if (daysRemaining > 0) {
           oversToday = 0;
-          enableButtons();
+          updateButtonStates();
           status.innerText = `Day ${6 - daysRemaining} starting...`;
           updateScoreboard();
           updateSpectatorData();
@@ -1580,130 +2120,172 @@
     }
 
     // End match and show result
-    function endMatch() {
+    async function endMatch() {
       let result = "";
+      let winner = "";
+      let winMargin = 0;
+      
       if (isTestMatch) {
         if (team1Score > team2Score) {
-          result = `Team 1 wins by ${team1Score - team2Score} runs`;
+          winMargin = team1Score - team2Score;
+          result = `Team 1 wins by ${winMargin} runs`;
+          winner = "player1";
         } else if (team2Score > team1Score) {
-          result = `Team 2 wins by ${10 - Math.floor(team2Wickets)} wickets`;
+          winMargin = 10 - Math.floor(team2Wickets);
+          result = `Team 2 wins by ${winMargin} wickets`;
+          winner = "player2";
         } else {
           result = "Match drawn";
         }
       } else {
         if (innings === 2) {
           if (team2Score > team1Score) {
-            result = `Team 2 wins by ${currentFormat.totalWickets - Math.floor(team2Wickets)} wickets`;
+            winMargin = currentFormat.totalWickets - Math.floor(team2Wickets);
+            result = `Team 2 wins by ${winMargin} wickets`;
+            winner = "player2";
           } else if (team1Score > team2Score) {
-            result = `Team 1 wins by ${team1Score - team2Score} runs`;
+            winMargin = team1Score - team2Score;
+            result = `Team 1 wins by ${winMargin} runs`;
+            winner = "player1";
           } else {
             result = "Match tied";
           }
         } else {
-          result = `Team 1 wins by ${currentFormat.totalWickets - Math.floor(team1Wickets)} wickets`;
+          winMargin = currentFormat.totalWickets - Math.floor(team1Wickets);
+          result = `Team 1 wins by ${winMargin} wickets`;
+            winner = "player1";
+        }
+      }
+      
+      // Show winner celebration
+      if (winner) {
+        const winnerName = winner === "player1" ? 
+          team1NameEl.textContent : team2NameEl.textContent;
+          
+        showNotification(`${winnerName} wins the match! 🏆`, 'winner');
+        createConfetti();
+        
+        // Highlight winning team
+        if (winner === "player1") {
+          team1NameEl.classList.add('team-winner');
+          document.querySelectorAll('#team1Players li').forEach(li => {
+            li.classList.add('team-winner');
+          });
+        } else {
+          team2NameEl.classList.add('team-winner');
+          document.querySelectorAll('#team2Players li').forEach(li => {
+            li.classList.add('team-winner');
+          });
         }
       }
       
       status.innerText = `Match Over! ${result}`;
       disableButtons();
-      set(ref(db, `rooms/${room}/result`), result);
+      
+      // Save result to Firebase
+      await set(resultRef, result);
       updateSpectatorData();
+      
+      // Redirect to results page after delay
+      setTimeout(() => {
+        window.location.href = `result.html?room=${room}&player=${player}&winner=${winner}&result=${encodeURIComponent(result)}`;
+      }, 5000);
     }
 
     // Initialize the game
     async function initGame() {
-      gameInProgress = true;
-      
-      // Check for saved game
-      const savedGameSnap = await get(ref(db, `savedGames/${room}`));
-      if (savedGameSnap.exists()) {
-        const savedData = savedGameSnap.val();
-        if (confirm("Resume saved game?")) {
-          // Load saved state
-          runs = savedData.runs || 0;
-          wickets = savedData.wickets || 0;
-          innings = savedData.innings || 1;
-          currentInningRuns = savedData.currentInningRuns || 0;
-          currentInningWickets = savedData.currentInningWickets || 0;
-          batterLives = savedData.batterLives || {};
-          bowlerOvers = savedData.bowlerOvers || {};
-          team1Score = savedData.players?.player1?.score || 0;
-          team2Score = savedData.players?.player2?.score || 0;
-          batterStats = savedData.batterStats || {};
-          bowlerStats = savedData.bowlerStats || {};
-          
-          // Delete the saved game
-          await set(ref(db, `savedGames/${room}`), null);
-        } else {
-          // Start fresh
-          await set(ref(db, `savedGames/${room}`), null);
+      try {
+        status.innerText = "Initializing game...";
+        
+        gameInProgress = true;
+        status.innerText = "Initializing game...";
+        
+        // Check if room exists
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          showNotification("Room does not exist!", 'error');
+          setTimeout(() => window.location.href = "index.html", 2000);
+          return;
         }
-      }
 
-      const teamsLoaded = await loadPlaying11();
-      if (!teamsLoaded) {
-        alert("Both teams haven't submitted yet! Returning to team selection.");
-        window.location.href = `playing11.html?room=${room}&player=${player}`;
-        return;
-      }
-
-      const formatSnap = await get(ref(db, `rooms/${room}/player1/format`));
-      const format = formatSnap.val() || "5";
-      currentFormat = formatRules[format];
-      isTestMatch = format === "test";
-      
-      formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 outs/wicket" : currentFormat.livesPerPlayer + " lives/batter"}`;
-      
-      testControls.style.display = isTestMatch ? "flex" : "none";
-      followOnBtn.style.display = "none";
-      startInningsBtn.style.display = "none";
-      
-      // Initialize spectator data
-      await set(ref(db, `rooms/${room}/spectatorData`), {
-        overSummaries: {},
-        matchStats: {},
-        spectatorChat: {}
-      });
-
-      setupConnectionMonitoring();
-      await setupRole();
-      setupSelectionModal();
-      setupTestControls();
-      setupInningsButton();
-      updateScoreboard();
-      setupFirebaseListeners();
-      
-      // Setup button events
-      saveBtn.addEventListener("click", saveGameState);
-      exitBtn.addEventListener("click", async () => {
-        if (confirm("Exit without saving?")) {
-          await resetGame();
-          window.location.href = "index.html";
+        const roomData = roomSnap.val();
+        
+        // Check toss status first
+        if (!roomData.tossWinner || !roomData.battingFirst) {
+          showNotification("Toss not completed yet!", 'info');
+          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
+          return;
         }
-      });
-      
-      // Add manual reset button handler
-      resetPlaysBtn.addEventListener("click", async () => {
-        if (confirm("Force reset the current plays?")) {
-          await resetPlays();
-          status.innerText = "Plays manually reset";
-        }
-      });
 
-      // Enable AI mode if set
-      if (localStorage.getItem("aiMode") === "true" && player === "player1") {
-        onValue(ref(db, `rooms/${room}/currentPlays/player1`), (snap) => {
-          if (snap.exists()) {
-            setTimeout(() => {
-              const aiCard = Math.floor(Math.random() * 7);
-              set(ref(db, `rooms/${room}/currentPlays/player2`), aiCard);
-            }, 800);
+        // Get toss and batting first info
+        tossWinner = roomData.tossWinner;
+        battingFirst = roomData.battingFirst;
+        
+        // Load teams - don't fail if teams aren't loaded yet
+        const teamsLoaded = await loadPlaying11();
+        if (!teamsLoaded) {
+          setTimeout(initGame, 3000);
+          return;
+        }
+
+        // Set game format
+        const format = roomData.player1?.format || "5";
+        currentFormat = formatRules[format];
+        isTestMatch = format === "test";
+        
+        formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
+        
+        // Initialize batter stats
+        initializeBatterStats();
+
+        // Set up game components
+        setupConnectionMonitoring();
+        await setupRole();
+        setupSelectionModal();
+        setupTestControls();
+        setupInningsButton();
+        setupCardButtons();
+        setupFirebaseListeners();
+        
+        // Set up control buttons
+        saveBtn.addEventListener("click", saveGameState);
+        exitBtn.addEventListener("click", async () => {
+          if (confirm("Exit without saving?")) {
+            await resetGame();
+            window.location.href = "index.html";
           }
         });
+        
+        resetPlaysBtn.addEventListener("click", async () => {
+          if (confirm("Force reset the current plays?")) {
+            await resetPlays();
+            status.innerText = "Plays manually reset";
+          }
+        });
+
+        // Set up AI opponent if in AI mode
+        if (localStorage.getItem("aiMode") === "true" && player === "player1") {
+          onValue(ref(db, `rooms/${room}/currentPlays/player1`), (snap) => {
+            if (snap.exists()) {
+              setTimeout(() => {
+                const aiCard = Math.floor(Math.random() * 7);
+                set(ref(db, `rooms/${room}/currentPlays/player2`), aiCard);
+              }, 800);
+            }
+          });
+        }
+
+        // Initial UI update
+        updateScoreboard();
+        status.innerText = "Game ready!";
+      } catch (error) {
+        console.error("Initialization error:", error);
+        showNotification("Failed to initialize game", 'error');
+        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
       }
     }
 
-    // Initialize the game
+    // Start the game
     initGame();
   </script>
 </body>
