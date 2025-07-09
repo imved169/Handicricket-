@@ -1,2 +1,0 @@
-# Handicricket-
-Handicricket game
