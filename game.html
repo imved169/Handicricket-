@@ -13,12 +13,15 @@
         <div class="game-info">
             <div>Game ID: <span id="game-id"></span></div>
             <div>You are: <span id="player-role"></span></div>
+            <div>Format: <span id="match-format"></span></div>
+            <div id="powerplay-indicator" class="hidden">🚨 Powerplay</div>
+            <div id="freehit-indicator" class="hidden">🎯 Free Hit</div>
         </div>
         
         <div class="scoreboard">
             <div id="score">0/0</div>
             <div id="overs">0.0</div>
-            <div id="target" class="hidden">Target: <span id="target-runs"></span></div>
+            <div id="target" class="hidden">Target: <span id="target-runs"></span> (<span id="required-rate"></span>)</div>
         </div>
         
         <div id="game-status">Setting up game...</div>
@@ -47,16 +50,40 @@
             </div>
             
             <div id="ball-result"></div>
+            
+            <div class="player-stats">
+                <div class="batter-stats">
+                    <h4>Batter: <span id="current-batter"></span></h4>
+                    <p>Runs: <span id="batter-runs"></span> (<span id="batter-sr"></span>)</p>
+                    <p>4s/6s: <span id="batter-boundaries"></span></p>
+                </div>
+                <div class="bowler-stats">
+                    <h4>Bowler: <span id="current-bowler"></span></h4>
+                    <p>Overs: <span id="bowler-overs"></span></p>
+                    <p>Wickets: <span id="bowler-wickets"></span></p>
+                    <p>Economy: <span id="bowler-economy"></span></p>
+                </div>
+            </div>
         </div>
         
         <div id="game-over" class="hidden">
             <h2 id="result-message"></h2>
+            <div id="match-summary"></div>
             <button id="new-game" class="btn">New Game</button>
         </div>
     </div>
 
     <script type="module">
         import { db, ref, set, onValue, get } from './firebase.js';
+        
+        // Format rules
+        const formatRules = {
+            "5": { name: "5 Overs", totalOvers: 5, totalWickets: 11, powerplayOvers: 2, powerplayWicketValue: 0.5 },
+            "10": { name: "10 Overs", totalOvers: 10, totalWickets: 11, powerplayOvers: 3, powerplayWicketValue: 0.5 },
+            "20": { name: "T20", totalOvers: 20, totalWickets: 11, powerplayOvers: 6, powerplayWicketValue: 0.5 },
+            "50": { name: "ODI", totalOvers: 50, totalWickets: 11, powerplayOvers: [1,10,21,30,41,42], powerplayWicketValue: 0.25 },
+            "test": { name: "Test", totalOvers: Infinity, totalWickets: 30, powerplayOvers: 0, powerplayWicketValue: 0.33 }
+        };
         
         // Game state
         const state = {
@@ -67,8 +94,20 @@
             runs: 0,
             wickets: 0,
             balls: 0,
+            legalBalls: 0,
             target: 0,
-            innings: 1
+            innings: 1,
+            freeHit: false,
+            freeHitNextBall: false,
+            format: null,
+            team1Score: 0,
+            team2Score: 0,
+            currentBatter: null,
+            currentBowler: null,
+            batterStats: {},
+            bowlerStats: {},
+            fallOfWickets: [],
+            teamPlayers: []
         };
         
         // Initialize game
@@ -83,6 +122,11 @@
             // Display game info
             document.getElementById('game-id').textContent = state.gameId;
             document.getElementById('player-role').textContent = state.player;
+            
+            // Load format from localStorage
+            const format = localStorage.getItem('format') || '5';
+            state.format = formatRules[format];
+            document.getElementById('match-format').textContent = state.format.name;
             
             // Listen for game changes
             const gameRef = ref(db, `games/${state.gameId}`);
@@ -178,17 +222,33 @@
             document.getElementById('game-section').classList.remove('hidden');
             
             // Update state
-            state.isBatting = game.battingFirst === state.player;
+            state.isBatting = game.battingFirst === state.player ? game.innings === 1 : game.innings === 2;
             state.runs = game.score?.runs || 0;
             state.wickets = game.score?.wickets || 0;
             state.balls = game.score?.balls || 0;
+            state.legalBalls = game.score?.legalBalls || 0;
             state.innings = game.innings || 1;
             state.target = game.target || 0;
+            state.freeHit = game.freeHit || false;
+            state.freeHitNextBall = game.freeHitNextBall || false;
+            
+            // Initialize players if not set
+            if (state.teamPlayers.length === 0) {
+                const team1 = JSON.parse(localStorage.getItem('team1') || '[]');
+                const team2 = JSON.parse(localStorage.getItem('team2') || '[]');
+                state.teamPlayers = state.player === 'player1' ? team1 : team2;
+                
+                if (state.teamPlayers.length > 0) {
+                    state.currentBatter = state.teamPlayers[0];
+                    state.currentBowler = state.teamPlayers.find(p => !p.includes('wicketkeeper'));
+                }
+            }
             
             // Show target if chasing
             if (state.innings === 2 && state.target > 0) {
                 document.getElementById('target').classList.remove('hidden');
                 document.getElementById('target-runs').textContent = state.target;
+                updateRequiredRate();
             }
             
             updateUI();
@@ -217,41 +277,137 @@
             });
         }
         
+        function calculateOutcome(bat, bowl) {
+            // No Ball
+            if (bat === 0 && bowl === 0) {
+                return { 
+                    runs: 1, 
+                    wicket: false, 
+                    message: "NO BALL! +1 run (Free Hit next ball)",
+                    freeHitNextBall: true,
+                    legalBall: false
+                };
+            }
+            
+            // Free Hit
+            if (state.freeHit) {
+                if (bat === bowl && bat > 0) {
+                    return { 
+                        runs: 0, 
+                        wicket: false, 
+                        message: "Wicket on Free Hit (not out)",
+                        freeHit: false,
+                        legalBall: true
+                    };
+                }
+                return {
+                    runs: bat,
+                    wicket: false,
+                    message: `${bat} Run(s)! (Free Hit)`,
+                    freeHit: false,
+                    legalBall: true
+                };
+            }
+            
+            // Wicket (same number > 0)
+            if (bat === bowl && bat > 0) {
+                const wicketValue = getWicketValue();
+                return {
+                    runs: 0,
+                    wicket: true,
+                    message: wicketValue >= 1.0 ? "WICKET! (Out)" : `WICKET! (${(1.0 - wicketValue).toFixed(2)} left)`,
+                    wicketValue: wicketValue,
+                    legalBall: true
+                };
+            }
+            
+            // Batter plays 0
+            if (bat === 0 && bowl > 0) {
+                return {
+                    runs: bowl,
+                    wicket: false,
+                    message: `Batter played 0. Runs = ${bowl}`,
+                    legalBall: true
+                };
+            }
+            
+            // Bowler plays 0
+            if (bowl === 0 && bat > 0) {
+                return {
+                    runs: bat,
+                    wicket: false,
+                    message: `${bat} Run(s)!`,
+                    legalBall: true
+                };
+            }
+            
+            // Normal runs
+            return {
+                runs: bat,
+                wicket: false,
+                message: `${bat} Run(s)!`,
+                legalBall: true
+            };
+        }
+        
+        function getWicketValue() {
+            const currentOver = Math.floor(state.legalBalls / 6);
+            let isPowerplay = false;
+            
+            if (Array.isArray(state.format.powerplayOvers)) {
+                for (let i = 0; i < state.format.powerplayOvers.length; i += 2) {
+                    if (currentOver >= state.format.powerplayOvers[i] - 1 && 
+                        currentOver <= state.format.powerplayOvers[i+1] - 1) {
+                        isPowerplay = true;
+                        break;
+                    }
+                }
+            } else if (currentOver < state.format.powerplayOvers) {
+                isPowerplay = true;
+            }
+            
+            return isPowerplay ? 
+                state.format.powerplayWicketValue : 
+                (state.format.name === "ODI" ? 0.5 : 1.0);
+        }
+        
         async function playCard(card) {
             await set(ref(db, `games/${state.gameId}/plays/${state.player}`), card);
             document.getElementById('ball-result').textContent = 'Waiting for opponent...';
         }
         
-        function calculateOutcome(bat, bowl) {
-            // No Ball
-            if (bat === 0 && bowl === 0) {
-                return { runs: 1, wicket: false, message: "No Ball! +1 run" };
-            }
-            // Wicket
-            if (bat === bowl && bat > 0) {
-                return { runs: 0, wicket: true, message: "Wicket!" };
-            }
-            // Batter played 0
-            if (bat === 0) {
-                return { runs: bowl, wicket: false, message: `${bowl} runs (batter missed)` };
-            }
-            // Bowler played 0
-            if (bowl === 0) {
-                return { runs: bat, wicket: false, message: `${bat} runs!` };
-            }
-            // Normal runs
-            return { runs: bat, wicket: false, message: `${bat} runs!` };
-        }
-        
         function updateScore(outcome) {
             state.runs += outcome.runs;
-            if (outcome.wicket) state.wickets++;
+            if (outcome.wicket) state.wickets += outcome.wicketValue || 1;
             state.balls++;
+            if (outcome.legalBall) state.legalBalls++;
+            
+            if (outcome.freeHitNextBall) {
+                state.freeHitNextBall = true;
+            }
+            if (outcome.freeHit !== undefined) {
+                state.freeHit = outcome.freeHit;
+            }
+            
+            // Update player stats
+            updatePlayerStats(outcome);
+            
+            // Check for new batter if wicket fell
+            if (outcome.wicket && (outcome.wicketValue || 1) >= 1.0) {
+                const nextBatterIndex = state.teamPlayers.indexOf(state.currentBatter) + 1;
+                if (nextBatterIndex < state.teamPlayers.length) {
+                    state.currentBatter = state.teamPlayers[nextBatterIndex];
+                }
+            }
             
             // Update UI
-            document.getElementById('score').textContent = `${state.runs}/${state.wickets}`;
-            document.getElementById('overs').textContent = `${Math.floor(state.balls/6)}.${state.balls%6}`;
+            document.getElementById('score').textContent = `${state.runs}/${Math.floor(state.wickets)}`;
+            document.getElementById('overs').textContent = `${Math.floor(state.legalBalls/6)}.${state.legalBalls%6}`;
             document.getElementById('ball-result').textContent = outcome.message;
+            
+            if (state.innings === 2) {
+                updateRequiredRate();
+            }
             
             // Check game end
             checkGameEnd();
@@ -260,23 +416,88 @@
             set(ref(db, `games/${state.gameId}/score`), {
                 runs: state.runs,
                 wickets: state.wickets,
-                balls: state.balls
+                balls: state.balls,
+                legalBalls: state.legalBalls,
+                freeHit: state.freeHit,
+                freeHitNextBall: state.freeHitNextBall
             });
         }
         
+        function updatePlayerStats(outcome) {
+            if (state.currentBatter) {
+                state.batterStats[state.currentBatter] = state.batterStats[state.currentBatter] || { 
+                    runs: 0, balls: 0, fours: 0, sixes: 0 
+                };
+                state.batterStats[state.currentBatter].runs += outcome.runs;
+                if (outcome.legalBall) state.batterStats[state.currentBatter].balls++;
+                
+                if (outcome.runs === 4) state.batterStats[state.currentBatter].fours++;
+                if (outcome.runs === 6) state.batterStats[state.currentBatter].sixes++;
+            }
+            
+            if (state.currentBowler) {
+                state.bowlerStats[state.currentBowler] = state.bowlerStats[state.currentBowler] || { 
+                    wickets: 0, runs: 0, balls: 0 
+                };
+                state.bowlerStats[state.currentBowler].runs += outcome.runs;
+                if (outcome.legalBall) state.bowlerStats[state.currentBowler].balls++;
+                if (outcome.wicket) state.bowlerStats[state.currentBowler].wickets += outcome.wicketValue || 1;
+            }
+            
+            if (outcome.wicket && (outcome.wicketValue || 1) >= 1.0) {
+                state.fallOfWickets.push({
+                    score: state.runs,
+                    batter: state.currentBatter,
+                    over: `${Math.floor(state.legalBalls/6)}.${state.legalBalls%6}`
+                });
+            }
+            
+            updatePlayerUI();
+        }
+        
+        function updatePlayerUI() {
+            if (state.currentBatter) {
+                const batter = state.batterStats[state.currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+                document.getElementById('current-batter').textContent = state.currentBatter;
+                document.getElementById('batter-runs').textContent = `${batter.runs} (${batter.balls}b)`;
+                document.getElementById('batter-sr').textContent = batter.balls > 0 ? 
+                    ((batter.runs / batter.balls * 100).toFixed(2)) : '0.00';
+                document.getElementById('batter-boundaries').textContent = `${batter.fours}/${batter.sixes}`;
+            }
+            
+            if (state.currentBowler) {
+                const bowler = state.bowlerStats[state.currentBowler] || { wickets: 0, runs: 0, balls: 0 };
+                document.getElementById('current-bowler').textContent = state.currentBowler;
+                document.getElementById('bowler-overs').textContent = 
+                    `${Math.floor(bowler.balls/6)}.${bowler.balls%6}`;
+                document.getElementById('bowler-wickets').textContent = bowler.wickets;
+                document.getElementById('bowler-economy').textContent = bowler.balls > 0 ? 
+                    ((bowler.runs / (bowler.balls/6)).toFixed(2)) : '0.00';
+            }
+        }
+        
+        function updateRequiredRate() {
+            const ballsRemaining = state.format.totalOvers * 6 - state.legalBalls;
+            if (ballsRemaining > 0) {
+                const requiredRuns = state.target - state.runs;
+                const requiredRate = (requiredRuns / (ballsRemaining / 6)).toFixed(2);
+                document.getElementById('required-rate').textContent = `RR: ${requiredRate}`;
+            }
+        }
+        
         function checkGameEnd() {
-            const maxBalls = 30; // 5 overs
-            const maxWickets = 10;
+            const ballsLeft = state.format.totalOvers * 6 - state.legalBalls;
+            const wicketsLeft = state.format.totalWickets - Math.floor(state.wickets);
             
             // First innings end
-            if (state.innings === 1 && (state.wickets >= maxWickets || state.balls >= maxBalls)) {
+            if (state.innings === 1 && (state.wickets >= state.format.totalWickets || state.legalBalls >= state.format.totalOvers * 6)) {
                 endInnings();
             }
             // Second innings end
             else if (state.innings === 2) {
                 if (state.runs >= state.target) {
                     endGame(true);
-                } else if (state.wickets >= maxWickets || state.balls >= maxBalls) {
+                } else if (state.wickets >= state.format.totalWickets || state.legalBalls >= state.format.totalOvers * 6) {
                     endGame(false);
                 }
             }
@@ -289,7 +510,9 @@
                 status: 'playing',
                 innings: 2,
                 target: target,
-                score: { runs: 0, wickets: 0, balls: 0 }
+                score: { runs: 0, wickets: 0, balls: 0, legalBalls: 0 },
+                freeHit: false,
+                freeHitNextBall: false
             });
             
             // Reset state
@@ -297,13 +520,17 @@
             state.runs = 0;
             state.wickets = 0;
             state.balls = 0;
+            state.legalBalls = 0;
             state.isBatting = !state.isBatting;
             state.target = target;
+            state.freeHit = false;
+            state.freeHitNextBall = false;
             
             // Update UI
             document.getElementById('target').classList.remove('hidden');
             document.getElementById('target-runs').textContent = target;
             document.getElementById('ball-result').textContent = `Target: ${target}`;
+            updateRequiredRate();
         }
         
         async function endGame(isWin) {
@@ -314,10 +541,22 @@
             document.getElementById('game-over').classList.remove('hidden');
             
             const message = isWin ? 
-                `You won by ${state.isBatting ? state.target - state.runs : 10 - state.wickets} ${state.isBatting ? 'runs' : 'wickets'}!` :
+                `You won by ${state.isBatting ? state.target - state.runs : state.format.totalWickets - state.wickets} ${state.isBatting ? 'runs' : 'wickets'}!` :
                 `You lost by ${state.isBatting ? state.runs - state.target : state.wickets} ${state.isBatting ? 'runs' : 'wickets'}`;
             
             document.getElementById('result-message').textContent = message;
+            
+            // Show match summary
+            const summary = document.getElementById('match-summary');
+            summary.innerHTML = `
+                <h3>Match Summary</h3>
+                <p><strong>Team 1:</strong> ${state.team1Score}/${Math.floor(state.team1Wickets || 0)}</p>
+                <p><strong>Team 2:</strong> ${state.runs}/${Math.floor(state.wickets)}</p>
+                <h4>Fall of Wickets:</h4>
+                <ul>
+                    ${state.fallOfWickets.map(w => `<li>${w.score}/${Math.floor(state.wickets)} - ${w.batter} (${w.over})</li>`).join('')}
+                </ul>
+            `;
             
             // New game handler
             document.getElementById('new-game').onclick = () => {
@@ -326,15 +565,31 @@
             };
         }
         
-        function handleGameEnd() {
+        function handleGameEnd(game) {
             document.getElementById('game-section').classList.add('hidden');
             document.getElementById('game-over').classList.remove('hidden');
-            document.getElementById('result-message').textContent = 'Game over!';
+            
+            const winner = game.winner === state.player ? 'You won!' : 'You lost!';
+            document.getElementById('result-message').textContent = `Game over! ${winner}`;
         }
         
         function updateUI() {
             document.getElementById('game-status').textContent = 
                 state.isBatting ? 'You are batting' : 'You are bowling';
+            
+            document.getElementById('score').textContent = `${state.runs}/${Math.floor(state.wickets)}`;
+            document.getElementById('overs').textContent = `${Math.floor(state.legalBalls/6)}.${state.legalBalls%6}`;
+            
+            // Powerplay indicator
+            const currentOver = Math.floor(state.legalBalls / 6);
+            const isPowerplay = Array.isArray(state.format.powerplayOvers) ? 
+                state.format.powerplayOvers.some((pp, i) => i % 2 === 0 && currentOver >= pp - 1 && currentOver <= state.format.powerplayOvers[i+1] - 1) :
+                currentOver < state.format.powerplayOvers;
+            
+            document.getElementById('powerplay-indicator').classList.toggle('hidden', !isPowerplay);
+            document.getElementById('freehit-indicator').classList.toggle('hidden', !state.freeHit);
+            
+            updatePlayerUI();
         }
     </script>
 </body>
