@@ -1,79 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HandiCricket - Home</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HandiCricket</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <h1>🏏 HandiCricket</h1>
-    <p>The ultimate cricket card game for two players!</p>
-    
-    <div class="game-options">
-      <button id="create-room" class="btn">Create Room</button>
-      <button id="join-room" class="btn">Join Room</button>
+    <div class="container">
+        <h1>🏏 HandiCricket</h1>
+        <p>The digital cricket card game</p>
+        
+        <div class="menu">
+            <button id="create-game" class="btn">Create Game</button>
+            <button id="join-game" class="btn">Join Game</button>
+        </div>
+        
+        <div id="join-form" class="hidden">
+            <input type="text" id="game-id" placeholder="Enter Game ID" maxlength="4">
+            <button id="confirm-join" class="btn">Join</button>
+            <button id="back-btn" class="btn secondary">Back</button>
+        </div>
+        
+        <div id="game-created" class="hidden">
+            <p>Your Game ID:</p>
+            <div id="game-code" class="game-code"></div>
+            <p>Share this with your opponent</p>
+            <div class="loader"></div>
+            <p id="waiting-text">Waiting for opponent...</p>
+        </div>
     </div>
-    
-    <div id="room-join" class="hidden">
-      <input type="text" id="room-id" placeholder="Enter Room ID">
-      <button id="confirm-join" class="btn">Join Game</button>
-    </div>
-    
-    <div id="room-created" class="hidden">
-      <p>Your Room ID:</p>
-      <div id="room-code" class="room-code"></div>
-      <p>Share this with your opponent</p>
-      <button id="start-game" class="btn">Start Game</button>
-    </div>
-  </div>
 
-  <script type="module">
-    import { db, ref, set } from './firebase.js';
-    
-    document.getElementById('create-room').addEventListener('click', async () => {
-      const roomId = generateRoomId();
-      document.getElementById('room-code').textContent = roomId;
-      document.getElementById('room-created').classList.remove('hidden');
-      document.getElementById('create-room').classList.add('hidden');
-      document.getElementById('join-room').classList.add('hidden');
-      
-      // Create room in Firebase
-      await set(ref(db, `rooms/${roomId}`), {
-        created: Date.now(),
-        status: 'waiting',
-        players: {}
-      });
-      
-      localStorage.setItem('roomId', roomId);
-      localStorage.setItem('player', 'player1');
-    });
-    
-    document.getElementById('join-room').addEventListener('click', () => {
-      document.getElementById('room-join').classList.remove('hidden');
-      document.getElementById('create-room').classList.add('hidden');
-      document.getElementById('join-room').classList.add('hidden');
-    });
-    
-    document.getElementById('confirm-join').addEventListener('click', async () => {
-      const roomId = document.getElementById('room-id').value.trim();
-      if (roomId.length === 6) {
-        localStorage.setItem('roomId', roomId);
-        localStorage.setItem('player', 'player2');
-        window.location.href = 'playing11.html';
-      } else {
-        alert('Please enter a valid 6-digit room code');
-      }
-    });
-    
-    document.getElementById('start-game').addEventListener('click', () => {
-      window.location.href = 'playing11.html';
-    });
-    
-    function generateRoomId() {
-      return Math.floor(100000 + Math.random() * 900000).toString();
-    }
-  </script>
+    <script type="module">
+        import { db, ref, set, onValue } from './firebase.js';
+        
+        // Generate 4-letter game ID
+        function generateId() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let result = '';
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
+        // DOM elements
+        const createBtn = document.getElementById('create-game');
+        const joinBtn = document.getElementById('join-game');
+        const joinForm = document.getElementById('join-form');
+        const gameCreated = document.getElementById('game-created');
+        const gameCode = document.getElementById('game-code');
+        const confirmJoin = document.getElementById('confirm-join');
+        const backBtn = document.getElementById('back-btn');
+        
+        // Create new game
+        createBtn.addEventListener('click', async () => {
+            const gameId = generateId();
+            gameCode.textContent = gameId;
+            gameCreated.classList.remove('hidden');
+            document.querySelector('.menu').classList.add('hidden');
+            
+            // Save to Firebase
+            await set(ref(db, `games/${gameId}`), {
+                created: Date.now(),
+                status: 'waiting',
+                players: { player1: true }
+            });
+            
+            localStorage.setItem('gameId', gameId);
+            localStorage.setItem('player', 'player1');
+            
+            // Wait for player2
+            onValue(ref(db, `games/${gameId}/players/player2`), (snapshot) => {
+                if (snapshot.exists()) {
+                    window.location.href = 'game.html';
+                }
+            });
+        });
+        
+        // Join existing game
+        joinBtn.addEventListener('click', () => {
+            joinForm.classList.remove('hidden');
+            document.querySelector('.menu').classList.add('hidden');
+        });
+        
+        confirmJoin.addEventListener('click', async () => {
+            const gameId = document.getElementById('game-id').value.trim().toUpperCase();
+            if (gameId.length === 4) {
+                // Check if game exists
+                const snapshot = await get(ref(db, `games/${gameId}`));
+                if (snapshot.exists()) {
+                    localStorage.setItem('gameId', gameId);
+                    localStorage.setItem('player', 'player2');
+                    
+                    // Register player2
+                    await set(ref(db, `games/${gameId}/players/player2`), true);
+                    window.location.href = 'game.html';
+                } else {
+                    alert('Game not found');
+                }
+            } else {
+                alert('Please enter a valid 4-character ID');
+            }
+        });
+        
+        backBtn.addEventListener('click', () => {
+            joinForm.classList.add('hidden');
+            document.querySelector('.menu').classList.remove('hidden');
+        });
+    </script>
 </body>
 </html>
