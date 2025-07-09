@@ -71,10 +71,30 @@
             <div id="match-summary"></div>
             <button id="new-game" class="btn">New Game</button>
         </div>
+        
+        <!-- Add milestone notifications container -->
+        <div id="notifications"></div>
+        
+        <!-- Add chat container -->
+        <div id="chat-container" class="hidden">
+            <div id="chat-messages"></div>
+            <div class="chat-input">
+                <input type="text" id="chat-input" placeholder="Type your message...">
+                <button id="send-message" class="btn">Send</button>
+            </div>
+            <div class="quick-emojis">
+                <button class="emoji-btn" data-emoji="👍">👍</button>
+                <button class="emoji-btn" data-emoji="👏">👏</button>
+                <button class="emoji-btn" data-emoji="😮">😮</button>
+                <button class="emoji-btn" data-emoji="🎉">🎉</button>
+                <button class="emoji-btn" data-emoji="😅">😅</button>
+            </div>
+        </div>
+        <button id="toggle-chat" class="btn secondary">💬 Chat</button>
     </div>
 
     <script type="module">
-        import { db, ref, set, onValue, get } from './firebase.js';
+        import { db, ref, set, onValue, get, push } from './firebase.js';
         
         // Format rules
         const formatRules = {
@@ -107,7 +127,9 @@
             batterStats: {},
             bowlerStats: {},
             fallOfWickets: [],
-            teamPlayers: []
+            teamPlayers: [],
+            team1Name: localStorage.getItem('team1Name') || 'Team 1',
+            team2Name: localStorage.getItem('team2Name') || 'Team 2'
         };
         
         // Initialize game
@@ -140,6 +162,9 @@
                 
                 handleGameState(game);
             });
+            
+            // Initialize chat
+            setupChat();
         });
         
         function handleGameState(game) {
@@ -409,6 +434,9 @@
                 updateRequiredRate();
             }
             
+            // Check milestones
+            checkMilestones();
+            
             // Check game end
             checkGameEnd();
             
@@ -590,6 +618,111 @@
             document.getElementById('freehit-indicator').classList.toggle('hidden', !state.freeHit);
             
             updatePlayerUI();
+        }
+        
+        // Chat functionality
+        function setupChat() {
+            const chatRef = ref(db, `games/${state.gameId}/chat`);
+            
+            onValue(chatRef, (snapshot) => {
+                const messages = snapshot.val() || [];
+                const chatContainer = document.getElementById('chat-messages');
+                chatContainer.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const msgElement = document.createElement('div');
+                    msgElement.className = `chat-message ${msg.sender === state.player ? 'own-message' : ''}`;
+                    msgElement.innerHTML = `
+                        <strong>${msg.sender === 'player1' ? state.team1Name : state.team2Name}:</strong>
+                        <span>${msg.message}</span>
+                        <small>${new Date(msg.timestamp).toLocaleTimeString()}</small>
+                    `;
+                    chatContainer.appendChild(msgElement);
+                });
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+            
+            document.getElementById('send-message').addEventListener('click', sendMessage);
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            
+            document.querySelectorAll('.emoji-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sendEmoji(btn.dataset.emoji);
+                });
+            });
+            
+            document.getElementById('toggle-chat').addEventListener('click', () => {
+                document.getElementById('chat-container').classList.toggle('hidden');
+            });
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (message) {
+                push(ref(db, `games/${state.gameId}/chat`), {
+                    sender: state.player,
+                    message: message,
+                    timestamp: Date.now()
+                });
+                input.value = '';
+            }
+        }
+        
+        function sendEmoji(emoji) {
+            push(ref(db, `games/${state.gameId}/chat`), {
+                sender: state.player,
+                message: emoji,
+                timestamp: Date.now(),
+                isEmoji: true
+            });
+            
+            // Show local emoji animation
+            const emojiElement = document.createElement('div');
+            emojiElement.className = 'emoji-animation';
+            emojiElement.textContent = emoji;
+            document.body.appendChild(emojiElement);
+            setTimeout(() => emojiElement.remove(), 2000);
+        }
+        
+        // Milestone notifications
+        function checkMilestones() {
+            if (!state.currentBatter) return;
+            
+            const batterStats = state.batterStats[state.currentBatter] || { runs: 0, balls: 0 };
+            const bowlerStats = state.bowlerStats[state.currentBowler] || { wickets: 0 };
+            
+            // Half-century
+            if (batterStats.runs >= 50 && !batterStats.fiftyNotified) {
+                showNotification(`${state.currentBatter} scores a half-century!`, 'milestone');
+                batterStats.fiftyNotified = true;
+            }
+            
+            // Century
+            if (batterStats.runs >= 100 && !batterStats.centuryNotified) {
+                showNotification(`${state.currentBatter} scores a century! 💯`, 'milestone');
+                batterStats.centuryNotified = true;
+            }
+            
+            // 5-wicket haul
+            if (bowlerStats.wickets >= 5 && !bowlerStats.fiveWicketsNotified) {
+                showNotification(`${state.currentBowler} takes a 5-wicket haul!`, 'milestone');
+                bowlerStats.fiveWicketsNotified = true;
+            }
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.getElementById('notifications').appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => notification.remove(), 1000);
+            }, 3000);
         }
     </script>
 </body>
