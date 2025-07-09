@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Playing XI | HandiCricket</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Select Your Playing XI</h1>
+    
+    <div class="format-selector">
+      <h3>Select Match Format:</h3>
+      <select id="match-format">
+        <option value="5">5 Overs</option>
+        <option value="10">10 Overs</option>
+        <option value="20">20 Overs (T20)</option>
+        <option value="50">50 Overs (ODI)</option>
+        <option value="test">Test Match</option>
+      </select>
+    </div>
+    
+    <div class="team-selection">
+      <div class="player-list">
+        <h3>Available Players</h3>
+        <ul id="available-players">
+          <!-- Will be populated by JS -->
+        </ul>
+      </div>
+      
+      <div class="selected-team">
+        <h3>Your Team (0/11)</h3>
+        <ul id="selected-players"></ul>
+      </div>
+    </div>
+    
+    <button id="confirm-team" class="btn" disabled>Confirm Team</button>
+  </div>
+
+  <script type="module">
+    import { db, ref, set, onValue } from './firebase.js';
+    
+    const roomId = localStorage.getItem('roomId');
+    const player = localStorage.getItem('player');
+    const availablePlayers = [
+      "Rohit", "Virat", "Dhoni", "Pant", "Jadeja", "Bumrah", "Shami",
+      "Rahul", "Hardik", "Ashwin", "Iyer", "Kishan", "Surya", "Chahal"
+    ];
+    
+    const availablePlayersList = document.getElementById('available-players');
+    const selectedPlayersList = document.getElementById('selected-players');
+    const confirmBtn = document.getElementById('confirm-team');
+    let selectedPlayers = [];
+    
+    // Populate available players
+    availablePlayers.forEach(player => {
+      const li = document.createElement('li');
+      li.textContent = player;
+      li.addEventListener('click', () => selectPlayer(player, li));
+      availablePlayersList.appendChild(li);
+    });
+    
+    function selectPlayer(player, element) {
+      if (selectedPlayers.length >= 11) return;
+      
+      selectedPlayers.push(player);
+      element.remove();
+      updateSelectedTeam();
+      
+      if (selectedPlayers.length === 11) {
+        confirmBtn.disabled = false;
+      }
+    }
+    
+    function updateSelectedTeam() {
+      selectedPlayersList.innerHTML = '';
+      selectedPlayers.forEach(player => {
+        const li = document.createElement('li');
+        li.textContent = player;
+        li.addEventListener('click', () => deselectPlayer(player, li));
+        selectedPlayersList.appendChild(li);
+      });
+      
+      document.querySelector('.selected-team h3').textContent = 
+        `Your Team (${selectedPlayers.length}/11)`;
+    }
+    
+    function deselectPlayer(player, element) {
+      selectedPlayers = selectedPlayers.filter(p => p !== player);
+      element.remove();
+      updateSelectedTeam();
+      
+      const li = document.createElement('li');
+      li.textContent = player;
+      li.addEventListener('click', () => selectPlayer(player, li));
+      availablePlayersList.appendChild(li);
+      
+      confirmBtn.disabled = true;
+    }
+    
+    confirmBtn.addEventListener('click', async () => {
+      const format = document.getElementById('match-format').value;
+      
+      // Save team to Firebase
+      await set(ref(db, `rooms/${roomId}/teams/${player}`), {
+        players: selectedPlayers,
+        format: format
+      });
+      
+      // Wait for opponent's team
+      const teamsRef = ref(db, `rooms/${roomId}/teams`);
+      onValue(teamsRef, (snapshot) => {
+        const teams = snapshot.val();
+        if (teams && teams.player1 && teams.player2) {
+          // Both teams submitted
+          localStorage.setItem('format', format);
+          window.location.href = 'toss.html';
+        }
+      }, { onlyOnce: false });
+    });
+  </script>
+</body>
+</html>
