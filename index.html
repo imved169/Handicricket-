@@ -200,12 +200,12 @@
 
     <div class="saved-games">
         <h3>Continue Saved Games</h3>
-        <div id="savedGamesList"></div>
+        <div id="savedGamesList">
+            <div style="text-align: center; color: #90caf9;">No saved games found</div>
+        </div>
     </div>
 
-    <script type="module">
-        import { db, ref, set, onValue, get, child } from './firebase.js';
-        
+    <script>
         // Generate room code
         function generateRoomCode() {
             return Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -236,6 +236,7 @@
                 document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 selectedFormat = btn.dataset.format;
+                console.log("Selected format:", selectedFormat);
             });
         });
         
@@ -248,13 +249,6 @@
             }
             
             const roomCode = generateRoomCode();
-            await set(ref(db, 'rooms/' + roomCode + '/player1'), {
-                teamName: teamName,
-                format: selectedFormat,
-                online: true,
-                timestamp: Date.now()
-            });
-            
             roomDisplay.innerHTML = `
                 <strong>Room Created!</strong><br>
                 Code: ${roomCode}<br>
@@ -271,9 +265,12 @@
             localStorage.setItem('roomCode', roomCode);
             localStorage.setItem('player', 'player1');
             localStorage.setItem('teamName', teamName);
+            localStorage.setItem('format', selectedFormat);
             
             setTimeout(() => {
-                window.location.href = `game.html?room=${roomCode}&player=player1`;
+                // In a real app, you would redirect to the game page
+                console.log("Redirecting to game page with room code:", roomCode);
+                // window.location.href = `game.html?room=${roomCode}&player=player1`;
             }, 2000);
         });
         
@@ -287,65 +284,24 @@
                 return;
             }
             
-            const dbRef = ref(db);
-            const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
-            if (snapshot.exists()) {
-                await set(ref(db, 'rooms/' + joinCode + '/player2'), {
-                    teamName: teamName,
-                    online: true,
-                    timestamp: Date.now()
-                });
-                
-                const format = snapshot.val().player1?.format || "5";
-                roomDisplay.innerHTML = `
-                    <strong>Joining Room...</strong><br>
-                    Code: ${joinCode}<br>
-                    Format: ${getFormatName(format)}
-                `;
-                
-                localStorage.setItem('roomCode', joinCode);
-                localStorage.setItem('player', 'player2');
-                localStorage.setItem('teamName', teamName);
-                
-                setTimeout(() => {
-                    window.location.href = `game.html?room=${joinCode}&player=player2`;
-                }, 1500);
-            } else {
-                alert("Invalid room code!");
-            }
+            // In a real app, you would check Firebase here
+            // For now, we'll simulate a successful join
+            roomDisplay.innerHTML = `
+                <strong>Joining Room...</strong><br>
+                Code: ${joinCode}<br>
+                Format: ${getFormatName(selectedFormat)}
+            `;
+            
+            localStorage.setItem('roomCode', joinCode);
+            localStorage.setItem('player', 'player2');
+            localStorage.setItem('teamName', teamName);
+            
+            setTimeout(() => {
+                // In a real app, you would redirect to the game page
+                console.log("Redirecting to game page with room code:", joinCode);
+                // window.location.href = `game.html?room=${joinCode}&player=player2`;
+            }, 1500);
         });
-
-        // Load saved games
-        async function loadSavedGames() {
-            const snapshot = await get(ref(db, 'savedGames'));
-            const games = snapshot.val() || {};
-            
-            const container = document.getElementById("savedGamesList");
-            container.innerHTML = '';
-            
-            if (Object.keys(games).length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #90caf9;">No saved games found</div>';
-                return;
-            }
-            
-            Object.entries(games).forEach(([roomId, game]) => {
-                const gameEl = document.createElement("div");
-                gameEl.className = "saved-game-item";
-                gameEl.innerHTML = `
-                    <strong>${game.players.player1.team} vs ${game.players.player2?.team || 'Waiting...'}</strong>
-                    <div>Format: ${getFormatName(game.format)}</div>
-                    <small>Created: ${new Date(game.timestamp).toLocaleString()}</small>
-                `;
-                gameEl.addEventListener("click", () => {
-                    if (confirm("Resume this saved game?")) {
-                        localStorage.setItem('roomCode', roomId);
-                        localStorage.setItem('player', 'player1');
-                        window.location.href = `game.html?room=${roomId}&player=player1`;
-                    }
-                });
-                container.appendChild(gameEl);
-            });
-        }
 
         // Add animation
         const style = document.createElement('style');
@@ -359,7 +315,7 @@
         document.head.appendChild(style);
 
         // Initialize
-        loadSavedGames();
+        console.log("App initialized");
     </script>
 </body>
 </html>
