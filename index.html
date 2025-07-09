@@ -30,10 +30,6 @@
       margin-top: 20px; 
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       border: 1px solid rgba(30, 136, 229, 0.2);
-      transition: transform 0.3s ease;
-    }
-    .card:hover {
-      transform: translateY(-5px);
     }
     input, button, select { 
       width: 100%; 
@@ -42,7 +38,6 @@
       border-radius: 12px; 
       border: none; 
       font-size: 16px;
-      transition: all 0.3s ease;
     }
     input {
       background: rgba(255,255,255,0.1);
@@ -52,23 +47,15 @@
     input:focus {
       outline: none;
       border-color: #4caf50;
-      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
-      background: rgba(255,255,255,0.15);
     }
     button { 
       background: linear-gradient(135deg, #1e88e5, #1565c0);
       color: white; 
       cursor: pointer;
       font-weight: 600;
-      letter-spacing: 0.5px;
     }
     button:hover { 
       background: linear-gradient(135deg, #1565c0, #0d47a1);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    button:active {
-      transform: translateY(0);
     }
     #roomDisplay { 
       font-size: 18px; 
@@ -77,7 +64,6 @@
       background: rgba(30, 136, 229, 0.2);
       border-radius: 12px;
       text-align: center;
-      border-left: 3px solid #1e88e5;
     }
     .format-selector { 
       display: flex; 
@@ -95,97 +81,33 @@
       border: 2px solid #1e88e5; 
       color: white; 
       cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 14px;
     }
     .format-btn.active { 
       background: linear-gradient(135deg, #1e88e5, #1565c0);
       font-weight: bold;
-      box-shadow: 0 0 15px rgba(30, 136, 229, 0.5);
-    }
-    .format-btn:hover { 
-      background: rgba(30, 136, 229, 0.5);
-    }
-    .saved-games {
-      background: rgba(16, 45, 74, 0.8);
-      padding: 20px;
-      margin-top: 30px;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 450px;
-      border: 1px solid rgba(30, 136, 229, 0.2);
-    }
-    .saved-games h3 {
-      color: #90caf9;
-      margin-top: 0;
-      text-align: center;
-    }
-    .saved-game-item {
-      padding: 12px;
-      margin: 8px 0;
-      background: rgba(26, 58, 106, 0.5);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      border-left: 3px solid #1e88e5;
-    }
-    .saved-game-item:hover {
-      background: rgba(30, 136, 229, 0.3);
-      transform: translateX(5px);
-    }
-    .saved-game-item strong {
-      display: block;
-      margin-bottom: 5px;
-      color: #ffffff;
-    }
-    .saved-game-item small {
-      color: #90caf9;
-      font-size: 12px;
-    }
-    .difficulty-selector {
-      margin: 15px 0;
-    }
-    .difficulty-btn {
-      width: 30%;
-      padding: 10px;
-      margin: 5px;
-      background: rgba(26, 58, 106, 0.7);
-      border: 2px solid #1e88e5;
-    }
-    .difficulty-btn.active {
-      background: linear-gradient(135deg, #1e88e5, #1565c0);
     }
   </style>
 </head>
 <body>
   <h1>🏏 HandiCricket</h1>
   <div class="card">
-    <input type="text" id="teamName" placeholder="Enter Team Name" />
+    <input type="text" id="teamName" placeholder="Enter Team Name" required />
     <input type="text" id="joinCode" placeholder="Join Room Code" />
     
     <div class="format-selector">
       <button class="format-btn active" data-format="5">5 Overs</button>
       <button class="format-btn" data-format="10">10 Overs</button>
       <button class="format-btn" data-format="20">20 Overs</button>
-      <button class="format-btn" data-format="50">50 Overs</button>
-      <button class="format-btn" data-format="test">Test Match</button>
     </div>
     
     <button onclick="createRoom()">Create Room</button>
     <button onclick="joinRoom()">Join Room</button>
-    <button onclick="spectateRoom()">Spectate Match</button>
     <div id="roomDisplay"></div>
-    <div id="spectatorDisplay"></div>
-  </div>
-
-  <div class="saved-games">
-    <h3>Continue Saved Games</h3>
-    <div id="savedGamesList"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
@@ -210,7 +132,7 @@
     });
 
     function generateRoomCode() {
-      return Math.random().toString(36).substring(2, 7).toUpperCase();
+      return Math.random().toString(36).substring(2, 6).toUpperCase();
     }
 
     window.createRoom = async function() {
@@ -221,27 +143,18 @@
       await set(ref(db, 'rooms/' + roomCode + '/player1'), {
         teamName: teamName,
         format: selectedFormat,
-        online: true,
-        timestamp: Date.now()
+        online: true
       });
       
       document.getElementById("roomDisplay").innerHTML = `
         <strong>Room Created!</strong><br>
         Code: ${roomCode}<br>
-        Format: ${getFormatName(selectedFormat)}<br>
         <small>Share this code with your opponent</small>
       `;
       
-      // Animate the display
-      const display = document.getElementById("roomDisplay");
-      display.style.animation = "none";
-      setTimeout(() => {
-        display.style.animation = "pulse 1.5s";
-      }, 10);
-      
       setTimeout(() => {
         window.location.href = `playing11.html?room=${roomCode}&player=player1`;
-      }, 2000);
+      }, 1500);
     }
 
     window.joinRoom = async function() {
@@ -249,21 +162,12 @@
       const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
       if (!teamName || !joinCode) return alert("Enter both team name and room code!");
       
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
+      const snapshot = await get(child(ref(db), `rooms/${joinCode}`));
       if (snapshot.exists()) {
         await set(ref(db, 'rooms/' + joinCode + '/player2'), {
           teamName: teamName,
-          online: true,
-          timestamp: Date.now()
+          online: true
         });
-        
-        const format = snapshot.val().player1?.format || "5";
-        document.getElementById("roomDisplay").innerHTML = `
-          <strong>Joining Room...</strong><br>
-          Code: ${joinCode}<br>
-          Format: ${getFormatName(format)}
-        `;
         
         setTimeout(() => {
           window.location.href = `playing11.html?room=${joinCode}&player=player2`;
@@ -272,95 +176,6 @@
         alert("Invalid room code!");
       }
     }
-
-    window.spectateRoom = async function() {
-      const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
-      if (!joinCode) return alert("Enter room code to spectate!");
-      
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
-      if (snapshot.exists()) {
-        const roomData = snapshot.val();
-        const spectatorCount = roomData.spectators ? Object.keys(roomData.spectators).length : 0;
-        
-        if (spectatorCount >= 10) {
-          return alert("Spectator slots full! Max 10 spectators allowed.");
-        }
-        
-        const spectatorId = 'spec_' + Math.random().toString(36).substr(2, 8);
-        await set(ref(db, `rooms/${joinCode}/spectators/${spectatorId}`), {
-          joinedAt: Date.now(),
-          emoji: null,
-          vote: null
-        });
-        
-        document.getElementById("spectatorDisplay").innerHTML = `
-          <strong>Joining as Spectator...</strong><br>
-          Room: ${joinCode}
-        `;
-        
-        setTimeout(() => {
-          window.location.href = `spectator.html?room=${joinCode}&id=${spectatorId}`;
-        }, 1500);
-      } else {
-        alert("Invalid room code!");
-      }
-    }
-
-    function getFormatName(format) {
-      switch(format) {
-        case "5": return "5 Overs (Quick Match)";
-        case "10": return "10 Overs";
-        case "20": return "T20 (Classic)";
-        case "50": return "ODI (50 Overs)";
-        case "test": return "Test Match (Unlimited)";
-        default: return "5 Overs";
-      }
-    }
-
-    async function loadSavedGames() {
-      const snapshot = await get(ref(db, 'savedGames'));
-      const games = snapshot.val() || {};
-      
-      const container = document.getElementById("savedGamesList");
-      container.innerHTML = '';
-      
-      if (Object.keys(games).length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #90caf9;">No saved games found</div>';
-        return;
-      }
-      
-      Object.entries(games).forEach(([roomId, game]) => {
-        const gameEl = document.createElement("div");
-        gameEl.className = "saved-game-item";
-        gameEl.innerHTML = `
-          <strong>${game.players.player1.team} vs ${game.players.player2.team}</strong>
-          <div>Score: ${game.players.player1.score}-${game.players.player2.score}</div>
-          <div>Innings: ${game.innings} | Balls left: ${game.ballsRemaining}</div>
-          <small>${new Date(game.timestamp).toLocaleString()}</small>
-        `;
-        gameEl.addEventListener("click", () => {
-          if (confirm("Resume this saved game?")) {
-            window.location.href = `game.html?room=${roomId}&player=player1`; 
-          }
-        });
-        container.appendChild(gameEl);
-      });
-    }
-
-    // Initialize
-    loadSavedGames();
-    
-    // Add animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-        100% { transform: scale(1); }
-      }
-    `;
-    document.head.appendChild(style);
   </script>
 </body>
 </html>
