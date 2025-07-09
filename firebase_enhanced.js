@@ -1,16 +1,15 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, get, child, push } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAGU0Tsj9pwZcgwQjZzTFvGOE032l2b7HI",
-  authDomain: "handicricket-d1ab7.firebaseapp.com",
-  projectId: "handicricket-d1ab7",
-  storageBucket: "handicricket-d1ab7.appspot.com",
-  messagingSenderId: "356065986337",
-  appId: "1:356065986337:web:399102c5dabfca2b6fe060",
-  measurementId: "G-6XS69Z6MMF",
-  databaseURL: "https://handicricket-d1ab7-default-rtdb.firebaseio.com/"
+  apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+  authDomain: "handicricket-85a06.firebaseapp.com",
+  projectId: "handicricket-85a06",
+  storageBucket: "handicricket-85a06.appspot.com",
+  messagingSenderId: "599182538558",
+  appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+  measurementId: "G-HSV9H4LEJQ",
+  databaseURL: "https://handicricket-85a06-default-rtdb.firebaseio.com/"
 };
 
 const app = initializeApp(firebaseConfig);
