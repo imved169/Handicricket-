@@ -128,6 +128,42 @@
         .format-btn:hover { 
             background: rgba(30, 136, 229, 0.5);
         }
+        .saved-games {
+            background: rgba(16, 45, 74, 0.8);
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid rgba(30, 136, 229, 0.2);
+        }
+        .saved-games h3 {
+            color: #90caf9;
+            margin-top: 0;
+            text-align: center;
+        }
+        .saved-game-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(26, 58, 106, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid #1e88e5;
+        }
+        .saved-game-item:hover {
+            background: rgba(30, 136, 229, 0.3);
+            transform: translateX(5px);
+        }
+        .saved-game-item strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #ffffff;
+        }
+        .saved-game-item small {
+            color: #90caf9;
+            font-size: 12px;
+        }
         #roomDisplay {
             font-size: 18px; 
             margin: 15px 0;
@@ -162,23 +198,14 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    <div class="saved-games">
+        <h3>Continue Saved Games</h3>
+        <div id="savedGamesList">
+            <div style="text-align: center; color: #90caf9;">No saved games found</div>
+        </div>
+    </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-            authDomain: "handicricket-85a06.firebaseapp.com",
-            projectId: "handicricket-85a06",
-            storageBucket: "handicricket-85a06.appspot.com",
-            messagingSenderId: "599182538558",
-            appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-            measurementId: "G-HSV9H4LEJQ"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
+    <script>
         // Generate room code
         function generateRoomCode() {
             return Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -209,6 +236,7 @@
                 document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 selectedFormat = btn.dataset.format;
+                console.log("Selected format:", selectedFormat);
             });
         });
         
@@ -228,32 +256,19 @@
                 <small>Share this code with your opponent</small>
             `;
             
-            // Save to localStorage
+            // Animate the display
+            roomDisplay.style.animation = "none";
+            setTimeout(() => {
+                roomDisplay.style.animation = "pulse 1.5s";
+            }, 10);
+            
             localStorage.setItem('roomCode', roomCode);
             localStorage.setItem('player', 'player1');
             localStorage.setItem('teamName', teamName);
             localStorage.setItem('format', selectedFormat);
             
-            // Create room in Firebase
-            try {
-                await set(ref(db, `rooms/${roomCode}`), {
-                    player1: {
-                        name: teamName,
-                        ready: false,
-                        format: selectedFormat
-                    },
-                    status: 'waiting',
-                    createdAt: Date.now()
-                });
-                
-                // Redirect to playing11 screen after 2 seconds
-                setTimeout(() => {
-                    window.location.href = `playing11.html?room=${roomCode}&player=player1`;
-                }, 2000);
-            } catch (error) {
-                console.error("Error creating room:", error);
-                alert("Failed to create room. Please try again.");
-            }
+            // Redirect to playing11.html
+            window.location.href = `playing11.html?room=${roomCode}&player=player1`;
         });
         
         // Join Room
@@ -266,46 +281,17 @@
                 return;
             }
             
-            // Check if room exists
-            try {
-                const roomSnap = await get(ref(db, `rooms/${joinCode}`));
-                
-                if (!roomSnap.exists()) {
-                    alert("Room not found. Please check the code and try again.");
-                    return;
-                }
-                
-                if (roomSnap.val().player2) {
-                    alert("This room is already full with 2 players.");
-                    return;
-                }
-                
-                roomDisplay.innerHTML = `
-                    <strong>Joining Room...</strong><br>
-                    Code: ${joinCode}<br>
-                    Format: ${getFormatName(roomSnap.val().player1.format)}
-                `;
-                
-                // Save to localStorage
-                localStorage.setItem('roomCode', joinCode);
-                localStorage.setItem('player', 'player2');
-                localStorage.setItem('teamName', teamName);
-                localStorage.setItem('format', roomSnap.val().player1.format);
-                
-                // Join room in Firebase
-                await set(ref(db, `rooms/${joinCode}/player2`), {
-                    name: teamName,
-                    ready: false
-                });
-                
-                // Redirect to playing11 screen
-                setTimeout(() => {
-                    window.location.href = `playing11.html?room=${joinCode}&player=player2`;
-                }, 1500);
-            } catch (error) {
-                console.error("Error joining room:", error);
-                alert("Failed to join room. Please try again.");
-            }
+            roomDisplay.innerHTML = `
+                <strong>Joining Room...</strong><br>
+                Code: ${joinCode}
+            `;
+            
+            localStorage.setItem('roomCode', joinCode);
+            localStorage.setItem('player', 'player2');
+            localStorage.setItem('teamName', teamName);
+            
+            // Redirect to playing11.html
+            window.location.href = `playing11.html?room=${joinCode}&player=player2`;
         });
 
         // Add animation
@@ -318,6 +304,9 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Initialize
+        console.log("App initialized");
     </script>
 </body>
 </html>
