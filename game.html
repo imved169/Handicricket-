@@ -230,8 +230,19 @@
     }
     
     .team-container li {
-      padding: 8px 0;
-      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s;
+    }
+    
+    .team-container li:hover {
+      background: rgba(30, 136, 229, 0.2);
+      transform: translateX(5px);
+    }
+    
+    .team-winner {
+      color: #4CAF50;
+      font-weight: bold;
     }
     
     /* Controls */
@@ -731,74 +742,40 @@
     const liveStateRef = ref(db, `rooms/${room}/liveState");
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
     const resultRef = ref(db, `rooms/${room}/result");
-    const savedGameRef = ref(db, `savedGames/${room}`);
+    const savedGameRef = ref(db, `savedGames/${room}");
 
-    // Function to load teams
-    async function loadTeams() {
+    // Load playing 11 from Firebase
+    async function loadPlaying11() {
       try {
-        const snapshot = await get(ref(db, `rooms/${room}/teams`));
-        if (!snapshot.exists()) {
-          throw new Error("Teams data not found");
+        status.innerText = "Loading teams...";
+        
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          showNotification("Room data not found", 'error');
+          return false;
+        }
+
+        const roomData = roomSnap.val();
+        
+        // Load team names and players
+        if (roomData.teams?.player1) {
+          team1NameEl.textContent = roomData.teams.player1.name || "Team 1";
+          team1PlayersEl.innerHTML = roomData.teams.player1.players.map(p => 
+            `<li>${p}</li>`).join('');
         }
         
-        const teams = snapshot.val();
-        const myTeam = teams[player];
-        const oppTeam = teams[opponent];
-        
-        if (!myTeam || !oppTeam) {
-          throw new Error("Both teams not loaded yet");
+        if (roomData.teams?.player2) {
+          team2NameEl.textContent = roomData.teams.player2.name || "Team 2";
+          team2PlayersEl.innerHTML = roomData.teams.player2.players.map(p => 
+            `<li>${p}</li>`).join('');
         }
-        
-        // Update team names in UI
-        team1NameEl.textContent = teams.player1.teamName || "Team 1";
-        team2NameEl.textContent = teams.player2.teamName || "Team 2";
-        
-        // Populate team players lists
-        team1PlayersEl.innerHTML = teams.player1.players.map(p => `<li>${p}</li>`).join('');
-        team2PlayersEl.innerHTML = teams.player2.players.map(p => `<li>${p}</li>`).join('');
-        
-        // Initialize batter stats
-        initializeBatterStats(teams);
-        
+
         return true;
       } catch (error) {
         console.error("Error loading teams:", error);
+        showNotification("Error loading teams", 'error');
         return false;
       }
-    }
-
-    // Initialize batter stats with milestone tracking
-    function initializeBatterStats(teams) {
-      // Initialize for both teams
-      teams.player1.players.forEach(player => {
-        batterStats[player] = { 
-          runs: 0, 
-          balls: 0,
-          fours: 0,
-          sixes: 0,
-          centuryNotified: false,
-          fiftyNotified: false
-        };
-        batterWickets[player] = 0;
-        milestoneLevels.forEach(level => {
-          batterStats[player][`milestone${level}Notified`] = false;
-        });
-      });
-      
-      teams.player2.players.forEach(player => {
-        batterStats[player] = { 
-          runs: 0, 
-          balls: 0,
-          fours: 0,
-          sixes: 0,
-          centuryNotified: false,
-          fiftyNotified: false
-        };
-        batterWickets[player] = 0;
-        milestoneLevels.forEach(level => {
-          batterStats[player][`milestone${level}Notified`] = false;
-        });
-      });
     }
 
     // Check powerplay status
@@ -880,6 +857,49 @@
           requiredRateEl.textContent = "";
         }
       }
+    }
+
+    // Initialize batter stats with milestone tracking
+    function initializeBatterStats() {
+      get(roomRef).then(snapshot => {
+        const data = snapshot.val();
+        
+        if (data.player1?.playing11) {
+          data.player1.playing11.forEach(player => {
+            batterStats[player] = { 
+              runs: 0, 
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              centuryNotified: false,
+              fiftyNotified: false
+            };
+            batterWickets[player] = 0;
+            milestoneLevels.forEach(level => {
+              batterStats[player][`milestone${level}Notified`] = false;
+            });
+          });
+        }
+        
+        if (data.player2?.playing11) {
+          data.player2.playing11.forEach(player => {
+            batterStats[player] = { 
+              runs: 0, 
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              centuryNotified: false,
+              fiftyNotified: false
+            };
+            batterWickets[player] = 0;
+            milestoneLevels.forEach(level => {
+              batterStats[player][`milestone${level}Notified`] = false;
+            });
+          });
+        }
+      }).catch(error => {
+        console.error("Error initializing batter stats:", error);
+      });
     }
 
     // Check for batting milestones (50, 100, 150, etc.)
@@ -1079,8 +1099,9 @@
       }
     }
 
-    // Load playing 11 from Firebase
-    async function loadPlaying11() {
+    // Show batter selection modal
+    async function showBatterSelection() {
+      disableButtons();
       try {
         status.innerText = "Loading batters...";
         
@@ -1251,18 +1272,13 @@
 
     // Setup player role (batting/bowling)
     async function setupRole() {
-      try {
-        isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-        
-        if (isBatting && !currentBatter) {
-          await showBatterSelection();
-        } else if (!isBatting && !currentBowler) {
-          await showBowlerSelection();
-        }
-      } catch (error) {
-        console.error("Role setup error:", error);
-        setTimeout(() => setupRole(), 2000);
+      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+      roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+      
+      if (isBatting && !currentBatter) {
+        await showBatterSelection();
+      } else if (!isBatting && !currentBowler) {
+        await showBowlerSelection();
       }
     }
 
@@ -1838,7 +1854,10 @@
       try {
         status.innerText = "Initializing game...";
         
-        // 1. Check room exists
+        gameInProgress = true;
+        status.innerText = "Initializing game...";
+        
+        // Check if room exists
         const roomSnap = await get(roomRef);
         if (!roomSnap.exists()) {
           showNotification("Room does not exist!", 'error');
@@ -1848,7 +1867,7 @@
 
         const roomData = roomSnap.val();
         
-        // 2. Check toss status
+        // Check toss status first
         if (!roomData.tossWinner || !roomData.battingFirst) {
           showNotification("Toss not completed yet!", 'info');
           setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
@@ -1859,27 +1878,33 @@
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
-        // 3. Load teams
-        const teamsLoaded = await loadTeams();
+        // Load teams - don't fail if teams aren't loaded yet
+        const teamsLoaded = await loadPlaying11();
         if (!teamsLoaded) {
           setTimeout(initGame, 3000);
           return;
         }
 
-        // 4. Set game format
+        // Set game format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
         isTestMatch = format === "test";
         
-        formatDisplay.innerText = `${currentFormat.name}`;
+        formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
         
-        // 5. Set up game components
+        // Initialize batter stats
+        initializeBatterStats();
+
+        // Set up game components
         setupConnectionMonitoring();
+        await setupRole();
         setupSelectionModal();
+        setupTestControls();
+        setupInningsButton();
         setupCardButtons();
         setupFirebaseListeners();
         
-        // 6. Set up control buttons
+        // Set up control buttons
         saveBtn.addEventListener("click", saveGameState);
         exitBtn.addEventListener("click", async () => {
           if (confirm("Exit without saving?")) {
@@ -1895,16 +1920,13 @@
           }
         });
 
-        // 7. Set up role and initial UI
-        await setupRole();
+        // Initial UI update
         updateScoreboard();
-        
         status.innerText = "Game ready!";
-        updateButtonStates();
       } catch (error) {
         console.error("Initialization error:", error);
-        showNotification("Failed to initialize - retrying", 'error');
-        setTimeout(initGame, 3000);
+        showNotification("Failed to initialize game", 'error');
+        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
       }
     }
 
