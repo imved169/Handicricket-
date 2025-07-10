@@ -236,20 +236,26 @@
       });
       
       callOptions.classList.add('hidden');
-      tossInstruction.textContent = "Waiting for Player 2 to flip the coin...";
-      
-      // Listen for when the coin is flipped
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      onValue(tossRef, (snapshot) => {
-        const tossData = snapshot.val();
-        if (!tossData) return;
-        
-        if (tossData.status === 'flipped') {
-          // Coin has been flipped
-          showTossResult(tossData);
-        }
-      });
+      tossInstruction.textContent = `You called ${call}. Waiting for Player 2 to flip...`;
     }
+
+    // Improved toss state listener
+    onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
+      const tossData = snapshot.val();
+      if (!tossData) return;
+
+      // Player 2 sees Player 1's call and can flip
+      if (tossData.status === 'called' && player === "player2") {
+        tossInstruction.textContent = `Player 1 called ${tossData.call}. Flip the coin!`;
+        callOptions.classList.add('hidden');
+        flipOptions.classList.remove('hidden');
+      }
+
+      // Both players see the result after flip
+      if (tossData.status === 'complete') {
+        showTossResult(tossData);
+      }
+    });
 
     async function flipCoin() {
       tossInstruction.textContent = "Flipping coin...";
@@ -279,11 +285,6 @@
       setTimeout(() => {
         coinElement.classList.remove('spinning');
         coinElement.textContent = result.toUpperCase();
-        showTossResult({
-          result: result,
-          winner: winner,
-          status: 'complete'
-        });
       }, 2000);
     }
 
@@ -334,17 +335,6 @@
           snapshot.val() === player ? opponent : player);
         localStorage.setItem('tossComplete', 'true');
         window.location.href = `game.html?room=${room}&player=${player}`;
-      }
-    });
-
-    // Listen for when player1 makes the call
-    onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
-      const tossData = snapshot.val();
-      if (!tossData) return;
-      
-      if (player === "player2" && tossData.status === 'called') {
-        tossInstruction.textContent = "Player 1 has called. Flip the coin:";
-        flipOptions.classList.remove('hidden');
       }
     });
 
