@@ -1,3 +1,5 @@
+[file name]: index.html
+[file content begin]
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -128,50 +130,11 @@
         .format-btn:hover { 
             background: rgba(30, 136, 229, 0.5);
         }
-        .saved-games {
-            background: rgba(16, 45, 74, 0.8);
-            padding: 20px;
-            margin-top: 30px;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 450px;
-            border: 1px solid rgba(30, 136, 229, 0.2);
-        }
-        .saved-games h3 {
-            color: #90caf9;
-            margin-top: 0;
-            text-align: center;
-        }
-        .saved-game-item {
-            padding: 12px;
-            margin: 8px 0;
-            background: rgba(26, 58, 106, 0.5);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-left: 3px solid #1e88e5;
-        }
-        .saved-game-item:hover {
-            background: rgba(30, 136, 229, 0.3);
-            transform: translateX(5px);
-        }
-        .saved-game-item strong {
-            display: block;
-            margin-bottom: 5px;
-            color: #ffffff;
-        }
-        .saved-game-item small {
-            color: #90caf9;
-            font-size: 12px;
-        }
-        #roomDisplay {
-            font-size: 18px; 
-            margin: 15px 0;
-            padding: 12px;
-            background: rgba(30, 136, 229, 0.2);
-            border-radius: 12px;
-            text-align: center;
-            border-left: 3px solid #1e88e5;
+        .error-message {
+            color: #ff6b6b;
+            margin-top: 5px;
+            font-size: 14px;
+            text-align: left;
         }
     </style>
 </head>
@@ -183,6 +146,7 @@
         <div class="menu">
             <input type="text" id="teamName" placeholder="Enter Team Name" />
             <input type="text" id="joinCode" placeholder="Enter Room Code (if joining)" />
+            <div id="joinCodeError" class="error-message hidden">Please enter a valid room code</div>
             
             <div class="format-selector">
                 <button class="format-btn active" data-format="5">5 Overs</button>
@@ -193,15 +157,8 @@
             </div>
             
             <button id="createRoom" class="btn">Create Room</button>
-            <button id="joinRoom" class="btn">Join Room</button>
+            <button id="joinRoom" class="btn secondary">Join Room</button>
             <div id="roomDisplay"></div>
-        </div>
-    </div>
-
-    <div class="saved-games">
-        <h3>Continue Saved Games</h3>
-        <div id="savedGamesList">
-            <div style="text-align: center; color: #90caf9;">No saved games found</div>
         </div>
     </div>
 
@@ -227,6 +184,7 @@
         const joinRoomBtn = document.getElementById('joinRoom');
         const teamNameInput = document.getElementById('teamName');
         const joinCodeInput = document.getElementById('joinCode');
+        const joinCodeError = document.getElementById('joinCodeError');
         const roomDisplay = document.getElementById('roomDisplay');
         let selectedFormat = "5";
         
@@ -236,7 +194,6 @@
                 document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 selectedFormat = btn.dataset.format;
-                console.log("Selected format:", selectedFormat);
             });
         });
         
@@ -256,18 +213,12 @@
                 <small>Share this code with your opponent</small>
             `;
             
-            // Animate the display
-            roomDisplay.style.animation = "none";
-            setTimeout(() => {
-                roomDisplay.style.animation = "pulse 1.5s";
-            }, 10);
-            
             localStorage.setItem('roomCode', roomCode);
             localStorage.setItem('player', 'player1');
             localStorage.setItem('teamName', teamName);
             localStorage.setItem('format', selectedFormat);
             
-            // Redirect to playing11.html
+            // Redirect to playing11 screen
             window.location.href = `playing11.html?room=${roomCode}&player=player1`;
         });
         
@@ -276,21 +227,24 @@
             const teamName = teamNameInput.value.trim();
             const joinCode = joinCodeInput.value.trim().toUpperCase();
             
-            if (!teamName || !joinCode) {
-                alert("Please enter both team name and room code!");
+            if (!teamName) {
+                alert("Please enter your team name!");
                 return;
             }
             
-            roomDisplay.innerHTML = `
-                <strong>Joining Room...</strong><br>
-                Code: ${joinCode}
-            `;
+            if (!joinCode || joinCode.length < 4) {
+                joinCodeError.classList.remove('hidden');
+                return;
+            }
+            
+            joinCodeError.classList.add('hidden');
             
             localStorage.setItem('roomCode', joinCode);
             localStorage.setItem('player', 'player2');
             localStorage.setItem('teamName', teamName);
+            localStorage.setItem('format', selectedFormat);
             
-            // Redirect to playing11.html
+            // Redirect to playing11 screen
             window.location.href = `playing11.html?room=${joinCode}&player=player2`;
         });
 
@@ -304,9 +258,7 @@
             }
         `;
         document.head.appendChild(style);
-
-        // Initialize
-        console.log("App initialized");
     </script>
 </body>
 </html>
+[file content end]
