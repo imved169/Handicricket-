@@ -1858,6 +1858,172 @@
       }, 5000);
     }
 
+    // Setup connection monitoring
+    function setupConnectionMonitoring() {
+      // Set player as online
+      set(playerRef, true);
+      
+      // Listen for opponent connection status
+      onValue(opponentRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          connectionStatus.className = "online";
+          connectionStatus.textContent = "Opponent: Online";
+        } else {
+          connectionStatus.className = "offline";
+          connectionStatus.textContent = "Opponent: Offline";
+          disableButtons();
+          status.innerText = "Waiting for opponent to connect...";
+        }
+      });
+      
+      // Handle page visibility changes
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          set(playerRef, false);
+        } else {
+          set(playerRef, true);
+        }
+      });
+      
+      // Handle page unload
+      window.addEventListener('beforeunload', () => {
+        set(playerRef, false);
+      });
+    }
+
+    // Setup test controls
+    function setupTestControls() {
+      // Only needed for test matches
+      if (!isTestMatch) return;
+      
+      const controls = document.createElement('div');
+      controls.id = 'testControls';
+      controls.innerHTML = `
+        <button id="declareBtn">Declare Innings</button>
+        <button id="followOnBtn" style="display:none">Enforce Follow-On</button>
+      `;
+      document.querySelector('#gameControls').prepend(controls);
+      
+      document.getElementById('declareBtn').addEventListener('click', async () => {
+        if (confirm("Declare this innings?")) {
+          await set(declaredRef, true);
+          endInning();
+        }
+      });
+      
+      document.getElementById('followOnBtn').addEventListener('click', async () => {
+        if (confirm("Enforce follow-on?")) {
+          await set(followOnRef, true);
+          resetInning();
+        }
+      });
+    }
+
+    // Setup innings button
+    function setupInningsButton() {
+      startInningsBtn.addEventListener('click', startSecondInnings);
+      
+      onValue(inningsReadyRef, (snap) => {
+        if (snap.exists() && snap.val() === true) {
+          opponentReadyStatus.style.display = "block";
+        } else {
+          opponentReadyStatus.style.display = "none";
+        }
+      });
+      
+      onValue(autoStartTimeRef, (snap) => {
+        if (snap.exists()) {
+          const startTime = snap.val();
+          const timeLeft = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
+          
+          if (timeLeft > 0) {
+            autoStartTimerEl.style.display = "block";
+            autoStartTimerEl.textContent = `Starting in ${timeLeft}s...`;
+            
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+              const newTimeLeft = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
+              if (newTimeLeft <= 0) {
+                clearInterval(countdownInterval);
+                startSecondInnings();
+              } else {
+                autoStartTimerEl.textContent = `Starting in ${newTimeLeft}s...`;
+              }
+            }, 1000);
+          }
+        } else {
+          autoStartTimerEl.style.display = "none";
+          if (countdownInterval) clearInterval(countdownInterval);
+        }
+      });
+    }
+
+    // Save game state
+    async function saveGameState() {
+      try {
+        const gameState = {
+          runs,
+          wickets,
+          legalBalls,
+          currentBatter,
+          currentBowler,
+          battersUsed,
+          bowlersUsed,
+          bowlerOvers,
+          isBatting,
+          currentFormat,
+          isTestMatch,
+          innings,
+          currentInningRuns,
+          currentInningWickets,
+          team1Score,
+          team2Score,
+          team1Wickets,
+          team2Wickets,
+          daysRemaining,
+          oversToday,
+          isPowerplay,
+          isDeadOver,
+          batterWickets,
+          zerosThisOver,
+          bowlerRuns,
+          lastOverRuns,
+          lastOverWickets,
+          lastWicketScore,
+          ballByBall,
+          fallOfWickets,
+          batterStats,
+          bowlerStats,
+          tossWinner,
+          battingFirst,
+          timestamp: Date.now()
+        };
+        
+        await set(savedGameRef, gameState);
+        showNotification("Game saved successfully!", 'info');
+      } catch (error) {
+        console.error("Error saving game:", error);
+        showNotification("Error saving game", 'error');
+      }
+    }
+
+    // Reset game
+    async function resetGame() {
+      try {
+        await update(roomRef, {
+          currentPlays: { player1: null, player2: null },
+          currentBatter: null,
+          currentBowler: null,
+          inningsReady: null,
+          autoStartTime: null,
+          declared: null,
+          followOn: null
+        });
+      } catch (error) {
+        console.error("Error resetting game:", error);
+      }
+    }
+
     // Initialize the game
     async function initGame() {
       try {
@@ -1876,7 +2042,20 @@
 
         const roomData = roomSnap.val();
         
-        // Check toss status first
+        // Check if both teams have submitted their playing XI
+        if (!roomData.player1?.playing11 || !roomData.player2?.playing11) {
+          showNotification("Waiting for both teams to submit their playing XI", 'info');
+          // Listen for changes and reload when both teams are ready
+          onValue(roomRef, (snap) => {
+            const data = snap.val();
+            if (data.player1?.playing11 && data.player2?.playing11) {
+              window.location.reload();
+            }
+          });
+          return;
+        }
+
+        // Check toss status
         if (!roomData.tossWinner || !roomData.battingFirst) {
           showNotification("Toss not completed yet!", 'info');
           setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
@@ -1932,10 +2111,12 @@
         // Initial UI update
         updateScoreboard();
         status.innerText = "Game ready!";
+        enableButtons();
+        
       } catch (error) {
         console.error("Initialization error:", error);
         showNotification("Failed to initialize game", 'error');
-        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+        setTimeout(initGame, 3000); // Retry initialization
       }
     }
 
