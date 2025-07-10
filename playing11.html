@@ -127,7 +127,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -217,22 +217,23 @@
       const teamName = localStorage.getItem(`${player}Name`) || 
                       (player === 'player1' ? 'Team 1' : 'Team 2');
       
-      const teamData = {
-        players: players,
-        format: format,
-        name: teamName
-      };
-      
       try {
-        // Save team to Firebase
-        await set(ref(db, `rooms/${roomId}/teams/${player}`), teamData);
+        // Save team to Firebase under both team-specific path and root
+        await update(ref(db, `rooms/${roomId}`), {
+          [`teams/${player}`]: {
+            players: players,
+            format: format,
+            name: teamName
+          },
+          [`${player}/playing11`]: players // Also store directly under player node for easy access
+        });
         
         // Save to localStorage
         if (player === 'player1') {
-          localStorage.setItem('team1', JSON.stringify(teamData));
+          localStorage.setItem('team1', JSON.stringify(players));
           localStorage.setItem('team1Name', teamName);
         } else {
-          localStorage.setItem('team2', JSON.stringify(teamData));
+          localStorage.setItem('team2', JSON.stringify(players));
           localStorage.setItem('team2Name', teamName);
         }
         
@@ -246,11 +247,18 @@
         onValue(teamsRef, (snapshot) => {
           const teams = snapshot.val();
           if (teams && teams.player1 && teams.player2) {
-            // Initialize spectator data structure
-            set(ref(db, `rooms/${roomId}/spectatorData`), {
-              overSummaries: {},
-              matchStats: {},
-              spectatorChat: {}
+            // Initialize game data structure
+            update(ref(db, `rooms/${roomId}`), {
+              spectatorData: {
+                overSummaries: {},
+                matchStats: {},
+                spectatorChat: {}
+              },
+              // Store both teams' players at root level for easy access
+              team1Players: teams.player1.players,
+              team2Players: teams.player2.players,
+              team1Name: teams.player1.name,
+              team2Name: teams.player2.name
             }).then(() => {
               window.location.href = `toss.html?room=${roomId}&player=${player}`;
             });
