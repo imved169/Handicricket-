@@ -230,26 +230,8 @@
     }
     
     .team-container li {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.2s;
-      display: flex;
-      justify-content: space-between;
-    }
-    
-    .team-container li:hover {
-      background: rgba(30, 136, 229, 0.2);
-      transform: translateX(5px);
-    }
-    
-    .team-container li.active {
-      background: rgba(76, 175, 80, 0.2);
-      border-left: 3px solid #4CAF50;
-    }
-    
-    .team-winner {
-      color: #ffeb3b;
-      font-weight: bold;
+      padding: 8px 0;
+      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
     }
     
     /* Controls */
@@ -751,41 +733,72 @@
     const resultRef = ref(db, `rooms/${room}/result");
     const savedGameRef = ref(db, `savedGames/${room}`);
 
-    // Load and display playing XI from Firebase
-    async function loadAndDisplayPlayingXI() {
+    // Function to load teams
+    async function loadTeams() {
       try {
-        const snapshot = await get(roomRef);
-        const roomData = snapshot.val();
-        
-        // Clear existing player lists
-        team1PlayersEl.innerHTML = '';
-        team2PlayersEl.innerHTML = '';
-        
-        // Load team 1 players
-        if (roomData.player1?.playing11) {
-          team1NameEl.textContent = roomData.player1.teamName || 'Team 1';
-          roomData.player1.playing11.forEach(player => {
-            const li = document.createElement('li');
-            li.textContent = player;
-            team1PlayersEl.appendChild(li);
-          });
+        const snapshot = await get(ref(db, `rooms/${room}/teams`));
+        if (!snapshot.exists()) {
+          throw new Error("Teams data not found");
         }
         
-        // Load team 2 players
-        if (roomData.player2?.playing11) {
-          team2NameEl.textContent = roomData.player2.teamName || 'Team 2';
-          roomData.player2.playing11.forEach(player => {
-            const li = document.createElement('li');
-            li.textContent = player;
-            team2PlayersEl.appendChild(li);
-          });
+        const teams = snapshot.val();
+        const myTeam = teams[player];
+        const oppTeam = teams[opponent];
+        
+        if (!myTeam || !oppTeam) {
+          throw new Error("Both teams not loaded yet");
         }
+        
+        // Update team names in UI
+        team1NameEl.textContent = teams.player1.teamName || "Team 1";
+        team2NameEl.textContent = teams.player2.teamName || "Team 2";
+        
+        // Populate team players lists
+        team1PlayersEl.innerHTML = teams.player1.players.map(p => `<li>${p}</li>`).join('');
+        team2PlayersEl.innerHTML = teams.player2.players.map(p => `<li>${p}</li>`).join('');
+        
+        // Initialize batter stats
+        initializeBatterStats(teams);
         
         return true;
       } catch (error) {
-        console.error("Error loading playing XI:", error);
+        console.error("Error loading teams:", error);
         return false;
       }
+    }
+
+    // Initialize batter stats with milestone tracking
+    function initializeBatterStats(teams) {
+      // Initialize for both teams
+      teams.player1.players.forEach(player => {
+        batterStats[player] = { 
+          runs: 0, 
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          centuryNotified: false,
+          fiftyNotified: false
+        };
+        batterWickets[player] = 0;
+        milestoneLevels.forEach(level => {
+          batterStats[player][`milestone${level}Notified`] = false;
+        });
+      });
+      
+      teams.player2.players.forEach(player => {
+        batterStats[player] = { 
+          runs: 0, 
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          centuryNotified: false,
+          fiftyNotified: false
+        };
+        batterWickets[player] = 0;
+        milestoneLevels.forEach(level => {
+          batterStats[player][`milestone${level}Notified`] = false;
+        });
+      });
     }
 
     // Check powerplay status
@@ -867,49 +880,6 @@
           requiredRateEl.textContent = "";
         }
       }
-    }
-
-    // Initialize batter stats with milestone tracking
-    function initializeBatterStats() {
-      get(roomRef).then(snapshot => {
-        const data = snapshot.val();
-        
-        if (data.player1?.playing11) {
-          data.player1.playing11.forEach(player => {
-            batterStats[player] = { 
-              runs: 0, 
-              balls: 0,
-              fours: 0,
-              sixes: 0,
-              centuryNotified: false,
-              fiftyNotified: false
-            };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
-        }
-        
-        if (data.player2?.playing11) {
-          data.player2.playing11.forEach(player => {
-            batterStats[player] = { 
-              runs: 0, 
-              balls: 0,
-              fours: 0,
-              sixes: 0,
-              centuryNotified: false,
-              fiftyNotified: false
-            };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
-        }
-      }).catch(error => {
-        console.error("Error initializing batter stats:", error);
-      });
     }
 
     // Check for batting milestones (50, 100, 150, etc.)
@@ -1281,13 +1251,18 @@
 
     // Setup player role (batting/bowling)
     async function setupRole() {
-      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-      roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-      
-      if (isBatting && !currentBatter) {
-        await showBatterSelection();
-      } else if (!isBatting && !currentBowler) {
-        await showBowlerSelection();
+      try {
+        isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+        
+        if (isBatting && !currentBatter) {
+          await showBatterSelection();
+        } else if (!isBatting && !currentBowler) {
+          await showBowlerSelection();
+        }
+      } catch (error) {
+        console.error("Role setup error:", error);
+        setTimeout(() => setupRole(), 2000);
       }
     }
 
@@ -1858,181 +1833,12 @@
       }, 5000);
     }
 
-    // Setup connection monitoring
-    function setupConnectionMonitoring() {
-      // Set player as online
-      set(playerRef, true);
-      
-      // Listen for opponent connection status
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          connectionStatus.className = "online";
-          connectionStatus.textContent = "Opponent: Online";
-        } else {
-          connectionStatus.className = "offline";
-          connectionStatus.textContent = "Opponent: Offline";
-          disableButtons();
-          status.innerText = "Waiting for opponent to connect...";
-        }
-      });
-      
-      // Handle page visibility changes
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          set(playerRef, false);
-        } else {
-          set(playerRef, true);
-        }
-      });
-      
-      // Handle page unload
-      window.addEventListener('beforeunload', () => {
-        set(playerRef, false);
-      });
-    }
-
-    // Setup test controls
-    function setupTestControls() {
-      // Only needed for test matches
-      if (!isTestMatch) return;
-      
-      const controls = document.createElement('div');
-      controls.id = 'testControls';
-      controls.innerHTML = `
-        <button id="declareBtn">Declare Innings</button>
-        <button id="followOnBtn" style="display:none">Enforce Follow-On</button>
-      `;
-      document.querySelector('#gameControls').prepend(controls);
-      
-      document.getElementById('declareBtn').addEventListener('click', async () => {
-        if (confirm("Declare this innings?")) {
-          await set(declaredRef, true);
-          endInning();
-        }
-      });
-      
-      document.getElementById('followOnBtn').addEventListener('click', async () => {
-        if (confirm("Enforce follow-on?")) {
-          await set(followOnRef, true);
-          resetInning();
-        }
-      });
-    }
-
-    // Setup innings button
-    function setupInningsButton() {
-      startInningsBtn.addEventListener('click', startSecondInnings);
-      
-      onValue(inningsReadyRef, (snap) => {
-        if (snap.exists() && snap.val() === true) {
-          opponentReadyStatus.style.display = "block";
-        } else {
-          opponentReadyStatus.style.display = "none";
-        }
-      });
-      
-      onValue(autoStartTimeRef, (snap) => {
-        if (snap.exists()) {
-          const startTime = snap.val();
-          const timeLeft = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
-          
-          if (timeLeft > 0) {
-            autoStartTimerEl.style.display = "block";
-            autoStartTimerEl.textContent = `Starting in ${timeLeft}s...`;
-            
-            if (countdownInterval) clearInterval(countdownInterval);
-            countdownInterval = setInterval(() => {
-              const newTimeLeft = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
-              if (newTimeLeft <= 0) {
-                clearInterval(countdownInterval);
-                startSecondInnings();
-              } else {
-                autoStartTimerEl.textContent = `Starting in ${newTimeLeft}s...`;
-              }
-            }, 1000);
-          }
-        } else {
-          autoStartTimerEl.style.display = "none";
-          if (countdownInterval) clearInterval(countdownInterval);
-        }
-      });
-    }
-
-    // Save game state
-    async function saveGameState() {
-      try {
-        const gameState = {
-          runs,
-          wickets,
-          legalBalls,
-          currentBatter,
-          currentBowler,
-          battersUsed,
-          bowlersUsed,
-          bowlerOvers,
-          isBatting,
-          currentFormat,
-          isTestMatch,
-          innings,
-          currentInningRuns,
-          currentInningWickets,
-          team1Score,
-          team2Score,
-          team1Wickets,
-          team2Wickets,
-          daysRemaining,
-          oversToday,
-          isPowerplay,
-          isDeadOver,
-          batterWickets,
-          zerosThisOver,
-          bowlerRuns,
-          lastOverRuns,
-          lastOverWickets,
-          lastWicketScore,
-          ballByBall,
-          fallOfWickets,
-          batterStats,
-          bowlerStats,
-          tossWinner,
-          battingFirst,
-          timestamp: Date.now()
-        };
-        
-        await set(savedGameRef, gameState);
-        showNotification("Game saved successfully!", 'info');
-      } catch (error) {
-        console.error("Error saving game:", error);
-        showNotification("Error saving game", 'error');
-      }
-    }
-
-    // Reset game
-    async function resetGame() {
-      try {
-        await update(roomRef, {
-          currentPlays: { player1: null, player2: null },
-          currentBatter: null,
-          currentBowler: null,
-          inningsReady: null,
-          autoStartTime: null,
-          declared: null,
-          followOn: null
-        });
-      } catch (error) {
-        console.error("Error resetting game:", error);
-      }
-    }
-
     // Initialize the game
     async function initGame() {
       try {
         status.innerText = "Initializing game...";
         
-        gameInProgress = true;
-        status.innerText = "Initializing game...";
-        
-        // Check if room exists
+        // 1. Check room exists
         const roomSnap = await get(roomRef);
         if (!roomSnap.exists()) {
           showNotification("Room does not exist!", 'error');
@@ -2042,20 +1848,7 @@
 
         const roomData = roomSnap.val();
         
-        // Check if both teams have submitted their playing XI
-        if (!roomData.player1?.playing11 || !roomData.player2?.playing11) {
-          showNotification("Waiting for both teams to submit their playing XI", 'info');
-          // Listen for changes and reload when both teams are ready
-          onValue(roomRef, (snap) => {
-            const data = snap.val();
-            if (data.player1?.playing11 && data.player2?.playing11) {
-              window.location.reload();
-            }
-          });
-          return;
-        }
-
-        // Check toss status
+        // 2. Check toss status
         if (!roomData.tossWinner || !roomData.battingFirst) {
           showNotification("Toss not completed yet!", 'info');
           setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
@@ -2066,33 +1859,27 @@
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
-        // Load and display playing XI
-        const teamsLoaded = await loadAndDisplayPlayingXI();
+        // 3. Load teams
+        const teamsLoaded = await loadTeams();
         if (!teamsLoaded) {
           setTimeout(initGame, 3000);
           return;
         }
 
-        // Set game format
+        // 4. Set game format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
         isTestMatch = format === "test";
         
-        formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
+        formatDisplay.innerText = `${currentFormat.name}`;
         
-        // Initialize batter stats
-        initializeBatterStats();
-
-        // Set up game components
+        // 5. Set up game components
         setupConnectionMonitoring();
-        await setupRole();
         setupSelectionModal();
-        setupTestControls();
-        setupInningsButton();
         setupCardButtons();
         setupFirebaseListeners();
         
-        // Set up control buttons
+        // 6. Set up control buttons
         saveBtn.addEventListener("click", saveGameState);
         exitBtn.addEventListener("click", async () => {
           if (confirm("Exit without saving?")) {
@@ -2108,15 +1895,16 @@
           }
         });
 
-        // Initial UI update
+        // 7. Set up role and initial UI
+        await setupRole();
         updateScoreboard();
-        status.innerText = "Game ready!";
-        enableButtons();
         
+        status.innerText = "Game ready!";
+        updateButtonStates();
       } catch (error) {
         console.error("Initialization error:", error);
-        showNotification("Failed to initialize game", 'error');
-        setTimeout(initGame, 3000); // Retry initialization
+        showNotification("Failed to initialize - retrying", 'error');
+        setTimeout(initGame, 3000);
       }
     }
 
