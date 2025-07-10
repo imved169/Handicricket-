@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="="en">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -29,9 +29,7 @@
     <div id="formatDisplay">Match Format: Loading...</div>
     <div class="player-status" id="playerStatus">Waiting for both players...</div>
     
-    <div id="toss-waiting">
-      <p>Waiting for opponent to join the toss...</p>
-    </div>
+    <div id="toss-waiting"><p>Waiting for opponent to join the toss...</p></div>
     
     <div id="toss-options" class="hidden">
       <p id="toss-instruction"></p>
@@ -106,11 +104,7 @@
       onValue(readyRef, (snapshot) => {
         const roomData = snapshot.val();
         if (!roomData) return;
-        
-        const player1Ready = roomData.player1?.ready || false;
-        const player2Ready = roomData.player2?.ready || false;
-        
-        if (player1Ready && player2Ready && !tossCompleted) {
+        if (roomData.player1?.ready && roomData.player2?.ready && !tossCompleted) {
           initializeTossSequence();
         }
       });
@@ -120,22 +114,15 @@
       tossWaiting.classList.add('hidden');
       tossOptions.classList.remove('hidden');
       coinElement.classList.remove('hidden');
-      
-      if (player === "player1") {
-        setupCallerInterface();
-      } else {
-        setupFlipperInterface();
-      }
+
+      if (player === "player1") setupCallerInterface();
+      else setupFlipperInterface();
 
       const tossRef = ref(db, `rooms/${room}/toss`);
       onValue(tossRef, (snapshot) => {
         const tossData = snapshot.val();
         if (!tossData) return;
-
-        if (tossData.status === 'called' && player === "player2") {
-          showFlipInterface(tossData.call);
-        }
-
+        if (tossData.status === 'called' && player === "player2") showFlipInterface(tossData.call);
         if (tossData.status === 'complete') {
           tossCompleted = true;
           showTossResult(tossData);
@@ -181,7 +168,7 @@
       const tossSnap = await get(ref(db, `rooms/${room}/toss`));
       const call = tossSnap.val().call;
       const winner = call === result ? 'player1' : 'player2';
-      
+
       await set(ref(db, `rooms/${room}/toss`), {
         call: call,
         result: result,
@@ -189,7 +176,7 @@
         status: 'complete'
       });
 
-      // ✅ Fix: Set tossWinner at root (required by game.html)
+      // ✅ Save tossWinner at root
       await update(ref(db, `rooms/${room}`), {
         tossWinner: winner
       });
@@ -205,11 +192,8 @@
       tossResult.classList.remove('hidden');
       const wonToss = tossData.winner === player;
       tossOutcome.textContent = `Toss was ${tossData.result}. ${wonToss ? 'You' : 'Opponent'} won!`;
-      if (wonToss) {
-        setupBattingChoice();
-      } else {
-        waitForOpponentChoice();
-      }
+      if (wonToss) setupBattingChoice();
+      else waitForOpponentChoice();
     }
 
     function setupBattingChoice() {
@@ -222,20 +206,22 @@
       waitingChoice.classList.remove('hidden');
       const choiceRef = ref(db, `rooms/${room}/battingFirst`);
       onValue(choiceRef, (snapshot) => {
-        if (snapshot.exists()) {
-          redirectToGame();
-        }
+        if (snapshot.exists()) redirectToGame();
       });
     }
 
     async function makeChoice(decision) {
+      const battingTeam = decision === 'bat' ? player : opponent;
+      const bowlingTeam = decision === 'bowl' ? player : opponent;
+
       await update(ref(db, `rooms/${room}`), {
-        battingFirst: decision === 'bat' ? player : opponent,
-        bowlingFirst: decision === 'bowl' ? player : opponent,
+        battingFirst: battingTeam,
+        bowlingFirst: bowlingTeam,
         tossComplete: true
       });
-      localStorage.setItem('battingFirst', decision === 'bat' ? player : opponent);
-      localStorage.setItem('bowlingFirst', decision === 'bowl' ? player : opponent);
+
+      localStorage.setItem('battingFirst', battingTeam);
+      localStorage.setItem('bowlingFirst', bowlingTeam);
       localStorage.setItem('tossComplete', 'true');
       redirectToGame();
     }
