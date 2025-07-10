@@ -239,14 +239,7 @@
             waitingChoice.classList.remove('hidden');
           }
         }
-        
-        // Listen for batting choice
-        if (tossData && tossData.battingFirst) {
-          setTimeout(() => {
-            window.location.href = `game.html?room=${room}&player=${player}`;
-          }, 1500);
-        }
-      });
+      }, { onlyOnce: true });
     }
     
     // Batting choice handlers
@@ -257,24 +250,19 @@
       battingChoice.classList.add('hidden');
       tossOutcome.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
       
-      await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === 'bat' ? player : opponent,
-        bowlingFirst: decision === 'bowl' ? player : opponent
+        bowlingFirst: decision === 'bowl' ? player : opponent,
+        status: 'ready'
       });
       
-      // Save to localStorage and redirect
-      localStorage.setItem('battingFirst', decision === 'bat' ? player : opponent);
-      localStorage.setItem('bowlingFirst', decision === 'bowl' ? player : opponent);
+      // Redirect to game
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
     // Handle when opponent makes the choice
     onValue(ref(db, `rooms/${room}/battingFirst`), (snapshot) => {
       if (snapshot.exists()) {
-        localStorage.setItem('battingFirst', snapshot.val());
-        localStorage.setItem('bowlingFirst', 
-          snapshot.val() === player ? opponent : player);
         window.location.href = `game.html?room=${room}&player=${player}`;
       }
     });
