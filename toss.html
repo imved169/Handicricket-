@@ -1,32 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Toss | HandiCricket</title>
   <style>
-    body { background: #061e3e; color: white; font-family: sans-serif; text-align: center; padding: 30px; }
-    h1 { margin-bottom: 20px; }
-    .btn { padding: 12px 24px; font-size: 16px; border: none; border-radius: 10px; background: #1e88e5; color: white; cursor: pointer; margin: 10px; transition: all 0.3s; }
-    .btn:hover { background: #1565c0; transform: scale(1.05); }
-    .btn:disabled { background: #607d8b; cursor: not-allowed; transform: none; }
-    .hidden { display: none; }
-    .container { max-width: 500px; margin: 0 auto; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 15px; }
-    .coin { width: 100px; height: 100px; background: linear-gradient(135deg, #FFD700, #FFA500); border-radius: 50%; margin: 20px auto; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #000; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); animation: none; }
-    .spinning { animation: spin 0.5s linear infinite; }
-    @keyframes spin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
-    .player-status { margin-top: 15px; padding: 10px; background: #0d2a52; border-radius: 8px; }
-    #roomCodeDisplay { font-size: 20px; margin-bottom: 15px; background: #0d2a52; padding: 10px; border-radius: 8px; display: inline-block; }
-    #formatDisplay { margin: 15px 0; font-size: 18px; color: #ffeb3b; font-weight: bold; }
-    #flip-coin-btn { margin-top: 20px; }
-    .loading-spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3);
+    body { 
+      background: #061e3e; 
+      color: white; 
+      font-family: sans-serif; 
+      text-align: center; 
+      padding: 30px; 
+    }
+    h1 { 
+      margin-bottom: 20px; 
+    }
+    .btn { 
+      padding: 12px 24px; 
+      font-size: 16px; 
+      border: none; 
+      border-radius: 10px; 
+      background: #1e88e5; 
+      color: white; 
+      cursor: pointer; 
+      margin: 10px; 
+      transition: all 0.3s;
+    }
+    .btn:hover { 
+      background: #1565c0; 
+      transform: scale(1.05);
+    }
+    .btn:disabled {
+      background: #607d8b;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .hidden {
+      display: none;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 15px;
+    }
+    .coin {
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, #FFD700, #FFA500);
       border-radius: 50%;
-      border-top: 4px solid #1e88e5;
-      width: 30px;
-      height: 30px;
-      animation: spin 1s linear infinite;
       margin: 20px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      animation: none;
+    }
+    .spinning {
+      animation: spin 0.5s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotateY(0deg); }
+      to { transform: rotateY(360deg); }
+    }
+    .player-status {
+      margin-top: 15px;
+      padding: 10px;
+      background: #0d2a52;
+      border-radius: 8px;
+    }
+    #roomCodeDisplay {
+      font-size: 20px;
+      margin-bottom: 15px;
+      background: #0d2a52;
+      padding: 10px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    #formatDisplay { 
+      margin: 15px 0; 
+      font-size: 18px; 
+      color: #ffeb3b; 
+      font-weight: bold;
+    }
+    #flip-coin-btn {
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -36,9 +98,13 @@
     
     <div id="roomCodeDisplay">Room Code: Loading...</div>
     <div id="formatDisplay">Match Format: Loading...</div>
-    <div class="player-status" id="playerStatus">Waiting for both players...</div>
+    <div class="player-status" id="playerStatus">
+      Waiting for both players...
+    </div>
     
-    <div id="toss-waiting"><p>Waiting for opponent to join the toss...</p></div>
+    <div id="toss-waiting">
+      <p>Waiting for opponent to join the toss...</p>
+    </div>
     
     <div id="toss-options" class="hidden">
       <p id="toss-instruction"></p>
@@ -64,14 +130,13 @@
         <p>Waiting for opponent to choose...</p>
       </div>
     </div>
-    
-    <div id="loading-spinner" class="loading-spinner hidden"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
       authDomain: "handicricket-85a06.firebaseapp.com",
@@ -82,17 +147,21 @@
       measurementId: "G-HSV9H4LEJQ"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
-
+    
+    // Update UI with room and player info
     document.getElementById("roomCodeDisplay").innerText = `Room Code: ${room}`;
     document.getElementById("playerStatus").innerText = `You are ${player.toUpperCase()}`;
 
+    // DOM elements
     const tossWaiting = document.getElementById('toss-waiting');
     const tossOptions = document.getElementById('toss-options');
     const tossResult = document.getElementById('toss-result');
@@ -104,200 +173,177 @@
     const callOptions = document.getElementById('call-options');
     const flipOptions = document.getElementById('flip-options');
     const tossInstruction = document.getElementById('toss-instruction');
-    const loadingSpinner = document.getElementById('loading-spinner');
 
-    let tossCompleted = false;
-
+    // Set player as ready
     async function setPlayerReady() {
-      loadingSpinner.classList.remove('hidden');
-      try {
-        await set(ref(db, `rooms/${room}/${player}/ready`), true);
-        document.getElementById("playerStatus").innerText = "You are ready! Waiting for opponent...";
+      await set(ref(db, `rooms/${room}/${player}/ready`), true);
+      document.getElementById("playerStatus").innerText = "You are ready! Waiting for opponent...";
+      checkPlayersReady();
+    }
+
+    // Check if both players are ready
+    async function checkPlayersReady() {
+      const player1Snap = await get(ref(db, `rooms/${room}/player1/ready`));
+      const player2Snap = await get(ref(db, `rooms/${room}/player2/ready`));
+      
+      if (player1Snap.exists() && player1Snap.val() && 
+          player2Snap.exists() && player2Snap.val()) {
+        // Both players are ready
+        document.getElementById("playerStatus").innerText = "Both players ready!";
+        tossWaiting.classList.add('hidden');
+        tossOptions.classList.remove('hidden');
+        coinElement.classList.remove('hidden');
         
-        const readyRef = ref(db, `rooms/${room}`);
-        onValue(readyRef, (snapshot) => {
-          const roomData = snapshot.val();
-          if (!roomData) return;
-          if (roomData.player1?.ready && roomData.player2?.ready && !tossCompleted) {
-            initializeTossSequence();
-          }
-        });
-      } catch (error) {
-        console.error("Error setting player ready:", error);
-        document.getElementById("playerStatus").innerText = "Error connecting. Please refresh.";
-      } finally {
-        loadingSpinner.classList.add('hidden');
+        // Player 1 calls, Player 2 flips
+        if (player === "player1") {
+          tossInstruction.textContent = "Call Heads or Tails:";
+          callOptions.classList.remove('hidden');
+          flipOptions.classList.add('hidden');
+        } else {
+          tossInstruction.textContent = "Waiting for Player 1 to call...";
+          callOptions.classList.add('hidden');
+          flipOptions.classList.add('hidden');
+        }
+      } else {
+        setTimeout(checkPlayersReady, 1000);
       }
     }
 
-    function initializeTossSequence() {
-      tossWaiting.classList.add('hidden');
-      tossOptions.classList.remove('hidden');
-      coinElement.classList.remove('hidden');
+    // Display match format
+    onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
+      const format = snap.val() || "5";
+      const formatNames = {
+        "5": "5 Overs",
+        "10": "10 Overs", 
+        "20": "T20",
+        "50": "ODI",
+        "test": "Test Match"
+      };
+      formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
+    });
 
-      if (player === "player1") setupCallerInterface();
-      else setupFlipperInterface();
+    // Toss call handlers
+    document.getElementById('call-heads').addEventListener('click', () => makeTossCall('heads'));
+    document.getElementById('call-tails').addEventListener('click', () => makeTossCall('tails'));
+    document.getElementById('flip-coin-btn').addEventListener('click', flipCoin);
 
+    async function makeTossCall(call) {
+      // Save toss call to Firebase
+      await set(ref(db, `rooms/${room}/toss`), {
+        caller: player,
+        call: call,
+        status: 'called'
+      });
+      
+      callOptions.classList.add('hidden');
+      tossInstruction.textContent = "Waiting for Player 2 to flip the coin...";
+      
+      // Listen for when the coin is flipped
       const tossRef = ref(db, `rooms/${room}/toss`);
       onValue(tossRef, (snapshot) => {
         const tossData = snapshot.val();
-        if (!tossData) return;
-        if (tossData.status === 'called' && player === "player2") showFlipInterface(tossData.call);
-        if (tossData.status === 'complete') {
-          tossCompleted = true;
+        
+        if (tossData && tossData.status === 'flipped') {
+          // Coin has been flipped
           showTossResult(tossData);
         }
       });
     }
 
-    function setupCallerInterface() {
-      tossInstruction.textContent = "Call Heads or Tails:";
-      callOptions.classList.remove('hidden');
-      flipOptions.classList.add('hidden');
-      document.getElementById('call-heads').onclick = () => makeTossCall('heads');
-      document.getElementById('call-tails').onclick = () => makeTossCall('tails');
-    }
-
-    function setupFlipperInterface() {
-      tossInstruction.textContent = "Waiting for Player 1's call...";
-      callOptions.classList.add('hidden');
-      flipOptions.classList.add('hidden');
-    }
-
-    function showFlipInterface(call) {
-      tossInstruction.textContent = `Player 1 called ${call}. Flip the coin!`;
-      flipOptions.classList.remove('hidden');
-      document.getElementById('flip-coin-btn').onclick = flipCoin;
-    }
-
-    async function makeTossCall(call) {
-      loadingSpinner.classList.remove('hidden');
-      try {
-        await set(ref(db, `rooms/${room}/toss`), {
-          caller: player,
-          call: call,
-          status: 'called'
-        });
-        tossInstruction.textContent = `You called ${call}. Waiting for flip...`;
-        callOptions.classList.add('hidden');
-      } catch (error) {
-        console.error("Error making toss call:", error);
-        tossInstruction.textContent = "Error submitting call. Please try again.";
-        callOptions.classList.remove('hidden');
-      } finally {
-        loadingSpinner.classList.add('hidden');
-      }
-    }
-
     async function flipCoin() {
-      loadingSpinner.classList.remove('hidden');
-      coinElement.classList.add('spinning');
+      tossInstruction.textContent = "Flipping coin...";
       flipOptions.classList.add('hidden');
+      coinElement.classList.add('spinning');
       
-      try {
-        const result = Math.random() < 0.5 ? 'heads' : 'tails';
-        const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-        const call = tossSnap.val().call;
-        const winner = call === result ? 'player1' : 'player2';
-
-        await set(ref(db, `rooms/${room}/toss`), {
-          call: call,
+      // Generate random result
+      const result = Math.random() < 0.5 ? 'heads' : 'tails';
+      
+      // Get the call from player1
+      const tossSnap = await get(ref(db, `rooms/${room}/toss`));
+      const tossData = tossSnap.val();
+      const call = tossData.call;
+      
+      // Determine winner
+      const winner = call === result ? 'player1' : 'player2';
+      
+      // Update toss result
+      await set(ref(db, `rooms/${room}/toss`), {
+        ...tossData,
+        result: result,
+        winner: winner,
+        status: 'complete'
+      });
+      
+      // Show result after a delay to simulate coin flip
+      setTimeout(() => {
+        coinElement.classList.remove('spinning');
+        coinElement.textContent = result.toUpperCase();
+        showTossResult({
           result: result,
           winner: winner,
           status: 'complete'
         });
-
-        // Save tossWinner at root
-        await update(ref(db, `rooms/${room}`), {
-          tossWinner: winner
-        });
-
-        setTimeout(() => {
-          coinElement.classList.remove('spinning');
-          coinElement.textContent = result.toUpperCase();
-        }, 2000);
-      } catch (error) {
-        console.error("Error flipping coin:", error);
-        coinElement.classList.remove('spinning');
-        flipOptions.classList.remove('hidden');
-        tossInstruction.textContent = "Error flipping coin. Please try again.";
-      } finally {
-        loadingSpinner.classList.add('hidden');
-      }
+      }, 2000);
     }
 
     function showTossResult(tossData) {
       tossOptions.classList.add('hidden');
       tossResult.classList.remove('hidden');
-      const wonToss = tossData.winner === player;
-      tossOutcome.textContent = `Toss was ${tossData.result}. ${wonToss ? 'You' : 'Opponent'} won!`;
-      if (wonToss) setupBattingChoice();
-      else waitForOpponentChoice();
-    }
-
-    function setupBattingChoice() {
-      battingChoice.classList.remove('hidden');
-      document.getElementById('choose-bat').onclick = () => makeChoice('bat');
-      document.getElementById('choose-bowl').onclick = () => makeChoice('bowl');
-    }
-
-    function waitForOpponentChoice() {
-      waitingChoice.classList.remove('hidden');
-      const choiceRef = ref(db, `rooms/${room}/battingFirst`);
-      onValue(choiceRef, (snapshot) => {
-        if (snapshot.exists()) redirectToGame();
-      });
-    }
-
-    async function makeChoice(decision) {
-      loadingSpinner.classList.remove('hidden');
-      try {
-        const battingTeam = decision === 'bat' ? player : opponent;
-        const bowlingTeam = decision === 'bowl' ? player : opponent;
-
-        await update(ref(db, `rooms/${room}`), {
-          battingFirst: battingTeam,
-          bowlingFirst: bowlingTeam,
-          tossComplete: true,
-          // Initialize game state
-          currentPlays: { player1: null, player2: null },
-          currentBatter: null,
-          currentBowler: null,
-          innings: 1,
-          runs: 0,
-          wickets: 0,
-          legalBalls: 0,
-          gameStarted: true
-        });
-
-        localStorage.setItem('battingFirst', battingTeam);
-        localStorage.setItem('bowlingFirst', bowlingTeam);
-        localStorage.setItem('tossComplete', 'true');
-        redirectToGame();
-      } catch (error) {
-        console.error("Error making choice:", error);
-        document.getElementById("playerStatus").innerText = "Error saving choice. Please try again.";
-      } finally {
-        loadingSpinner.classList.add('hidden');
+      
+      const result = tossData.result;
+      const winner = tossData.winner;
+      
+      tossOutcome.textContent = `Toss was ${result}. ${winner === player ? 'You' : 'Opponent'} won!`;
+      
+      if (winner === player) {
+        battingChoice.classList.remove('hidden');
+      } else {
+        waitingChoice.classList.remove('hidden');
       }
     }
-
-    function redirectToGame() {
+    
+    // Batting choice handlers
+    document.getElementById('choose-bat').addEventListener('click', () => makeBattingChoice('bat'));
+    document.getElementById('choose-bowl').addEventListener('click', () => makeBattingChoice('bowl'));
+    
+    async function makeBattingChoice(decision) {
+      battingChoice.classList.add('hidden');
+      tossOutcome.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
+      
+      await set(ref(db, `rooms/${room}/decision`), decision);
+      await update(ref(db, `rooms/${room}`), {
+        battingFirst: decision === 'bat' ? player : opponent,
+        bowlingFirst: decision === 'bowl' ? player : opponent
+      });
+      
+      // Save to localStorage and redirect
+      localStorage.setItem('battingFirst', decision === 'bat' ? player : opponent);
+      localStorage.setItem('bowlingFirst', decision === 'bowl' ? player : opponent);
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
-    // Initialize format display
-    onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-      const format = snap.val() || "5";
-      document.getElementById("formatDisplay").innerText = `Match Format: ${getFormatName(format)}`;
+    // Listen for when opponent makes the choice
+    onValue(ref(db, `rooms/${room}/battingFirst`), (snapshot) => {
+      if (snapshot.exists()) {
+        localStorage.setItem('battingFirst', snapshot.val());
+        localStorage.setItem('bowlingFirst', 
+          snapshot.val() === player ? opponent : player);
+        window.location.href = `game.html?room=${room}&player=${player}`;
+      }
     });
 
-    function getFormatName(format) {
-      const formats = { "5": "5 Overs", "10": "10 Overs", "20": "T20", "50": "ODI", "test": "Test Match" };
-      return formats[format] || format;
-    }
+    // Listen for when player1 makes the call
+    onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
+      const tossData = snapshot.val();
+      if (!tossData) return;
+      
+      if (player === "player2" && tossData.status === 'called') {
+        tossInstruction.textContent = "Player 1 has called. Flip the coin:";
+        flipOptions.classList.remove('hidden');
+      }
+    });
 
-    // Start the toss process
+    // Initialize the page
     setPlayerReady();
   </script>
 </body>
