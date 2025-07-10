@@ -230,8 +230,26 @@
     }
     
     .team-container li {
-      padding: 8px 0;
-      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .team-container li:hover {
+      background: rgba(30, 136, 229, 0.2);
+      transform: translateX(5px);
+    }
+    
+    .team-container li.active {
+      background: rgba(76, 175, 80, 0.2);
+      border-left: 3px solid #4CAF50;
+    }
+    
+    .team-winner {
+      color: #ffeb3b;
+      font-weight: bold;
     }
     
     /* Controls */
@@ -731,7 +749,44 @@
     const liveStateRef = ref(db, `rooms/${room}/liveState");
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
     const resultRef = ref(db, `rooms/${room}/result");
-    const savedGameRef = ref(db, `savedGames/${room}");
+    const savedGameRef = ref(db, `savedGames/${room}`);
+
+    // Load and display playing XI from Firebase
+    async function loadAndDisplayPlayingXI() {
+      try {
+        const snapshot = await get(roomRef);
+        const roomData = snapshot.val();
+        
+        // Clear existing player lists
+        team1PlayersEl.innerHTML = '';
+        team2PlayersEl.innerHTML = '';
+        
+        // Load team 1 players
+        if (roomData.player1?.playing11) {
+          team1NameEl.textContent = roomData.player1.teamName || 'Team 1';
+          roomData.player1.playing11.forEach(player => {
+            const li = document.createElement('li');
+            li.textContent = player;
+            team1PlayersEl.appendChild(li);
+          });
+        }
+        
+        // Load team 2 players
+        if (roomData.player2?.playing11) {
+          team2NameEl.textContent = roomData.player2.teamName || 'Team 2';
+          roomData.player2.playing11.forEach(player => {
+            const li = document.createElement('li');
+            li.textContent = player;
+            team2PlayersEl.appendChild(li);
+          });
+        }
+        
+        return true;
+      } catch (error) {
+        console.error("Error loading playing XI:", error);
+        return false;
+      }
+    }
 
     // Check powerplay status
     function checkPowerplay() {
@@ -1832,8 +1887,8 @@
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
-        // Load teams - don't fail if teams aren't loaded yet
-        const teamsLoaded = await loadPlaying11();
+        // Load and display playing XI
+        const teamsLoaded = await loadAndDisplayPlayingXI();
         if (!teamsLoaded) {
           setTimeout(initGame, 3000);
           return;
@@ -1888,4 +1943,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
