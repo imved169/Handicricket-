@@ -178,35 +178,35 @@
     async function setPlayerReady() {
       await set(ref(db, `rooms/${room}/${player}/ready`), true);
       document.getElementById("playerStatus").innerText = "You are ready! Waiting for opponent...";
-      checkPlayersReady();
-    }
-
-    // Check if both players are ready
-    async function checkPlayersReady() {
-      const player1Snap = await get(ref(db, `rooms/${room}/player1/ready`));
-      const player2Snap = await get(ref(db, `rooms/${room}/player2/ready`));
       
-      if (player1Snap.exists() && player1Snap.val() && 
-          player2Snap.exists() && player2Snap.val()) {
-        // Both players are ready
-        document.getElementById("playerStatus").innerText = "Both players ready!";
-        tossWaiting.classList.add('hidden');
-        tossOptions.classList.remove('hidden');
-        coinElement.classList.remove('hidden');
+      // Listen for both players being ready
+      const readyRef = ref(db, `rooms/${room}`);
+      onValue(readyRef, (snapshot) => {
+        const roomData = snapshot.val();
+        if (!roomData) return;
         
-        // Player 1 calls, Player 2 flips
-        if (player === "player1") {
-          tossInstruction.textContent = "Call Heads or Tails:";
-          callOptions.classList.remove('hidden');
-          flipOptions.classList.add('hidden');
-        } else {
-          tossInstruction.textContent = "Waiting for Player 1 to call...";
-          callOptions.classList.add('hidden');
-          flipOptions.classList.add('hidden');
+        const player1Ready = roomData.player1?.ready || false;
+        const player2Ready = roomData.player2?.ready || false;
+        
+        if (player1Ready && player2Ready) {
+          // Both players are ready
+          document.getElementById("playerStatus").innerText = "Both players ready!";
+          tossWaiting.classList.add('hidden');
+          tossOptions.classList.remove('hidden');
+          coinElement.classList.remove('hidden');
+          
+          // Player 1 calls, Player 2 flips
+          if (player === "player1") {
+            tossInstruction.textContent = "Call Heads or Tails:";
+            callOptions.classList.remove('hidden');
+            flipOptions.classList.add('hidden');
+          } else {
+            tossInstruction.textContent = "Waiting for Player 1 to call...";
+            callOptions.classList.add('hidden');
+            flipOptions.classList.add('hidden');
+          }
         }
-      } else {
-        setTimeout(checkPlayersReady, 1000);
-      }
+      }, { onlyOnce: false });
     }
 
     // Display match format
@@ -242,8 +242,9 @@
       const tossRef = ref(db, `rooms/${room}/toss`);
       onValue(tossRef, (snapshot) => {
         const tossData = snapshot.val();
+        if (!tossData) return;
         
-        if (tossData && tossData.status === 'flipped') {
+        if (tossData.status === 'flipped') {
           // Coin has been flipped
           showTossResult(tossData);
         }
@@ -345,7 +346,7 @@
         tossInstruction.textContent = "Player 1 has called. Flip the coin:";
         flipOptions.classList.remove('hidden');
       }
-    };
+    });
 
     // Initialize the page
     setPlayerReady();
