@@ -193,9 +193,12 @@
     }
 
     // Check if opponent has already submitted team
-    onValue(ref(db, `rooms/${roomId}/${player === 'player1' ? 'player2' : 'player1'}`), (snapshot) => {
-      const opponentData = snapshot.val();
-      if (opponentData?.playing11) {
+    onValue(ref(db, `rooms/${roomId}/teams`), (snapshot) => {
+      const teams = snapshot.val();
+      if (!teams) return;
+      
+      const opponent = player === 'player1' ? 'player2' : 'player1';
+      if (teams[opponent]) {
         waitingMessage.textContent = "Opponent has submitted their team!";
       }
     });
@@ -209,24 +212,29 @@
         return alert("All 11 player names are required!");
       }
 
-      // Get format from localStorage (set in index.html)
+      // Get format and team name from localStorage
       const format = localStorage.getItem('format');
-      const teamName = prompt("Enter your team name:", `Team ${player === 'player1' ? '1' : '2'}`);
+      const teamName = localStorage.getItem(`${player}Name`) || 
+                      (player === 'player1' ? 'Team 1' : 'Team 2');
       
       const teamData = {
-        playing11: players,
+        players: players,
         format: format,
-        teamName: teamName || `Team ${player === 'player1' ? '1' : '2'}`,
-        online: true
+        name: teamName
       };
       
       try {
         // Save team to Firebase
-        await set(ref(db, `rooms/${roomId}/${player}`), teamData);
+        await set(ref(db, `rooms/${roomId}/teams/${player}`), teamData);
         
         // Save to localStorage
-        localStorage.setItem(`${player}Playing11`, JSON.stringify(players));
-        localStorage.setItem(`${player}Name`, teamData.teamName);
+        if (player === 'player1') {
+          localStorage.setItem('team1', JSON.stringify(teamData));
+          localStorage.setItem('team1Name', teamName);
+        } else {
+          localStorage.setItem('team2', JSON.stringify(teamData));
+          localStorage.setItem('team2Name', teamName);
+        }
         
         // Show confirmation
         document.getElementById("submitXI").textContent = 'Team Submitted!';
@@ -234,11 +242,18 @@
         waitingMessage.textContent = "Waiting for opponent to submit their team...";
         
         // Wait for opponent's team
-        const opponentRef = ref(db, `rooms/${roomId}/${player === 'player1' ? 'player2' : 'player1'}`);
-        onValue(opponentRef, (snapshot) => {
-          const opponentData = snapshot.val();
-          if (opponentData?.playing11) {
-            window.location.href = `toss.html?room=${roomId}&player=${player}`;
+        const teamsRef = ref(db, `rooms/${roomId}/teams`);
+        onValue(teamsRef, (snapshot) => {
+          const teams = snapshot.val();
+          if (teams && teams.player1 && teams.player2) {
+            // Initialize spectator data structure
+            set(ref(db, `rooms/${roomId}/spectatorData`), {
+              overSummaries: {},
+              matchStats: {},
+              spectatorChat: {}
+            }).then(() => {
+              window.location.href = `toss.html?room=${roomId}&player=${player}`;
+            });
           }
         }, { onlyOnce: false });
         
