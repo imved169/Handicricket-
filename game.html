@@ -700,16 +700,16 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
-    // Game format rules
+    // Game format rules with updated wicket values
     const formatRules = {
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
         totalWickets: 11, 
         powerplayOvers: 2, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        livesPerPlayer: 2,
+        powerplayWicketValue: 0.5,   // 1/2 life in powerplay
+        regularWicketValue: 1.0,     // 1 full life in non-powerplay
+        livesPerPlayer: 1,           // Single life per player
         deadOvers: []
       },
       "10": { 
@@ -717,9 +717,9 @@
         totalOvers: 10, 
         totalWickets: 11, 
         powerplayOvers: 3, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        livesPerPlayer: 2,
+        powerplayWicketValue: 0.5,   // 1/2 life in powerplay
+        regularWicketValue: 1.0,     // 1 full life in non-powerplay
+        livesPerPlayer: 1,           // Single life per player
         deadOvers: []
       },
       "20": { 
@@ -727,9 +727,9 @@
         totalOvers: 20, 
         totalWickets: 11, 
         powerplayOvers: 6, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        livesPerPlayer: 2,
+        powerplayWicketValue: 0.5,   // 1/2 life in powerplay
+        regularWicketValue: 1.0,     // 1 full life in non-powerplay
+        livesPerPlayer: 1,           // Single life per player
         deadOvers: []
       },
       "50": { 
@@ -737,9 +737,9 @@
         totalOvers: 50, 
         totalWickets: 11, 
         powerplayOvers: [1,10, 21,30, 41,42], 
-        powerplayWicketValue: 0.25,
-        regularWicketValue: 0.5,
-        livesPerPlayer: 4,
+        powerplayWicketValue: 0.25,  // 1/4 life in powerplay
+        regularWicketValue: 0.5,     // 1/2 life in non-powerplay
+        livesPerPlayer: 1,           // Single life per player
         deadOvers: [11,20, 31,40]
       },
       "test": { 
@@ -799,8 +799,8 @@
     let bowlerSelected = false;
     let team1Players = [];
     let team2Players = [];
-    let batterPenalties = {}; // Tracks penalty runs per batter
-    let lastBatterRuns = {};  // Tracks last run count for milestone checks
+    let batterPenalties = {};
+    let lastBatterRuns = {};
 
     // DOM elements
     const status = document.getElementById("status");
@@ -1300,60 +1300,7 @@
       });
     }
 
-    // Update target display for 2nd innings
-    function updateTargetDisplay() {
-      if (innings === 2) {
-        targetDisplay.style.display = "block";
-        targetRunsEl.textContent = team1Score + 1;
-        
-        const ballsRemaining = currentFormat.totalOvers * 6 - legalBalls;
-        if (ballsRemaining > 0) {
-          const requiredRuns = team1Score - runs + 1;
-          const requiredRate = (requiredRuns / (ballsRemaining / 6)).toFixed(2);
-          requiredRateEl.textContent = `RR: ${requiredRate}`;
-        } else {
-          requiredRateEl.textContent = "";
-        }
-      } else {
-        targetDisplay.style.display = "none";
-      }
-    }
-
-    // Update mini scorecard
-    function updateMiniScorecard() {
-      miniScoreEl.textContent = `${runs}/${Math.floor(wickets)}`;
-      miniOversEl.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
-    }
-
-    // Update momentum meter
-    function updateMomentum() {
-      const boundaryCount = Object.values(ballByBall)
-        .filter(ball => ball.runs >= 4).length;
-      const meter = document.querySelector('.meter-bar');
-      const momentum = Math.min(100, boundaryCount * 5);
-      meter.style.width = `${momentum}%`;
-      meter.style.backgroundColor = momentum > 70 ? '#4CAF50' : 
-                                  momentum > 30 ? '#FFC107' : '#F44336';
-    }
-
-    // Check for milestones (centuries, 5-wicket hauls)
-    function checkMilestones() {
-      if (currentBatter && batterStats[currentBatter]?.runs >= 100 && 
-          !batterStats[currentBatter].centuryNotified) {
-        showNotification(`${currentBatter} scores a century! 🎉`, 'batting');
-        batterStats[currentBatter].centuryNotified = true;
-        createConfetti();
-      }
-      
-      if (currentBowler && bowlerStats[currentBowler]?.wickets >= 5 && 
-          !bowlerStats[currentBowler].fiveWicketNotified) {
-        showNotification(`${currentBowler} takes 5 wickets! 🎯`, 'bowling');
-        bowlerStats[currentBowler].fiveWicketNotified = true;
-        createConfetti();
-      }
-    }
-
-    // Show batter selection modal
+    // Show batter selection modal with fractional wickets
     async function showBatterSelection() {
       disableButtons();
       try {
@@ -1367,9 +1314,10 @@
           return;
         }
         
+        // Only show batters who haven't been completely out (wickets < 1.0)
         const availableBatters = currentPlayers.filter(p => {
           const wicketsUsed = batterWickets[p] || 0;
-          return wicketsUsed < currentFormat.livesPerPlayer;
+          return wicketsUsed < 1.0;
         });
         
         if (availableBatters.length === 0) {
@@ -1385,7 +1333,7 @@
           const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
           const wicketsLost = batterWickets[player] || 0;
           const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
-          const wicketsLeft = (currentFormat.livesPerPlayer - wicketsLost).toFixed(2);
+          const wicketsLeft = (1.0 - wicketsLost).toFixed(2);
           
           const batterEl = document.createElement("div");
           batterEl.className = "batter-item";
@@ -1401,7 +1349,7 @@
               <div class="batter-status">
                 <span>${stats.fours} fours</span>
                 <span>${stats.sixes} sixes</span>
-                <span>${wicketsLeft}/${currentFormat.livesPerPlayer} wickets</span>
+                <span>${wicketsLeft} wickets left</span>
               </div>
             </div>
           `;
@@ -1549,7 +1497,7 @@
       });
     }
 
-    // Process the outcome of a ball with proper penalty handling
+    // Process the outcome of a ball with fractional wickets
     async function processBallOutcome(batCard, bowlCard, battingPlayer, bowlingPlayer) {
       let outcome = "";
       let isLegalBall = false;
@@ -1608,21 +1556,24 @@
       else if (batCard === bowlCard && batCard > 0) {
         let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
         
-        batterWickets[currentBatter] = (batterWickets[currentBatter] || 0) + wicketValue;
+        // Ensure we don't exceed 1.0 for a player's wickets
+        const currentWickets = batterWickets[currentBatter] || 0;
+        const newWickets = Math.min(1.0, currentWickets + wicketValue);
+        
+        batterWickets[currentBatter] = newWickets;
         wickets += wicketValue;
         
-        if (batterWickets[currentBatter] >= currentFormat.livesPerPlayer) {
+        // Check if player is completely out (reached 1.0)
+        if (Math.abs(batterWickets[currentBatter] - 1.0) < 0.001) {
           isPlayerOut = true;
           outcome = "WICKET! (Out)";
-          wickets = Math.ceil(wickets);
-          batterWickets[currentBatter] = 0;
           fallOfWickets.push({
             score: runs,
             over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
             batter: currentBatter
           });
         } else {
-          outcome = `WICKET! (${(currentFormat.livesPerPlayer - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
+          outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
         }
         
         isLegalBall = true;
@@ -1762,7 +1713,7 @@
       setTimeout(async () => {
         await resetPlays();
         
-        if ((isPlayerOut || isWicket) && player === battingPlayer) {
+        if (isPlayerOut && player === battingPlayer) {
           batterSelected = false;
           showBatterSelection();
         } else if (isLegalBall && legalBalls % 6 === 0) {
@@ -1912,7 +1863,7 @@
       // Update team scores
       if (innings === 1) {
         team1Score = currentInningRuns;
-        team1Wickets = wickets;
+        team1Wickets = Math.floor(wickets);
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
         if (!isTestMatch) {
@@ -1929,7 +1880,7 @@
         }
       } else {
         team2Score = currentInningRuns;
-        team2Wickets = wickets;
+        team2Wickets = Math.floor(wickets);
         status.innerText = `Team 2 scored ${team2Score} runs!`;
       }
       
