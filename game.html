@@ -70,6 +70,33 @@
       background: #7b1fa2;
     }
     
+    /* Test Match Controls */
+    #testControls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px auto;
+      flex-wrap: wrap;
+    }
+    
+    #testControls button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #607d8b;
+      color: white;
+    }
+    
+    #testControls button:hover {
+      background: #455a64;
+    }
+    
     /* Card Buttons */
     .card-row { 
       margin: 25px auto;
@@ -566,9 +593,15 @@
   
   <!-- Moved controls to top -->
   <div id="topControls">
-    <button id="saveBtn">💾 Save</button>
-    <button id="exitBtn">🚪 Exit</button>
+    <button id="saveBtn">💾 Save & Exit</button>
+    <button id="exitBtn">🚪 Exit Without Saving</button>
     <button id="resetPlaysBtn">🔄 Reset Plays</button>
+  </div>
+  
+  <!-- Test Match Controls -->
+  <div id="testControls" style="display: none;">
+    <button id="declareInnings">🏏 Declare Innings</button>
+    <button id="enforceFollowOn">🏃‍♂️ Enforce Follow-On</button>
   </div>
   
   <div id="formatDisplay"></div>
@@ -604,7 +637,7 @@
     <div id="selectionModal" class="selection-modal">
       <h3 id="selectionTitle">Select Next Batter</h3>
       <div id="selectionList" class="selection-list"></div>
-      <button id="confirmSelection" style="width: 100%; margin-top: 10px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm</button>
+      <button id="confirmSelection">Confirm Selection</button>
     </div>
     
     <!-- Card buttons -->
@@ -803,6 +836,9 @@
     const deadOverIndicator = document.getElementById("deadOverIndicator");
     const freeHitIndicator = document.getElementById("freeHitIndicator");
     const loadingSpinner = document.getElementById("loading-spinner");
+    const testControls = document.getElementById("testControls");
+    const declareInningsBtn = document.getElementById("declareInnings");
+    const enforceFollowOnBtn = document.getElementById("enforceFollowOn");
 
     // Firebase references
     const playerRef = ref(db, `rooms/${room}/${player}/online`);
@@ -880,6 +916,11 @@
         
         formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
         
+        // Show test controls if test match
+        if (isTestMatch) {
+          testControls.style.display = "flex";
+        }
+        
         // Initialize stats
         initializeBatterStats();
         initializeBowlerStats();
@@ -891,6 +932,7 @@
         setupCardButtons();
         setupFirebaseListeners();
         setupInningsButton();
+        setupTestControls();
         
         // Set up control buttons
         saveBtn.addEventListener("click", saveGameState);
@@ -1800,10 +1842,7 @@
 
       // Listen for follow-on status
       onValue(followOnRef, (snap) => {
-        const followOnBtn = document.getElementById("enforceFollowOn");
-        if (followOnBtn) {
-          followOnBtn.style.display = snap.exists() && snap.val() ? "block" : "none";
-        }
+        enforceFollowOnBtn.style.display = snap.exists() && snap.val() ? "block" : "none";
       });
 
       // Listen for spectator count
@@ -2134,25 +2173,13 @@
     function setupTestControls() {
       if (!isTestMatch) return;
       
-      const testControls = document.createElement("div");
-      testControls.id = "testControls";
-      testControls.style.margin = "20px auto";
-      testControls.style.maxWidth = "500px";
-      
-      testControls.innerHTML = `
-        <button id="declareInnings" class="btn">Declare Innings</button>
-        <button id="enforceFollowOn" class="btn" style="display: none;">Enforce Follow-On</button>
-      `;
-      
-      document.querySelector(".container").appendChild(testControls);
-      
-      document.getElementById("declareInnings").addEventListener("click", async () => {
+      declareInningsBtn.addEventListener("click", async () => {
         if (confirm("Declare the current innings?")) {
           await endInning();
         }
       });
       
-      document.getElementById("enforceFollowOn").addEventListener("click", async () => {
+      enforceFollowOnBtn.addEventListener("click", async () => {
         if (confirm("Enforce follow-on?")) {
           await set(followOnRef, false);
           innings = 2;
