@@ -163,6 +163,14 @@
       align-items: center;
       justify-content: center;
     }
+
+    #statusIndicators {
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     
     /* Indicators */
     .free-hit-indicator,
@@ -222,8 +230,19 @@
     }
     
     .team-container li {
-      padding: 8px 0;
-      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s;
+    }
+    
+    .team-container li:hover {
+      background: rgba(30, 136, 229, 0.2);
+      transform: translateX(5px);
+    }
+    
+    .team-winner {
+      color: #4CAF50;
+      font-weight: bold;
     }
     
     /* Controls */
@@ -421,6 +440,23 @@
       }
     }
     
+    /* Loading Spinner */
+    .loading-spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid #1e88e5;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     /* Responsive Design */
     @media (max-width: 768px) {
       .team-container {
@@ -482,6 +518,11 @@
       <div>Batter: <span id="currentBatter">-</span></div>
       <div>Bowler: <span id="currentBowler">-</span></div>
     </div>
+    <div id="statusIndicators">
+      <span id="powerplayIndicator" class="powerplay-indicator" style="display: none;">Powerplay</span>
+      <span id="deadOverIndicator" class="dead-over" style="display: none;">Dead Over</span>
+      <span id="freeHitIndicator" class="free-hit-indicator" style="display: none;">Free Hit</span>
+    </div>
     <div id="scoreboard">
       <div>Runs: <strong>0</strong></div>
       <div>Wickets: <strong>0/11</strong></div>
@@ -494,6 +535,8 @@
   </div>
   
   <div id="status">Initializing game...</div>
+  
+  <div id="loading-spinner" class="loading-spinner"></div>
 
   <div class="card-row" id="cardButtons">
     <!-- Selection Modal - Now positioned above the cards -->
@@ -696,6 +739,10 @@
     const opponentReadyStatus = document.getElementById("opponentReadyStatus");
     const autoStartTimerEl = document.getElementById("autoStartTimer");
     const startInningsText = document.getElementById("startInningsText");
+    const powerplayIndicator = document.getElementById("powerplayIndicator");
+    const deadOverIndicator = document.getElementById("deadOverIndicator");
+    const freeHitIndicator = document.getElementById("freeHitIndicator");
+    const loadingSpinner = document.getElementById("loading-spinner");
 
     // Firebase references
     const playerRef = ref(db, `rooms/${room}/${player}/online`);
@@ -716,6 +763,237 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const savedGameRef = ref(db, `savedGames/${room}`);
+
+    // Initialize the game
+    async function initGame() {
+      try {
+        status.innerText = "Initializing game...";
+        loadingSpinner.style.display = "block";
+        
+        // Set player online status
+        await set(playerRef, true);
+        
+        // Check if room exists
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          showNotification("Room does not exist!", 'error');
+          setTimeout(() => window.location.href = "index.html", 2000);
+          return;
+        }
+
+        const roomData = roomSnap.val();
+        
+        // Check if game has started
+        if (!roomData.gameStarted) {
+          status.innerText = "Game not started yet - waiting for toss...";
+          // Listen for game start
+          onValue(roomRef, (snap) => {
+            if (snap.exists() && snap.val().gameStarted) {
+              window.location.reload(); // Refresh when game starts
+            }
+          });
+          return;
+        }
+
+        // Check toss status
+        if (!roomData.tossWinner || !roomData.battingFirst) {
+          showNotification("Toss not completed yet!", 'info');
+          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
+          return;
+        }
+
+        // Get toss and batting first info
+        tossWinner = roomData.tossWinner;
+        battingFirst = roomData.battingFirst;
+        
+        // Load teams
+        const teamsLoaded = await loadPlaying11();
+        if (!teamsLoaded) {
+          setTimeout(initGame, 3000); // Retry after delay
+          return;
+        }
+
+        // Set game format
+        const format = roomData.player1?.format || "5";
+        currentFormat = formatRules[format];
+        isTestMatch = format === "test";
+        
+        formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
+        
+        // Initialize batter stats
+        initializeBatterStats();
+
+        // Set up game components
+        setupConnectionMonitoring();
+        await setupRole();
+        setupSelectionModal();
+        setupCardButtons();
+        setupFirebaseListeners();
+        setupInningsButton();
+        
+        // Set up control buttons
+        saveBtn.addEventListener("click", saveGameState);
+        exitBtn.addEventListener("click", async () => {
+          if (confirm("Exit without saving?")) {
+            await resetGame();
+            window.location.href = "index.html";
+          }
+        });
+        
+        resetPlaysBtn.addEventListener("click", async () => {
+          if (confirm("Force reset the current plays?")) {
+            await resetPlays();
+            status.innerText = "Plays manually reset";
+          }
+        });
+
+        // Initial UI update
+        updateScoreboard();
+        status.innerText = "Game ready!";
+        loadingSpinner.style.display = "none";
+      } catch (error) {
+        console.error("Initialization error:", error);
+        showNotification("Failed to initialize game", 'error');
+        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+      }
+    }
+
+    // Setup connection monitoring
+    function setupConnectionMonitoring() {
+      // Monitor opponent connection
+      onValue(opponentRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          connectionStatus.textContent = "Opponent: Online";
+          connectionStatus.className = "connectionStatus online";
+          updateButtonStates();
+        } else {
+          connectionStatus.textContent = "Opponent: Offline";
+          connectionStatus.className = "connectionStatus offline";
+          status.innerText = "Waiting for opponent to connect...";
+          disableButtons();
+        }
+      });
+
+      // Handle disconnect
+      window.addEventListener('beforeunload', () => {
+        set(playerRef, false);
+      });
+    }
+
+    // Load playing 11 from Firebase
+    async function loadPlaying11() {
+      try {
+        status.innerText = "Loading teams...";
+        
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          showNotification("Room data not found", 'error');
+          return false;
+        }
+
+        const roomData = roomSnap.val();
+        
+        // Load team names and players
+        if (roomData.teams?.player1) {
+          team1NameEl.textContent = roomData.teams.player1.name || "Team 1";
+          team1PlayersEl.innerHTML = roomData.teams.player1.players.map(p => 
+            `<li>${p}</li>`).join('');
+        }
+        
+        if (roomData.teams?.player2) {
+          team2NameEl.textContent = roomData.teams.player2.name || "Team 2";
+          team2PlayersEl.innerHTML = roomData.teams.player2.players.map(p => 
+            `<li>${p}</li>`).join('');
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Error loading teams:", error);
+        showNotification("Error loading teams", 'error');
+        return false;
+      }
+    }
+
+    // Check powerplay status
+    function checkPowerplay() {
+      if (isTestMatch) {
+        isPowerplay = false;
+        powerplayIndicator.style.display = "none";
+        return;
+      }
+
+      const currentOver = Math.floor(legalBalls / 6);
+      
+      if (Array.isArray(currentFormat.powerplayOvers)) {
+        // ODI has specific powerplay overs
+        isPowerplay = currentFormat.powerplayOvers.some(pp => {
+          if (Array.isArray(pp)) {
+            return currentOver >= pp[0] && currentOver <= pp[1];
+          }
+          return currentOver === pp;
+        });
+      } else {
+        // Other formats have continuous powerplay overs
+        isPowerplay = currentOver < currentFormat.powerplayOvers;
+      }
+
+      // Update UI
+      powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
+    }
+
+    // Check dead over status
+    function checkDeadOver() {
+      if (!currentFormat.deadOvers || currentFormat.deadOvers.length === 0) {
+        isDeadOver = false;
+        deadOverIndicator.style.display = "none";
+        return;
+      }
+
+      const currentOver = Math.floor(legalBalls / 6);
+      isDeadOver = currentFormat.deadOvers.some(dead => {
+        if (Array.isArray(dead)) {
+          return currentOver >= dead[0] && currentOver <= dead[1];
+        }
+        return currentOver === dead;
+      });
+
+      // Update UI
+      deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
+    }
+
+    // Update free hit display
+    function updateFreeHitDisplay() {
+      freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
+    }
+
+    // Update scoreboard with fractional wickets
+    function updateScoreboard() {
+      const wicketsDisplay = wickets.toFixed(2);
+      
+      document.querySelector("#scoreboard div:nth-child(1) strong").textContent = runs;
+      document.querySelector("#scoreboard div:nth-child(2) strong").textContent = 
+        `${wicketsDisplay}/${currentFormat.totalWickets}`;
+      document.querySelector("#scoreboard div:nth-child(3) strong").textContent = 
+        `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      miniScoreEl.textContent = `${runs}/${wicketsDisplay}`;
+      miniOversEl.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      // Update target display if in second innings
+      if (innings === 2) {
+        targetDisplay.style.display = "block";
+        targetRunsEl.textContent = team1Score + 1;
+        
+        const ballsRemaining = currentFormat.totalOvers * 6 - legalBalls;
+        if (ballsRemaining > 0) {
+          const requiredRuns = team1Score - runs + 1;
+          const requiredRate = (requiredRuns / (ballsRemaining / 6)).toFixed(2);
+          requiredRateEl.textContent = `RR: ${requiredRate}`;
+        } else {
+          requiredRateEl.textContent = "";
+        }
+      }
+    }
 
     // Initialize batter stats with milestone tracking
     function initializeBatterStats() {
@@ -904,22 +1182,6 @@
       });
     }
 
-    // Update free hit display
-    function updateFreeHitDisplay() {
-      const freeHitIndicator = document.getElementById("freeHitIndicator");
-      const freeHitAlert = document.getElementById("freeHitAlert");
-      
-      if (freeHit) {
-        freeHitIndicator.style.display = "inline-block";
-        freeHitAlert.style.display = "block";
-        document.getElementById("status").classList.add("free-hit");
-      } else {
-        freeHitIndicator.style.display = "none";
-        freeHitAlert.style.display = "none";
-        document.getElementById("status").classList.remove("free-hit");
-      }
-    }
-
     // Update target display for 2nd innings
     function updateTargetDisplay() {
       if (innings === 2) {
@@ -973,8 +1235,9 @@
       }
     }
 
-    // Load playing 11 from Firebase
-    async function loadPlaying11() {
+    // Show batter selection modal
+    async function showBatterSelection() {
+      disableButtons();
       try {
         status.innerText = "Loading batters...";
         
@@ -1117,107 +1380,69 @@
       }
     }
 
-    // Set up test match controls
-    function setupTestControls() {
-      const declareBtn = document.getElementById("declareInning");
-      const followOnBtn = document.getElementById("enforceFollowOn");
-      
-      if (!declareBtn || !followOnBtn) return;
-      
-      declareBtn.addEventListener("click", async () => {
-        if (confirm("Are you sure you want to declare this innings?")) {
-          try {
-            disableButtons();
-            status.innerText = "Innings declared!";
-            
-            if (innings === 1) {
-              team1Score = currentInningRuns;
-              team1Wickets = wickets;
-            } else {
-              team2Score = currentInningRuns;
-              team2Wickets = wickets;
-            }
-            
-            await set(declaredRef, true);
-            endInning();
-          } catch (error) {
-            console.error("Error declaring innings:", error);
-            showNotification("Error declaring innings", 'error');
-            enableButtons();
-          }
+    // Setup selection modal
+    function setupSelectionModal() {
+      confirmSelection.addEventListener("click", async () => {
+        const selected = document.querySelector(".batter-item.selected, .player-item.selected");
+        if (!selected) {
+          showNotification("Please select a player", 'error');
+          return;
         }
-      });
 
-      followOnBtn.addEventListener("click", async () => {
-        const lead = team1Score - team2Score;
-        if (confirm(`Enforce follow-on with a lead of ${lead} runs?`)) {
-          try {
-            disableButtons();
-            status.innerText = "Follow-on enforced!";
-            
-            innings = 2;
-            await set(followOnRef, false);
-            resetInning();
-            
-            followOnBtn.style.display = "none";
-          } catch (error) {
-            console.error("Error enforcing follow-on:", error);
-            showNotification("Error enforcing follow-on", 'error');
-            enableButtons();
-          }
+        const playerName = selected.dataset.name;
+        selectionModal.style.display = "none";
+
+        if (selectionTitle.textContent.includes("Batter")) {
+          await set(batterRef, playerName);
+          batterSelected = true;
+          status.innerText = `${playerName} selected as batter`;
+        } else {
+          await set(bowlerRef, playerName);
+          bowlerSelected = true;
+          status.innerText = `${playerName} selected as bowler`;
         }
+
+        updateButtonStates();
       });
     }
 
-    // Set up the innings button with enhanced functionality
-    function setupInningsButton() {
-      startInningsBtn.addEventListener("click", startSecondInnings);
+    // Setup player role (batting/bowling)
+    async function setupRole() {
+      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+      roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+      
+      if (isBatting && !currentBatter) {
+        await showBatterSelection();
+      } else if (!isBatting && !currentBowler) {
+        await showBowlerSelection();
+      }
+    }
 
-      onValue(inningsReadyRef, (snap) => {
-        if (!snap.exists()) return;
-        
-        const isReady = snap.val();
-        
-        if (isReady && innings === 1 && !isTestMatch) {
-          opponentReadyStatus.style.display = "flex";
-          startInningsText.textContent = "Ready to Start";
-          startInningsBtn.disabled = false;
-          
-          status.innerText = `Team 1 scored ${team1Score} runs! Opponent is ready to start second innings.`;
-        }
+    // Enable/disable card buttons based on game state
+    function updateButtonStates() {
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
       });
+    }
 
-      onValue(autoStartTimeRef, (snap) => {
-        if (!snap.exists() || !snap.val()) {
-          autoStartTimerEl.style.display = "none";
-          return;
-        }
-        
-        const startTime = snap.val();
-        const now = Date.now();
-        
-        if (startTime > now) {
-          autoStartTimerEl.style.display = "block";
-          
-          if (countdownInterval) clearInterval(countdownInterval);
-          countdownInterval = setInterval(() => {
-            const remaining = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
-            autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
-            
-            if (remaining <= 0) {
-              clearInterval(countdownInterval);
-              autoStartTimerEl.style.display = "none";
-            }
-          }, 1000);
-        }
+    // Disable all card buttons
+    function disableButtons() {
+      buttons.forEach(btn => {
+        btn.disabled = true;
       });
+    }
 
-      onValue(startSecondInningsRef, (snap) => {
-        if (snap.exists() && snap.val() && innings === 1 && !isTestMatch) {
-          innings++;
-          startInningsBtn.style.display = "none";
-          resetInning();
-        }
+    // Enable all card buttons
+    function enableButtons() {
+      updateButtonStates();
+    }
+
+    // Reset plays in Firebase
+    async function resetPlays() {
+      await update(playsRef, {
+        player1: null,
+        player2: null
       });
     }
 
@@ -1241,6 +1466,10 @@
         freeHitNextBall = false;
         updateFreeHitDisplay();
       }
+
+      // Check powerplay and dead over status
+      checkPowerplay();
+      checkDeadOver();
 
       // 1. Check for no ball (both 0)
       if (batCard === 0 && bowlCard === 0) {
@@ -1756,89 +1985,125 @@
       }, 5000);
     }
 
-    // Initialize the game
-    async function initGame() {
+    // Save game state
+    async function saveGameState() {
       try {
-        status.innerText = "Initializing game...";
+        status.innerText = "Saving game...";
+        disableButtons();
         
-        gameInProgress = true;
-        status.innerText = "Initializing game...";
+        const gameState = {
+          room: room,
+          player1: player === "player1" ? player : opponent,
+          player2: player === "player2" ? player : opponent,
+          tossWinner: tossWinner,
+          battingFirst: battingFirst,
+          innings: innings,
+          team1Score: team1Score,
+          team2Score: team2Score,
+          team1Wickets: team1Wickets,
+          team2Wickets: team2Wickets,
+          currentBatter: currentBatter,
+          currentBowler: currentBowler,
+          batterStats: batterStats,
+          bowlerStats: bowlerStats,
+          fallOfWickets: fallOfWickets,
+          ballByBall: ballByBall,
+          legalBalls: legalBalls,
+          wickets: wickets,
+          runs: runs,
+          timestamp: Date.now()
+        };
         
-        // Check if room exists
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists()) {
-          showNotification("Room does not exist!", 'error');
-          setTimeout(() => window.location.href = "index.html", 2000);
-          return;
-        }
-
-        const roomData = roomSnap.val();
-        
-        // Check toss status first
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          showNotification("Toss not completed yet!", 'info');
-          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
-          return;
-        }
-
-        // Get toss and batting first info
-        tossWinner = roomData.tossWinner;
-        battingFirst = roomData.battingFirst;
-        
-        // Load teams - don't fail if teams aren't loaded yet
-        const teamsLoaded = await loadPlaying11();
-        if (!teamsLoaded) {
-          setTimeout(initGame, 3000);
-          return;
-        }
-
-        // Set game format
-        const format = roomData.player1?.format || "5";
-        currentFormat = formatRules[format];
-        isTestMatch = format === "test";
-        
-        formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
-        
-        // Initialize batter stats
-        initializeBatterStats();
-
-        // Set up game components
-        setupConnectionMonitoring();
-        await setupRole();
-        setupSelectionModal();
-        setupTestControls();
-        setupInningsButton();
-        setupCardButtons();
-        setupFirebaseListeners();
-        
-        // Set up control buttons
-        saveBtn.addEventListener("click", saveGameState);
-        exitBtn.addEventListener("click", async () => {
-          if (confirm("Exit without saving?")) {
-            await resetGame();
-            window.location.href = "index.html";
-          }
-        });
-        
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Force reset the current plays?")) {
-            await resetPlays();
-            status.innerText = "Plays manually reset";
-          }
-        });
-
-        // Initial UI update
-        updateScoreboard();
-        status.innerText = "Game ready!";
+        await set(savedGameRef, gameState);
+        status.innerText = "Game saved successfully!";
+        setTimeout(() => window.location.href = "index.html", 2000);
       } catch (error) {
-        console.error("Initialization error:", error);
-        showNotification("Failed to initialize game", 'error');
-        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+        console.error("Error saving game:", error);
+        status.innerText = "Error saving game. Please try again.";
+        enableButtons();
       }
+    }
+
+    // Reset game state
+    async function resetGame() {
+      try {
+        await set(playerRef, false);
+        await update(playsRef, {
+          player1: null,
+          player2: null
+        });
+      } catch (error) {
+        console.error("Error resetting game:", error);
+      }
+    }
+
+    // Setup innings button
+    function setupInningsButton() {
+      startInningsBtn.addEventListener("click", startSecondInnings);
+      
+      onValue(inningsReadyRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          opponentReadyStatus.style.display = "block";
+        } else {
+          opponentReadyStatus.style.display = "none";
+        }
+      });
+      
+      onValue(autoStartTimeRef, (snap) => {
+        if (snap.exists()) {
+          const endTime = snap.val();
+          if (endTime > Date.now()) {
+            autoStartTimerEl.style.display = "block";
+            updateAutoStartTimer(endTime);
+            countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
+          }
+        }
+      });
+    }
+    
+    function updateAutoStartTimer(endTime) {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
+      
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        startSecondInnings();
+      }
+    }
+
+    // Setup test controls
+    function setupTestControls() {
+      if (!isTestMatch) return;
+      
+      const testControls = document.createElement("div");
+      testControls.id = "testControls";
+      testControls.style.margin = "20px auto";
+      testControls.style.maxWidth = "500px";
+      
+      testControls.innerHTML = `
+        <button id="declareInnings" class="btn">Declare Innings</button>
+        <button id="enforceFollowOn" class="btn" style="display: none;">Enforce Follow-On</button>
+      `;
+      
+      document.querySelector(".container").appendChild(testControls);
+      
+      document.getElementById("declareInnings").addEventListener("click", async () => {
+        if (confirm("Declare the current innings?")) {
+          await endInning();
+        }
+      });
+      
+      document.getElementById("enforceFollowOn").addEventListener("click", async () => {
+        if (confirm("Enforce follow-on?")) {
+          await set(followOnRef, false);
+          innings = 2;
+          resetInning();
+        }
+      });
     }
 
     // Start the game
     initGame();
   </script>
 </body>
-      </html>
+  </html>
