@@ -708,6 +708,8 @@
     const milestoneLevels = [50, 100, 150, 200, 250, 300, 350, 400];
     let batterSelected = false;
     let bowlerSelected = false;
+    let team1Players = [];
+    let team2Players = [];
 
     // DOM elements
     const status = document.getElementById("status");
@@ -820,8 +822,9 @@
         
         formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
         
-        // Initialize batter stats
+        // Initialize stats
         initializeBatterStats();
+        initializeBowlerStats();
 
         // Set up game components
         setupConnectionMonitoring();
@@ -896,14 +899,14 @@
         // Load team names and players
         if (roomData.teams?.player1) {
           team1NameEl.textContent = roomData.teams.player1.name || "Team 1";
-          team1PlayersEl.innerHTML = roomData.teams.player1.players.map(p => 
-            `<li>${p}</li>`).join('');
+          team1Players = roomData.teams.player1.players || [];
+          team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
         }
         
         if (roomData.teams?.player2) {
           team2NameEl.textContent = roomData.teams.player2.name || "Team 2";
-          team2PlayersEl.innerHTML = roomData.teams.player2.players.map(p => 
-            `<li>${p}</li>`).join('');
+          team2Players = roomData.teams.player2.players || [];
+          team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
         }
 
         return true;
@@ -912,6 +915,36 @@
         showNotification("Error loading teams", 'error');
         return false;
       }
+    }
+
+    // Initialize batter stats
+    function initializeBatterStats() {
+      team1Players.forEach(player => {
+        batterStats[player] = batterStats[player] || { 
+          runs: 0, balls: 0, fours: 0, sixes: 0,
+          centuryNotified: false, fiftyNotified: false
+        };
+        batterWickets[player] = batterWickets[player] || 0;
+      });
+      
+      team2Players.forEach(player => {
+        batterStats[player] = batterStats[player] || { 
+          runs: 0, balls: 0, fours: 0, sixes: 0,
+          centuryNotified: false, fiftyNotified: false
+        };
+        batterWickets[player] = batterWickets[player] || 0;
+      });
+    }
+
+    // Initialize bowler stats
+    function initializeBowlerStats() {
+      team1Players.forEach(player => {
+        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0 };
+      });
+      
+      team2Players.forEach(player => {
+        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0 };
+      });
     }
 
     // Check powerplay status
@@ -993,49 +1026,6 @@
           requiredRateEl.textContent = "";
         }
       }
-    }
-
-    // Initialize batter stats with milestone tracking
-    function initializeBatterStats() {
-      get(roomRef).then(snapshot => {
-        const data = snapshot.val();
-        
-        if (data.player1?.playing11) {
-          data.player1.playing11.forEach(player => {
-            batterStats[player] = { 
-              runs: 0, 
-              balls: 0,
-              fours: 0,
-              sixes: 0,
-              centuryNotified: false,
-              fiftyNotified: false
-            };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
-        }
-        
-        if (data.player2?.playing11) {
-          data.player2.playing11.forEach(player => {
-            batterStats[player] = { 
-              runs: 0, 
-              balls: 0,
-              fours: 0,
-              sixes: 0,
-              centuryNotified: false,
-              fiftyNotified: false
-            };
-            batterWickets[player] = 0;
-            milestoneLevels.forEach(level => {
-              batterStats[player][`milestone${level}Notified`] = false;
-            });
-          });
-        }
-      }).catch(error => {
-        console.error("Error initializing batter stats:", error);
-      });
     }
 
     // Check for batting milestones (50, 100, 150, etc.)
@@ -1241,28 +1231,17 @@
       try {
         status.innerText = "Loading batters...";
         
-        // Verify room data exists first
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists() || !roomSnap.val()[player]) {
-          showNotification("Game data not loaded", 'error');
-          enableButtons();
-          return;
-        }
-
-        // Get player data
-        const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
-        const players = snapshot.val();
+        const currentPlayers = player === "player1" ? team1Players : team2Players;
         
-        if (!players || players.length === 0) {
+        if (!currentPlayers || currentPlayers.length === 0) {
           showNotification("No batters available", 'error');
           enableButtons();
           return;
         }
         
-        // Filter available batters
-        const availableBatters = players.filter(p => {
+        const availableBatters = currentPlayers.filter(p => {
           const wicketsUsed = batterWickets[p] || 0;
-          return !battersUsed.includes(p) || wicketsUsed < 1.0;
+          return wicketsUsed < currentFormat.livesPerPlayer;
         });
         
         if (availableBatters.length === 0) {
@@ -1271,7 +1250,6 @@
           return;
         }
 
-        // Update selection UI
         selectionTitle.textContent = "Select Next Batter";
         selectionList.innerHTML = "";
         
@@ -1279,7 +1257,7 @@
           const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
           const wicketsLost = batterWickets[player] || 0;
           const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
-          const wicketsLeft = (1.0 - wicketsLost).toFixed(2);
+          const wicketsLeft = (currentFormat.livesPerPlayer - wicketsLost).toFixed(2);
           
           const batterEl = document.createElement("div");
           batterEl.className = "batter-item";
@@ -1295,7 +1273,7 @@
               <div class="batter-status">
                 <span>${stats.fours} fours</span>
                 <span>${stats.sixes} sixes</span>
-                <span>${wicketsLeft}/1.0 wickets</span>
+                <span>${wicketsLeft}/${currentFormat.livesPerPlayer} wickets</span>
               </div>
             </div>
           `;
@@ -1308,7 +1286,6 @@
           selectionList.appendChild(batterEl);
         });
 
-        // Show modal above cards
         selectionModal.style.display = "block";
         status.innerText = "Select your next batter...";
       } catch (error) {
@@ -1324,17 +1301,16 @@
       try {
         status.innerText = "Loading bowlers...";
         
-        const snapshot = await get(ref(db, `rooms/${room}/${player}/playing11`));
-        const players = snapshot.val();
+        const currentPlayers = player === "player1" ? team1Players : team2Players;
         
-        if (!players || players.length === 0) {
+        if (!currentPlayers || currentPlayers.length === 0) {
           showNotification("No bowlers available", 'error');
           enableButtons();
           return;
         }
         
         const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-        const availableBowlers = players.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
+        const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
         
         if (availableBowlers.length === 0) {
           showNotification("All bowlers have bowled their maximum overs!", 'error');
@@ -1370,7 +1346,6 @@
           selectionList.appendChild(playerEl);
         });
 
-        // Show modal above cards
         selectionModal.style.display = "block";
         status.innerText = "Select your next bowler...";
       } catch (error) {
@@ -1502,21 +1477,12 @@
       }
       // 3. Handle wickets (same number > 0)
       else if (batCard === bowlCard && batCard > 0) {
-        let wicketValue;
-        if (isTestMatch) {
-          wicketValue = 0.33;
-        } 
-        else if (currentFormat.name === "ODI") {
-          wicketValue = isPowerplay ? 0.25 : 0.5;
-        }
-        else {
-          wicketValue = isPowerplay ? 0.5 : 1.0;
-        }
+        let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
         
         batterWickets[currentBatter] = (batterWickets[currentBatter] || 0) + wicketValue;
         wickets += wicketValue;
         
-        if (batterWickets[currentBatter] >= 1.0) {
+        if (batterWickets[currentBatter] >= currentFormat.livesPerPlayer) {
           isPlayerOut = true;
           outcome = "WICKET! (Out)";
           wickets = Math.ceil(wickets);
@@ -1527,7 +1493,7 @@
             batter: currentBatter
           });
         } else {
-          outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
+          outcome = `WICKET! (${(currentFormat.livesPerPlayer - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
         }
         
         isLegalBall = true;
@@ -2106,4 +2072,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
