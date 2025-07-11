@@ -766,6 +766,8 @@
     let bowlerSelected = false;
     let team1Players = [];
     let team2Players = [];
+    let batterPenalties = {}; // Tracks penalty runs per batter
+    let lastBatterRuns = {};  // Tracks last run count for milestone checks
 
     // DOM elements
     const status = document.getElementById("status");
@@ -973,7 +975,7 @@
       }
     }
 
-    // Initialize batter stats
+    // Initialize batter stats with penalty tracking
     function initializeBatterStats() {
       team1Players.forEach(player => {
         batterStats[player] = batterStats[player] || { 
@@ -981,6 +983,8 @@
           centuryNotified: false, fiftyNotified: false
         };
         batterWickets[player] = batterWickets[player] || 0;
+        batterPenalties[player] = batterPenalties[player] || 0;
+        lastBatterRuns[player] = 0;
       });
       
       team2Players.forEach(player => {
@@ -989,6 +993,8 @@
           centuryNotified: false, fiftyNotified: false
         };
         batterWickets[player] = batterWickets[player] || 0;
+        batterPenalties[player] = batterPenalties[player] || 0;
+        lastBatterRuns[player] = 0;
       });
     }
 
@@ -1084,38 +1090,62 @@
       }
     }
 
-    // Check for batting milestones (50, 100, 150, etc.)
-    function checkBattingMilestones() {
+    // Accurate batter milestone checking accounting for penalties
+    function checkBatterMilestones(isPenalty = false) {
       if (!currentBatter) return;
 
-      const batterRuns = batterStats[currentBatter]?.runs || 0;
+      const batter = batterStats[currentBatter];
+      const netRuns = batter.runs - (batterPenalties[currentBatter] || 0);
       
-      // Check for 50, 100, etc.
-      for (const milestone of milestoneLevels) {
-        if (batterRuns >= milestone && 
-            !batterStats[currentBatter][`milestone${milestone}Notified`]) {
+      // Check milestones in descending order
+      const milestones = [50, 100, 150, 200, 250, 300, 350, 400];
+      for (let i = milestones.length - 1; i >= 0; i--) {
+        const milestone = milestones[i];
+        
+        // Check if crossed milestone (either direction)
+        if ((!isPenalty && netRuns >= milestone && lastBatterRuns[currentBatter] < milestone) ||
+            (isPenalty && netRuns < milestone && lastBatterRuns[currentBatter] >= milestone)) {
           
-          showNotification(`${currentBatter} scores ${milestone} runs! 🎉`, 'batting');
-          batterStats[currentBatter][`milestone${milestone}Notified`] = true;
-          
-          if (milestone >= 150) {
-            createConfetti();
+          // Only notify if this is a new achievement
+          if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
+            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns})`, 'batting');
+            batter[`milestone${milestone}Notified`] = true;
+            
+            if (milestone >= 100) {
+              createConfetti();
+            }
+          }
+          // Handle losing a milestone due to penalty
+          else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
+            showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
+            batter[`milestone${milestone}Notified`] = false;
           }
           break;
         }
       }
       
       // Special handling for 50 and 100
-      if (batterRuns >= 50 && !batterStats[currentBatter].fiftyNotified) {
-        showNotification(`${currentBatter} scores a half-century!`, 'batting');
-        batterStats[currentBatter].fiftyNotified = true;
+      if (netRuns >= 50 && !batter.fiftyNotified) {
+        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns})`, 'batting');
+        batter.fiftyNotified = true;
+      }
+      else if (netRuns < 50 && batter.fiftyNotified) {
+        showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
+        batter.fiftyNotified = false;
       }
       
-      if (batterRuns >= 100 && !batterStats[currentBatter].centuryNotified) {
-        showNotification(`${currentBatter} scores a century! 💯`, 'batting');
-        batterStats[currentBatter].centuryNotified = true;
+      if (netRuns >= 100 && !batter.centuryNotified) {
+        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns})`, 'batting');
+        batter.centuryNotified = true;
         createConfetti();
       }
+      else if (netRuns < 100 && batter.centuryNotified) {
+        showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
+        batter.centuryNotified = false;
+      }
+
+      // Update last run count
+      lastBatterRuns[currentBatter] = netRuns;
     }
 
     // Show notification with different styles
@@ -1477,7 +1507,7 @@
       });
     }
 
-    // Process the outcome of a ball
+    // Process the outcome of a ball with proper penalty handling
     async function processBallOutcome(batCard, bowlCard, battingPlayer, bowlingPlayer) {
       let outcome = "";
       let isLegalBall = false;
@@ -1523,6 +1553,7 @@
           runsScored = batCard;
           runs += batCard;
           currentInningRuns += batCard;
+          batterStats[currentBatter].runs += runsScored;
           outcome = `${batCard} Run(s)! (Free Hit)`;
           if (batCard === 4 || batCard === 6) boundary = true;
           if (batCard === 6) isSix = true;
@@ -1555,11 +1586,17 @@
         isLegalBall = true;
         isWicket = true;
       }
-      // 4. Handle batter playing 0
+      // 4. Handle batter playing 0 with penalty
       else if (batCard === 0 && bowlCard > 0) {
         if (zerosThisOver[battingPlayer] > 3) {
-          runs -= 5;
+          const penaltyRuns = 5;
+          runs -= penaltyRuns;
+          currentInningRuns -= penaltyRuns;
+          batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
           outcome = "4th 0 in over! -5 runs";
+          
+          // Check for negative milestone impact
+          checkBatterMilestones(true);
         } else {
           if (isTestMatch) {
             bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
@@ -1568,6 +1605,7 @@
             runsScored = bowlCard;
             runs += bowlCard;
             currentInningRuns += bowlCard;
+            batterStats[currentBatter].runs += runsScored;
             outcome = `Batter played 0. Runs = ${bowlCard}`;
             if (bowlCard === 4 || bowlCard === 6) boundary = true;
             if (bowlCard === 6) isSix = true;
@@ -1586,6 +1624,7 @@
             runsScored = batCard;
             runs += batCard;
             currentInningRuns += batCard;
+            batterStats[currentBatter].runs += runsScored;
             outcome = `${batCard} Run(s)!`;
             if (batCard === 4 || batCard === 6) boundary = true;
             if (batCard === 6) isSix = true;
@@ -1600,6 +1639,7 @@
         runsScored = batCard;
         runs += batCard;
         currentInningRuns += batCard;
+        batterStats[currentBatter].runs += runsScored;
         outcome = `${batCard} Run(s)!`;
         if (batCard === 4 || batCard === 6) boundary = true;
         if (batCard === 6) isSix = true;
@@ -1608,12 +1648,12 @@
 
       // Update batter stats
       if (currentBatter && runsScored > 0) {
-        batterStats[currentBatter] = batterStats[currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
-        batterStats[currentBatter].runs += runsScored;
         batterStats[currentBatter].balls += 1;
-        
         if (batCard === 4) batterStats[currentBatter].fours += 1;
         if (batCard === 6) batterStats[currentBatter].sixes += 1;
+        
+        // Check for positive milestones
+        checkBatterMilestones();
       }
       
       // Update bowler stats
@@ -1630,7 +1670,8 @@
         batter: currentBatter,
         bowler: currentBowler,
         timestamp: Date.now(),
-        outcome: outcome
+        outcome: outcome,
+        penalty: (batCard === 0 && bowlCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
       };
 
       // Record last wicket score for partnership
@@ -1662,10 +1703,6 @@
       status.innerText = outcome;
       updateScoreboard();
       updateSpectatorData();
-      
-      // Check for milestones
-      checkMilestones();
-      checkBattingMilestones();
 
       // Check for match/innings end conditions
       if (innings === 2 && runs > team1Score) {
@@ -2128,4 +2165,4 @@
     initGame();
   </script>
 </body>
-  </html>
+</html>
