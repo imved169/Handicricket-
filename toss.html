@@ -267,8 +267,7 @@
       const winner = call === result ? 'player1' : 'player2';
       
       // Update toss result
-      await set(ref(db, `rooms/${room}/toss`), {
-        ...tossData,
+      await update(ref(db, `rooms/${room}/toss`), {
         result: result,
         winner: winner,
         status: 'complete'
@@ -293,12 +292,16 @@
       const result = tossData.result;
       const winner = tossData.winner;
       
-      tossOutcome.textContent = `Toss was ${result}. ${winner === player ? 'You' : 'Opponent'} won!`;
-      
-      if (winner === player) {
-        battingChoice.classList.remove('hidden');
+      if (result && winner) {
+        tossOutcome.textContent = `Toss was ${result}. ${winner === player ? 'You' : 'Opponent'} won!`;
+        
+        if (winner === player) {
+          battingChoice.classList.remove('hidden');
+        } else {
+          waitingChoice.classList.remove('hidden');
+        }
       } else {
-        waitingChoice.classList.remove('hidden');
+        tossOutcome.textContent = "Toss result pending...";
       }
     }
     
@@ -313,7 +316,9 @@
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === 'bat' ? player : opponent,
-        bowlingFirst: decision === 'bowl' ? player : opponent
+        bowlingFirst: decision === 'bowl' ? player : opponent,
+        tossWinner: player,
+        gameStarted: true
       });
       
       // Save to localStorage and redirect
