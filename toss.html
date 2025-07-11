@@ -90,6 +90,12 @@
     #flip-coin-btn {
       margin-top: 20px;
     }
+    .batting-choice {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 10px;
+    }
   </style>
 </head>
 <body>
@@ -121,7 +127,7 @@
     
     <div id="toss-result" class="hidden">
       <p id="toss-outcome"></p>
-      <div id="batting-choice" class="hidden">
+      <div id="batting-choice" class="batting-choice hidden">
         <p>You won the toss! Choose to:</p>
         <button id="choose-bat" class="btn">Bat First</button>
         <button id="choose-bowl" class="btn">Bowl First</button>
@@ -310,24 +316,23 @@
       battingChoice.classList.add('hidden');
       tossOutcome.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
       
-      await set(ref(db, `rooms/${room}/decision`), decision);
+      // Update game state with all necessary information
       await update(ref(db, `rooms/${room}`), {
+        tossWinner: player,
         battingFirst: decision === 'bat' ? player : opponent,
-        bowlingFirst: decision === 'bowl' ? player : opponent
+        bowlingFirst: decision === 'bowl' ? player : opponent,
+        gameStarted: true,
+        team1: decision === 'bat' ? player : opponent,
+        team2: decision === 'bowl' ? player : opponent
       });
       
-      // Save to localStorage and redirect
-      localStorage.setItem('battingFirst', decision === 'bat' ? player : opponent);
-      localStorage.setItem('bowlingFirst', decision === 'bowl' ? player : opponent);
+      // Redirect to game page
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
     // Listen for when opponent makes the choice
     onValue(ref(db, `rooms/${room}/battingFirst`), (snapshot) => {
       if (snapshot.exists()) {
-        localStorage.setItem('battingFirst', snapshot.val());
-        localStorage.setItem('bowlingFirst', 
-          snapshot.val() === player ? opponent : player);
         window.location.href = `game.html?room=${room}&player=${player}`;
       }
     });
