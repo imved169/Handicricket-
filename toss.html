@@ -204,9 +204,32 @@
           callOptions.classList.add('hidden');
           flipOptions.classList.add('hidden');
         }
+        
+        // Listen for toss updates
+        setupTossListener();
       } else {
         setTimeout(checkPlayersReady, 1000);
       }
+    }
+
+    // Setup listener for toss updates
+    function setupTossListener() {
+      const tossRef = ref(db, `rooms/${room}/toss`);
+      onValue(tossRef, (snapshot) => {
+        const tossData = snapshot.val();
+        if (!tossData) return;
+        
+        // Player 2 sees when Player 1 has made a call
+        if (player === "player2" && tossData.status === 'called') {
+          tossInstruction.textContent = "Player 1 has called. Flip the coin:";
+          flipOptions.classList.remove('hidden');
+        }
+        
+        // Both players see when coin is flipped
+        if (tossData.status === 'complete') {
+          showTossResult(tossData);
+        }
+      });
     }
 
     // Display match format
@@ -237,17 +260,6 @@
       
       callOptions.classList.add('hidden');
       tossInstruction.textContent = "Waiting for Player 2 to flip the coin...";
-      
-      // Listen for when the coin is flipped
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      onValue(tossRef, (snapshot) => {
-        const tossData = snapshot.val();
-        
-        if (tossData && tossData.status === 'flipped') {
-          // Coin has been flipped
-          showTossResult(tossData);
-        }
-      });
     }
 
     async function flipCoin() {
@@ -278,11 +290,6 @@
       setTimeout(() => {
         coinElement.classList.remove('spinning');
         coinElement.textContent = result.toUpperCase();
-        showTossResult({
-          result: result,
-          winner: winner,
-          status: 'complete'
-        });
       }, 2000);
     }
 
@@ -329,17 +336,6 @@
         localStorage.setItem('bowlingFirst', 
           snapshot.val() === player ? opponent : player);
         window.location.href = `game.html?room=${room}&player=${player}`;
-      }
-    });
-
-    // Listen for when player1 makes the call
-    onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
-      const tossData = snapshot.val();
-      if (!tossData) return;
-      
-      if (player === "player2" && tossData.status === 'called') {
-        tossInstruction.textContent = "Player 1 has called. Flip the coin:";
-        flipOptions.classList.remove('hidden');
       }
     });
 
