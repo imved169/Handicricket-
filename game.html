@@ -167,12 +167,16 @@
     document.getElementById("choose-bat").onclick = () => makeBattingChoice("bat");
     document.getElementById("choose-bowl").onclick = () => makeBattingChoice("bowl");
 
-    // Initialize toss data
+    // Initialize toss data with all required fields
     async function initializeToss() {
       const tossSnap = await get(ref(db, `rooms/${room}/toss`));
       if (!tossSnap.exists()) {
         await set(ref(db, `rooms/${room}/toss`), {
-          status: "waiting"
+          status: "waiting",
+          caller: null,
+          call: null,
+          result: null,
+          winner: null
         });
       }
     }
@@ -191,7 +195,13 @@
         tossOptions.classList.remove("hidden");
         coinElement.classList.remove("hidden");
 
-        if (player === "player1") {
+        // Check if toss was already called by opponent
+        const tossSnap = await get(ref(db, `rooms/${room}/toss`));
+        const tossData = tossSnap.val();
+        
+        if (tossData.status === "called") {
+          handleTossCalled(tossData);
+        } else if (player === "player1") {
           tossInstruction.innerText = "Call Heads or Tails:";
           callOptions.classList.remove("hidden");
           flipOptions.classList.add("hidden");
@@ -205,24 +215,38 @@
       }
     }
 
+    function handleTossCalled(tossData) {
+      if (player === tossData.caller) {
+        tossInstruction.innerText = "Waiting for opponent to flip...";
+        callOptions.classList.add("hidden");
+        flipOptions.classList.add("hidden");
+      } else {
+        tossInstruction.innerText = "Player 1 has called. Flip the coin:";
+        callOptions.classList.add("hidden");
+        flipOptions.classList.remove("hidden");
+      }
+    }
+
     async function makeTossCall(choice) {
       await update(ref(db, `rooms/${room}/toss`), {
         caller: player,
         call: choice,
-        status: 'called'
+        status: "called"
       });
-
+      
       callOptions.classList.add("hidden");
       tossInstruction.innerText = "Waiting for Player 2 to flip the coin...";
     }
 
     async function flipCoin() {
+      // Disable flip button during animation
+      document.getElementById("flip-coin-btn").disabled = true;
+      
       flipOptions.classList.add("hidden");
       coinElement.classList.add("spinning");
       coinElement.innerText = "FLIPPING...";
 
       const result = Math.random() < 0.5 ? "heads" : "tails";
-
       const tossSnap = await get(ref(db, `rooms/${room}/toss`));
       const tossData = tossSnap.val();
       const winner = (result === tossData.call) ? tossData.caller : opponent;
@@ -266,20 +290,14 @@
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
-    // Real-time listeners
+    // Enhanced real-time listener
     onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
       const tossData = snapshot.val();
       if (!tossData) return;
 
-      // Show flip button to Player 2 when Player 1 has called
-      if (player === "player2" && tossData.status === "called") {
-        tossInstruction.innerText = "Player 1 has called. Flip the coin:";
-        callOptions.classList.add("hidden");
-        flipOptions.classList.remove("hidden");
-      }
-
-      // Show result when toss is complete
-      if (tossData.status === "complete") {
+      if (tossData.status === "called") {
+        handleTossCalled(tossData);
+      } else if (tossData.status === "complete") {
         coinElement.innerText = tossData.result.toUpperCase();
         showTossResult(tossData);
       }
