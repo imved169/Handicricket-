@@ -876,20 +876,32 @@
         
         // Check if game has started
         if (!roomData.gameStarted) {
-          status.innerText = "Game not started yet - waiting for toss...";
-          // Listen for game start
-          onValue(roomRef, (snap) => {
-            if (snap.exists() && snap.val().gameStarted) {
-              window.location.reload(); // Refresh when game starts
-            }
-          });
+          // First check if toss is complete
+          if (roomData.tossDone) {
+            // If toss is done but game not started, start the game
+            await update(roomRef, {
+              gameStarted: true,
+              battingFirst: roomData.battingFirst,
+              tossWinner: roomData.tossWinner,
+              decision: roomData.decision
+            });
+            window.location.reload();
+          } else {
+            // If toss not done, redirect to toss
+            status.innerText = "Toss not completed - redirecting...";
+            setTimeout(() => {
+              window.location.href = `toss.html?room=${room}&player=${player}`;
+            }, 2000);
+          }
           return;
         }
 
-        // Check toss status
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          showNotification("Toss not completed yet!", 'info');
-          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
+        // Check if teams are set
+        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
+          status.innerText = "Teams not set - redirecting to setup...";
+          setTimeout(() => {
+            window.location.href = `setup.html?room=${room}&player=${player}`;
+          }, 2000);
           return;
         }
 
