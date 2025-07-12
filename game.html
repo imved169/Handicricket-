@@ -857,31 +857,34 @@
 
     // Initialize the game with enhanced error handling
     async function initGame() {
-      try {
-        status.innerText = "Initializing game...";
-        loadingSpinner.style.display = "block";
-        
-        // Set player online status
-        await set(playerRef, true);
-        
-        // Check if room exists
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists()) {
-          showNotification("Room does not exist!", 'error');
-          setTimeout(() => window.location.href = "index.html", 2000);
-          return;
-        }
+  try {
+    status.innerText = "Initializing game...";
+    loadingSpinner.style.display = "block";
+    
+    // Set player online status
+    await set(playerRef, true);
+    
+    // Check if room exists
+    const roomSnap = await get(roomRef);
+    if (!roomSnap.exists()) {
+      showNotification("Room does not exist!", 'error');
+      setTimeout(() => window.location.href = "index.html", 2000);
+      return;
+    }
 
-        const roomData = roomSnap.val();
-        
-        // Check if toss is completed
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          status.innerText = "Toss not completed - redirecting...";
-          setTimeout(() => {
-            window.location.href = `toss.html?room=${room}&player=${player}`;
-          }, 2000);
-          return;
-        }
+    const roomData = roomSnap.val();
+    
+    // Check if toss is completed (check both root level and toss node)
+    tossWinner = roomData.toss?.winner || roomData.tossWinner;
+    battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
+    
+    if (!tossWinner || !battingFirst) {
+      status.innerText = "Toss not completed - redirecting...";
+      setTimeout(() => {
+        window.location.href = `toss.html?room=${room}&player=${player}`;
+      }, 2000);
+      return;
+    }
 
         // Check if teams are set
         if (!roomData.teams?.player1 || !roomData.teams?.player2) {
