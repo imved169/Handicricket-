@@ -855,7 +855,7 @@
     const resultRef = ref(db, `rooms/${room}/result`);
     const savedGameRef = ref(db, `savedGames/${room}`);
 
-    // Initialize the game
+    // Initialize the game with enhanced error handling
     async function initGame() {
       try {
         status.innerText = "Initializing game...";
@@ -874,25 +874,12 @@
 
         const roomData = roomSnap.val();
         
-        // Check if game has started
-        if (!roomData.gameStarted) {
-          // First check if toss is complete
-          if (roomData.tossDone) {
-            // If toss is done but game not started, start the game
-            await update(roomRef, {
-              gameStarted: true,
-              battingFirst: roomData.battingFirst,
-              tossWinner: roomData.tossWinner,
-              decision: roomData.decision
-            });
-            window.location.reload();
-          } else {
-            // If toss not done, redirect to toss
-            status.innerText = "Toss not completed - redirecting...";
-            setTimeout(() => {
-              window.location.href = `toss.html?room=${room}&player=${player}`;
-            }, 2000);
-          }
+        // Check if toss is completed
+        if (!roomData.tossWinner || !roomData.battingFirst) {
+          status.innerText = "Toss not completed - redirecting...";
+          setTimeout(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          }, 2000);
           return;
         }
 
@@ -909,11 +896,29 @@
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
-        // Load teams
-        const teamsLoaded = await loadPlaying11();
-        if (!teamsLoaded) {
-          setTimeout(initGame, 3000); // Retry after delay
-          return;
+        // Mark game as started if not already
+        if (!roomData.gameStarted) {
+          await update(roomRef, {
+            gameStarted: true
+          });
+        }
+
+        // Load teams with retry logic
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+          try {
+            const teamsLoaded = await loadPlaying11();
+            if (teamsLoaded) break;
+          } catch (error) {
+            console.error(`Team load attempt ${retries + 1} failed:`, error);
+            retries++;
+            if (retries >= maxRetries) {
+              throw new Error("Failed to load teams after multiple attempts");
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
 
         // Set game format
@@ -970,87 +975,64 @@
         loadingSpinner.style.display = "none";
       } catch (error) {
         console.error("Initialization error:", error);
-        showNotification("Failed to initialize game", 'error');
-        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+        showNotification("Failed to initialize game. Please refresh or try again later.", 'error');
+        loadingSpinner.style.display = "none";
       }
     }
 
-    // Enhanced resetPlays function
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in Firebase
-        await update(playsRef, {
-          player1: null,
-          player2: null
-        });
-        
-        // Also reset the ready state if in between innings
-        await set(inningsReadyRef, false);
-        
-        // Reset any auto-start timer
-        await set(autoStartTimeRef, null);
-        
-        // Force update UI states
-        updateButtonStates();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Error resetting plays", 'error');
-      }
-    }
-
-    // Setup connection monitoring
-    function setupConnectionMonitoring() {
-      // Monitor opponent connection
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          connectionStatus.textContent = "Opponent: Online";
-          connectionStatus.className = "online";
-          updateButtonStates();
-        } else {
-          connectionStatus.textContent = "Opponent: Offline";
-          connectionStatus.className = "offline";
-          status.innerText = "Waiting for opponent to connect...";
-          disableButtons();
-        }
-      });
-
-      // Handle disconnect
-      window.addEventListener('beforeunload', () => {
-        set(playerRef, false);
-      });
-    }
-
-    // Load playing 11 from Firebase
+    // Enhanced loadPlaying11 function with better error handling
     async function loadPlaying11() {
       try {
         status.innerText = "Loading teams...";
         
         const roomSnap = await get(roomRef);
         if (!roomSnap.exists()) {
-          showNotification("Room data not found", 'error');
-          return false;
+          throw new Error("Room data not found");
         }
 
         const roomData = roomSnap.val();
         
-        // Load team names and players
+        // Clear previous team data
+        team1Players = [];
+        team2Players = [];
+        team1PlayersEl.innerHTML = '';
+        team2PlayersEl.innerHTML = '';
+        
+        // Load team names and players with validation
         if (roomData.teams?.player1) {
           team1NameEl.textContent = roomData.teams.player1.name || "Team 1";
-          team1Players = roomData.teams.player1.players || [];
-          team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
+          if (Array.isArray(roomData.teams.player1.players)) {
+            team1Players = roomData.teams.player1.players;
+            team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
+          } else {
+            throw new Error("Invalid team 1 player data");
+          }
+        } else {
+          throw new Error("Team 1 data missing");
         }
         
         if (roomData.teams?.player2) {
           team2NameEl.textContent = roomData.teams.player2.name || "Team 2";
-          team2Players = roomData.teams.player2.players || [];
-          team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+          if (Array.isArray(roomData.teams.player2.players)) {
+            team2Players = roomData.teams.player2.players;
+            team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+          } else {
+            throw new Error("Invalid team 2 player data");
+          }
+        } else {
+          throw new Error("Team 2 data missing");
+        }
+
+        // Validate we have players
+        if (team1Players.length === 0 || team2Players.length === 0) {
+          throw new Error("One or both teams have no players");
         }
 
         return true;
       } catch (error) {
         console.error("Error loading teams:", error);
-        showNotification("Error loading teams", 'error');
-        return false;
+        showNotification("Error loading teams. Please check team setup.", 'error');
+        throw error; // Re-throw to allow retry logic
       }
     }
 
@@ -2177,6 +2159,51 @@
           innings = 2;
           resetInning();
         }
+      });
+    }
+
+    // Enhanced resetPlays function
+    async function resetPlays() {
+      try {
+        // Reset both players' selections in Firebase
+        await update(playsRef, {
+          player1: null,
+          player2: null
+        });
+        
+        // Also reset the ready state if in between innings
+        await set(inningsReadyRef, false);
+        
+        // Reset any auto-start timer
+        await set(autoStartTimeRef, null);
+        
+        // Force update UI states
+        updateButtonStates();
+      } catch (error) {
+        console.error("Error resetting plays:", error);
+        showNotification("Error resetting plays", 'error');
+      }
+    }
+
+    // Setup connection monitoring
+    function setupConnectionMonitoring() {
+      // Monitor opponent connection
+      onValue(opponentRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          connectionStatus.textContent = "Opponent: Online";
+          connectionStatus.className = "online";
+          updateButtonStates();
+        } else {
+          connectionStatus.textContent = "Opponent: Offline";
+          connectionStatus.className = "offline";
+          status.innerText = "Waiting for opponent to connect...";
+          disableButtons();
+        }
+      });
+
+      // Handle disconnect
+      window.addEventListener('beforeunload', () => {
+        set(playerRef, false);
       });
     }
 
