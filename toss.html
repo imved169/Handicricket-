@@ -307,10 +307,14 @@
       const tossData = tossSnap.val();
       const winner = (result === tossData.call) ? tossData.caller : opponent;
 
-      await update(ref(db, `rooms/${room}/toss`), {
-        result,
-        winner,
-        status: "complete"
+      // Update both root level and toss node
+      await update(ref(db, `rooms/${room}`), {
+        tossWinner: winner,
+        toss: {
+          result,
+          winner,
+          status: "complete"
+        }
       });
 
       setTimeout(() => {
@@ -342,6 +346,7 @@
           decision,
           battingFirst: decision === "bat" ? player : opponent,
           bowlingFirst: decision === "bowl" ? player : opponent,
+          tossWinner: player,
           tossDone: true,
           gameStatus: "in-progress"
         });
@@ -359,15 +364,6 @@
     function redirectToGame() {
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
-
-    // Timeout fallback
-    setTimeout(() => {
-      get(ref(db, `rooms/${room}/gameStatus`)).then((snap) => {
-        if (snap.exists() && snap.val() === "in-progress" && !gameState.choiceMade) {
-          redirectToGame();
-        }
-      });
-    }, 10000);
 
     // Start the game
     initializeGame();
