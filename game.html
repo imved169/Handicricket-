@@ -1248,31 +1248,26 @@
 
     // Function to start the second innings
     async function startSecondInnings() {
-      try {
+    try {
         disableButtons();
         status.innerText = "Starting second innings...";
         
         if (countdownInterval) clearInterval(countdownInterval);
         
+        // Signal second innings start
         await set(startSecondInningsRef, true);
         
-        // Reset game state for new innings
-        await update(roomRef, {
-          currentPlays: { player1: null, player2: null },
-          currentBatter: null,
-          currentBowler: null,
-          inningsReady: null,
-          autoStartTime: null
-        });
-        
+        // Increment innings counter
         innings++;
-        startInningsBtn.style.display = "none";
-        resetInning();
-      } catch (error) {
+        
+        // Reset all inning-specific states
+        await resetInning();
+        
+    } catch (error) {
         console.error("Error starting second innings:", error);
         status.innerText = "Error starting second innings. Please try again.";
         enableButtons();
-      }
+    }
     }
 
     // Update spectator data with match details
@@ -1481,14 +1476,27 @@
 
     // Setup player role (batting/bowling)
     async function setupRole() {
-      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-      roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-      
-      if (isBatting && !currentBatter) {
+    isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+    roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+    
+    // Clear any previous selections
+    batterSelected = false;
+    bowlerSelected = false;
+    
+    // Reset plays and clear Firebase selections
+    await resetPlays();
+    await set(batterRef, null);
+    await set(bowlerRef, null);
+    
+    // Update UI immediately
+    currentBatterEl.innerText = "-";
+    currentBowlerEl.innerText = "-";
+    
+    if (isBatting && !currentBatter) {
         await showBatterSelection();
-      } else if (!isBatting && !currentBowler) {
+    } else if (!isBatting && !currentBowler) {
         await showBowlerSelection();
-      }
+    }
     }
 
     // Enable/disable card buttons based on game state
@@ -1933,39 +1941,40 @@
 
     // Reset inning state
     async function resetInning() {
-      runs = 0;
-      wickets = 0;
-      currentInningRuns = 0;
-      currentInningWickets = 0;
-      legalBalls = 0;
-      oversToday = 0;
-      battersUsed = [];
-      bowlerOvers = {};
-      batterWickets = {};
-      freeHit = false;
-      freeHitNextBall = false;
-      currentBatter = null;
-      currentBowler = null;
-      batterSelected = false;
-      bowlerSelected = false;
-      zerosThisOver = { player1: 0, player2: 0 };
-      fallOfWickets = [];
-      
-      await update(playsRef, { player1: null, player2: null });
-      
-      isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-      
-      startInningsBtn.style.display = "none";
-      opponentReadyStatus.style.display = "none";
-      autoStartTimerEl.style.display = "none";
-      startInningsText.textContent = "Start Second Innings";
-      
-      await set(inningsReadyRef, false);
-      await set(autoStartTimeRef, null);
-      await set(batterRef, null);
-      await set(bowlerRef, null);
-      
-      setupRole();
+    // Reset all game state variables
+    runs = 0;
+    wickets = 0;
+    currentInningRuns = 0;
+    currentInningWickets = 0;
+    legalBalls = 0;
+    oversToday = 0;
+    freeHit = false;
+    freeHitNextBall = false;
+    zerosThisOver = { player1: 0, player2: 0 };
+    
+    // Clear player selections
+    currentBatter = null;
+    currentBowler = null;
+    batterSelected = false;
+    bowlerSelected = false;
+    
+    // Clear Firebase selections
+    await update(playsRef, { player1: null, player2: null });
+    await set(batterRef, null);
+    await set(bowlerRef, null);
+    
+    // Update UI
+    currentBatterEl.innerText = "-";
+    currentBowlerEl.innerText = "-";
+    updateScoreboard();
+    
+    // Reset innings button state
+    startInningsBtn.style.display = "none";
+    opponentReadyStatus.style.display = "none";
+    autoStartTimerEl.style.display = "none";
+    
+    // Setup the correct role
+    await setupRole();
     }
 
     // End day's play (Test matches)
