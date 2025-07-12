@@ -336,43 +336,23 @@
     }
 
     async function makeBattingChoice(decision) {
+      gameState.choiceMade = true;
       try {
-        // Disable buttons during processing
-        document.getElementById("choose-bat").disabled = true;
-        document.getElementById("choose-bowl").disabled = true;
-        elements.tossOutcome.textContent = "Saving toss result...";
-        
-        // Atomic update of all toss data
-        const updates = {
-          [`rooms/${room}/tossWinner`]: player,
-          [`rooms/${room}/battingFirst`]: decision === "bat" ? player : opponent,
-          [`rooms/${room}/bowlingFirst`]: decision === "bowl" ? player : opponent,
-          [`rooms/${room}/toss/status`]: "complete",
-          [`rooms/${room}/gameStatus`]: "toss-completed",
-          [`rooms/${room}/decision`]: decision,
-          [`rooms/${room}/tossDone`]: true
-        };
+        await update(ref(db, `rooms/${room}`), {
+          decision,
+          battingFirst: decision === "bat" ? player : opponent,
+          bowlingFirst: decision === "bowl" ? player : opponent,
+          tossDone: true,
+          gameStatus: "in-progress"
+        });
 
-        await update(ref(db), updates);
-        
-        // Wait 3 seconds to ensure data sync
-        elements.tossOutcome.textContent = "Toss saved! Starting game...";
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Verify data was saved
-        const verifySnap = await get(ref(db, `rooms/${room}/tossWinner`));
-        if (!verifySnap.exists()) {
-          throw new Error("Toss data not saved properly");
-        }
-
-        // Store in localStorage and redirect
         localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
-        window.location.href = `game.html?room=${room}&player=${player}`;
+        localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
+        redirectToGame();
       } catch (error) {
-        console.error("Error saving toss:", error);
-        alert("Failed to save toss result. Please try again.");
-        document.getElementById("choose-bat").disabled = false;
-        document.getElementById("choose-bowl").disabled = false;
+        console.error("Error making batting choice:", error);
+        alert("There was an error processing your choice. Please try again.");
+        gameState.choiceMade = false;
       }
     }
 
