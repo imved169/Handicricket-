@@ -240,7 +240,8 @@
 
     async function flipCoin() {
       // Disable flip button during animation
-      document.getElementById("flip-coin-btn").disabled = true;
+      const flipBtn = document.getElementById("flip-coin-btn");
+      flipBtn.disabled = true;
       
       flipOptions.classList.add("hidden");
       coinElement.classList.add("spinning");
@@ -261,6 +262,7 @@
         coinElement.classList.remove("spinning");
         coinElement.innerText = result.toUpperCase();
         showTossResult({ result, winner });
+        flipBtn.disabled = false; // Re-enable the button
       }, 1500);
     }
 
@@ -278,19 +280,26 @@
     }
 
     async function makeBattingChoice(decision) {
-      await Promise.all([
-        set(ref(db, `rooms/${room}/decision`), decision),
-        set(ref(db, `rooms/${room}/battingFirst`), decision === "bat" ? player : opponent),
-        set(ref(db, `rooms/${room}/bowlingFirst`), decision === "bowl" ? player : opponent),
-        set(ref(db, `rooms/${room}/tossDone`), true)
-      ]);
+      try {
+        await Promise.all([
+          update(ref(db, `rooms/${room}`), {
+            decision,
+            battingFirst: decision === "bat" ? player : opponent,
+            bowlingFirst: decision === "bowl" ? player : opponent,
+            tossDone: true
+          })
+        ]);
 
-      localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
-      localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
-      window.location.href = `game.html?room=${room}&player=${player}`;
+        localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
+        localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
+        window.location.href = `game.html?room=${room}&player=${player}`;
+      } catch (error) {
+        console.error("Error making batting choice:", error);
+        alert("There was an error processing your choice. Please try again.");
+      }
     }
 
-    // Enhanced real-time listener
+    // Enhanced real-time listeners
     onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
       const tossData = snapshot.val();
       if (!tossData) return;
@@ -304,7 +313,7 @@
     });
 
     onValue(ref(db, `rooms/${room}/battingFirst`), (snap) => {
-      if (snap.exists()) {
+      if (snap.exists() && snap.val() !== null) {
         localStorage.setItem("battingFirst", snap.val());
         localStorage.setItem("bowlingFirst", snap.val() === player ? opponent : player);
         window.location.href = `game.html?room=${room}&player=${player}`;
