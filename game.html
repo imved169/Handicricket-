@@ -852,73 +852,73 @@
     const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
     const liveStateRef = ref(db, `rooms/${room}/liveState`);
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
+    const resultRef = ref(db, `rooms/${room}/result");
     const savedGameRef = ref(db, `savedGames/${room}`);
 
     // Initialize the game with enhanced error handling
     async function initGame() {
       try {
+        // Show loading state
         status.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
         
         // Set player online status
-        await set(playerRef, true);
+        await set(ref(db, `rooms/${room}/${player}/online`), true);
         
+        // Enhanced toss verification with retries
+        let tossVerified = false;
+        for (let i = 0; i < 3; i++) {
+          const [tossSnap, battingSnap] = await Promise.all([
+            get(ref(db, `rooms/${room}/tossWinner`)),
+            get(ref(db, `rooms/${room}/battingFirst`))
+          ]);
+          
+          if (tossSnap.exists() && battingSnap.exists()) {
+            tossVerified = true;
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        if (!tossVerified) {
+          status.innerText = "Toss data incomplete - redirecting...";
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          window.location.href = `toss.html?room=${room}&player=${player}`;
+          return;
+        }
+
         // Check if room exists
-        const roomSnap = await get(roomRef);
+        const roomSnap = await get(ref(db, `rooms/${room}`));
         if (!roomSnap.exists()) {
-          showNotification("Room does not exist!", 'error');
-          setTimeout(() => window.location.href = "index.html", 2000);
-          return;
+          throw new Error("Room does not exist");
         }
 
-        const roomData = roomSnap.val();
-        
-        // Check if toss is completed
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          status.innerText = "Toss not completed - redirecting...";
-          setTimeout(() => {
-            window.location.href = `toss.html?room=${room}&player=${player}`;
-          }, 2000);
-          return;
+        // Load teams with retry logic
+        let teamsLoaded = false;
+        for (let i = 0; i < 3; i++) {
+          try {
+            teamsLoaded = await loadPlaying11();
+            if (teamsLoaded) break;
+          } catch (error) {
+            console.error(`Team load attempt ${i+1} failed:`, error);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
 
-        // Check if teams are set
-        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          status.innerText = "Teams not set - redirecting to setup...";
-          setTimeout(() => {
-            window.location.href = `setup.html?room=${room}&player=${player}`;
-          }, 2000);
-          return;
+        if (!teamsLoaded) {
+          throw new Error("Failed to load teams after multiple attempts");
         }
 
         // Get toss and batting first info
+        const roomData = roomSnap.val();
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
         // Mark game as started if not already
         if (!roomData.gameStarted) {
-          await update(roomRef, {
+          await update(ref(db, `rooms/${room}`), {
             gameStarted: true
           });
-        }
-
-        // Load teams with retry logic
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const teamsLoaded = await loadPlaying11();
-            if (teamsLoaded) break;
-          } catch (error) {
-            console.error(`Team load attempt ${retries + 1} failed:`, error);
-            retries++;
-            if (retries >= maxRetries) {
-              throw new Error("Failed to load teams after multiple attempts");
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
         }
 
         // Set game format
@@ -928,54 +928,30 @@
         
         formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
         
-        // Show test controls if test match
-        if (isTestMatch) {
-          testControls.style.display = "flex";
-        }
-        
-        // Initialize stats
+        // Initialize stats and setup game
         initializeBatterStats();
         initializeBowlerStats();
-
-        // Set up game components
         setupConnectionMonitoring();
         await setupRole();
         setupSelectionModal();
         setupCardButtons();
         setupFirebaseListeners();
         setupInningsButton();
-        setupTestControls();
         
-        // Set up control buttons
-        saveBtn.addEventListener("click", saveGameState);
-        exitBtn.addEventListener("click", async () => {
-          if (confirm("Exit without saving?")) {
-            await resetGame();
-            window.location.href = "index.html";
-          }
-        });
-        
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Force reset the current plays? This will clear both players' selections.")) {
-            await resetPlays();
-            status.innerText = "Plays have been reset";
-            
-            // Additional reset logic to handle stuck state
-            if (!isBatting && !bowlerSelected) {
-              await showBowlerSelection();
-            } else if (isBatting && !batterSelected) {
-              await showBatterSelection();
-            }
-          }
-        });
+        if (isTestMatch) {
+          testControls.style.display = "flex";
+          setupTestControls();
+        }
 
         // Initial UI update
         updateScoreboard();
         status.innerText = "Game ready!";
-        loadingSpinner.style.display = "none";
+        
       } catch (error) {
         console.error("Initialization error:", error);
-        showNotification("Failed to initialize game. Please refresh or try again later.", 'error');
+        status.innerText = `Error: ${error.message}`;
+        setTimeout(() => window.location.href = "index.html", 3000);
+      } finally {
         loadingSpinner.style.display = "none";
       }
     }
