@@ -317,10 +317,12 @@
       battingChoice.classList.add('hidden');
       tossOutcome.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
       
+      // Set both decision and gameStarted flag
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === 'bat' ? player : opponent,
-        bowlingFirst: decision === 'bowl' ? player : opponent
+        bowlingFirst: decision === 'bowl' ? player : opponent,
+        gameStarted: true  // Add this flag to indicate game can start
       });
       
       // Save to localStorage and redirect
@@ -330,12 +332,17 @@
     }
 
     // Listen for when opponent makes the choice
-    onValue(ref(db, `rooms/${room}/battingFirst`), (snapshot) => {
-      if (snapshot.exists()) {
-        localStorage.setItem('battingFirst', snapshot.val());
-        localStorage.setItem('bowlingFirst', 
-          snapshot.val() === player ? opponent : player);
-        window.location.href = `game.html?room=${room}&player=${player}`;
+    onValue(ref(db, `rooms/${room}/gameStarted`), (snapshot) => {
+      if (snapshot.exists() && snapshot.val() === true) {
+        const battingFirstRef = ref(db, `rooms/${room}/battingFirst`);
+        get(battingFirstRef).then((battingSnap) => {
+          if (battingSnap.exists()) {
+            localStorage.setItem('battingFirst', battingSnap.val());
+            localStorage.setItem('bowlingFirst', 
+              battingSnap.val() === player ? opponent : player);
+            window.location.href = `game.html?room=${room}&player=${player}`;
+          }
+        });
       }
     });
 
