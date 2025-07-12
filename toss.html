@@ -136,7 +136,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
       authDomain: "handicricket-85a06.firebaseapp.com",
@@ -147,21 +146,17 @@
       measurementId: "G-HSV9H4LEJQ"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get('room');
     const player = urlParams.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
     
-    // Update UI with room and player info
     document.getElementById("roomCodeDisplay").innerText = `Room Code: ${room}`;
     document.getElementById("playerStatus").innerText = `You are ${player.toUpperCase()}`;
 
-    // DOM elements
     const tossWaiting = document.getElementById('toss-waiting');
     const tossOptions = document.getElementById('toss-options');
     const tossResult = document.getElementById('toss-result');
@@ -174,76 +169,71 @@
     const flipOptions = document.getElementById('flip-options');
     const tossInstruction = document.getElementById('toss-instruction');
 
-    // Set player as ready
-    async function setPlayerReady() {
+    // Initialize game state
+    async function initializeGame() {
       await set(ref(db, `rooms/${room}/${player}/ready`), true);
       document.getElementById("playerStatus").innerText = "You are ready! Waiting for opponent...";
       checkPlayersReady();
+      listenForGameStart();
     }
 
-    // Check if both players are ready
     async function checkPlayersReady() {
       const player1Snap = await get(ref(db, `rooms/${room}/player1/ready`));
       const player2Snap = await get(ref(db, `rooms/${room}/player2/ready`));
       
       if (player1Snap.exists() && player1Snap.val() && 
           player2Snap.exists() && player2Snap.val()) {
-        // Both players are ready
-        document.getElementById("playerStatus").innerText = "Both players ready!";
-        tossWaiting.classList.add('hidden');
-        tossOptions.classList.remove('hidden');
-        coinElement.classList.remove('hidden');
-        
-        // Player 1 calls, Player 2 flips
-        if (player === "player1") {
-          tossInstruction.textContent = "Call Heads or Tails:";
-          callOptions.classList.remove('hidden');
-          flipOptions.classList.add('hidden');
-        } else {
-          tossInstruction.textContent = "Waiting for Player 1 to call...";
-          callOptions.classList.add('hidden');
-          flipOptions.classList.add('hidden');
-        }
-        
-        // Listen for toss updates
-        setupTossListener();
+        startTossProcess();
       } else {
         setTimeout(checkPlayersReady, 1000);
       }
     }
 
-    // Setup listener for toss updates
-    function setupTossListener() {
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      onValue(tossRef, (snapshot) => {
+    function startTossProcess() {
+      document.getElementById("playerStatus").innerText = "Both players ready!";
+      tossWaiting.classList.add('hidden');
+      tossOptions.classList.remove('hidden');
+      coinElement.classList.remove('hidden');
+      
+      if (player === "player1") {
+        tossInstruction.textContent = "Call Heads or Tails:";
+        callOptions.classList.remove('hidden');
+      } else {
+        tossInstruction.textContent = "Waiting for Player 1 to call...";
+      }
+      
+      setupTossListeners();
+    }
+
+    function setupTossListeners() {
+      // Listen for toss call from player1
+      onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
         const tossData = snapshot.val();
         if (!tossData) return;
         
-        // Player 2 sees when Player 1 has made a call
         if (player === "player2" && tossData.status === 'called') {
           tossInstruction.textContent = "Player 1 has called. Flip the coin:";
           flipOptions.classList.remove('hidden');
         }
         
-        // Both players see when coin is flipped
         if (tossData.status === 'complete') {
           showTossResult(tossData);
         }
       });
+      
+      // Listen for match format
+      onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
+        const format = snap.val() || "5";
+        const formatNames = {
+          "5": "5 Overs",
+          "10": "10 Overs", 
+          "20": "T20",
+          "50": "ODI",
+          "test": "Test Match"
+        };
+        formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
+      });
     }
-
-    // Display match format
-    onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-      const format = snap.val() || "5";
-      const formatNames = {
-        "5": "5 Overs",
-        "10": "10 Overs", 
-        "20": "T20",
-        "50": "ODI",
-        "test": "Test Match"
-      };
-      formatDisplay.innerText = `Match Format: ${formatNames[format]}`;
-    });
 
     // Toss call handlers
     document.getElementById('call-heads').addEventListener('click', () => makeTossCall('heads'));
@@ -251,13 +241,11 @@
     document.getElementById('flip-coin-btn').addEventListener('click', flipCoin);
 
     async function makeTossCall(call) {
-      // Save toss call to Firebase
       await set(ref(db, `rooms/${room}/toss`), {
         caller: player,
         call: call,
         status: 'called'
       });
-      
       callOptions.classList.add('hidden');
       tossInstruction.textContent = "Waiting for Player 2 to flip the coin...";
     }
@@ -267,18 +255,12 @@
       flipOptions.classList.add('hidden');
       coinElement.classList.add('spinning');
       
-      // Generate random result
       const result = Math.random() < 0.5 ? 'heads' : 'tails';
-      
-      // Get the call from player1
       const tossSnap = await get(ref(db, `rooms/${room}/toss`));
       const tossData = tossSnap.val();
       const call = tossData.call;
-      
-      // Determine winner
       const winner = call === result ? 'player1' : 'player2';
       
-      // Update toss result
       await set(ref(db, `rooms/${room}/toss`), {
         ...tossData,
         result: result,
@@ -286,7 +268,6 @@
         status: 'complete'
       });
       
-      // Show result after a delay to simulate coin flip
       setTimeout(() => {
         coinElement.classList.remove('spinning');
         coinElement.textContent = result.toUpperCase();
@@ -317,37 +298,37 @@
       battingChoice.classList.add('hidden');
       tossOutcome.innerHTML += `<br>${player.toUpperCase()} chose to ${decision}`;
       
-      // Set both decision and gameStarted flag
-      await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === 'bat' ? player : opponent,
         bowlingFirst: decision === 'bowl' ? player : opponent,
-        gameStarted: true  // Add this flag to indicate game can start
+        gameStatus: 'started',
+        currentInning: 1,
+        currentBatsman: player,
+        currentBowler: opponent
       });
       
-      // Save to localStorage and redirect
       localStorage.setItem('battingFirst', decision === 'bat' ? player : opponent);
       localStorage.setItem('bowlingFirst', decision === 'bowl' ? player : opponent);
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
-    // Listen for when opponent makes the choice
-    onValue(ref(db, `rooms/${room}/gameStarted`), (snapshot) => {
-      if (snapshot.exists() && snapshot.val() === true) {
-        const battingFirstRef = ref(db, `rooms/${room}/battingFirst`);
-        get(battingFirstRef).then((battingSnap) => {
-          if (battingSnap.exists()) {
-            localStorage.setItem('battingFirst', battingSnap.val());
-            localStorage.setItem('bowlingFirst', 
-              battingSnap.val() === player ? opponent : player);
-            window.location.href = `game.html?room=${room}&player=${player}`;
-          }
-        });
-      }
-    });
+    function listenForGameStart() {
+      onValue(ref(db, `rooms/${room}/gameStatus`), (snapshot) => {
+        if (snapshot.exists() && snapshot.val() === 'started') {
+          get(ref(db, `rooms/${room}/battingFirst`)).then((battingSnap) => {
+            if (battingSnap.exists()) {
+              localStorage.setItem('battingFirst', battingSnap.val());
+              localStorage.setItem('bowlingFirst', 
+                battingSnap.val() === player ? opponent : player);
+              window.location.href = `game.html?room=${room}&player=${player}`;
+            }
+          });
+        }
+      });
+    }
 
-    // Initialize the page
-    setPlayerReady();
+    // Initialize the game
+    initializeGame();
   </script>
 </body>
 </html>
