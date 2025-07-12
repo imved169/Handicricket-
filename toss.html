@@ -12,9 +12,7 @@
       text-align: center;
       padding: 30px;
     }
-    h1 {
-      margin-bottom: 20px;
-    }
+    h1 { margin-bottom: 20px; }
     .btn {
       padding: 12px 24px;
       font-size: 16px;
@@ -55,7 +53,7 @@
       font-size: 24px;
       font-weight: bold;
       color: #000;
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      box-shadow: 0 0 20px rgba(255,215,0,0.5);
       animation: none;
     }
     .spinning {
@@ -96,9 +94,7 @@
 
     <div id="roomCodeDisplay">Room Code: Loading...</div>
     <div id="formatDisplay">Match Format: Loading...</div>
-    <div class="player-status" id="playerStatus">
-      Waiting for both players...
-    </div>
+    <div class="player-status" id="playerStatus">Waiting for both players...</div>
 
     <div id="toss-waiting">
       <p>Waiting for opponent to join the toss...</p>
@@ -188,8 +184,11 @@
         if (player === "player1") {
           tossInstruction.innerText = "Call Heads or Tails:";
           callOptions.classList.remove("hidden");
+          flipOptions.classList.add("hidden");
         } else {
           tossInstruction.innerText = "Waiting for Player 1 to call...";
+          callOptions.classList.add("hidden");
+          flipOptions.classList.add("hidden");
         }
       } else {
         setTimeout(checkPlayersReady, 1000);
@@ -245,23 +244,24 @@
     }
 
     async function makeBattingChoice(decision) {
-      battingChoice.classList.add("hidden");
-
       await set(ref(db, `rooms/${room}/decision`), decision);
       await update(ref(db, `rooms/${room}`), {
         battingFirst: decision === "bat" ? player : opponent,
         bowlingFirst: decision === "bowl" ? player : opponent
       });
 
+      // 🟢 Also mark toss as "done" so game screen knows it's complete
+      await set(ref(db, `rooms/${room}/tossDone`), true);
+
       localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
       localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
-    onValue(ref(db, `rooms/${room}/battingFirst`), (snapshot) => {
-      if (snapshot.exists()) {
-        localStorage.setItem("battingFirst", snapshot.val());
-        localStorage.setItem("bowlingFirst", snapshot.val() === player ? opponent : player);
+    onValue(ref(db, `rooms/${room}/battingFirst`), (snap) => {
+      if (snap.exists()) {
+        localStorage.setItem("battingFirst", snap.val());
+        localStorage.setItem("bowlingFirst", snap.val() === player ? opponent : player);
         window.location.href = `game.html?room=${room}&player=${player}`;
       }
     });
