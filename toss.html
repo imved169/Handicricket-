@@ -244,14 +244,13 @@
     }
 
     async function makeBattingChoice(decision) {
-      await set(ref(db, `rooms/${room}/decision`), decision);
-      await update(ref(db, `rooms/${room}`), {
-        battingFirst: decision === "bat" ? player : opponent,
-        bowlingFirst: decision === "bowl" ? player : opponent
-      });
-
-      // 🟢 Also mark toss as "done" so game screen knows it's complete
-      await set(ref(db, `rooms/${room}/tossDone`), true);
+      // MODIFIED TO SET ALL REQUIRED VALUES
+      await Promise.all([
+        set(ref(db, `rooms/${room}/decision`), decision),
+        set(ref(db, `rooms/${room}/battingFirst`), decision === "bat" ? player : opponent),
+        set(ref(db, `rooms/${room}/bowlingFirst`), decision === "bowl" ? player : opponent),
+        set(ref(db, `rooms/${room}/tossDone`), true)
+      ]);
 
       localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
       localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
