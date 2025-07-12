@@ -942,6 +942,13 @@
           if (confirm("Force reset the current plays? This will clear both players' selections.")) {
             await resetPlays();
             status.innerText = "Plays have been reset";
+            
+            // Additional reset logic to handle stuck state
+            if (!isBatting && !bowlerSelected) {
+              await showBowlerSelection();
+            } else if (isBatting && !batterSelected) {
+              await showBatterSelection();
+            }
           }
         });
 
@@ -953,6 +960,29 @@
         console.error("Initialization error:", error);
         showNotification("Failed to initialize game", 'error');
         setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+      }
+    }
+
+    // Enhanced resetPlays function
+    async function resetPlays() {
+      try {
+        // Reset both players' selections in Firebase
+        await update(playsRef, {
+          player1: null,
+          player2: null
+        });
+        
+        // Also reset the ready state if in between innings
+        await set(inningsReadyRef, false);
+        
+        // Reset any auto-start timer
+        await set(autoStartTimeRef, null);
+        
+        // Force update UI states
+        updateButtonStates();
+      } catch (error) {
+        console.error("Error resetting plays:", error);
+        showNotification("Error resetting plays", 'error');
       }
     }
 
@@ -1484,14 +1514,6 @@
       updateButtonStates();
     }
 
-    // Reset plays in Firebase
-    async function resetPlays() {
-      await update(playsRef, {
-        player1: null,
-        player2: null
-      });
-    }
-
     // Process the outcome of a ball with fractional wickets
     async function processBallOutcome(batCard, bowlCard, battingPlayer, bowlingPlayer) {
       let outcome = "";
@@ -1502,226 +1524,238 @@
       let boundary = false;
       let isSix = false;
 
-      // Track zeros for both players
-      if (batCard === 0) zerosThisOver[battingPlayer]++;
-      if (bowlCard === 0) zerosThisOver[bowlingPlayer]++;
+      try {
+        // Track zeros for both players
+        if (batCard === 0) zerosThisOver[battingPlayer]++;
+        if (bowlCard === 0) zerosThisOver[bowlingPlayer]++;
 
-      // Handle free hit for next ball
-      if (freeHitNextBall) {
-        freeHit = true;
-        freeHitNextBall = false;
-        updateFreeHitDisplay();
-      }
+        // Handle free hit for next ball
+        if (freeHitNextBall) {
+          freeHit = true;
+          freeHitNextBall = false;
+          updateFreeHitDisplay();
+        }
 
-      // Check powerplay and dead over status
-      checkPowerplay();
-      checkDeadOver();
+        // Check powerplay and dead over status
+        checkPowerplay();
+        checkDeadOver();
 
-      // 1. Check for no ball (both 0)
-      if (batCard === 0 && bowlCard === 0) {
-        if (!isTestMatch) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          currentInningRuns += 1;
-          freeHitNextBall = true;
-          isLegalBall = false;
-        } else {
-          outcome = "No run (Test Match)";
-        }
-      } 
-      // 2. Handle free hit balls
-      else if (freeHit) {
-        if (batCard === bowlCard && batCard > 0) {
-          outcome = "Wicket on Free Hit (not out)";
-          isWicket = false;
-        } else {
-          runsScored = batCard;
-          runs += batCard;
-          currentInningRuns += batCard;
-          batterStats[currentBatter].runs += runsScored;
-          outcome = `${batCard} Run(s)! (Free Hit)`;
-          if (batCard === 4 || batCard === 6) boundary = true;
-          if (batCard === 6) isSix = true;
-        }
-        freeHit = false;
-        updateFreeHitDisplay();
-        isLegalBall = true;
-      }
-      // 3. Handle wickets (same number > 0)
-      else if (batCard === bowlCard && batCard > 0) {
-        let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
-        
-        // Ensure we don't exceed 1.0 for a player's wickets
-        const currentWickets = batterWickets[currentBatter] || 0;
-        const newWickets = Math.min(1.0, currentWickets + wicketValue);
-        
-        batterWickets[currentBatter] = newWickets;
-        wickets += wicketValue;
-        
-        // Check if player is completely out (reached 1.0)
-        if (Math.abs(batterWickets[currentBatter] - 1.0) < 0.001) {
-          isPlayerOut = true;
-          outcome = "WICKET! (Out)";
-          fallOfWickets.push({
-            score: runs,
-            over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
-            batter: currentBatter
-          });
-        } else {
-          outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
-        }
-        
-        isLegalBall = true;
-        isWicket = true;
-      }
-      // 4. Handle batter playing 0 with penalty
-      else if (batCard === 0 && bowlCard > 0) {
-        if (zerosThisOver[battingPlayer] > 3) {
-          const penaltyRuns = 5;
-          runs -= penaltyRuns;
-          currentInningRuns -= penaltyRuns;
-          batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
-          outcome = "4th 0 in over! -5 runs";
-          
-          // Check for negative milestone impact
-          checkBatterMilestones(true);
-        } else {
-          if (isTestMatch) {
-            bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
-            outcome = `Bowler's ${bowlCard} runs added to their stats`;
+        // 1. Check for no ball (both 0)
+        if (batCard === 0 && bowlCard === 0) {
+          if (!isTestMatch) {
+            outcome = "NO BALL! +1 run (Free Hit next ball)";
+            runs += 1;
+            currentInningRuns += 1;
+            freeHitNextBall = true;
+            isLegalBall = false;
           } else {
-            runsScored = bowlCard;
-            runs += bowlCard;
-            currentInningRuns += bowlCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `Batter played 0. Runs = ${bowlCard}`;
-            if (bowlCard === 4 || bowlCard === 6) boundary = true;
-            if (bowlCard === 6) isSix = true;
+            outcome = "No run (Test Match)";
           }
-        }
-        isLegalBall = true;
-      }
-      // 5. Handle bowler playing 0
-      else if (bowlCard === 0 && batCard > 0) {
-        if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
-          outcome = "4th 0 in over! No ball";
-          runs += 1;
-          freeHitNextBall = true;
-        } else {
-          if (isTestMatch) {
+        } 
+        // 2. Handle free hit balls
+        else if (freeHit) {
+          if (batCard === bowlCard && batCard > 0) {
+            outcome = "Wicket on Free Hit (not out)";
+            isWicket = false;
+          } else {
             runsScored = batCard;
             runs += batCard;
             currentInningRuns += batCard;
             batterStats[currentBatter].runs += runsScored;
-            outcome = `${batCard} Run(s)!`;
+            outcome = `${batCard} Run(s)! (Free Hit)`;
             if (batCard === 4 || batCard === 6) boundary = true;
             if (batCard === 6) isSix = true;
+          }
+          freeHit = false;
+          updateFreeHitDisplay();
+          isLegalBall = true;
+        }
+        // 3. Handle wickets (same number > 0)
+        else if (batCard === bowlCard && batCard > 0) {
+          let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
+          
+          // Ensure we don't exceed 1.0 for a player's wickets
+          const currentWickets = batterWickets[currentBatter] || 0;
+          const newWickets = Math.min(1.0, currentWickets + wicketValue);
+          
+          batterWickets[currentBatter] = newWickets;
+          wickets += wicketValue;
+          
+          // Check if player is completely out (reached 1.0)
+          if (Math.abs(batterWickets[currentBatter] - 1.0) < 0.001) {
+            isPlayerOut = true;
+            outcome = "WICKET! (Out)";
+            fallOfWickets.push({
+              score: runs,
+              over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
+              batter: currentBatter
+            });
           } else {
-            outcome = "DOT BALL!";
+            outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
           }
+          
+          isLegalBall = true;
+          isWicket = true;
         }
-        isLegalBall = true;
-      }
-      // 6. Normal runs
-      else {
-        runsScored = batCard;
-        runs += batCard;
-        currentInningRuns += batCard;
-        batterStats[currentBatter].runs += runsScored;
-        outcome = `${batCard} Run(s)!`;
-        if (batCard === 4 || batCard === 6) boundary = true;
-        if (batCard === 6) isSix = true;
-        isLegalBall = true;
-      }
+        // 4. Handle batter playing 0 with penalty
+        else if (batCard === 0 && bowlCard > 0) {
+          if (zerosThisOver[battingPlayer] > 3) {
+            const penaltyRuns = 5;
+            runs -= penaltyRuns;
+            currentInningRuns -= penaltyRuns;
+            batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
+            outcome = "4th 0 in over! -5 runs";
+            
+            // Check for negative milestone impact
+            checkBatterMilestones(true);
+          } else {
+            if (isTestMatch) {
+              bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlCard;
+              outcome = `Bowler's ${bowlCard} runs added to their stats`;
+            } else {
+              runsScored = bowlCard;
+              runs += bowlCard;
+              currentInningRuns += bowlCard;
+              batterStats[currentBatter].runs += runsScored;
+              outcome = `Batter played 0. Runs = ${bowlCard}`;
+              if (bowlCard === 4 || bowlCard === 6) boundary = true;
+              if (bowlCard === 6) isSix = true;
+            }
+          }
+          isLegalBall = true;
+        }
+        // 5. Handle bowler playing 0
+        else if (bowlCard === 0 && batCard > 0) {
+          if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
+            outcome = "4th 0 in over! No ball";
+            runs += 1;
+            freeHitNextBall = true;
+          } else {
+            if (isTestMatch) {
+              runsScored = batCard;
+              runs += batCard;
+              currentInningRuns += batCard;
+              batterStats[currentBatter].runs += runsScored;
+              outcome = `${batCard} Run(s)!`;
+              if (batCard === 4 || batCard === 6) boundary = true;
+              if (batCard === 6) isSix = true;
+            } else {
+              outcome = "DOT BALL!";
+            }
+          }
+          isLegalBall = true;
+        }
+        // 6. Normal runs
+        else {
+          runsScored = batCard;
+          runs += batCard;
+          currentInningRuns += batCard;
+          batterStats[currentBatter].runs += runsScored;
+          outcome = `${batCard} Run(s)!`;
+          if (batCard === 4 || batCard === 6) boundary = true;
+          if (batCard === 6) isSix = true;
+          isLegalBall = true;
+        }
 
-      // Update batter stats
-      if (currentBatter && runsScored > 0) {
-        batterStats[currentBatter].balls += 1;
-        if (batCard === 4) batterStats[currentBatter].fours += 1;
-        if (batCard === 6) batterStats[currentBatter].sixes += 1;
+        // Update batter stats
+        if (currentBatter && runsScored > 0) {
+          batterStats[currentBatter].balls += 1;
+          if (batCard === 4) batterStats[currentBatter].fours += 1;
+          if (batCard === 6) batterStats[currentBatter].sixes += 1;
+          
+          // Check for positive milestones
+          checkBatterMilestones();
+        }
         
-        // Check for positive milestones
-        checkBatterMilestones();
-      }
-      
-      // Update bowler stats
-      if (currentBowler) {
-        bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
-        if (isWicket) bowlerStats[currentBowler].wickets += 1;
-        bowlerStats[currentBowler].runs += runsScored;
-      }
-
-      // Record ball in ball-by-ball
-      ballByBall[legalBalls] = {
-        runs: runsScored,
-        wicket: isWicket || isPlayerOut,
-        batter: currentBatter,
-        bowler: currentBowler,
-        timestamp: Date.now(),
-        outcome: outcome,
-        penalty: (batCard === 0 && bowlCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
-      };
-
-      // Record last wicket score for partnership
-      if (isWicket) {
-        lastWicketScore = runs;
-      }
-
-      // Handle legal balls
-      if (isLegalBall) {
-        legalBalls++;
-        if (isTestMatch) oversToday++;
-        
+        // Update bowler stats
         if (currentBowler) {
-          bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
-          if (legalBalls % 6 === 0) {
-            bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
-            zerosThisOver = { player1: 0, player2: 0 };
+          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
+          if (isWicket) bowlerStats[currentBowler].wickets += 1;
+          bowlerStats[currentBowler].runs += runsScored;
+        }
+
+        // Record ball in ball-by-ball
+        ballByBall[legalBalls] = {
+          runs: runsScored,
+          wicket: isWicket || isPlayerOut,
+          batter: currentBatter,
+          bowler: currentBowler,
+          timestamp: Date.now(),
+          outcome: outcome,
+          penalty: (batCard === 0 && bowlCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
+        };
+
+        // Record last wicket score for partnership
+        if (isWicket) {
+          lastWicketScore = runs;
+        }
+
+        // Handle legal balls
+        if (isLegalBall) {
+          legalBalls++;
+          if (isTestMatch) oversToday++;
+          
+          if (currentBowler) {
+            bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
+            if (legalBalls % 6 === 0) {
+              bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
+              zerosThisOver = { player1: 0, player2: 0 };
+            }
+          }
+          
+          // Check for end of day's play in test matches
+          if (isTestMatch && oversToday >= maxOversPerDay) {
+            endDaysPlay();
+            return;
           }
         }
-        
-        // Check for end of day's play in test matches
-        if (isTestMatch && oversToday >= maxOversPerDay) {
-          endDaysPlay();
+
+        // Update UI
+        status.innerText = outcome;
+        updateScoreboard();
+        updateSpectatorData();
+
+        // Check for match/innings end conditions
+        if (innings === 2 && runs > team1Score) {
+          endMatch();
           return;
         }
-      }
-
-      // Update UI
-      status.innerText = outcome;
-      updateScoreboard();
-      updateSpectatorData();
-
-      // Check for match/innings end conditions
-      if (innings === 2 && runs > team1Score) {
-        endMatch();
-        return;
-      }
-      
-      if ((isTestMatch && currentInningWickets >= 30) || 
-          (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
-        endInning();
-        return;
-      }
-
-      // Prepare for next ball
-      setTimeout(async () => {
-        await resetPlays();
         
-        if (isPlayerOut && player === battingPlayer) {
-          batterSelected = false;
-          showBatterSelection();
-        } else if (isLegalBall && legalBalls % 6 === 0) {
-          bowlerSelected = false;
-          if (player === bowlingPlayer) {
-            showBowlerSelection();
-          } else {
-            status.innerText = "Waiting for opponent to select bowler...";
-          }
-        } else {
-          updateButtonStates();
+        if ((isTestMatch && currentInningWickets >= 30) || 
+            (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
+          endInning();
+          return;
         }
-      }, 1500);
+
+        // Prepare for next ball
+        setTimeout(async () => {
+          try {
+            await resetPlays();
+            
+            if (isPlayerOut && player === battingPlayer) {
+              batterSelected = false;
+              await showBatterSelection();
+            } else if (isLegalBall && legalBalls % 6 === 0) {
+              bowlerSelected = false;
+              if (player === bowlingPlayer) {
+                await showBowlerSelection();
+              } else {
+                status.innerText = "Waiting for opponent to select bowler...";
+              }
+            } else {
+              updateButtonStates();
+            }
+          } catch (error) {
+            console.error("Error in post-ball processing:", error);
+            status.innerText = "Error processing next ball state";
+            enableButtons();
+          }
+        }, 1500);
+      } catch (error) {
+        console.error("Error processing ball outcome:", error);
+        status.innerText = "Error processing ball outcome";
+        enableButtons();
+      }
     }
 
     // Set up Firebase listeners
@@ -2138,4 +2172,4 @@
     initGame();
   </script>
 </body>
-</html>
+  </html>
