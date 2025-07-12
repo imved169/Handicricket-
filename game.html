@@ -857,34 +857,34 @@
 
     // Initialize the game with enhanced error handling
     async function initGame() {
-  try {
-    status.innerText = "Initializing game...";
-    loadingSpinner.style.display = "block";
-    
-    // Set player online status
-    await set(playerRef, true);
-    
-    // Check if room exists
-    const roomSnap = await get(roomRef);
-    if (!roomSnap.exists()) {
-      showNotification("Room does not exist!", 'error');
-      setTimeout(() => window.location.href = "index.html", 2000);
-      return;
-    }
+      try {
+        status.innerText = "Initializing game...";
+        loadingSpinner.style.display = "block";
+        
+        // Set player online status
+        await set(playerRef, true);
+        
+        // Check if room exists
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          showNotification("Room does not exist!", 'error');
+          setTimeout(() => window.location.href = "index.html", 2000);
+          return;
+        }
 
-    const roomData = roomSnap.val();
-    
-    // Check if toss is completed (check both root level and toss node)
-    tossWinner = roomData.toss?.winner || roomData.tossWinner;
-    battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
-    
-    if (!tossWinner || !battingFirst) {
-      status.innerText = "Toss not completed - redirecting...";
-      setTimeout(() => {
-        window.location.href = `toss.html?room=${room}&player=${player}`;
-      }, 2000);
-      return;
-    }
+        const roomData = roomSnap.val();
+        
+        // Check if toss is completed (check both root level and toss node)
+        tossWinner = roomData.toss?.winner || roomData.tossWinner;
+        battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
+        
+        if (!tossWinner || !battingFirst) {
+          status.innerText = "Toss not completed - redirecting...";
+          setTimeout(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          }, 2000);
+          return;
+        }
 
         // Check if teams are set
         if (!roomData.teams?.player1 || !roomData.teams?.player2) {
@@ -1125,9 +1125,14 @@
       freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
     }
 
+    // Format wickets to max 1.0 per batter
+    function formatWickets(value) {
+      return Math.min(1.0, parseFloat(value) || 0).toFixed(1);
+    }
+
     // Update scoreboard with fractional wickets
     function updateScoreboard() {
-      const wicketsDisplay = wickets.toFixed(2);
+      const wicketsDisplay = formatWickets(wickets);
       
       document.querySelector("#scoreboard div:nth-child(1) strong").textContent = runs;
       document.querySelector("#scoreboard div:nth-child(2) strong").textContent = 
@@ -1248,26 +1253,26 @@
 
     // Function to start the second innings
     async function startSecondInnings() {
-    try {
-        disableButtons();
-        status.innerText = "Starting second innings...";
-        
-        if (countdownInterval) clearInterval(countdownInterval);
-        
-        // Signal second innings start
-        await set(startSecondInningsRef, true);
-        
-        // Increment innings counter
-        innings++;
-        
-        // Reset all inning-specific states
-        await resetInning();
-        
-    } catch (error) {
-        console.error("Error starting second innings:", error);
-        status.innerText = "Error starting second innings. Please try again.";
-        enableButtons();
-    }
+      try {
+          disableButtons();
+          status.innerText = "Starting second innings...";
+          
+          if (countdownInterval) clearInterval(countdownInterval);
+          
+          // Signal second innings start
+          await set(startSecondInningsRef, true);
+          
+          // Increment innings counter
+          innings++;
+          
+          // Reset all inning-specific states
+          await resetInning();
+          
+      } catch (error) {
+          console.error("Error starting second innings:", error);
+          status.innerText = "Error starting second innings. Please try again.";
+          enableButtons();
+      }
     }
 
     // Update spectator data with match details
@@ -1321,70 +1326,54 @@
     async function showBatterSelection() {
       disableButtons();
       try {
-        status.innerText = "Loading batters...";
-        
-        const currentPlayers = player === "player1" ? team1Players : team2Players;
-        
-        if (!currentPlayers || currentPlayers.length === 0) {
-          showNotification("No batters available", 'error');
-          enableButtons();
-          return;
-        }
-        
-        // Only show batters who haven't been completely out (wickets < 1.0)
-        const availableBatters = currentPlayers.filter(p => {
-          const wicketsUsed = batterWickets[p] || 0;
-          return wicketsUsed < 1.0;
-        });
-        
-        if (availableBatters.length === 0) {
-          showNotification("All batters are out!", 'error');
-          enableButtons();
-          return;
-        }
-
-        selectionTitle.textContent = "Select Next Batter";
-        selectionList.innerHTML = "";
-        
-        availableBatters.forEach(player => {
-          const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
-          const wicketsLost = batterWickets[player] || 0;
-          const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
-          const wicketsLeft = (1.0 - wicketsLost).toFixed(2);
+          status.innerText = "Loading batters...";
           
-          const batterEl = document.createElement("div");
-          batterEl.className = "batter-item";
-          batterEl.dataset.name = player;
-          batterEl.innerHTML = `
-            <div>${player}</div>
-            <div class="batter-stats">
-              <div class="batter-status">
-                <span>${stats.runs} runs</span>
-                <span>${stats.balls} balls</span>
-                <span>SR: ${strikeRate}</span>
-              </div>
-              <div class="batter-status">
-                <span>${stats.fours} fours</span>
-                <span>${stats.sixes} sixes</span>
-                <span>${wicketsLeft} wickets left</span>
-              </div>
-            </div>
-          `;
-          
-          batterEl.addEventListener("click", function() {
-            document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
-            this.classList.add("selected");
+          const currentPlayers = player === "player1" ? team1Players : team2Players;
+          const availableBatters = currentPlayers.filter(p => {
+              const wicketsUsed = Math.min(1.0, batterWickets[p] || 0);
+              return wicketsUsed < 1.0;
           });
-          
-          selectionList.appendChild(batterEl);
-        });
 
-        selectionModal.style.display = "block";
-        status.innerText = "Select your next batter...";
+          if (availableBatters.length === 0) {
+              showNotification("All batters are out!", 'error');
+              enableButtons();
+              return;
+          }
+
+          selectionTitle.textContent = "Select Next Batter";
+          selectionList.innerHTML = "";
+          
+          availableBatters.forEach(player => {
+              const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+              const wicketsUsed = Math.min(1.0, batterWickets[player] || 0).toFixed(1);
+              const strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : "0.00";
+              
+              const batterEl = document.createElement("div");
+              batterEl.className = "batter-item";
+              batterEl.dataset.name = player;
+              batterEl.innerHTML = `
+                  <div>${player}</div>
+                  <div class="batter-stats">
+                      <span>${stats.runs} runs</span>
+                      <span>SR: ${strikeRate}</span>
+                      <span>${wicketsUsed} wickets used</span>
+                  </div>
+              `;
+              
+              batterEl.addEventListener("click", function() {
+                  document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
+                  this.classList.add("selected");
+              });
+              
+              selectionList.appendChild(batterEl);
+          });
+
+          selectionModal.style.display = "block";
+          status.innerText = "Select your next batter...";
       } catch (error) {
-        console.error("Batter selection error:", error);
-        showNotification("Error loading batters", 'error');
-        enableButtons();
+          console.error("Batter selection error:", error);
+          showNotification("Error loading batters", 'error');
+          enableButtons();
       }
     }
 
@@ -1392,60 +1381,93 @@
     async function showBowlerSelection() {
       disableButtons();
       try {
-        status.innerText = "Loading bowlers...";
-        
-        const currentPlayers = player === "player1" ? team1Players : team2Players;
-        
-        if (!currentPlayers || currentPlayers.length === 0) {
-          showNotification("No bowlers available", 'error');
-          enableButtons();
-          return;
-        }
-        
-        const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-        const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
-        
-        if (availableBowlers.length === 0) {
-          showNotification("All bowlers have bowled their maximum overs!", 'error');
-          enableButtons();
-          return;
-        }
+          status.innerText = "Loading bowlers...";
+          
+          const currentPlayers = player === "player1" ? team1Players : team2Players;
+          
+          if (!currentPlayers || currentPlayers.length === 0) {
+              showNotification("No bowlers available", 'error');
+              enableButtons();
+              return;
+          }
+          
+          const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
+          const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
+          
+          if (availableBowlers.length === 0) {
+              showNotification("All bowlers have bowled their maximum overs!", 'error');
+              enableButtons();
+              return;
+          }
 
-        selectionTitle.textContent = "Select Next Bowler";
-        selectionList.innerHTML = "";
-        
-        availableBowlers.forEach(player => {
-          const oversBowled = bowlerOvers[player] || 0;
-          const stats = bowlerStats[player] || { wickets: 0, runs: 0 };
-          const economy = oversBowled > 0 ? (stats.runs / oversBowled).toFixed(2) : "0.00";
+          selectionTitle.textContent = "Select Next Bowler";
+          selectionList.innerHTML = "";
           
-          const playerEl = document.createElement("div");
-          playerEl.className = "player-item";
-          playerEl.dataset.name = player;
-          playerEl.innerHTML = `
-            <div>${player}</div>
-            <div class="bowler-stats">
-              <div>${oversBowled.toFixed(1)} overs</div>
-              <div>${stats.wickets} wickets</div>
-              <div>ER: ${economy}</div>
-            </div>
-          `;
-          
-          playerEl.addEventListener("click", function() {
-            document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
-            this.classList.add("selected");
+          availableBowlers.forEach(player => {
+              const oversBowled = bowlerOvers[player] || 0;
+              const stats = bowlerStats[player] || { wickets: 0, runs: 0 };
+              const economy = oversBowled > 0 ? (stats.runs / oversBowled).toFixed(2) : "0.00";
+              
+              const playerEl = document.createElement("div");
+              playerEl.className = "player-item";
+              playerEl.dataset.name = player;
+              playerEl.innerHTML = `
+                  <div>${player}</div>
+                  <div class="bowler-stats">
+                      <div>${oversBowled.toFixed(1)} overs</div>
+                      <div>${stats.wickets} wickets</div>
+                      <div>ER: ${economy}</div>
+                  </div>
+              `;
+              
+              playerEl.addEventListener("click", function() {
+                  document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
+                  this.classList.add("selected");
+              });
+              
+              selectionList.appendChild(playerEl);
           });
-          
-          selectionList.appendChild(playerEl);
-        });
 
-        selectionModal.style.display = "block";
-        status.innerText = "Select your next bowler...";
+          selectionModal.style.display = "block";
+          status.innerText = "Select your next bowler...";
       } catch (error) {
-        console.error("Bowler selection error:", error);
-        showNotification("Error loading bowlers", 'error');
-        enableButtons();
+          console.error("Bowler selection error:", error);
+          showNotification("Error loading bowlers", 'error');
+          enableButtons();
       }
+    }
+
+    // Setup player role (batting/bowling)
+    async function setupRole() {
+        // Immediately clear all selection states and UI
+        batterSelected = false;
+        bowlerSelected = false;
+        currentBatter = null;
+        currentBowler = null;
+        currentBatterEl.innerText = "-";
+        currentBowlerEl.innerText = "-";
+        selectionModal.style.display = "none";
+
+        // Set role definitively
+        isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+        
+        // Atomically clear all Firebase selections
+        await Promise.all([
+            set(batterRef, null),
+            set(bowlerRef, null),
+            update(playsRef, { player1: null, player2: null })
+        ]);
+
+        // Add slight delay before showing new UI to prevent flicker
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Show appropriate selection UI
+        if (isBatting) {
+            if (!currentBatter) await showBatterSelection();
+        } else {
+            if (!currentBowler) await showBowlerSelection();
+        }
     }
 
     // Setup selection modal
@@ -1472,31 +1494,6 @@
 
         updateButtonStates();
       });
-    }
-
-    // Setup player role (batting/bowling)
-    async function setupRole() {
-    isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
-    roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-    
-    // Clear any previous selections
-    batterSelected = false;
-    bowlerSelected = false;
-    
-    // Reset plays and clear Firebase selections
-    await resetPlays();
-    await set(batterRef, null);
-    await set(bowlerRef, null);
-    
-    // Update UI immediately
-    currentBatterEl.innerText = "-";
-    currentBowlerEl.innerText = "-";
-    
-    if (isBatting && !currentBatter) {
-        await showBatterSelection();
-    } else if (!isBatting && !currentBowler) {
-        await showBowlerSelection();
-    }
     }
 
     // Enable/disable card buttons based on game state
@@ -1578,29 +1575,34 @@
         // 3. Handle wickets (same number > 0)
         else if (batCard === bowlCard && batCard > 0) {
           let wicketValue = isPowerplay ? currentFormat.powerplayWicketValue : currentFormat.regularWicketValue;
-          
-          // Ensure we don't exceed 1.0 for a player's wickets
           const currentWickets = batterWickets[currentBatter] || 0;
-          const newWickets = Math.min(1.0, currentWickets + wicketValue);
-          
-          batterWickets[currentBatter] = newWickets;
-          wickets += wicketValue;
-          
-          // Check if player is completely out (reached 1.0)
-          if (Math.abs(batterWickets[currentBatter] - 1.0) < 0.001) {
-            isPlayerOut = true;
-            outcome = "WICKET! (Out)";
-            fallOfWickets.push({
-              score: runs,
-              over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
-              batter: currentBatter
-            });
+
+          if (currentWickets >= 1.0) {
+              outcome = "Batter already out!";
+              isWicket = false;
+              isPlayerOut = false;
           } else {
-            outcome = `WICKET! (${(1.0 - batterWickets[currentBatter]).toFixed(2)} wickets left)`;
+              const newWickets = Math.min(1.0, currentWickets + wicketValue);
+              const actualWicketValue = newWickets - currentWickets;
+              
+              batterWickets[currentBatter] = newWickets;
+              wickets += actualWicketValue;
+              isWicket = true;
+              
+              if (newWickets >= 1.0) {
+                  isPlayerOut = true;
+                  outcome = "WICKET! (Out)";
+                  fallOfWickets.push({
+                      score: runs,
+                      over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
+                      batter: currentBatter
+                  });
+              } else {
+                  outcome = `WICKET! (${(1.0 - newWickets).toFixed(1)} wickets left)`;
+              }
           }
           
           isLegalBall = true;
-          isWicket = true;
         }
         // 4. Handle batter playing 0 with penalty
         else if (batCard === 0 && bowlCard > 0) {
@@ -1941,40 +1943,40 @@
 
     // Reset inning state
     async function resetInning() {
-    // Reset all game state variables
-    runs = 0;
-    wickets = 0;
-    currentInningRuns = 0;
-    currentInningWickets = 0;
-    legalBalls = 0;
-    oversToday = 0;
-    freeHit = false;
-    freeHitNextBall = false;
-    zerosThisOver = { player1: 0, player2: 0 };
-    
-    // Clear player selections
-    currentBatter = null;
-    currentBowler = null;
-    batterSelected = false;
-    bowlerSelected = false;
-    
-    // Clear Firebase selections
-    await update(playsRef, { player1: null, player2: null });
-    await set(batterRef, null);
-    await set(bowlerRef, null);
-    
-    // Update UI
-    currentBatterEl.innerText = "-";
-    currentBowlerEl.innerText = "-";
-    updateScoreboard();
-    
-    // Reset innings button state
-    startInningsBtn.style.display = "none";
-    opponentReadyStatus.style.display = "none";
-    autoStartTimerEl.style.display = "none";
-    
-    // Setup the correct role
-    await setupRole();
+      // Reset all game state variables
+      runs = 0;
+      wickets = 0;
+      currentInningRuns = 0;
+      currentInningWickets = 0;
+      legalBalls = 0;
+      oversToday = 0;
+      freeHit = false;
+      freeHitNextBall = false;
+      zerosThisOver = { player1: 0, player2: 0 };
+      
+      // Clear player selections
+      currentBatter = null;
+      currentBowler = null;
+      batterSelected = false;
+      bowlerSelected = false;
+      
+      // Clear Firebase selections
+      await update(playsRef, { player1: null, player2: null });
+      await set(batterRef, null);
+      await set(bowlerRef, null);
+      
+      // Update UI
+      currentBatterEl.innerText = "-";
+      currentBowlerEl.innerText = "-";
+      updateScoreboard();
+      
+      // Reset innings button state
+      startInningsBtn.style.display = "none";
+      opponentReadyStatus.style.display = "none";
+      autoStartTimerEl.style.display = "none";
+      
+      // Setup the correct role
+      await setupRole();
     }
 
     // End day's play (Test matches)
