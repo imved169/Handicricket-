@@ -840,22 +840,22 @@
     const opponentRef = ref(db, `rooms/${room}/${opponent}/online`);
     const roomRef = ref(db, `rooms/${room}`);
     const playsRef = ref(db, `rooms/${room}/currentPlays`);
-    const batterRef = ref(db, `rooms/${room}/currentBatter`);
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
-    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady`);
-    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime`);
-    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings`);
-    const declaredRef = ref(db, `rooms/${room}/declared`);
-    const followOnRef = ref(db, `rooms/${room}/followOn`);
-    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
-    const reactionsRef = ref(db, `rooms/${room}/reactions`);
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
-    const liveStateRef = ref(db, `rooms/${room}/liveState`);
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
-    const savedGameRef = ref(db, `savedGames/${room}`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter");
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
+    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady");
+    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime");
+    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings");
+    const declaredRef = ref(db, `rooms/${room}/declared");
+    const followOnRef = ref(db, `rooms/${room}/followOn");
+    const spectatorsRef = ref(db, `rooms/${room}/spectators");
+    const reactionsRef = ref(db, `rooms/${room}/reactions");
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
+    const liveStateRef = ref(db, `rooms/${room}/liveState");
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
+    const resultRef = ref(db, `rooms/${room}/result");
+    const savedGameRef = ref(db, `savedGames/${room}");
 
-    // Initialize the game
+    // Initialize the game - MODIFIED VERSION WITH FIXES
     async function initGame() {
       try {
         status.innerText = "Initializing game...";
@@ -874,22 +874,28 @@
 
         const roomData = roomSnap.val();
         
-        // Check if toss is done
-        if (!roomData.tossDone) {
+        // MODIFIED TOSS CHECK - NO RELOAD
+        const tossDoneSnap = await get(ref(db, `rooms/${room}/tossDone`));
+        if (!tossDoneSnap.exists() || !tossDoneSnap.val()) {
           status.innerText = "Waiting for toss to complete...";
-          // Listen for toss completion
-          onValue(ref(db, `rooms/${room}/tossDone`), (snap) => {
+          const unsubscribe = onValue(ref(db, `rooms/${room}/tossDone`), (snap) => {
             if (snap.exists() && snap.val()) {
-              window.location.reload(); // Reload once toss is done
+              unsubscribe();
+              initGame();
             }
           });
           return;
         }
 
-        // Check toss status
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          showNotification("Toss not completed yet!", 'info');
-          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
+        // Check battingFirst exists
+        if (!roomData.battingFirst) {
+          status.innerText = "Waiting for batting order...";
+          const unsubscribe = onValue(ref(db, `rooms/${room}/battingFirst`), (snap) => {
+            if (snap.exists()) {
+              unsubscribe();
+              initGame();
+            }
+          });
           return;
         }
 
