@@ -86,6 +86,9 @@
     #flip-coin-btn {
       margin-top: 20px;
     }
+    .toss-complete .coin {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -239,7 +242,6 @@
     }
 
     async function flipCoin() {
-      // Disable flip button during animation
       const flipBtn = document.getElementById("flip-coin-btn");
       flipBtn.disabled = true;
       
@@ -262,13 +264,14 @@
         coinElement.classList.remove("spinning");
         coinElement.innerText = result.toUpperCase();
         showTossResult({ result, winner });
-        flipBtn.disabled = false; // Re-enable the button
+        flipBtn.disabled = false;
       }, 1500);
     }
 
     function showTossResult({ result, winner }) {
       tossOptions.classList.add("hidden");
       tossResult.classList.remove("hidden");
+      document.querySelector(".container").classList.add("toss-complete");
 
       tossOutcome.innerText = `Toss was ${result.toUpperCase()}. ${winner === player ? "You" : "Opponent"} won the toss!`;
 
@@ -281,14 +284,13 @@
 
     async function makeBattingChoice(decision) {
       try {
-        await Promise.all([
-          update(ref(db, `rooms/${room}`), {
-            decision,
-            battingFirst: decision === "bat" ? player : opponent,
-            bowlingFirst: decision === "bowl" ? player : opponent,
-            tossDone: true
-          })
-        ]);
+        await update(ref(db, `rooms/${room}`), {
+          decision,
+          battingFirst: decision === "bat" ? player : opponent,
+          bowlingFirst: decision === "bowl" ? player : opponent,
+          tossDone: true,
+          gameStatus: "ready"
+        });
 
         localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
         localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
@@ -314,17 +316,46 @@
 
     onValue(ref(db, `rooms/${room}/battingFirst`), (snap) => {
       if (snap.exists() && snap.val() !== null) {
-        localStorage.setItem("battingFirst", snap.val());
-        localStorage.setItem("bowlingFirst", snap.val() === player ? opponent : player);
-        window.location.href = `game.html?room=${room}&player=${player}`;
+        get(ref(db, `rooms/${room}/gameStatus`)).then((gameSnap) => {
+          if (gameSnap.exists() && gameSnap.val() === "ready") {
+            localStorage.setItem("battingFirst", snap.val());
+            localStorage.setItem("bowlingFirst", snap.val() === player ? opponent : player);
+            window.location.href = `game.html?room=${room}&player=${player}`;
+          }
+        });
+      }
+    });
+
+    onValue(ref(db, `rooms/${room}/gameStatus`), (snap) => {
+      if (snap.exists() && snap.val() === "ready") {
+        get(ref(db, `rooms/${room}/battingFirst`)).then((batSnap) => {
+          if (batSnap.exists()) {
+            window.location.href = `game.html?room=${room}&player=${player}`;
+          }
+        });
       }
     });
 
     onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
-      const format = snap.val() || "5";
-      const map = { "5": "5 Overs", "10": "10 Overs", "20": "T20", "50": "ODI", "test": "Test Match" };
-      document.getElementById("formatDisplay").innerText = `Match Format: ${map[format]}`;
+      const format = snap.val();
+      if (format) {
+        const map = { "5": "5 Overs", "10": "10 Overs", "20": "T20", "50": "ODI", "test": "Test Match" };
+        document.getElementById("formatDisplay").innerText = `Match Format: ${map[format]}`;
+      } else {
+        document.getElementById("formatDisplay").innerText = "Match Format: 5 Overs (Default)";
+      }
     });
+
+    // Timeout fallback
+    setTimeout(() => {
+      if (window.location.pathname.includes("toss.html")) {
+        get(ref(db, `rooms/${room}/gameStatus`)).then((snap) => {
+          if (snap.exists() && snap.val() === "ready") {
+            window.location.href = `game.html?room=${room}&player=${player}`;
+          }
+        });
+      }
+    }, 10000);
 
     // Initialize and start the process
     initializeToss().then(() => {
