@@ -856,6 +856,7 @@
     let team2Players = [];
     let batterPenalties = {};
     let lastBatterRuns = {};
+    let plays = {}; // Added to track current plays
 
     // DOM elements
     const status = document.getElementById("status");
@@ -900,20 +901,20 @@
     const playerRef = ref(db, `rooms/${room}/${player}`);
     const opponentRef = ref(db, `rooms/${room}/${player === "player1" ? "player2" : "player1"}`);
     const playsRef = ref(db, `rooms/${room}/currentPlays`);
-    const batterRef = ref(db, `rooms/${room}/currentBatter`);
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
-    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady`);
-    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime`);
-    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings`);
-    const declaredRef = ref(db, `rooms/${room}/declared`);
-    const followOnRef = ref(db, `rooms/${room}/followOn`);
-    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
-    const reactionsRef = ref(db, `rooms/${room}/reactions`);
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
-    const liveStateRef = ref(db, `rooms/${room}/liveState`);
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
-    const inningsRef = ref(db, `rooms/${room}/innings`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter");
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
+    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady");
+    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime");
+    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings");
+    const declaredRef = ref(db, `rooms/${room}/declared");
+    const followOnRef = ref(db, `rooms/${room}/followOn");
+    const spectatorsRef = ref(db, `rooms/${room}/spectators");
+    const reactionsRef = ref(db, `rooms/${room}/reactions");
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
+    const liveStateRef = ref(db, `rooms/${room}/liveState");
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
+    const resultRef = ref(db, `rooms/${room}/result");
+    const inningsRef = ref(db, `rooms/${room}/innings");
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -1208,6 +1209,121 @@
       return isPowerplay ? 0.5 : 1.0;
     }
 
+    // Get ball outcome based on cards played
+    function getBallOutcome(batterCard, bowlerCard) {
+      // Both played 0 - no ball
+      if (batterCard === 0 && bowlerCard === 0) {
+        return "NB";
+      }
+      // Same number - wicket
+      if (batterCard === bowlerCard && batterCard > 0) {
+        return "W";
+      }
+      // Batter played 0 - bowler's card determines runs
+      if (batterCard === 0 && bowlerCard > 0) {
+        return bowlerCard;
+      }
+      // Bowler played 0 - batter's card determines runs
+      if (bowlerCard === 0 && batterCard > 0) {
+        return batterCard;
+      }
+      // Different numbers - batter's card determines runs
+      return batterCard;
+    }
+
+    // Process the outcome of a ball with fractional wickets
+    async function handleResult() {
+      try {
+        if (!plays || !plays.player1 || !plays.player2) return;
+
+        const card1 = plays.player1;
+        const card2 = plays.player2;
+        const batterCard = isBatting ? card1 : card2;
+        const bowlerCard = isBatting ? card2 : card1;
+
+        const result = getBallOutcome(batterCard, bowlerCard);
+        const isDot = result === 0;
+        const isWicket = result === "W";
+
+        const wicketValue = freeHit ? 0 : getWicketValue();
+
+        if (!ballByBall[legalBalls]) ballByBall[legalBalls] = {};
+        ballByBall[legalBalls][player] = result;
+
+        let description = "";
+
+        if (isWicket && !freeHit) {
+          // Update batter's individual wicket bar
+          batterWickets[currentBatter] = Math.min(
+            1.0,
+            (batterWickets[currentBatter] || 0) + wicketValue
+          );
+
+          // Check if batter is OUT
+          if ((batterWickets[currentBatter] || 0) >= 1.0) {
+            fallOfWickets.push({
+              batter: currentBatter,
+              score: runs,
+              over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
+            });
+            lastWicketScore = runs;
+            description = `${currentBatter} is OUT!`;
+            currentBatter = null;
+            batterSelected = false;
+          } else {
+            description = `${currentBatter} lost partial wicket (${formatWickets(batterWickets[currentBatter])}/1.0)`;
+          }
+
+        } else if (!isWicket) {
+          // Runs scored
+          runs += result;
+          if (isDot) {
+            zerosThisOver[player]++;
+            if (zerosThisOver[player] >= 3) {
+              description = "Pressure building: 3 dots!";
+            } else {
+              description = "Dot ball.";
+            }
+          } else {
+            zerosThisOver[player] = 0;
+            description = `${result} run${result > 1 ? "s" : ""}`;
+          }
+        } else if (freeHit && isWicket) {
+          description = "Wicket on free hit — not out!";
+        }
+
+        legalBalls++;
+
+        // Update total team wickets (sum of capped batter wickets)
+        wickets = Object.values(batterWickets).reduce(
+          (sum, w) => sum + Math.min(1.0, w),
+          0
+        );
+
+        // Free hit control
+        freeHit = freeHitNextBall;
+        freeHitNextBall = false;
+
+        updateScoreboard();
+        updateFreeHitDisplay();
+
+        await resetPlays();
+
+        status.innerText = description;
+
+        // Auto trigger re-selection if needed
+        if (!batterSelected && isBatting) {
+          await showBatterSelection();
+        } else if (!bowlerSelected && !isBatting) {
+          await showBowlerSelection();
+        }
+
+      } catch (error) {
+        console.error("Error in handleResult():", error);
+        status.innerText = "Error processing result.";
+      }
+    }
+
     // Update scoreboard with fractional wickets
     function updateScoreboard() {
       const wicketsDisplay = formatWickets(wickets);
@@ -1235,327 +1351,6 @@
           requiredRateEl.textContent = "";
         }
       }
-    }
-
-    // Process the outcome of a ball with fractional wickets
-    async function handleResult() {
-      try {
-        const playsSnap = await get(playsRef);
-        if (!playsSnap.exists()) return;
-        
-        const plays = playsSnap.val();
-        if (!plays || !plays.player1 || !plays.player2) return;
-
-        const card1 = plays.player1;
-        const card2 = plays.player2;
-        const batterCard = isBatting ? card1 : card2;
-        const bowlerCard = isBatting ? card2 : card1;
-
-        const battingPlayer = innings % 2 === 1 ? battingFirst : (battingFirst === "player1" ? "player2" : "player1");
-        const bowlingPlayer = battingPlayer === "player1" ? "player2" : "player1";
-
-        let outcome = "";
-        let isLegalBall = false;
-        let isWicket = false;
-        let isPlayerOut = false;
-        let runsScored = 0;
-        let boundary = false;
-        let isSix = false;
-
-        // Track zeros for both players
-        if (batterCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlerCard === 0) zerosThisOver[bowlingPlayer]++;
-
-        // Handle free hit for next ball
-        if (freeHitNextBall) {
-          freeHit = true;
-          freeHitNextBall = false;
-          updateFreeHitDisplay();
-        }
-
-        // Check powerplay and dead over status
-        checkPowerplay();
-        checkDeadOver();
-
-        // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          if (!isTestMatch) {
-            outcome = "NO BALL! +1 run (Free Hit next ball)";
-            runs += 1;
-            currentInningRuns += 1;
-            freeHitNextBall = true;
-            isLegalBall = false;
-          } else {
-            outcome = "No run (Test Match)";
-          }
-        } 
-        // 2. Handle free hit balls
-        else if (freeHit) {
-          if (batterCard === bowlerCard && batterCard > 0) {
-            outcome = "Wicket on Free Hit (not out)";
-            isWicket = false;
-          } else {
-            runsScored = batterCard;
-            runs += batterCard;
-            currentInningRuns += batterCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `${batterCard} Run(s)! (Free Hit)`;
-            if (batterCard === 4 || batterCard === 6) boundary = true;
-            if (batterCard === 6) isSix = true;
-          }
-          freeHit = false;
-          updateFreeHitDisplay();
-          isLegalBall = true;
-        }
-        // 3. Handle wickets (same number > 0)
-        else if (batterCard === bowlerCard && batterCard > 0) {
-          const wicketValue = getWicketValue();
-          const currentWickets = batterWickets[currentBatter] || 0;
-
-          if (currentWickets >= 1.0) {
-              outcome = "Batter already out!";
-              isWicket = false;
-              isPlayerOut = false;
-          } else {
-              const newWickets = Math.min(1.0, currentWickets + wicketValue);
-              const actualWicketValue = newWickets - currentWickets;
-              
-              batterWickets[currentBatter] = newWickets;
-              wickets += actualWicketValue;
-              isWicket = true;
-              
-              if (newWickets >= 1.0) {
-                  isPlayerOut = true;
-                  outcome = "WICKET! (Out)";
-                  fallOfWickets.push({
-                      score: runs,
-                      over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
-                      batter: currentBatter
-                  });
-              } else {
-                  outcome = `WICKET! (${(1.0 - newWickets).toFixed(1)} wickets left)`;
-              }
-          }
-          
-          isLegalBall = true;
-        }
-        // 4. Handle batter playing 0 with penalty
-        else if (batterCard === 0 && bowlerCard > 0) {
-          if (zerosThisOver[battingPlayer] > 3) {
-            const penaltyRuns = 5;
-            runs -= penaltyRuns;
-            currentInningRuns -= penaltyRuns;
-            batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
-            outcome = "4th 0 in over! -5 runs";
-            
-            // Check for negative milestone impact
-            checkBatterMilestones(true);
-          } else {
-            if (isTestMatch) {
-              bowlerRuns[currentBowler] = (bowlerRuns[currentBowler] || 0) + bowlerCard;
-              outcome = `Bowler's ${bowlerCard} runs added to their stats`;
-            } else {
-              runsScored = bowlerCard;
-              runs += bowlerCard;
-              currentInningRuns += bowlerCard;
-              batterStats[currentBatter].runs += runsScored;
-              outcome = `Batter played 0. Runs = ${bowlerCard}`;
-              if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
-              if (bowlerCard === 6) isSix = true;
-            }
-          }
-          isLegalBall = true;
-        }
-        // 5. Handle bowler playing 0
-        else if (bowlerCard === 0 && batterCard > 0) {
-          if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
-            outcome = "4th 0 in over! No ball";
-            runs += 1;
-            freeHitNextBall = true;
-          } else {
-            if (isTestMatch) {
-              runsScored = batterCard;
-              runs += batterCard;
-              currentInningRuns += batterCard;
-              batterStats[currentBatter].runs += runsScored;
-              outcome = `${batterCard} Run(s)!`;
-              if (batterCard === 4 || batterCard === 6) boundary = true;
-              if (batterCard === 6) isSix = true;
-            } else {
-              outcome = "DOT BALL!";
-            }
-          }
-          isLegalBall = true;
-        }
-        // 6. Normal runs
-        else {
-          runsScored = batterCard;
-          runs += batterCard;
-          currentInningRuns += batterCard;
-          batterStats[currentBatter].runs += runsScored;
-          outcome = `${batterCard} Run(s)!`;
-          if (batterCard === 4 || batterCard === 6) boundary = true;
-          if (batterCard === 6) isSix = true;
-          isLegalBall = true;
-        }
-
-        // Update batter stats
-        if (currentBatter && runsScored > 0) {
-          batterStats[currentBatter].balls += 1;
-          if (batterCard === 4) batterStats[currentBatter].fours += 1;
-          if (batterCard === 6) batterStats[currentBatter].sixes += 1;
-          
-          // Check for positive milestones
-          checkBatterMilestones();
-        }
-        
-        // Update bowler stats
-        if (currentBowler) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
-          if (isWicket) bowlerStats[currentBowler].wickets += 1;
-          bowlerStats[currentBowler].runs += runsScored;
-        }
-
-        // Record ball in ball-by-ball
-        ballByBall[legalBalls] = {
-          runs: runsScored,
-          wicket: isWicket || isPlayerOut,
-          batter: currentBatter,
-          bowler: currentBowler,
-          timestamp: Date.now(),
-          outcome: outcome,
-          penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
-        };
-
-        // Record last wicket score for partnership
-        if (isWicket) {
-          lastWicketScore = runs;
-        }
-
-        // Handle legal balls
-        if (isLegalBall) {
-          legalBalls++;
-          if (isTestMatch) oversToday++;
-          
-          if (currentBowler) {
-            bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
-            if (legalBalls % 6 === 0) {
-              bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
-              zerosThisOver = { player1: 0, player2: 0 };
-            }
-          }
-          
-          // Check for end of day's play in test matches
-          if (isTestMatch && oversToday >= maxOversPerDay) {
-            endDaysPlay();
-            return;
-          }
-        }
-
-        // Update UI
-        status.innerText = outcome;
-        updateScoreboard();
-        updateSpectatorData();
-
-        // Check for match/innings end conditions
-        if (innings === 2 && runs > team1Score) {
-          endMatch();
-          return;
-        }
-        
-        if ((isTestMatch && currentInningWickets >= 30) || 
-            (!isTestMatch && (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6))) {
-          endInning();
-          return;
-        }
-
-        // Prepare for next ball
-        setTimeout(async () => {
-          try {
-            await resetPlays();
-            
-            if (isPlayerOut && player === battingPlayer) {
-              batterSelected = false;
-              await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
-              bowlerSelected = false;
-              if (player === bowlingPlayer) {
-                await showBowlerSelection();
-              } else {
-                status.innerText = "Waiting for opponent to select bowler...";
-              }
-            } else {
-              updateButtonStates();
-            }
-          } catch (error) {
-            console.error("Error in post-ball processing:", error);
-            status.innerText = "Error processing next ball state";
-            enableButtons();
-          }
-        }, 1500);
-      } catch (error) {
-        console.error("Error processing ball outcome:", error);
-        status.innerText = "Error processing ball outcome";
-        enableButtons();
-      }
-    }
-
-    // Accurate batter milestone checking accounting for penalties
-    function checkBatterMilestones(isPenalty = false) {
-      if (!currentBatter) return;
-
-      const batter = batterStats[currentBatter];
-      const netRuns = batter.runs - (batterPenalties[currentBatter] || 0);
-      
-      // Check milestones in descending order
-      const milestones = [50, 100, 150, 200, 250, 300, 350, 400];
-      for (let i = milestones.length - 1; i >= 0; i--) {
-        const milestone = milestones[i];
-        
-        // Check if crossed milestone (either direction)
-        if ((!isPenalty && netRuns >= milestone && lastBatterRuns[currentBatter] < milestone) ||
-            (isPenalty && netRuns < milestone && lastBatterRuns[currentBatter] >= milestone)) {
-          
-          // Only notify if this is a new achievement
-          if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
-            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns})`, 'batting');
-            batter[`milestone${milestone}Notified`] = true;
-            
-            if (milestone >= 100) {
-              createConfetti();
-            }
-          }
-          // Handle losing a milestone due to penalty
-          else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
-            showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
-            batter[`milestone${milestone}Notified`] = false;
-          }
-          break;
-        }
-      }
-      
-      // Special handling for 50 and 100
-      if (netRuns >= 50 && !batter.fiftyNotified) {
-        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns})`, 'batting');
-        batter.fiftyNotified = true;
-      }
-      else if (netRuns < 50 && batter.fiftyNotified) {
-        showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
-        batter.fiftyNotified = false;
-      }
-      
-      if (netRuns >= 100 && !batter.centuryNotified) {
-        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns})`, 'batting');
-        batter.centuryNotified = true;
-        createConfetti();
-      }
-      else if (netRuns < 100 && batter.centuryNotified) {
-        showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
-        batter.centuryNotified = false;
-      }
-
-      // Update last run count
-      lastBatterRuns[currentBatter] = netRuns;
     }
 
     // Show notification with different styles
@@ -2214,123 +2009,75 @@
       });
     }
 
-    // Start the game
-    initGame().catch(error => {
-      console.error("Uncaught initialization error:", error);
-      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
-                     Please refresh or check console for details.`;
-    });
-  </script>
-</body>
-</html>ction resetGame() {
-      try {
-        await set(playerRef, false);
-        await update(playsRef, {
-          player1: null,
-          player2: null
-        });
-      } catch (error) {
-        console.error("Error resetting game:", error);
-      }
-    }
-
-    // Setup innings button
-    function setupInningsButton() {
-      startInningsBtn.addEventListener("click", startSecondInnings);
-      
-      onValue(inningsReadyRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          opponentReadyStatus.style.display = "block";
-        } else {
-          opponentReadyStatus.style.display = "none";
+    // Setup Firebase listeners
+    function setupFirebaseListeners() {
+      // Listen for plays
+      onValue(playsRef, (snap) => {
+        plays = snap.val() || {};
+        
+        // If both players have made their selection, process the result
+        if (plays.player1 !== null && plays.player2 !== null) {
+          handleResult();
         }
       });
       
-      onValue(autoStartTimeRef, (snap) => {
+      // Listen for batter selection
+      onValue(batterRef, (snap) => {
         if (snap.exists()) {
-          const endTime = snap.val();
-          if (endTime > Date.now()) {
-            autoStartTimerEl.style.display = "block";
-            updateAutoStartTimer(endTime);
-            countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
-          }
-        }
-      });
-    }
-    
-    function updateAutoStartTimer(endTime) {
-      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
-      
-      if (remaining <= 0) {
-        clearInterval(countdownInterval);
-        startSecondInnings();
-      }
-    }
-
-    // Setup test controls
-    function setupTestControls() {
-      if (!isTestMatch) return;
-      
-      declareInningsBtn.addEventListener("click", async () => {
-        if (confirm("Declare the current innings?")) {
-          await endInning();
-        }
-      });
-      
-      enforceFollowOnBtn.addEventListener("click", async () => {
-        if (confirm("Enforce follow-on?")) {
-          await set(followOnRef, false);
-          await update(roomRef, {
-            innings: 2
-          });
-          resetInning();
-        }
-      });
-    }
-
-    // Enhanced resetPlays function
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in Firebase
-        await update(playsRef, {
-          player1: null,
-          player2: null
-        });
-        
-        // Also reset the ready state if in between innings
-        await set(inningsReadyRef, false);
-        
-        // Reset any auto-start timer
-        await set(autoStartTimeRef, null);
-        
-        // Force update UI states
-        updateButtonStates();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Error resetting plays", 'error');
-      }
-    }
-
-    // Setup connection monitoring
-    function setupConnectionMonitoring() {
-      // Monitor opponent connection
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          connectionStatus.textContent = "Opponent: Online";
-          connectionStatus.className = "online";
+          currentBatter = snap.val();
+          currentBatterEl.textContent = currentBatter || "-";
+          batterSelected = !!currentBatter;
           updateButtonStates();
-        } else {
-          connectionStatus.textContent = "Opponent: Offline";
-          connectionStatus.className = "offline";
-          status.innerText = "Waiting for opponent to connect...";
-          disableButtons();
         }
       });
+      
+      // Listen for bowler selection
+      onValue(bowlerRef, (snap) => {
+        if (snap.exists()) {
+          currentBowler = snap.val();
+          currentBowlerEl.textContent = currentBowler || "-";
+          bowlerSelected = !!currentBowler;
+          updateButtonStates();
+        }
+      });
+      
+      // Listen for innings changes
+      onValue(inningsRef, (snap) => {
+        if (snap.exists()) {
+          innings = snap.val();
+          setupRole();
+        }
+      });
+      
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          const count = Object.keys(snap.val() || {}).length;
+          spectatorCountEl.textContent = `👥 Spectators: ${count}`;
+        }
+      });
+    }
 
-      // Handle disconnect
-      window.addEventListener('beforeunload', () => {
-        set(playerRef, false);
+    // Setup card buttons
+    function setupCardButtons() {
+      buttons.forEach(button => {
+        button.addEventListener("click", async () => {
+          try {
+            disableButtons();
+            const value = parseInt(button.dataset.value);
+            
+            // Update Firebase with the player's selection
+            await update(playsRef, {
+              [player]: value
+            });
+            
+            status.innerText = `You selected ${value}. Waiting for opponent...`;
+          } catch (error) {
+            console.error("Error selecting card:", error);
+            status.innerText = "Error selecting card. Please try again.";
+            enableButtons();
+          }
+        });
       });
     }
 
@@ -2342,4 +2089,4 @@
     });
   </script>
 </body>
-      </html>
+  </html>
