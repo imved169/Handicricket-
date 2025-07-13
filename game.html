@@ -138,6 +138,12 @@
       box-shadow: none;
     }
     
+    button.card.selected {
+      background: #4caf50;
+      border: 2px solid #ffeb3b;
+      transform: scale(1.05);
+    }
+    
     /* Start Innings Button */
     #startInningsBtn {
       margin: 20px auto;
@@ -1051,14 +1057,24 @@
       }
     }
 
+    // Highlight selected card
+    function highlightSelectedCard(value) {
+      buttons.forEach(btn => {
+        const val = parseInt(btn.dataset.value);
+        btn.classList.toggle("selected", val === value);
+      });
+    }
+
     // Setup card buttons functionality
     function setupCardButtons() {
       buttons.forEach(btn => {
         btn.addEventListener("click", async () => {
+          if (btn.disabled) return;
           const cardValue = parseInt(btn.dataset.value);
 
           // Disable buttons to prevent double click
           disableButtons();
+          highlightSelectedCard(cardValue);
           status.innerText = `You selected ${cardValue}`;
 
           try {
@@ -1277,11 +1293,9 @@
 
         const card1 = plays.player1;
         const card2 = plays.player2;
-        const batterCard = isBatting ? card1 : card2;
-        const bowlerCard = isBatting ? card2 : card1;
-
         const battingPlayer = innings % 2 === 1 ? battingFirst : (battingFirst === "player1" ? "player2" : "player1");
-        const bowlingPlayer = battingPlayer === "player1" ? "player2" : "player1";
+        const batterCard = battingPlayer === "player1" ? card1 : card2;
+        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
 
         let outcome = "";
         let isLegalBall = false;
@@ -1293,7 +1307,7 @@
 
         // Track zeros for both players
         if (batterCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlerCard === 0) zerosThisOver[bowlingPlayer]++;
+        if (bowlerCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
 
         // Handle free hit for next ball
         if (freeHitNextBall) {
@@ -1341,14 +1355,8 @@
           const wicketValue = getWicketValue();
           const currentWickets = batterWickets[currentBatter] || 0;
 
-          if (currentWickets >= 1.0) {
-            outcome = "Batter already out!";
-            isWicket = false;
-            isPlayerOut = false;
-          } else {
-            const remaining = Math.max(0, 1.0 - currentWickets);
-            const actualWicketValue = Math.min(wicketValue, remaining);
-
+          if (currentWickets < 1.0) {
+            const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
             batterWickets[currentBatter] = currentWickets + actualWicketValue;
             wickets += actualWicketValue;
             isWicket = true;
@@ -1362,9 +1370,11 @@
                 batter: currentBatter
               });
             } else {
-              const remainingWickets = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
-              outcome = `WICKET! (${remainingWickets} left for this batter)`;
+              const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
+              outcome = `WICKET! (${remain} left for this batter)`;
             }
+          } else {
+            outcome = "Batter already out!";
           }
           
           isLegalBall = true;
@@ -1397,7 +1407,7 @@
         }
         // 5. Handle bowler playing 0
         else if (bowlerCard === 0 && batterCard > 0) {
-          if (zerosThisOver[bowlingPlayer] > 3 && !isTestMatch) {
+          if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3 && !isTestMatch) {
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
@@ -1499,14 +1509,15 @@
         // Prepare for next ball
         setTimeout(async () => {
           try {
-            await resetPlays();
+            await set(playsRef, {});
+            enableButtons();
             
             if (isPlayerOut && player === battingPlayer) {
               batterSelected = false;
               await showBatterSelection();
             } else if (isLegalBall && legalBalls % 6 === 0) {
               bowlerSelected = false;
-              if (player === bowlingPlayer) {
+              if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
                 await showBowlerSelection();
               } else {
                 status.innerText = "Waiting for opponent to select bowler...";
@@ -2263,7 +2274,7 @@
 
       // Listen for both plays to be submitted
       onValue(playsRef, (snap) => {
-        if (snap.exists() && snap.val().player1 !== null && snap.val().player2 !== null) {
+        if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
           handleResult();
         }
       });
