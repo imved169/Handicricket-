@@ -1051,6 +1051,30 @@
       }
     }
 
+    // Setup card buttons functionality
+    function setupCardButtons() {
+      buttons.forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const cardValue = parseInt(btn.dataset.value);
+
+          // Disable buttons to prevent double click
+          disableButtons();
+          status.innerText = `You selected ${cardValue}`;
+
+          try {
+            // Save the selected card to Firebase
+            await update(playsRef, {
+              [player]: cardValue
+            });
+          } catch (error) {
+            console.error("Error saving card selection:", error);
+            showNotification("Failed to send your card selection", 'error');
+            enableButtons();
+          }
+        });
+      });
+    }
+
     // Enhanced loadPlaying11 function with better error handling
     async function loadPlaying11() {
       try {
@@ -2214,123 +2238,46 @@
       });
     }
 
-    // Start the game
-    initGame().catch(error => {
-      console.error("Uncaught initialization error:", error);
-      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
-                     Please refresh or check console for details.`;
-    });
-  </script>
-</body>
-</html>ction resetGame() {
-      try {
-        await set(playerRef, false);
-        await update(playsRef, {
-          player1: null,
-          player2: null
-        });
-      } catch (error) {
-        console.error("Error resetting game:", error);
-      }
-    }
-
-    // Setup innings button
-    function setupInningsButton() {
-      startInningsBtn.addEventListener("click", startSecondInnings);
-      
-      onValue(inningsReadyRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          opponentReadyStatus.style.display = "block";
-        } else {
-          opponentReadyStatus.style.display = "none";
-        }
-      });
-      
-      onValue(autoStartTimeRef, (snap) => {
+    // Setup Firebase listeners
+    function setupFirebaseListeners() {
+      // Listen for batter selection
+      onValue(batterRef, (snap) => {
         if (snap.exists()) {
-          const endTime = snap.val();
-          if (endTime > Date.now()) {
-            autoStartTimerEl.style.display = "block";
-            updateAutoStartTimer(endTime);
-            countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
-          }
-        }
-      });
-    }
-    
-    function updateAutoStartTimer(endTime) {
-      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
-      
-      if (remaining <= 0) {
-        clearInterval(countdownInterval);
-        startSecondInnings();
-      }
-    }
-
-    // Setup test controls
-    function setupTestControls() {
-      if (!isTestMatch) return;
-      
-      declareInningsBtn.addEventListener("click", async () => {
-        if (confirm("Declare the current innings?")) {
-          await endInning();
-        }
-      });
-      
-      enforceFollowOnBtn.addEventListener("click", async () => {
-        if (confirm("Enforce follow-on?")) {
-          await set(followOnRef, false);
-          await update(roomRef, {
-            innings: 2
-          });
-          resetInning();
-        }
-      });
-    }
-
-    // Enhanced resetPlays function
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in Firebase
-        await update(playsRef, {
-          player1: null,
-          player2: null
-        });
-        
-        // Also reset the ready state if in between innings
-        await set(inningsReadyRef, false);
-        
-        // Reset any auto-start timer
-        await set(autoStartTimeRef, null);
-        
-        // Force update UI states
-        updateButtonStates();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Error resetting plays", 'error');
-      }
-    }
-
-    // Setup connection monitoring
-    function setupConnectionMonitoring() {
-      // Monitor opponent connection
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          connectionStatus.textContent = "Opponent: Online";
-          connectionStatus.className = "online";
+          currentBatter = snap.val();
+          currentBatterEl.textContent = currentBatter || "-";
           updateButtonStates();
-        } else {
-          connectionStatus.textContent = "Opponent: Offline";
-          connectionStatus.className = "offline";
-          status.innerText = "Waiting for opponent to connect...";
-          disableButtons();
         }
       });
 
-      // Handle disconnect
-      window.addEventListener('beforeunload', () => {
-        set(playerRef, false);
+      // Listen for bowler selection
+      onValue(bowlerRef, (snap) => {
+        if (snap.exists()) {
+          currentBowler = snap.val();
+          currentBowlerEl.textContent = currentBowler || "-";
+          updateButtonStates();
+        }
+      });
+
+      // Listen for both plays to be submitted
+      onValue(playsRef, (snap) => {
+        if (snap.exists() && snap.val().player1 !== null && snap.val().player2 !== null) {
+          handleResult();
+        }
+      });
+
+      // Listen for innings changes
+      onValue(inningsRef, (snap) => {
+        if (snap.exists()) {
+          innings = snap.val();
+          setupRole();
+        }
+      });
+
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+        }
       });
     }
 
@@ -2342,4 +2289,4 @@
     });
   </script>
 </body>
-      </html>
+  </html>
