@@ -1219,16 +1219,21 @@
 
     // Format wickets to max 1.0 per batter
     function formatWickets(value) {
-      return Math.min(1.0, parseFloat(value) || 0).toFixed(1);
+      return Math.min(value, currentFormat.totalWickets)
+        .toFixed(2)
+        .replace(/\.00$/, ''); // clean display if whole number
     }
 
     // Get wicket value based on format and powerplay status
     function getWicketValue() {
+      if (isTestMatch) return 0.33;
+      
       const over = Math.floor(legalBalls / 6);
-      const isPowerplay = over < currentFormat.powerplayOvers;
-
-      if (currentFormat.name === "Test Match") return 0.33;
-      if (currentFormat.name === "ODI") return isPowerplay ? 0.25 : 0.5;
+      
+      if (currentFormat.name === "ODI") {
+        return isPowerplay ? 0.25 : 0.5;
+      }
+      
       return isPowerplay ? 0.5 : 1.0;
     }
 
@@ -1337,28 +1342,29 @@
           const currentWickets = batterWickets[currentBatter] || 0;
 
           if (currentWickets >= 1.0) {
-              outcome = "Batter already out!";
-              isWicket = false;
-              isPlayerOut = false;
+            outcome = "Batter already out!";
+            isWicket = false;
+            isPlayerOut = false;
           } else {
-              const newWickets = Math.min(1.0, currentWickets + wicketValue);
-              const actualWicketValue = newWickets - currentWickets;
-              
-              batterWickets[currentBatter] = newWickets;
-              wickets += actualWicketValue;
-              isWicket = true;
-              
-              if (newWickets >= 1.0) {
-                  isPlayerOut = true;
-                  outcome = "WICKET! (Out)";
-                  fallOfWickets.push({
-                      score: runs,
-                      over: `${Math.floor(legalBalls/6)}.${legalBalls%6}`,
-                      batter: currentBatter
-                  });
-              } else {
-                  outcome = `WICKET! (${(1.0 - newWickets).toFixed(1)} wickets left)`;
-              }
+            const remaining = Math.max(0, 1.0 - currentWickets); // how much more this batter can lose
+            const actualWicketValue = Math.min(wicketValue, remaining); // only valid amount
+
+            batterWickets[currentBatter] = currentWickets + actualWicketValue;
+            wickets += actualWicketValue;
+            isWicket = true;
+
+            if (batterWickets[currentBatter] >= 1.0) {
+              isPlayerOut = true;
+              outcome = "WICKET! (Out)";
+              fallOfWickets.push({
+                score: runs,
+                over: `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`,
+                batter: currentBatter
+              });
+            } else {
+              const remainingWickets = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
+              outcome = `WICKET! (${remainingWickets} left for this batter)`;
+            }
           }
           
           isLegalBall = true;
