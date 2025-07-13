@@ -919,102 +919,81 @@
     // Initialize the game with enhanced error handling
     async function initGame() {
       try {
-        console.log("Starting game initialization..."); // Debug log
+        console.log("▶ Starting game initialization...");
         status.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
 
-        // 1. Verify URL parameters first
-        console.log("Checking URL parameters...");
+        // 1. Check URL
+        console.log("✔ Checking URL parameters...");
         if (!room || !player) {
-          throw new Error("Missing room or player parameters in URL");
+          throw new Error("Missing room or player in URL");
         }
 
-        // 2. Set player online status with timeout
-        console.log("Setting player online status...");
-        await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
+        // 2. Set player online
+        console.log("✔ Setting player online...");
+        await setWithTimeout(playerRef, true, 5000, "Setting player online failed");
 
-        // 3. Load room data with retries
-        console.log("Loading room data...");
+        // 3. Load room data
+        console.log("✔ Fetching room data...");
         const roomSnap = await getWithRetries(roomRef, 3, 1000);
-        
         if (!roomSnap.exists()) {
-          throw new Error(`Room ${room} not found in database`);
+          throw new Error(`Room '${room}' not found`);
         }
 
         const roomData = roomSnap.val();
-        console.log("Room data loaded:", roomData);
+        console.log("✔ Room data:", roomData);
 
-        // 4. Verify game setup is complete
-        console.log("Verifying game setup...");
+        // 4. Validate toss
         if (!roomData.toss?.winner && !roomData.tossWinner) {
           throw new Error("Toss not completed");
         }
-        
+
         if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          throw new Error("Teams not set up");
+          throw new Error("One or both teams are missing");
         }
 
-        // Get toss and batting first info
+        // 5. Load toss info
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
-        
-        // Initialize innings in Firebase if not set
-        if (!roomData.innings) {
-          await set(inningsRef, 1);
-        }
-        
-        // Mark game as started if not already
+
+        // 6. Set game started flag
         if (!roomData.gameStarted) {
-          await update(roomRef, {
-            gameStarted: true
-          });
+          await update(roomRef, { gameStarted: true });
         }
 
-        // Load teams with retry logic
-        console.log("Loading teams...");
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const teamsLoaded = await loadPlaying11();
-            if (teamsLoaded) break;
-          } catch (error) {
-            console.error(`Team load attempt ${retries + 1} failed:`, error);
-            retries++;
-            if (retries >= maxRetries) {
-              throw new Error("Failed to load teams after multiple attempts");
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+        // 7. Load teams
+        console.log("✔ Loading team players...");
+        await loadPlaying11();
 
-        // Set game format
+        // 8. Set format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
         isTestMatch = format === "test";
-        
+
         formatDisplay.innerText = `${currentFormat.name} | ${isTestMatch ? "3 wickets per batter" : "1 wicket per batter"}`;
-        
-        // Show test controls if test match
+
+        // 9. Show test controls
         if (isTestMatch) {
           testControls.style.display = "flex";
         }
-        
-        // Initialize stats
+
+        // 10. Initialize stats
         initializeBatterStats();
         initializeBowlerStats();
 
-        // Set up game components
+        // 11. Setup game UI & listeners
         setupConnectionMonitoring();
-        await setupRole();
         setupSelectionModal();
         setupCardButtons();
         setupFirebaseListeners();
         setupInningsButton();
         setupTestControls();
-        
-        // Set up control buttons
+
+        // 12. Setup player role (bat/bowl)
+        console.log("✔ Setting up player role...");
+        await setupRole();
+
+        // 13. Setup control buttons
         saveBtn.addEventListener("click", saveGameState);
         exitBtn.addEventListener("click", async () => {
           if (confirm("Exit without saving?")) {
@@ -1022,13 +1001,12 @@
             window.location.href = "index.html";
           }
         });
-        
+
         resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Force reset the current plays? This will clear both players' selections.")) {
+          if (confirm("Reset current plays?")) {
             await resetPlays();
-            status.innerText = "Plays have been reset";
-            
-            // Additional reset logic to handle stuck state
+            status.innerText = "Plays reset";
+
             if (!isBatting && !bowlerSelected) {
               await showBowlerSelection();
             } else if (isBatting && !batterSelected) {
@@ -1037,16 +1015,20 @@
           }
         });
 
-        // Initial UI update
+        // 14. Update scoreboard
         updateScoreboard();
+
+        // ✅ Done
         status.innerText = "Game ready!";
         loadingSpinner.style.display = "none";
+
+        console.log("✅ Game initialized successfully.");
       } catch (error) {
-        console.error("Initialization failed:", error);
-        status.innerHTML = `Initialization failed: ${error.message}<br>
-                           <button onclick="initGame()" style="margin-top:10px;">
-                             Retry Initialization
-                           </button>`;
+        console.error("❌ Game initialization failed:", error);
+        status.innerHTML = `
+          Initialization failed:<br><b>${error.message}</b><br>
+          <button onclick="initGame()" style="margin-top:10px;">🔁 Retry</button>
+        `;
         status.className = "error";
         loadingSpinner.style.display = "none";
       }
@@ -2337,4 +2319,4 @@
     });
   </script>
 </body>
-    </html>
+  </html>
