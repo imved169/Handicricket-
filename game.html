@@ -732,6 +732,9 @@
     const player = params.get('player');
     const opponent = player === "player1" ? "player2" : "player1";
 
+    // ✅ FIX 1: Track card selection state
+    let hasSelectedCard = false;
+
     // Debug game parameters
     console.log("Game Parameters:", {
       room: room,
@@ -739,6 +742,13 @@
       opponent: opponent,
       url: window.location.href
     });
+
+    // ✅ FIX 2: Toss UI shown only to Player 1
+    if (player === "player1") {
+      document.getElementById("tossOptions").style.display = "block";
+    } else {
+      document.getElementById("tossOptions").style.display = "none";
+    }
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -862,6 +872,7 @@
     let team2Players = [];
     let batterPenalties = {};
     let lastBatterRuns = {};
+    let lastXI = null; // ✅ FIX 3: For flicker prevention
 
     // DOM elements
     const status = document.getElementById("status");
@@ -1065,17 +1076,18 @@
       });
     }
 
-    // Setup card buttons functionality
+    // Setup card buttons functionality with ✅ FIX 1: Allow both players to select cards
     function setupCardButtons() {
       buttons.forEach(btn => {
         btn.addEventListener("click", async () => {
-          if (btn.disabled) return;
+          if (btn.disabled || hasSelectedCard) return;
           const cardValue = parseInt(btn.dataset.value);
 
           // Disable buttons to prevent double click
           disableButtons();
           highlightSelectedCard(cardValue);
           status.innerText = `You selected ${cardValue}`;
+          hasSelectedCard = true;
 
           try {
             // Save the selected card to Firebase
@@ -1086,6 +1098,7 @@
             console.error("Error saving card selection:", error);
             showNotification("Failed to send your card selection", 'error');
             enableButtons();
+            hasSelectedCard = false;
           }
         });
       });
@@ -1510,6 +1523,7 @@
         setTimeout(async () => {
           try {
             await set(playsRef, {});
+            hasSelectedCard = false; // ✅ FIX 1: Reset selection state
             enableButtons();
             
             if (isPlayerOut && player === battingPlayer) {
@@ -2252,7 +2266,7 @@
       });
     }
 
-    // Setup Firebase listeners
+    // Setup Firebase listeners with ✅ FIX 3: Flicker prevention
     function setupFirebaseListeners() {
       // Listen for batter selection
       onValue(batterRef, (snap) => {
@@ -2293,6 +2307,15 @@
           spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
         }
       });
+
+      // ✅ FIX 3: Prevent flickering in player list updates
+      onValue(ref(db, `rooms/${room}/teams`), (snap) => {
+        const current = snap.val();
+        if (current && JSON.stringify(current) !== JSON.stringify(lastXI)) {
+          lastXI = current;
+          loadPlaying11();
+        }
+      });
     }
 
     // Start the game
@@ -2303,4 +2326,4 @@
     });
   </script>
 </body>
-</html>
+  </html>
