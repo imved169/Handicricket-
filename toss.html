@@ -161,10 +161,12 @@
     async function initializeGame() {
       await set(ref(db, `rooms/${room}/${player}/ready`), true);
 
-      const resultSnap = await get(ref(db, `rooms/${room}/tossResult`));
+      const resultSnap = await get(ref(db, `rooms/${room}/toss`));
       if (resultSnap.exists()) {
         const data = resultSnap.val();
-        showTossResult(data.call, data.result, data.winner);
+        if (data.call && data.result && data.winner) {
+          showTossResult(data.call, data.result, data.winner);
+        }
         return;
       }
 
@@ -178,9 +180,11 @@
         }
       });
 
-      onValue(ref(db, `rooms/${room}/tossResult`), (snap) => {
+      onValue(ref(db, `rooms/${room}/toss`), (snap) => {
         const data = snap.val();
-        if (data) showTossResult(data.call, data.result, data.winner);
+        if (data?.winner && data?.result && data?.call) {
+          showTossResult(data.call, data.result, data.winner);
+        }
       });
 
       onValue(ref(db, `rooms/${room}/gameStatus`), (snap) => {
@@ -254,9 +258,9 @@
 
       await update(ref(db, `rooms/${room}`), {
         decision,
-        tossWinner: player,
         battingFirst: batting,
         bowlingFirst: bowling,
+        tossWinner: player,
         tossDone: true,
         gameStatus: "in-progress"
       });
