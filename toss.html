@@ -102,19 +102,16 @@
     <div id="formatDisplay">Match Format: Loading...</div>
     <div class="player-status" id="playerStatus">Waiting for both players...</div>
 
-    <div id="toss-waiting">
-      <p>Waiting for opponent to join the toss...</p>
+    <!-- Toss UI: Call + Flip -->
+    <div id="tossCall" class="hidden">
+      <p>Player 1: Choose Heads or Tails</p>
+      <button class="btn" onclick="makeTossCall('heads')">Heads</button>
+      <button class="btn" onclick="makeTossCall('tails')">Tails</button>
     </div>
 
-    <div id="toss-options" class="hidden">
-      <p id="toss-instruction"></p>
-      <div id="call-options">
-        <button id="call-heads" class="btn">Heads</button>
-        <button id="call-tails" class="btn">Tails</button>
-      </div>
-      <div id="flip-options" class="hidden">
-        <button id="flip-coin-btn" class="btn">Flip Coin</button>
-      </div>
+    <div id="tossFlip" class="hidden">
+      <p>Player 2: Flip the Coin</p>
+      <button class="btn" onclick="flipCoin()">Flip Coin</button>
     </div>
 
     <div id="coin" class="coin hidden">TOSS</div>
@@ -130,6 +127,8 @@
         <p>Waiting for opponent to choose...</p>
       </div>
     </div>
+
+    <div id="status" style="margin-top: 20px;"></div>
   </div>
 
   <script type="module">
@@ -157,17 +156,15 @@
     const elements = {
       roomCodeDisplay: document.getElementById("roomCodeDisplay"),
       playerStatus: document.getElementById("playerStatus"),
-      tossInstruction: document.getElementById("toss-instruction"),
-      callOptions: document.getElementById("call-options"),
-      flipOptions: document.getElementById("flip-options"),
-      tossOptions: document.getElementById("toss-options"),
-      tossWaiting: document.getElementById("toss-waiting"),
+      tossCall: document.getElementById("tossCall"),
+      tossFlip: document.getElementById("tossFlip"),
       coinElement: document.getElementById("coin"),
       tossResult: document.getElementById("toss-result"),
       tossOutcome: document.getElementById("toss-outcome"),
       battingChoice: document.getElementById("batting-choice"),
       waitingChoice: document.getElementById("waiting-choice"),
-      formatDisplay: document.getElementById("formatDisplay")
+      formatDisplay: document.getElementById("formatDisplay"),
+      status: document.getElementById("status")
     };
 
     // Initialize display
@@ -175,11 +172,8 @@
     elements.playerStatus.textContent = `You are ${player.toUpperCase()}`;
 
     // Event Listeners
-    document.getElementById("call-heads").addEventListener("click", () => makeTossCall("heads"));
-    document.getElementById("call-tails").addEventListener("click", () => makeTossCall("tails"));
-    document.getElementById("flip-coin-btn").addEventListener("click", flipCoin);
-    document.getElementById("choose-bat").addEventListener("click", () => makeBattingChoice("bat"));
-    document.getElementById("choose-bowl").addEventListener("click", () => makeBattingChoice("bowl"));
+    document.getElementById("choose-bat")?.addEventListener("click", () => makeBattingChoice("bat"));
+    document.getElementById("choose-bowl")?.addEventListener("click", () => makeBattingChoice("bowl"));
 
     // State management
     let gameState = {
@@ -189,49 +183,49 @@
 
     // Initialize game state
     async function initializeGame() {
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      const tossSnap = await get(tossRef);
-      
-      if (!tossSnap.exists()) {
-        await set(tossRef, {
-          status: "waiting",
-          caller: null,
-          call: null,
-          result: null,
-          winner: null
-        });
-      }
-
       // Set player as ready
       await set(ref(db, `rooms/${room}/${player}/ready`), true);
+      
+      // Show call option to Player 1
+      if (player === "player1") {
+        elements.tossCall.classList.remove("hidden");
+      }
+
       setupListeners();
       checkPlayersReady();
     }
 
     function setupListeners() {
-      // Remove any existing listeners
-      off(ref(db, `rooms/${room}/toss`));
-      off(ref(db, `rooms/${room}/gameStatus`));
-      off(ref(db, `rooms/${room}/player1/format`));
-
-      // Toss state listener
-      onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
-        const tossData = snapshot.val();
-        if (!tossData) return;
-
-        if (tossData.status === "called") {
-          handleTossCalled(tossData);
-        } else if (tossData.status === "complete" && !gameState.tossCompleted) {
-          gameState.tossCompleted = true;
-          elements.coinElement.textContent = tossData.result.toUpperCase();
-          showTossResult(tossData.result, tossData.winner);
+      // Player 2 sees "Flip Coin" after call is made
+      onValue(ref(db, `rooms/${room}/tossCall`), (snap) => {
+        const call = snap.val();
+        if (call && player === "player2") {
+          elements.tossCall.classList.add("hidden");
+          elements.tossFlip.classList.remove("hidden");
         }
       });
 
-      // Game status listener
-      onValue(ref(db, `rooms/${room}/gameStatus`), (snapshot) => {
-        if (snapshot.exists() && snapshot.val() === "in-progress" && !gameState.choiceMade) {
-          redirectToGame();
+      // All players see toss result
+      onValue(ref(db, `rooms/${room}/tossResult`), (snap) => {
+        const data = snap.val();
+        if (data) {
+          elements.tossCall.classList.add("hidden");
+          elements.tossFlip.classList.add("hidden");
+          elements.coinElement.classList.remove("hidden");
+          elements.coinElement.textContent = data.result.toUpperCase();
+          
+          elements.tossResult.classList.remove("hidden");
+          elements.tossOutcome.textContent = `
+            Player 1 called: ${data.call.toUpperCase()}<br>
+            Coin result: ${data.result.toUpperCase()}<br>
+            ${data.winner.toUpperCase()} won the toss!
+          `;
+
+          if (data.winner === player) {
+            elements.battingChoice.classList.remove("hidden");
+          } else {
+            elements.waitingChoice.classList.remove("hidden");
+          }
         }
       });
 
@@ -256,88 +250,31 @@
       ]);
 
       if (p1.exists() && p1.val() && p2.exists() && p2.val()) {
-        elements.tossWaiting.classList.add("hidden");
-        elements.tossOptions.classList.remove("hidden");
-        elements.coinElement.classList.remove("hidden");
-
-        const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-        const tossData = tossSnap.val();
-        
-        if (tossData?.status === "called") {
-          handleTossCalled(tossData);
-        } else if (player === "player1") {
-          elements.tossInstruction.textContent = "Call Heads or Tails:";
-          elements.callOptions.classList.remove("hidden");
-        } else {
-          elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
-        }
+        elements.playerStatus.textContent = "Both players ready!";
       } else {
         setTimeout(checkPlayersReady, 1000);
       }
     }
 
-    function handleTossCalled(tossData) {
-      if (player === tossData.caller) {
-        elements.tossInstruction.textContent = "Waiting for opponent to flip...";
-      } else {
-        elements.tossInstruction.textContent = "Player 1 has called. Flip the coin:";
-        elements.flipOptions.classList.remove("hidden");
-      }
-      elements.callOptions.classList.add("hidden");
-    }
+    // Player 1 makes the call
+    window.makeTossCall = (choice) => {
+      set(ref(db, `rooms/${room}/tossCall`), choice);
+    };
 
-    async function makeTossCall(choice) {
-      await update(ref(db, `rooms/${room}/toss`), {
-        caller: player,
-        call: choice,
-        status: "called"
-      });
-    }
-
-    async function flipCoin() {
-      const flipBtn = document.getElementById("flip-coin-btn");
-      flipBtn.disabled = true;
-      
-      elements.flipOptions.classList.add("hidden");
-      elements.coinElement.classList.add("spinning");
-      elements.coinElement.textContent = "FLIPPING...";
-
-      const result = Math.random() < 0.5 ? "heads" : "tails";
-      const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-      const tossData = tossSnap.val();
-      const winner = (result === tossData.call) ? tossData.caller : opponent;
-
-      // Update both root level and toss node
-      await update(ref(db, `rooms/${room}`), {
-        tossWinner: winner,
-        toss: {
+    // Player 2 flips the coin
+    window.flipCoin = () => {
+      get(ref(db, `rooms/${room}/tossCall`)).then((snap) => {
+        const call = snap.val();
+        const result = Math.random() < 0.5 ? "heads" : "tails";
+        const winner = (call === result) ? "player1" : "player2";
+        
+        set(ref(db, `rooms/${room}/tossResult`), {
+          call,
           result,
-          winner,
-          status: "complete"
-        }
+          winner
+        });
       });
-
-      setTimeout(() => {
-        elements.coinElement.classList.remove("spinning");
-        elements.coinElement.textContent = result.toUpperCase();
-        showTossResult(result, winner);
-        flipBtn.disabled = false;
-      }, 1500);
-    }
-
-    function showTossResult(result, winner) {
-      document.querySelector(".container").classList.add("toss-complete");
-      elements.tossOptions.classList.add("hidden");
-      elements.tossResult.classList.remove("hidden");
-
-      elements.tossOutcome.textContent = `Toss was ${result.toUpperCase()}. ${winner === player ? "You" : "Opponent"} won the toss!`;
-
-      if (winner === player) {
-        elements.battingChoice.classList.remove("hidden");
-      } else {
-        elements.waitingChoice.classList.remove("hidden");
-      }
-    }
+    };
 
     async function makeBattingChoice(decision) {
       gameState.choiceMade = true;
