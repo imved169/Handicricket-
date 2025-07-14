@@ -103,7 +103,7 @@
 
     <div id="tossFlip" class="hidden">
       <p>Player 2: Flip the Coin</p>
-      <button class="btn" onclick="flipCoin()">Flip Coin</button>
+      <button class="btn" id="flip-coin-btn" onclick="flipCoin()">Flip Coin</button>
     </div>
 
     <div id="coin" class="coin hidden">TOSS</div>
@@ -142,17 +142,18 @@
     const player = params.get("player");
     const opponent = player === "player1" ? "player2" : "player1";
 
-    const tossCall = document.getElementById("tossCall");
-    const tossFlip = document.getElementById("tossFlip");
-    const coin = document.getElementById("coin");
-    const tossResult = document.getElementById("toss-result");
-    const tossOutcome = document.getElementById("toss-outcome");
-    const battingChoice = document.getElementById("batting-choice");
-    const waitingChoice = document.getElementById("waiting-choice");
-    const playerStatus = document.getElementById("playerStatus");
-    const formatDisplay = document.getElementById("formatDisplay");
+    const el = (id) => document.getElementById(id);
+    const coin = el("coin");
+    const tossCall = el("tossCall");
+    const tossFlip = el("tossFlip");
+    const flipBtn = el("flip-coin-btn");
+    const tossResult = el("toss-result");
+    const tossOutcome = el("toss-outcome");
+    const battingChoice = el("batting-choice");
+    const waitingChoice = el("waiting-choice");
 
-    playerStatus.textContent = `You are ${player.toUpperCase()}`;
+    el("roomCodeDisplay").textContent = `Room Code: ${room}`;
+    el("playerStatus").textContent = `You are ${player.toUpperCase()}`;
 
     document.getElementById("choose-bat").onclick = () => makeBattingChoice("bat");
     document.getElementById("choose-bowl").onclick = () => makeBattingChoice("bowl");
@@ -160,9 +161,9 @@
     async function initializeGame() {
       await set(ref(db, `rooms/${room}/${player}/ready`), true);
 
-      const tossSnap = await get(ref(db, `rooms/${room}/tossResult`));
-      if (tossSnap.exists()) {
-        const data = tossSnap.val();
+      const resultSnap = await get(ref(db, `rooms/${room}/tossResult`));
+      if (resultSnap.exists()) {
+        const data = resultSnap.val();
         showTossResult(data.call, data.result, data.winner);
         return;
       }
@@ -179,37 +180,50 @@
 
       onValue(ref(db, `rooms/${room}/tossResult`), (snap) => {
         const data = snap.val();
-        if (data) {
-          showTossResult(data.call, data.result, data.winner);
+        if (data) showTossResult(data.call, data.result, data.winner);
+      });
+
+      onValue(ref(db, `rooms/${room}/gameStatus`), (snap) => {
+        const status = snap.val();
+        if (status === "in-progress") {
+          redirectToGame();
         }
       });
 
       onValue(ref(db, `rooms/${room}/player1/format`), (snap) => {
         const val = snap.val() || "5";
         const map = { "5": "5 Overs", "10": "10 Overs", "20": "T20", "50": "ODI", "test": "Test Match" };
-        formatDisplay.textContent = `Match Format: ${map[val]}`;
+        el("formatDisplay").textContent = `Match Format: ${map[val]}`;
       });
     }
 
     window.makeTossCall = async (choice) => {
       const snap = await get(ref(db, `rooms/${room}/tossCall`));
       if (!snap.exists()) {
-        set(ref(db, `rooms/${room}/tossCall`), choice);
+        await set(ref(db, `rooms/${room}/tossCall`), choice);
+        tossCall.classList.add("hidden");
       } else {
         alert("Toss already called.");
       }
     };
 
     window.flipCoin = async () => {
-      const resultSnap = await get(ref(db, `rooms/${room}/tossResult`));
-      if (resultSnap.exists()) return;
+      flipBtn.disabled = true;
+      tossFlip.classList.add("hidden");
+      coin.classList.remove("hidden");
+      coin.classList.add("spinning");
+      coin.textContent = "FLIPPING...";
 
       const callSnap = await get(ref(db, `rooms/${room}/tossCall`));
       const call = callSnap.val();
       const result = Math.random() < 0.5 ? "heads" : "tails";
       const winner = (call === result) ? "player1" : "player2";
 
-      await set(ref(db, `rooms/${room}/tossResult`), { call, result, winner });
+      setTimeout(async () => {
+        coin.classList.remove("spinning");
+        coin.textContent = result.toUpperCase();
+        await set(ref(db, `rooms/${room}/tossResult`), { call, result, winner });
+      }, 1500);
     };
 
     function showTossResult(call, result, winner) {
@@ -231,6 +245,9 @@
       const batting = decision === "bat" ? player : opponent;
       const bowling = decision === "bowl" ? player : opponent;
 
+      battingChoice.classList.add("hidden");
+      waitingChoice.classList.add("hidden");
+
       await update(ref(db, `rooms/${room}`), {
         decision,
         tossWinner: player,
@@ -243,6 +260,10 @@
       localStorage.setItem("battingFirst", batting);
       localStorage.setItem("bowlingFirst", bowling);
 
+      redirectToGame();
+    }
+
+    function redirectToGame() {
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
 
