@@ -693,7 +693,7 @@
   <script type="module">
     // Initialize Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update, push, remove, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, get, update, push, remove, child, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -920,6 +920,8 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const inningsRef = ref(db, `rooms/${room}/innings`);
+    const bowlerOversRef = ref(db, `rooms/${room}/bowlerOvers`);
+    const selectionPendingRef = ref(db, `rooms/${room}/selectionPending`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -937,6 +939,8 @@
         // 2. Set player online status with timeout
         console.log("Setting player online status...");
         await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
+        await set(ref(db, `rooms/${room}/spectators/${player}`), true);
+        onDisconnect(ref(db, `rooms/${room}/spectators/${player}`)).remove();
 
         // 3. Load room data with retries
         console.log("Loading room data...");
@@ -966,8 +970,33 @@
         // Initialize innings in Firebase if not set
         if (!roomData.innings) {
           await set(inningsRef, 1);
+        } else {
+          innings = roomData.innings;
         }
-        
+
+        // Restore team scores and wickets
+        team1Score = roomData.team1Score || 0;
+        team2Score = roomData.team2Score || 0;
+        team1Wickets = roomData.team1Wickets || 0;
+        team2Wickets = roomData.team2Wickets || 0;
+
+        // Load bowler overs
+        const oversSnap = await get(bowlerOversRef);
+        if (oversSnap.exists()) {
+          bowlerOvers = oversSnap.val();
+        }
+
+        // Check for pending selection
+        const selectionSnap = await get(selectionPendingRef);
+        if (selectionSnap.exists()) {
+          const sel = selectionSnap.val();
+          if (sel.player === player && sel.type === "batter") {
+            await showBatterSelection();
+          } else if (sel.player === player && sel.type === "bowler") {
+            await showBowlerSelection();
+          }
+        }
+
         // Mark game as started if not already
         if (!roomData.gameStarted) {
           await update(roomRef, {
@@ -1070,6 +1099,14 @@
       buttons.forEach(btn => {
         btn.addEventListener("click", async () => {
           if (btn.disabled) return;
+          
+          // Check if match has ended
+          const matchEndedSnap = await get(ref(db, `rooms/${room}/matchEnded`));
+          if (matchEndedSnap.exists() && matchEndedSnap.val()) {
+            status.innerText = "Match has ended.";
+            return;
+          }
+
           const cardValue = parseInt(btn.dataset.value);
 
           // Disable buttons to prevent double click
@@ -1255,6 +1292,9 @@
 
     // Update scoreboard with fractional wickets
     function updateScoreboard() {
+      if (isNaN(runs) runs = 0;
+      if (isNaN(legalBalls)) legalBalls = 0;
+      
       const wicketsDisplay = formatWickets(wickets);
       
       document.querySelector("#scoreboard div:nth-child(1) strong").textContent = runs;
@@ -1482,6 +1522,9 @@
             }
           }
           
+          // Save bowler overs to Firebase
+          await set(bowlerOversRef, bowlerOvers);
+          
           // Check for end of day's play in test matches
           if (isTestMatch && oversToday >= maxOversPerDay) {
             endDaysPlay();
@@ -1616,7 +1659,7 @@
     // Create confetti effect
     function createConfetti() {
       const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff'];
-      for (let i = 0; i < 150; i++) {
+      for (let i = 0; i < 50; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = `${Math.random() * 100}%`;
@@ -1757,6 +1800,10 @@
           });
 
           selectionModal.style.display = "block";
+          await set(selectionPendingRef, {
+            type: "batter",
+            player: player
+          });
           status.innerText = "Select your next batter...";
       } catch (error) {
           console.error("Batter selection error:", error);
@@ -1787,7 +1834,15 @@
           }
           
           const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-          const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
+          
+          // Skip previous bowler if overs are back-to-back
+          const lastOver = legalBalls >= 6 ? ballByBall[legalBalls - 6] : null;
+          const lastBowler = lastOver?.bowler;
+          
+          const availableBowlers = currentPlayers.filter(p => {
+            const bowled = bowlerOvers[p] || 0;
+            return bowled < maxOversPerBowler && p !== lastBowler;
+          });
           
           if (availableBowlers.length === 0) {
               showNotification("All bowlers have bowled their maximum overs!", 'error');
@@ -1824,6 +1879,10 @@
           });
 
           selectionModal.style.display = "block";
+          await set(selectionPendingRef, {
+            type: "bowler",
+            player: player
+          });
           status.innerText = "Select your next bowler...";
       } catch (error) {
           console.error("Bowler selection error:", error);
@@ -1884,6 +1943,7 @@
 
         const playerName = selected.dataset.name;
         selectionModal.style.display = "none";
+        await remove(selectionPendingRef);
 
         if (selectionTitle.textContent.includes("Batter")) {
           await set(batterRef, playerName);
@@ -1929,6 +1989,14 @@
         team1Wickets = Math.floor(wickets);
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
+        // Save scores to Firebase
+        await update(roomRef, {
+          team1Score,
+          team1Wickets,
+          team2Score,
+          team2Wickets
+        });
+        
         if (!isTestMatch) {
           startInningsBtn.style.display = "block";
           status.innerText += " Click 'Start Second Innings' when ready.";
@@ -1945,6 +2013,14 @@
         team2Score = currentInningRuns;
         team2Wickets = Math.floor(wickets);
         status.innerText = `Team 2 scored ${team2Score} runs!`;
+        
+        // Save scores to Firebase
+        await update(roomRef, {
+          team1Score,
+          team1Wickets,
+          team2Score,
+          team2Wickets
+        });
       }
       
       // Check for follow-on in test matches
@@ -2092,6 +2168,7 @@
       
       // Save result to Firebase
       await set(resultRef, result);
+      await update(roomRef, { matchEnded: true });
       updateSpectatorData();
       
       // Redirect to results page after delay
@@ -2165,27 +2242,27 @@
       });
       
       onValue(autoStartTimeRef, (snap) => {
-        if (snap.exists()) {
-          const endTime = snap.val();
-          if (endTime > Date.now()) {
-            autoStartTimerEl.style.display = "block";
-            updateAutoStartTimer(endTime);
-            countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
+        const autoStartTime = snap.val();
+        if (!autoStartTime) return;
+
+        function updateTimer() {
+          const now = Date.now();
+          const diff = Math.max(0, Math.floor((autoStartTime - now) / 1000));
+          autoStartTimerEl.textContent = `Auto-starting in ${diff}s`;
+          autoStartTimerEl.style.display = "block";
+
+          if (diff <= 0) {
+            clearInterval(countdownInterval);
+            startSecondInnings();
           }
         }
+
+        if (countdownInterval) clearInterval(countdownInterval);
+        updateTimer();
+        countdownInterval = setInterval(updateTimer, 1000);
       });
     }
     
-    function updateAutoStartTimer(endTime) {
-      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
-      
-      if (remaining <= 0) {
-        clearInterval(countdownInterval);
-        startSecondInnings();
-      }
-    }
-
     // Setup test controls
     function setupTestControls() {
       if (!isTestMatch) return;
@@ -2256,8 +2333,9 @@
     function setupFirebaseListeners() {
       // Listen for batter selection
       onValue(batterRef, (snap) => {
-        if (snap.exists()) {
-          currentBatter = snap.val();
+        const newVal = snap.val();
+        if (newVal !== currentBatter) {
+          currentBatter = newVal;
           currentBatterEl.textContent = currentBatter || "-";
           updateButtonStates();
         }
@@ -2265,8 +2343,9 @@
 
       // Listen for bowler selection
       onValue(bowlerRef, (snap) => {
-        if (snap.exists()) {
-          currentBowler = snap.val();
+        const newVal = snap.val();
+        if (newVal !== currentBowler) {
+          currentBowler = newVal;
           currentBowlerEl.textContent = currentBowler || "-";
           updateButtonStates();
         }
@@ -2303,4 +2382,4 @@
     });
   </script>
 </body>
-</html>
+  </html>
