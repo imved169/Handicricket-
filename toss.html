@@ -134,7 +134,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get, set, onValue, update, off } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, get, set, onValue, update, off, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -149,9 +149,18 @@
     const db = getDatabase(app);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get("room");
-    const player = urlParams.get("player");
+    let room = urlParams.get("room");
+    let player = urlParams.get("player");
+    
+    // Fallback to localStorage if URL params are missing
+    if (!room) room = localStorage.getItem('roomId');
+    if (!player) player = localStorage.getItem('player');
+    
     const opponent = player === "player1" ? "player2" : "player1";
+
+    // Store room and player in localStorage for persistence
+    localStorage.setItem('roomId', room);
+    localStorage.setItem('player', player);
 
     // DOM Elements
     const elements = {
@@ -187,35 +196,55 @@
       choiceMade: false
     };
 
+    // Firebase references
+    const roomRef = ref(db, `rooms/${room}`);
+    const tossRef = ref(db, `rooms/${room}/toss`);
+    const playerRef = ref(db, `rooms/${room}/${player}`);
+    const presenceRef = ref(db, `rooms/${room}/players/${player}/status`);
+
+    // Set up presence tracking
+    set(presenceRef, true);
+    onDisconnect(presenceRef).set(false);
+
     // Initialize game state
     async function initializeGame() {
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      const tossSnap = await get(tossRef);
-      
-      if (!tossSnap.exists()) {
-        await set(tossRef, {
-          status: "waiting",
-          caller: null,
-          call: null,
-          result: null,
-          winner: null
+      try {
+        // Set player as ready with additional status info
+        await set(playerRef, {
+          ready: true,
+          timestamp: Date.now()
         });
-      }
 
-      // Set player as ready
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
-      setupListeners();
-      checkPlayersReady();
+        // Initialize toss data if not exists
+        const tossSnap = await get(tossRef);
+        
+        if (!tossSnap.exists()) {
+          await set(tossRef, {
+            status: "waiting",
+            caller: null,
+            call: null,
+            result: null,
+            winner: null,
+            lastUpdated: Date.now()
+          });
+        }
+
+        setupListeners();
+        checkPlayersReady();
+      } catch (error) {
+        console.error("Initialization error:", error);
+        elements.playerStatus.textContent = "Error initializing game. Please refresh.";
+      }
     }
 
     function setupListeners() {
       // Remove any existing listeners
-      off(ref(db, `rooms/${room}/toss`));
+      off(tossRef);
       off(ref(db, `rooms/${room}/gameStatus`));
       off(ref(db, `rooms/${room}/player1/format`));
 
       // Toss state listener
-      onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
+      onValue(tossRef, (snapshot) => {
         const tossData = snapshot.val();
         if (!tossData) return;
 
@@ -250,28 +279,33 @@
     }
 
     async function checkPlayersReady() {
-      const [p1, p2] = await Promise.all([
-        get(ref(db, `rooms/${room}/player1/ready`)),
-        get(ref(db, `rooms/${room}/player2/ready`))
-      ]);
+      try {
+        const [p1, p2] = await Promise.all([
+          get(ref(db, `rooms/${room}/player1/ready`)),
+          get(ref(db, `rooms/${room}/player2/ready`))
+        ]);
 
-      if (p1.exists() && p1.val() && p2.exists() && p2.val()) {
-        elements.tossWaiting.classList.add("hidden");
-        elements.tossOptions.classList.remove("hidden");
-        elements.coinElement.classList.remove("hidden");
+        if (p1.exists() && p1.val() && p2.exists() && p2.val()) {
+          elements.tossWaiting.classList.add("hidden");
+          elements.tossOptions.classList.remove("hidden");
+          elements.coinElement.classList.remove("hidden");
 
-        const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-        const tossData = tossSnap.val();
-        
-        if (tossData?.status === "called") {
-          handleTossCalled(tossData);
-        } else if (player === "player1") {
-          elements.tossInstruction.textContent = "Call Heads or Tails:";
-          elements.callOptions.classList.remove("hidden");
+          const tossSnap = await get(tossRef);
+          const tossData = tossSnap.val();
+          
+          if (tossData?.status === "called") {
+            handleTossCalled(tossData);
+          } else if (player === "player1") {
+            elements.tossInstruction.textContent = "Call Heads or Tails:";
+            elements.callOptions.classList.remove("hidden");
+          } else {
+            elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
+          }
         } else {
-          elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
+          setTimeout(checkPlayersReady, 1000);
         }
-      } else {
+      } catch (error) {
+        console.error("Error checking player readiness:", error);
         setTimeout(checkPlayersReady, 1000);
       }
     }
@@ -287,42 +321,55 @@
     }
 
     async function makeTossCall(choice) {
-      await update(ref(db, `rooms/${room}/toss`), {
-        caller: player,
-        call: choice,
-        status: "called"
-      });
+      try {
+        await update(tossRef, {
+          caller: player,
+          call: choice,
+          status: "called",
+          lastUpdated: Date.now()
+        });
+      } catch (error) {
+        console.error("Error making toss call:", error);
+        alert("Failed to register your call. Please try again.");
+      }
     }
 
     async function flipCoin() {
-      const flipBtn = document.getElementById("flip-coin-btn");
-      flipBtn.disabled = true;
-      
-      elements.flipOptions.classList.add("hidden");
-      elements.coinElement.classList.add("spinning");
-      elements.coinElement.textContent = "FLIPPING...";
+      try {
+        const flipBtn = document.getElementById("flip-coin-btn");
+        flipBtn.disabled = true;
+        
+        elements.flipOptions.classList.add("hidden");
+        elements.coinElement.classList.add("spinning");
+        elements.coinElement.textContent = "FLIPPING...";
 
-      const result = Math.random() < 0.5 ? "heads" : "tails";
-      const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-      const tossData = tossSnap.val();
-      const winner = (result === tossData.call) ? tossData.caller : opponent;
+        const result = Math.random() < 0.5 ? "heads" : "tails";
+        const tossSnap = await get(tossRef);
+        const tossData = tossSnap.val();
+        const winner = (result === tossData.call) ? tossData.caller : opponent;
 
-      // Update both root level and toss node
-      await update(ref(db, `rooms/${room}`), {
-        tossWinner: winner,
-        toss: {
-          result,
-          winner,
-          status: "complete"
-        }
-      });
+        // Update both root level and toss node
+        await update(roomRef, {
+          tossWinner: winner,
+          toss: {
+            result,
+            winner,
+            status: "complete",
+            lastUpdated: Date.now()
+          }
+        });
 
-      setTimeout(() => {
-        elements.coinElement.classList.remove("spinning");
-        elements.coinElement.textContent = result.toUpperCase();
-        showTossResult(result, winner);
-        flipBtn.disabled = false;
-      }, 1500);
+        setTimeout(() => {
+          elements.coinElement.classList.remove("spinning");
+          elements.coinElement.textContent = result.toUpperCase();
+          showTossResult(result, winner);
+          flipBtn.disabled = false;
+        }, 1500);
+      } catch (error) {
+        console.error("Error flipping coin:", error);
+        document.getElementById("flip-coin-btn").disabled = false;
+        alert("Error flipping coin. Please try again.");
+      }
     }
 
     function showTossResult(result, winner) {
@@ -342,17 +389,23 @@
     async function makeBattingChoice(decision) {
       gameState.choiceMade = true;
       try {
-        await update(ref(db, `rooms/${room}`), {
+        const updates = {
           decision,
           battingFirst: decision === "bat" ? player : opponent,
           bowlingFirst: decision === "bowl" ? player : opponent,
           tossWinner: player,
           tossDone: true,
-          gameStatus: "in-progress"
-        });
+          gameStatus: "in-progress",
+          lastUpdated: Date.now()
+        };
 
-        localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
-        localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
+        // Update both root and toss node atomically
+        await update(roomRef, updates);
+
+        // Store critical values in localStorage
+        localStorage.setItem("battingFirst", updates.battingFirst);
+        localStorage.setItem("bowlingFirst", updates.bowlingFirst);
+        
         redirectToGame();
       } catch (error) {
         console.error("Error making batting choice:", error);
@@ -364,6 +417,11 @@
     function redirectToGame() {
       window.location.href = `game.html?room=${room}&player=${player}`;
     }
+
+    // Handle page unload
+    window.addEventListener('beforeunload', () => {
+      set(presenceRef, false);
+    });
 
     // Start the game
     initializeGame();
