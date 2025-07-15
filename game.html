@@ -192,6 +192,13 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 100;
       display: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    
+    .selection-modal.hidden {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+      pointer-events: none;
     }
     
     .selection-list { 
@@ -544,6 +551,7 @@
       animation: spin 1s linear infinite;
       margin: 20px auto;
       display: none;
+      transition: opacity 0.5s ease;
     }
     
     @keyframes spin {
@@ -648,7 +656,7 @@
 
   <div class="card-row" id="cardButtons">
     <!-- Selection Modal - Now positioned above the cards -->
-    <div id="selectionModal" class="selection-modal">
+    <div id="selectionModal" class="selection-modal hidden">
       <h3 id="selectionTitle">Select Next Batter</h3>
       <div id="selectionList" class="selection-list"></div>
       <button id="confirmSelection">Confirm Selection</button>
@@ -867,6 +875,9 @@
     let team2Players = [];
     let batterPenalties = {};
     let lastBatterRuns = {};
+    let isTransitioningInnings = false;
+    let modalLock = false;
+    let lastInningsState = null;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -979,6 +990,7 @@
           await set(inningsRef, 1);
         } else {
           innings = roomData.innings;
+          lastInningsState = innings;
         }
         
         // Mark game as started if not already
@@ -1303,6 +1315,8 @@
 
     // Process the outcome of a ball with fractional wickets - UPDATED FUNCTION
     async function handleResult() {
+      if (isTransitioningInnings) return;
+      
       try {
         const playsSnap = await get(playsRef);
         if (!playsSnap.exists()) return;
@@ -1728,16 +1742,13 @@
 
     // Show batter selection modal with fractional wickets - UPDATED TO PREVENT DUPLICATE MODALS
     async function showBatterSelection() {
+      if (modalLock) return;
+      modalLock = true;
       disableButtons();
       
-      // Prevent modal from reopening if already visible
-      if (selectionModal.style.display === "block") {
-        console.log("Batter selection modal already visible, skipping.");
-        return;
-      }
-
       try {
           status.innerText = "Loading batters...";
+          selectionModal.classList.remove("hidden");
           
           const currentPlayers = player === "player1" ? team1Players : team2Players;
           const availableBatters = currentPlayers.filter(p => {
@@ -1747,7 +1758,6 @@
 
           if (availableBatters.length === 0) {
               showNotification("All batters are out!", 'error');
-              enableButtons();
               return;
           }
 
@@ -1779,33 +1789,30 @@
               selectionList.appendChild(batterEl);
           });
 
-          selectionModal.style.display = "block";
           status.innerText = "Select your next batter...";
       } catch (error) {
           console.error("Batter selection error:", error);
           showNotification("Error loading batters", 'error');
-          enableButtons();
+      } finally {
+          modalLock = false;
+          updateButtonStates();
       }
     }
 
     // Show bowler selection modal - UPDATED TO PREVENT DUPLICATE MODALS
     async function showBowlerSelection() {
+      if (modalLock) return;
+      modalLock = true;
       disableButtons();
       
-      // Prevent modal from reopening if already visible
-      if (selectionModal.style.display === "block") {
-        console.log("Bowler selection modal already visible, skipping.");
-        return;
-      }
-
       try {
           status.innerText = "Loading bowlers...";
+          selectionModal.classList.remove("hidden");
           
           const currentPlayers = player === "player1" ? team1Players : team2Players;
           
           if (!currentPlayers || currentPlayers.length === 0) {
               showNotification("No bowlers available", 'error');
-              enableButtons();
               return;
           }
           
@@ -1814,7 +1821,6 @@
           
           if (availableBowlers.length === 0) {
               showNotification("All bowlers have bowled their maximum overs!", 'error');
-              enableButtons();
               return;
           }
 
@@ -1846,53 +1852,77 @@
               selectionList.appendChild(playerEl);
           });
 
-          selectionModal.style.display = "block";
           status.innerText = "Select your next bowler...";
       } catch (error) {
           console.error("Bowler selection error:", error);
           showNotification("Error loading bowlers", 'error');
-          enableButtons();
+      } finally {
+          modalLock = false;
+          updateButtonStates();
       }
     }
 
     // Setup player role (batting/bowling) - UPDATED TO FIX FLICKERING
     async function setupRole() {
-        // Immediately clear all selection states and UI
+      if (modalLock) return;
+      
+      modalLock = true;
+      disableButtons();
+      loadingSpinner.style.display = "block";
+      
+      try {
+        // Clear UI first
         batterSelected = false;
         bowlerSelected = false;
         currentBatter = null;
         currentBowler = null;
-        currentBatterEl.innerText = "-";
-        currentBowlerEl.innerText = "-";
-        selectionModal.style.display = "none";
-
-        // Set role definitively with fallbacks
-        isBatting = (innings % 2 === 1) ? 
-          (player === (battingFirst || localStorage.getItem('battingFirst'))) : 
-          (player !== (battingFirst || localStorage.getItem('battingFirst')));
+        selectionModal.classList.add("hidden");
+        
+        // Get fresh data from Firebase
+        const [battingFirstSnap, inningsSnap] = await Promise.all([
+          get(ref(db, `rooms/${room}/battingFirst`)),
+          get(inningsRef)
+        ]);
+        
+        const currentInnings = inningsSnap.val();
+        const battingFirst = battingFirstSnap.val() || localStorage.getItem('battingFirst');
+        
+        // Only proceed if innings actually changed
+        if (lastInningsState === currentInnings) {
+          modalLock = false;
+          return;
+        }
+        lastInningsState = currentInnings;
+        
+        isBatting = (currentInnings % 2 === 1) 
+          ? (player === battingFirst) 
+          : (player !== battingFirst);
         
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         
-        console.log(`Innings: ${innings}, Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
-
-        // Atomically clear all Firebase selections
+        // Atomic state reset with timeout
         await Promise.all([
-            set(batterRef, null),
-            set(bowlerRef, null),
-            update(playsRef, { player1: null, player2: null })
+          set(batterRef, null),
+          set(bowlerRef, null),
+          update(playsRef, { player1: null, player2: null })
         ]);
-
-        // Add delay to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Show appropriate selection UI only if needed
+        // Stabilization delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Show appropriate UI
         if (isBatting && !batterSelected) {
-            console.log("Triggering batter selection...");
-            await showBatterSelection();
+          await showBatterSelection();
         } else if (!isBatting && !bowlerSelected) {
-            console.log("Triggering bowler selection...");
-            await showBowlerSelection();
+          await showBowlerSelection();
         }
+      } catch (error) {
+        console.error("Role setup error:", error);
+      } finally {
+        loadingSpinner.style.display = "none";
+        modalLock = false;
+        updateButtonStates();
+      }
     }
 
     // Setup selection modal
@@ -1905,7 +1935,7 @@
         }
 
         const playerName = selected.dataset.name;
-        selectionModal.style.display = "none";
+        selectionModal.classList.add("hidden");
 
         if (selectionTitle.textContent.includes("Batter")) {
           await set(batterRef, playerName);
@@ -2303,9 +2333,21 @@
 
       // Listen for innings changes
       onValue(inningsRef, (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && snap.val() !== innings && !isTransitioningInnings) {
+          isTransitioningInnings = true;
           innings = snap.val();
-          setupRole();
+          
+          // Reset inning-specific states
+          runs = 0;
+          wickets = 0;
+          legalBalls = 0;
+          freeHit = false;
+          freeHitNextBall = false;
+          
+          setupRole().then(() => {
+            updateScoreboard();
+            isTransitioningInnings = false;
+          });
         }
       });
 
