@@ -728,8 +728,13 @@
 
     // Get URL parameters
     const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
-    const player = params.get('player');
+    let room = params.get('room');
+    let player = params.get('player');
+    
+    // Fallback to localStorage if URL params missing
+    if (!room) room = localStorage.getItem('roomId');
+    if (!player) player = localStorage.getItem('player');
+    
     const opponent = player === "player1" ? "player2" : "player1";
 
     // Debug game parameters
@@ -920,27 +925,31 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const inningsRef = ref(db, `rooms/${room}/innings`);
-    const bowlerOversRef = ref(db, `rooms/${room}/bowlerOvers`);
-    const selectionPendingRef = ref(db, `rooms/${room}/selectionPending`);
+    const presenceRef = ref(db, `rooms/${room}/players/${player}/status`);
     
+    // Set up presence tracking
+    set(presenceRef, true);
+    onDisconnect(presenceRef).set(false);
+
     // Initialize the game with enhanced error handling
     async function initGame() {
       try {
-        console.log("Starting game initialization..."); // Debug log
+        console.log("Starting game initialization...");
         status.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
 
         // 1. Verify URL parameters first
         console.log("Checking URL parameters...");
         if (!room || !player) {
-          throw new Error("Missing room or player parameters in URL");
+          throw new Error("Missing room or player parameters");
         }
 
         // 2. Set player online status with timeout
         console.log("Setting player online status...");
-        await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
-        await set(ref(db, `rooms/${room}/spectators/${player}`), true);
-        onDisconnect(ref(db, `rooms/${room}/spectators/${player}`)).remove();
+        await setWithTimeout(playerRef, {
+          online: true,
+          timestamp: Date.now()
+        }, 5000, "Setting online status timed out");
 
         // 3. Load room data with retries
         console.log("Loading room data...");
@@ -956,14 +965,12 @@
         // 4. Verify game setup is complete
         console.log("Verifying game setup...");
         if (!roomData.toss?.winner && !roomData.tossWinner) {
-          throw new Error("Toss not completed");
+          throw new Error("Toss not completed - redirecting to toss");
+          window.location.href = `toss.html?room=${room}&player=${player}`;
+          return;
         }
         
-        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          throw new Error("Teams not set up");
-        }
-
-        // Get toss and batting first info
+        // Get toss and batting first info with fallbacks
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
         
@@ -973,34 +980,12 @@
         } else {
           innings = roomData.innings;
         }
-
-        // Restore team scores and wickets
-        team1Score = roomData.team1Score || 0;
-        team2Score = roomData.team2Score || 0;
-        team1Wickets = roomData.team1Wickets || 0;
-        team2Wickets = roomData.team2Wickets || 0;
-
-        // Load bowler overs
-        const oversSnap = await get(bowlerOversRef);
-        if (oversSnap.exists()) {
-          bowlerOvers = oversSnap.val();
-        }
-
-        // Check for pending selection
-        const selectionSnap = await get(selectionPendingRef);
-        if (selectionSnap.exists()) {
-          const sel = selectionSnap.val();
-          if (sel.player === player && sel.type === "batter") {
-            await showBatterSelection();
-          } else if (sel.player === player && sel.type === "bowler") {
-            await showBowlerSelection();
-          }
-        }
-
+        
         // Mark game as started if not already
         if (!roomData.gameStarted) {
           await update(roomRef, {
-            gameStarted: true
+            gameStarted: true,
+            lastActivity: Date.now()
           });
         }
 
@@ -1083,6 +1068,11 @@
                            </button>`;
         status.className = "error";
         loadingSpinner.style.display = "none";
+        
+        // If Firebase fails completely, show reload option
+        if (error.message.includes("Firebase")) {
+          status.innerHTML += `<br><button onclick="location.reload()">Reload Page</button>`;
+        }
       }
     }
 
@@ -1099,14 +1089,6 @@
       buttons.forEach(btn => {
         btn.addEventListener("click", async () => {
           if (btn.disabled) return;
-          
-          // Check if match has ended
-          const matchEndedSnap = await get(ref(db, `rooms/${room}/matchEnded`));
-          if (matchEndedSnap.exists() && matchEndedSnap.val()) {
-            status.innerText = "Match has ended.";
-            return;
-          }
-
           const cardValue = parseInt(btn.dataset.value);
 
           // Disable buttons to prevent double click
@@ -1292,9 +1274,6 @@
 
     // Update scoreboard with fractional wickets
     function updateScoreboard() {
-      if (isNaN(runs) runs = 0;
-      if (isNaN(legalBalls)) legalBalls = 0;
-      
       const wicketsDisplay = formatWickets(wickets);
       
       document.querySelector("#scoreboard div:nth-child(1) strong").textContent = runs;
@@ -1522,9 +1501,6 @@
             }
           }
           
-          // Save bowler overs to Firebase
-          await set(bowlerOversRef, bowlerOvers);
-          
           // Check for end of day's play in test matches
           if (isTestMatch && oversToday >= maxOversPerDay) {
             endDaysPlay();
@@ -1659,7 +1635,7 @@
     // Create confetti effect
     function createConfetti() {
       const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff'];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 150; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = `${Math.random() * 100}%`;
@@ -1686,7 +1662,11 @@
           
           // Update innings in Firebase (this will trigger the listener)
           await update(roomRef, {
-            innings: 2
+            innings: 2,
+            team1Score: team1Score,
+            team1Wickets: team1Wickets,
+            gameState: "secondInnings",
+            lastActivity: Date.now()
           });
           
           // Reset all inning-specific states
@@ -1800,10 +1780,6 @@
           });
 
           selectionModal.style.display = "block";
-          await set(selectionPendingRef, {
-            type: "batter",
-            player: player
-          });
           status.innerText = "Select your next batter...";
       } catch (error) {
           console.error("Batter selection error:", error);
@@ -1834,15 +1810,7 @@
           }
           
           const maxOversPerBowler = isTestMatch ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
-          
-          // Skip previous bowler if overs are back-to-back
-          const lastOver = legalBalls >= 6 ? ballByBall[legalBalls - 6] : null;
-          const lastBowler = lastOver?.bowler;
-          
-          const availableBowlers = currentPlayers.filter(p => {
-            const bowled = bowlerOvers[p] || 0;
-            return bowled < maxOversPerBowler && p !== lastBowler;
-          });
+          const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
           
           if (availableBowlers.length === 0) {
               showNotification("All bowlers have bowled their maximum overs!", 'error');
@@ -1879,10 +1847,6 @@
           });
 
           selectionModal.style.display = "block";
-          await set(selectionPendingRef, {
-            type: "bowler",
-            player: player
-          });
           status.innerText = "Select your next bowler...";
       } catch (error) {
           console.error("Bowler selection error:", error);
@@ -1902,8 +1866,11 @@
         currentBowlerEl.innerText = "-";
         selectionModal.style.display = "none";
 
-        // Set role definitively
-        isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
+        // Set role definitively with fallbacks
+        isBatting = (innings % 2 === 1) ? 
+          (player === (battingFirst || localStorage.getItem('battingFirst'))) : 
+          (player !== (battingFirst || localStorage.getItem('battingFirst')));
+        
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         
         console.log(`Innings: ${innings}, Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
@@ -1915,20 +1882,16 @@
             update(playsRef, { player1: null, player2: null })
         ]);
 
-        // Add slight delay before showing new UI to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Add delay to prevent flicker
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Show appropriate selection UI - UPDATED CONDITION TO PREVENT FLICKERING
-        if (isBatting) {
-            if (!batterSelected || !currentBatter) {
-                console.log("Triggering batter selection...");
-                await showBatterSelection();
-            }
-        } else {
-            if (!bowlerSelected || !currentBowler) {
-                console.log("Triggering bowler selection...");
-                await showBowlerSelection();
-            }
+        // Show appropriate selection UI only if needed
+        if (isBatting && !batterSelected) {
+            console.log("Triggering batter selection...");
+            await showBatterSelection();
+        } else if (!isBatting && !bowlerSelected) {
+            console.log("Triggering bowler selection...");
+            await showBowlerSelection();
         }
     }
 
@@ -1943,7 +1906,6 @@
 
         const playerName = selected.dataset.name;
         selectionModal.style.display = "none";
-        await remove(selectionPendingRef);
 
         if (selectionTitle.textContent.includes("Batter")) {
           await set(batterRef, playerName);
@@ -1989,14 +1951,6 @@
         team1Wickets = Math.floor(wickets);
         status.innerText = `Team 1 scored ${team1Score} runs!`;
         
-        // Save scores to Firebase
-        await update(roomRef, {
-          team1Score,
-          team1Wickets,
-          team2Score,
-          team2Wickets
-        });
-        
         if (!isTestMatch) {
           startInningsBtn.style.display = "block";
           status.innerText += " Click 'Start Second Innings' when ready.";
@@ -2013,14 +1967,6 @@
         team2Score = currentInningRuns;
         team2Wickets = Math.floor(wickets);
         status.innerText = `Team 2 scored ${team2Score} runs!`;
-        
-        // Save scores to Firebase
-        await update(roomRef, {
-          team1Score,
-          team1Wickets,
-          team2Score,
-          team2Wickets
-        });
       }
       
       // Check for follow-on in test matches
@@ -2168,7 +2114,6 @@
       
       // Save result to Firebase
       await set(resultRef, result);
-      await update(roomRef, { matchEnded: true });
       updateSpectatorData();
       
       // Redirect to results page after delay
@@ -2242,27 +2187,27 @@
       });
       
       onValue(autoStartTimeRef, (snap) => {
-        const autoStartTime = snap.val();
-        if (!autoStartTime) return;
-
-        function updateTimer() {
-          const now = Date.now();
-          const diff = Math.max(0, Math.floor((autoStartTime - now) / 1000));
-          autoStartTimerEl.textContent = `Auto-starting in ${diff}s`;
-          autoStartTimerEl.style.display = "block";
-
-          if (diff <= 0) {
-            clearInterval(countdownInterval);
-            startSecondInnings();
+        if (snap.exists()) {
+          const endTime = snap.val();
+          if (endTime > Date.now()) {
+            autoStartTimerEl.style.display = "block";
+            updateAutoStartTimer(endTime);
+            countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
           }
         }
-
-        if (countdownInterval) clearInterval(countdownInterval);
-        updateTimer();
-        countdownInterval = setInterval(updateTimer, 1000);
       });
     }
     
+    function updateAutoStartTimer(endTime) {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
+      
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        startSecondInnings();
+      }
+    }
+
     // Setup test controls
     function setupTestControls() {
       if (!isTestMatch) return;
@@ -2333,9 +2278,8 @@
     function setupFirebaseListeners() {
       // Listen for batter selection
       onValue(batterRef, (snap) => {
-        const newVal = snap.val();
-        if (newVal !== currentBatter) {
-          currentBatter = newVal;
+        if (snap.exists()) {
+          currentBatter = snap.val();
           currentBatterEl.textContent = currentBatter || "-";
           updateButtonStates();
         }
@@ -2343,9 +2287,8 @@
 
       // Listen for bowler selection
       onValue(bowlerRef, (snap) => {
-        const newVal = snap.val();
-        if (newVal !== currentBowler) {
-          currentBowler = newVal;
+        if (snap.exists()) {
+          currentBowler = snap.val();
           currentBowlerEl.textContent = currentBowler || "-";
           updateButtonStates();
         }
