@@ -704,13 +704,12 @@
     import { getDatabase, ref, onValue, set, get, update, push, remove, child, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ"
+      apiKey: "your-new-api-key",
+      authDomain: "handicricket-a8ac4.firebaseapp.com",
+      projectId: "handicricket-a8ac4",
+      storageBucket: "handicricket-a8ac4.appspot.com",
+      messagingSenderId: "your-sender-id",
+      appId: "your-app-id"
     };
 
     // Initialize Firebase with error handling
@@ -866,8 +865,7 @@
     let bowlerStats = {};
     let autoStartTimer;
     let countdownInterval;
-    let tossWinner = null;
-    let battingFirst = null;
+    let lastInningsState = null;
     const milestoneLevels = [50, 100, 150, 200, 250, 300, 350, 400];
     let batterSelected = false;
     let bowlerSelected = false;
@@ -877,7 +875,6 @@
     let lastBatterRuns = {};
     let isTransitioningInnings = false;
     let modalLock = false;
-    let lastInningsState = null;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -975,15 +972,15 @@
 
         // 4. Verify game setup is complete
         console.log("Verifying game setup...");
-        if (!roomData.toss?.winner && !roomData.tossWinner) {
+        if (!roomData.toss?.winner) {
           throw new Error("Toss not completed - redirecting to toss");
           window.location.href = `toss.html?room=${room}&player=${player}`;
           return;
         }
         
-        // Get toss and batting first info with fallbacks
-        tossWinner = roomData.toss?.winner || roomData.tossWinner;
-        battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
+        // Get toss and batting first info
+        const tossWinner = roomData.toss.winner;
+        const battingFirst = roomData.toss.battingFirst;
         
         // Initialize innings in Firebase if not set
         if (!roomData.innings) {
@@ -1008,7 +1005,7 @@
         
         while (retries < maxRetries) {
           try {
-            const teamsLoaded = await loadPlaying11();
+            const teamsLoaded = await loadPlaying11(roomData);
             if (teamsLoaded) break;
           } catch (error) {
             console.error(`Team load attempt ${retries + 1} failed:`, error);
@@ -1068,10 +1065,10 @@
           }
         });
 
-        // Initial UI update
-        updateScoreboard();
-        status.innerText = "Game ready!";
+        // Clear UI and show ready state
+        selectionModal.classList.add("hidden");
         loadingSpinner.style.display = "none";
+        status.innerText = "Game ready!";
       } catch (error) {
         console.error("Initialization failed:", error);
         status.innerHTML = `Initialization failed: ${error.message}<br>
@@ -1123,16 +1120,9 @@
     }
 
     // Enhanced loadPlaying11 function with better error handling
-    async function loadPlaying11() {
+    async function loadPlaying11(roomData) {
       try {
         status.innerText = "Loading teams...";
-        
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists()) {
-          throw new Error("Room data not found");
-        }
-
-        const roomData = roomSnap.val();
         
         // Clear previous team data
         team1Players = [];
@@ -1885,10 +1875,10 @@
         ]);
         
         const currentInnings = inningsSnap.val();
-        const battingFirst = battingFirstSnap.val() || localStorage.getItem('battingFirst');
+        const battingFirst = battingFirstSnap.val();
         
-        // Only proceed if innings actually changed
-        if (lastInningsState === currentInnings) {
+        // Only proceed if innings actually changed or players not selected
+        if (lastInningsState === currentInnings && currentBatter && currentBowler) {
           modalLock = false;
           loadingSpinner.style.display = "none";
           return;
@@ -1923,6 +1913,7 @@
       } finally {
         loadingSpinner.style.display = "none";
         modalLock = false;
+        selectionModal.classList.add("hidden");
         updateButtonStates();
       }
     }
@@ -1940,13 +1931,21 @@
         selectionModal.classList.add("hidden");
 
         if (selectionTitle.textContent.includes("Batter")) {
-          await set(batterRef, playerName);
-          batterSelected = true;
-          status.innerText = `${playerName} selected as batter`;
+          try {
+            await set(batterRef, playerName);
+            batterSelected = true;
+            status.innerText = `${playerName} selected as batter`;
+          } catch (error) {
+            showNotification("Failed to set batter", "error");
+          }
         } else {
-          await set(bowlerRef, playerName);
-          bowlerSelected = true;
-          status.innerText = `${playerName} selected as bowler`;
+          try {
+            await set(bowlerRef, playerName);
+            bowlerSelected = true;
+            status.innerText = `${playerName} selected as bowler`;
+          } catch (error) {
+            showNotification("Failed to set bowler", "error");
+          }
         }
 
         updateButtonStates();
@@ -2366,6 +2365,10 @@
       console.error("Uncaught initialization error:", error);
       document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
                      Please refresh or check console for details.`;
+    });
+  </script>
+</body>
+</html> details.`;
     });
   </script>
 </body>
