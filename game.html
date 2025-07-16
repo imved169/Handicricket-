@@ -176,7 +176,7 @@
       display: none;
     }
     
-    /* Selection Modal - Updated to fixed positioning */
+    /* Selection Modal */
     .selection-modal { 
       position: fixed;
       top: 50%;
@@ -191,7 +191,7 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
       border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 100;
-      display: none;
+      display: block;
       transition: opacity 0.3s ease, transform 0.3s ease;
     }
     
@@ -1890,6 +1890,7 @@
         // Only proceed if innings actually changed
         if (lastInningsState === currentInnings) {
           modalLock = false;
+          loadingSpinner.style.display = "none";
           return;
         }
         lastInningsState = currentInnings;
@@ -1911,13 +1912,14 @@
         await new Promise(resolve => setTimeout(resolve, 300));
         
         // Show appropriate UI
-        if (isBatting && !batterSelected) {
+        if (isBatting) {
           await showBatterSelection();
-        } else if (!isBatting && !bowlerSelected) {
+        } else {
           await showBowlerSelection();
         }
       } catch (error) {
         console.error("Role setup error:", error);
+        status.innerText = "Error setting up role. Please try again.";
       } finally {
         loadingSpinner.style.display = "none";
         modalLock = false;
@@ -2348,6 +2350,35 @@
             updateScoreboard();
             isTransitioningInnings = false;
           });
+        }
+      });
+
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+        }
+      });
+    }
+
+    // Start the game
+    initGame().catch(error => {
+      console.error("Uncaught initialization error:", error);
+      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
+                     Please refresh or check console for details.`;
+    });
+  </script>
+</body>
+</html> if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
+          handleResult();
+        }
+      });
+
+      // Listen for innings changes
+      onValue(inningsRef, (snap) => {
+        if (snap.exists()) {
+          innings = snap.val();
+          setupRole();
         }
       });
 
