@@ -1770,8 +1770,7 @@
       disableButtons();
       
       // Prevent modal from reopening if already visible
-      if (selectionModal.style.display === "block") {
-        console.log("Bowler selection modal already visible, skipping.");
+      if (bowlerSelected || selectionModal.style.display === "block") {
         return;
       }
 
@@ -1834,14 +1833,28 @@
 
     // Setup player role (batting/bowling) - UPDATED TO FIX FLICKERING
     async function setupRole() {
-        // Immediately clear all selection states and UI
-        batterSelected = false;
-        bowlerSelected = false;
-        currentBatter = null;
-        currentBowler = null;
-        currentBatterEl.innerText = "-";
-        currentBowlerEl.innerText = "-";
-        selectionModal.style.display = "none";
+        // Only reset if we're starting a new innings or after a major state change
+        const shouldReset = !currentBatter || !currentBowler || 
+                           (innings === 1 && player === battingFirst) || 
+                           (innings === 2 && player !== battingFirst);
+
+        if (shouldReset) {
+            // Clear selections only when needed
+            batterSelected = false;
+            bowlerSelected = false;
+            currentBatter = null;
+            currentBowler = null;
+            currentBatterEl.innerText = "-";
+            currentBowlerEl.innerText = "-";
+            selectionModal.style.display = "none";
+
+            // Atomically clear Firebase selections
+            await Promise.all([
+                set(batterRef, null),
+                set(bowlerRef, null),
+                update(playsRef, { player1: null, player2: null })
+            ]);
+        }
 
         // Set role definitively
         isBatting = (innings % 2 === 1) ? (player === battingFirst) : (player !== battingFirst);
@@ -1849,27 +1862,17 @@
         
         console.log(`Innings: ${innings}, Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
 
-        // Atomically clear all Firebase selections
-        await Promise.all([
-            set(batterRef, null),
-            set(bowlerRef, null),
-            update(playsRef, { player1: null, player2: null })
-        ]);
-
-        // Add slight delay before showing new UI to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        // Show appropriate selection UI - UPDATED CONDITION TO PREVENT FLICKERING
+        // Only show selection UI if we're starting a new innings or after a wicket
         if (isBatting) {
-            if (!currentBatter) {  // Only if no batter is currently set
+            if (!currentBatter) {
                 console.log("Triggering batter selection...");
                 await showBatterSelection();
             } else {
-                // If we already have a batter, just update the buttons
                 updateButtonStates();
             }
         } else {
-            if (legalBalls % 6 === 0 && !bowlerSelected) {  // Only at over changes
+            // For bowlers, only show selection at over changes when needed
+            if (legalBalls % 6 === 0 && !bowlerSelected) {
                 console.log("Triggering bowler selection...");
                 await showBowlerSelection();
             } else {
@@ -2287,8 +2290,15 @@
       // Listen for innings changes
       onValue(inningsRef, (snap) => {
         if (snap.exists()) {
-          innings = snap.val();
-          setupRole();
+          const newInnings = snap.val();
+          // Only update if innings actually changed
+          if (newInnings !== innings) {
+            innings = newInnings;
+            // Reset inning only if it's a complete change (not just over completion)
+            if (legalBalls % 6 === 0 || wickets >= currentFormat.totalWickets) {
+              setupRole();
+            }
+          }
         }
       });
 
@@ -2308,23 +2318,7 @@
     });
   </script>
 </body>
-</html>f (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
-          handleResult();
-        }
-      });
-
-      // Listen for innings changes
-      onValue(inningsRef, (snap) => {
-        if (snap.exists()) {
-          innings = snap.val();
-          setupRole();
-        }
-      });
-
-      // Listen for spectator count
-      onValue(spectatorsRef, (snap) => {
-        if (snap.exists()) {
-          spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+</html>   spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
         }
       });
     }
