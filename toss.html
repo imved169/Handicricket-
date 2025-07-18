@@ -342,6 +342,22 @@
     async function makeBattingChoice(decision) {
       gameState.choiceMade = true;
       try {
+        // Verify teams exist first
+        const teamsSnap = await get(ref(db, `rooms/${room}/teams`));
+        if (!teamsSnap.exists() || !teamsSnap.val().player1 || !teamsSnap.val().player2) {
+          throw new Error("Both teams must submit playing XIs first");
+        }
+
+        // Verify teams have 11 players each
+        const team1 = teamsSnap.val().player1;
+        const team2 = teamsSnap.val().player2;
+        
+        if (!team1.players || !team2.players || 
+            team1.players.length !== 11 || team2.players.length !== 11) {
+          throw new Error("Each team must have 11 players");
+        }
+
+        // Save batting choice
         await update(ref(db, `rooms/${room}`), {
           decision,
           battingFirst: decision === "bat" ? player : opponent,
@@ -353,12 +369,32 @@
 
         localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
         localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
+        
+        // Verify game can start before redirecting
+        const gameReady = await verifyGameReady();
+        if (!gameReady) {
+          throw new Error("Game not ready to start");
+        }
+
         redirectToGame();
       } catch (error) {
         console.error("Error making batting choice:", error);
-        alert("There was an error processing your choice. Please try again.");
+        alert(error.message);
         gameState.choiceMade = false;
+        window.location.href = `playing11.html?room=${room}&player=${player}`;
       }
+    }
+
+    async function verifyGameReady() {
+      const checks = [
+        get(ref(db, `rooms/${room}/teams/player1`)),
+        get(ref(db, `rooms/${room}/teams/player2`)),
+        get(ref(db, `rooms/${room}/tossWinner`)),
+        get(ref(db, `rooms/${room}/battingFirst`))
+      ];
+      
+      const results = await Promise.all(checks);
+      return results.every(snap => snap.exists());
     }
 
     function redirectToGame() {
