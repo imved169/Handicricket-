@@ -550,14 +550,14 @@
 
     // Firebase configuration
     const firebaseConfig = {
-  apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-  authDomain: "handicricket-85a06.firebaseapp.com",
-  projectId: "handicricket-85a06",
-  storageBucket: "handicricket-85a06.appspot.com",
-  messagingSenderId: "599182538558",
-  appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-  measurementId: "G-HSV9H4LEJQ"
-};
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
@@ -717,6 +717,37 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const savedGameRef = ref(db, `savedGames/${room}`);
+
+    // Verify game data before initialization
+    async function verifyGameData() {
+      try {
+        const requiredChecks = [
+          get(ref(db, `rooms/${room}/player1/playing11`)),
+          get(ref(db, `rooms/${room}/player2/playing11`)),
+          get(ref(db, `rooms/${room}/tossWinner`)),
+          get(ref(db, `rooms/${room}/battingFirst`))
+        ];
+
+        const results = await Promise.all(requiredChecks);
+        
+        if (!results.every(snap => snap.exists())) {
+          throw new Error("Required game data missing");
+        }
+
+        // Additional validation
+        const team1 = results[0].val();
+        const team2 = results[1].val();
+        
+        if (!team1 || !team2 || team1.length !== 11 || team2.length !== 11) {
+          throw new Error("Invalid team data");
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Game data verification failed:", error);
+        throw error;
+      }
+    }
 
     // Initialize batter stats with milestone tracking
     function initializeBatterStats() {
@@ -974,7 +1005,7 @@
       }
     }
 
-    // Load playing 11 from Firebase
+    // Enhanced loadPlaying11 function
     async function loadPlaying11() {
       try {
         const snapshot = await get(roomRef);
@@ -985,7 +1016,7 @@
           return false;
         }
 
-        // Only require our own team to be loaded initially
+        // Check if our team exists
         if (data[player]?.playing11) {
           team1NameEl.innerText = data.player1?.teamName || "Team 1";
           team2NameEl.innerText = data.player2?.teamName || "Team 2";
@@ -998,9 +1029,8 @@
           const opponentTeamEl = player === "player1" ? team2PlayersEl : team1PlayersEl;
           if (data[opponent]?.playing11) {
             opponentTeamEl.innerHTML = data[opponent].playing11.map(p => `<li>${p}</li>`).join("");
+            return true;
           }
-          
-          return true;
         }
         return false;
       } catch (error) {
@@ -2196,14 +2226,21 @@
     // Initialize the game
     async function initGame() {
       try {
-        status.innerText = "Initializing game...";
+        status.innerText = "Verifying game data...";
         
-        gameInProgress = true;
-        status.innerText = "Initializing game...";
+        // Add loading indicator
+        const loadingInterval = setInterval(() => {
+          status.innerText += ".";
+          if (status.innerText.length > 20) status.innerText = "Verifying game data";
+        }, 500);
+
+        // Verify all required data exists
+        await verifyGameData();
         
         // Check if room exists
         const roomSnap = await get(roomRef);
         if (!roomSnap.exists()) {
+          clearInterval(loadingInterval);
           showNotification("Room does not exist!", 'error');
           setTimeout(() => window.location.href = "index.html", 2000);
           return;
@@ -2211,24 +2248,29 @@
 
         const roomData = roomSnap.val();
         
-        // Check toss status first
-        if (!roomData.tossWinner || !roomData.battingFirst) {
-          showNotification("Toss not completed yet!", 'info');
-          setTimeout(() => window.location.href = `toss.html?room=${room}&player=${player}`, 2000);
-          return;
-        }
-
         // Get toss and batting first info
         tossWinner = roomData.tossWinner;
         battingFirst = roomData.battingFirst;
         
-        // Load teams - don't fail if teams aren't loaded yet
-        const teamsLoaded = await loadPlaying11();
+        // Load teams with retry logic
+        let teamsLoaded = false;
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (!teamsLoaded && attempts < maxAttempts) {
+          attempts++;
+          teamsLoaded = await loadPlaying11();
+          if (!teamsLoaded) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+        
         if (!teamsLoaded) {
-          setTimeout(initGame, 3000);
-          return;
+          throw new Error("Failed to load teams after multiple attempts");
         }
 
+        clearInterval(loadingInterval);
+        
         // Set game format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
@@ -2281,13 +2323,81 @@
         status.innerText = "Game ready!";
       } catch (error) {
         console.error("Initialization error:", error);
-        showNotification("Failed to initialize game", 'error');
-        setTimeout(initGame, 3000); // Retry instead of redirecting immediately
+        showNotification(`Game initialization failed: ${error.message}`, 'error');
+        
+        // Redirect back to toss if teams are missing
+        if (error.message.includes("team") || error.message.includes("Team")) {
+          setTimeout(() => {
+            window.location.href = `toss.html?room=${room}&player=${player}`;
+          }, 3000);
+        } else {
+          setTimeout(initGame, 3000); // Retry initialization
+        }
       }
     }
 
     // Start the game
     initGame();
+  </script>
+</body>
+</html>);
+      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
+                     Please refresh or check console for details.`;
+    });
+  </script>
+</body>
+</html>      });
+        }
+      });
+
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+        }
+      });
+    }
+
+    // Start the game
+    initGame().catch(error => {
+      console.error("Uncaught initialization error:", error);
+      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
+                     Please refresh or check console for details.`;
+    });
+  </script>
+</body>
+</html>/body>
+</html> details.`;
+    });
+  </script>
+</body>
+</html> if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
+          handleResult();
+        }
+      });
+
+      // Listen for innings changes
+      onValue(inningsRef, (snap) => {
+        if (snap.exists()) {
+          innings = snap.val();
+          setupRole();
+        }
+      });
+
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+        }
+      });
+    }
+
+    // Start the game
+    initGame().catch(error => {
+      console.error("Uncaught initialization error:", error);
+      document.getElementById("status").innerHTML = `Fatal error: ${error.message}<br>
+                     Please refresh or check console for details.`;
+    });
   </script>
 </body>
   </html>
