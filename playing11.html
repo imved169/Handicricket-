@@ -245,19 +245,26 @@
         document.getElementById("submitXI").disabled = true;
         waitingMessage.textContent = "Waiting for opponent to submit their team...";
         
-        // Wait for opponent's team with timeout
-        const waitStart = Date.now();
-        const timeout = 300000; // 5 minutes timeout
-        
+        // Create a separate listener for redirects
+        const redirectRef = ref(db, `rooms/${roomId}/redirectTrigger`);
+        const unsubscribeRedirect = onValue(redirectRef, (snapshot) => {
+          const trigger = snapshot.val();
+          if (trigger === true) {
+            unsubscribeRedirect();
+            window.location.href = `toss.html?room=${roomId}&player=${player}`;
+          }
+        });
+
+        // Check if both teams have submitted
         const teamsRef = ref(db, `rooms/${roomId}/teams`);
-        const unsubscribe = onValue(teamsRef, (snapshot) => {
+        const unsubscribeTeams = onValue(teamsRef, (snapshot) => {
           const teams = snapshot.val();
           
           if (teams && teams.player1 && teams.player2) {
             // Validate both teams have 11 players
             if (teams.player1.players?.length === 11 && 
                 teams.player2.players?.length === 11) {
-              unsubscribe(); // Stop listening
+              unsubscribeTeams();
               
               // Initialize spectator data structure
               set(ref(db, `rooms/${roomId}/spectatorData`), {
@@ -265,17 +272,30 @@
                 matchStats: {},
                 spectatorChat: {}
               }).then(() => {
-                window.location.href = `toss.html?room=${roomId}&player=${player}`;
+                // Set redirect trigger for both players
+                set(ref(db, `rooms/${roomId}/redirectTrigger`), true)
+                  .then(() => {
+                    // Immediately redirect this player
+                    window.location.href = `toss.html?room=${roomId}&player=${player}`;
+                  });
               });
             }
           }
-          
-          // Check timeout
-          if (Date.now() - waitStart > timeout) {
-            unsubscribe();
-            alert("Opponent took too long to submit team");
-            window.location.reload();
-          }
+        });
+        
+        // Set timeout for waiting
+        const timeout = setTimeout(() => {
+          unsubscribeTeams();
+          unsubscribeRedirect();
+          alert("Opponent took too long to submit team");
+          window.location.reload();
+        }, 300000); // 5 minutes timeout
+        
+        // Cleanup on page leave
+        window.addEventListener('beforeunload', () => {
+          clearTimeout(timeout);
+          unsubscribeTeams();
+          unsubscribeRedirect();
         });
         
       } catch (error) {
