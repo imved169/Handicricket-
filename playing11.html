@@ -212,51 +212,77 @@
         return alert("All 11 player names are required!");
       }
 
-      // Get format from localStorage (set in index.html)
+      // Get format and team name
       const format = localStorage.getItem('format');
+      const teamName = localStorage.getItem('teamName') || 
+                      (player === 'player1' ? 'Team 1' : 'Team 2');
       
       const teamData = {
         players: players,
-        format: format
+        format: format,
+        teamName: teamName
       };
       
       try {
-        // Save team to Firebase
-        await set(ref(db, `rooms/${roomId}/teams/${player}`), teamData);
+        // Save team to both locations for redundancy
+        await Promise.all([
+          set(ref(db, `rooms/${roomId}/teams/${player}`), teamData),
+          set(ref(db, `rooms/${roomId}/${player}/playing11`), players),
+          set(ref(db, `rooms/${roomId}/${player}/teamName`), teamName)
+        ]);
         
         // Save to localStorage
         if (player === 'player1') {
           localStorage.setItem('team1', JSON.stringify(teamData));
-          localStorage.setItem('team1Name', 'Team 1');
+          localStorage.setItem('team1Name', teamName);
         } else {
           localStorage.setItem('team2', JSON.stringify(teamData));
-          localStorage.setItem('team2Name', 'Team 2');
+          localStorage.setItem('team2Name', teamName);
         }
         
         // Show confirmation
-        document.getElementById("submitXI").textContent = 'Team Submitted!';
+        document.getElementById("submitXI").textContent = '✓ Team Submitted';
         document.getElementById("submitXI").disabled = true;
         waitingMessage.textContent = "Waiting for opponent to submit their team...";
         
-        // Wait for opponent's team
+        // Wait for opponent's team with timeout
+        const waitStart = Date.now();
+        const timeout = 300000; // 5 minutes timeout
+        
         const teamsRef = ref(db, `rooms/${roomId}/teams`);
-        onValue(teamsRef, (snapshot) => {
+        const unsubscribe = onValue(teamsRef, (snapshot) => {
           const teams = snapshot.val();
+          
           if (teams && teams.player1 && teams.player2) {
-            // Initialize spectator data structure
-            set(ref(db, `rooms/${roomId}/spectatorData`), {
-              overSummaries: {},
-              matchStats: {},
-              spectatorChat: {}
-            }).then(() => {
-              window.location.href = `toss.html?room=${roomId}&player=${player}`;
-            });
+            // Validate both teams have 11 players
+            if (teams.player1.players?.length === 11 && 
+                teams.player2.players?.length === 11) {
+              unsubscribe(); // Stop listening
+              
+              // Initialize spectator data structure
+              set(ref(db, `rooms/${roomId}/spectatorData`), {
+                overSummaries: {},
+                matchStats: {},
+                spectatorChat: {}
+              }).then(() => {
+                window.location.href = `toss.html?room=${roomId}&player=${player}`;
+              });
+            }
           }
-        }, { onlyOnce: false });
+          
+          // Check timeout
+          if (Date.now() - waitStart > timeout) {
+            unsubscribe();
+            alert("Opponent took too long to submit team");
+            window.location.reload();
+          }
+        });
         
       } catch (error) {
         console.error('Error saving team:', error);
         alert('Error saving team. Please try again.');
+        document.getElementById("submitXI").disabled = false;
+        document.getElementById("submitXI").textContent = 'Submit Playing XI';
       }
     });
   </script>
