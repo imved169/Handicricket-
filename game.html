@@ -892,7 +892,16 @@
     // Update spectator data with match details
     function updateSpectatorData() {
     const currentOver = Math.floor(legalBalls / 6); // Fix: Define currentOver here
-    
+
+    // 🔧 ADD Powerplay & Dead Over Status
+    if (matchType === "ODI" && isDeadOver(currentOver)) {
+        gameData.powerplayStatus = "DEAD OVER";
+    } else if (isInPowerplay(matchType, currentOver)) {
+        gameData.powerplayStatus = "POWERPLAY";
+    } else {
+        gameData.powerplayStatus = "";
+    }
+
     // Update over summaries
     if (currentOver > lastOverRuns) {
         const overSummary = `Over ${currentOver}: ${runs - lastOverRuns} runs, ${wickets - lastOverWickets} wickets`;
@@ -934,7 +943,10 @@
         innings: innings,
         timestamp: Date.now()
     });
-    }
+
+    // Also push gameData with updated powerplayStatus
+    database.ref(`matches/${matchID}/gameData`).update(gameData);
+}
 
     // Update free hit display
     function updateFreeHitDisplay() {
