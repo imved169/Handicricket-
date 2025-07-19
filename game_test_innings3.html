@@ -1,79 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>HandiCricket - Test Match: Innings 3</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="firebase.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Test Match - Innings 3</title>
+  <style>
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+      padding: 20px;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+    }
+    .btn:hover {
+      background: #1565c0;
+      transform: scale(1.05);
+    }
+    .scorebox {
+      background: #0d2a52;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    #result {
+      font-size: 18px;
+      margin-top: 15px;
+    }
+    .card-btns button {
+      font-size: 18px;
+      margin: 5px;
+    }
+    #nextInnings {
+      margin-top: 20px;
+    }
+  </style>
 </head>
 <body>
-  <div id="scoreboard">
-    <h2>Test Match - 3rd Innings</h2>
-    <div id="leadTrail"></div>
-    <div id="runsWickets">Runs: 0 | Wickets: 0</div>
-    <div id="overs">Overs: 0.0</div>
-    <div id="dayOvers">Today’s Overs: 0 / 90</div>
-  </div>
+  <div class="container">
+    <h1>🏏 Test Match - Innings 3</h1>
 
-  <div id="cardSelection">
-    <h3>Select Your Card</h3>
-    <div id="cardOptions">
-      <button class="card">0</button>
-      <button class="card">1</button>
-      <button class="card">2</button>
-      <button class="card">3</button>
-      <button class="card">4</button>
-      <button class="card">5</button>
-      <button class="card">6</button>
+    <div class="scorebox" id="teamName">Batting: Team A (Second Innings)</div>
+    <div class="scorebox" id="runsWickets">Runs: 0 | Wickets: 0</div>
+    <div class="scorebox" id="overs">Overs: 0.0</div>
+
+    <div id="cardSelection">
+      <h3>Select Your Card</h3>
+      <div class="card-btns">
+        <button class="btn">0</button>
+        <button class="btn">1</button>
+        <button class="btn">2</button>
+        <button class="btn">3</button>
+        <button class="btn">4</button>
+        <button class="btn">5</button>
+        <button class="btn">6</button>
+      </div>
+    </div>
+
+    <div id="result"></div>
+
+    <div id="nextInnings" style="display:none;">
+      <h3>End of Innings 3</h3>
+      <button class="btn" onclick="goToNextInnings()">Start Final Innings</button>
     </div>
   </div>
 
-  <div id="result"></div>
-
-  <div id="nextInnings" style="display:none;">
-    <h3>End of Innings 3</h3>
-    <button onclick="goToNextInnings()">Start 4th Innings</button>
-  </div>
-
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
   <script>
     const db = firebase.database();
     const inningsRef = db.ref("matches/currentMatch/testInnings3");
-    const selectionRef = db.ref("matches/currentMatch/selection");
-    const innings1Ref = db.ref("matches/currentMatch/testInnings1");
-    const innings2Ref = db.ref("matches/currentMatch/testInnings2");
 
-    let team1Total = 0;
-    let team2Total = 0;
     let runs = 0;
     let wickets = 0;
     let balls = 0;
-    let ballsToday = 0;
-    const maxBallsPerDay = 90 * 6;
-    const maxTotalBalls = 2 * maxBallsPerDay;
+    const maxOvers = 90;
 
-    // Calculate lead or trail
-    Promise.all([
-      innings1Ref.once("value"),
-      innings2Ref.once("value")
-    ]).then(([snap1, snap2]) => {
-      team1Total = snap1.val()?.totalRuns || 0;
-      team2Total = snap2.val()?.totalRuns || 0;
-      const lead = team1Total - team2Total;
-      document.getElementById("leadTrail").innerText = `Lead: ${lead}`;
-    });
-
-    document.querySelectorAll(".card").forEach((btn) => {
+    document.querySelectorAll(".card-btns .btn").forEach((btn) => {
       btn.onclick = () => {
         const selected = parseInt(btn.innerText);
-        selectionRef.set({
-          player: selected,
-        });
+        db.ref("matches/currentMatch/selection").set({ player: selected });
       };
     });
 
-    selectionRef.on("value", (snap) => {
+    db.ref("matches/currentMatch/selection").on("value", (snap) => {
       const data = snap.val();
       if (!data || data.player == null || data.opponent == null) return;
 
@@ -81,27 +109,24 @@
       const opponent = data.opponent;
 
       if (player === opponent) {
-        wickets += 1;
-        document.getElementById("result").innerText = "OUT!";
+        wickets++;
+        document.getElementById("result").innerText = "❌ OUT!";
       } else {
         runs += player;
-        document.getElementById("result").innerText = `${player} runs!`;
+        document.getElementById("result").innerText = `✅ ${player} runs`;
       }
 
-      balls += 1;
-      ballsToday += 1;
-
+      balls++;
       const over = Math.floor(balls / 6);
       const ballInOver = balls % 6;
       document.getElementById("runsWickets").innerText = `Runs: ${runs} | Wickets: ${wickets}`;
       document.getElementById("overs").innerText = `Overs: ${over}.${ballInOver}`;
-      document.getElementById("dayOvers").innerText = `Today’s Overs: ${Math.floor(ballsToday / 6)} / 90`;
 
-      if (ballsToday >= maxBallsPerDay || balls >= maxTotalBalls || wickets >= 10) {
+      if (wickets >= 10 || balls >= maxOvers * 6) {
         inningsRef.set({
           totalRuns: runs,
           totalWickets: wickets,
-          balls: balls,
+          balls: balls
         });
         document.getElementById("cardSelection").style.display = "none";
         document.getElementById("nextInnings").style.display = "block";
