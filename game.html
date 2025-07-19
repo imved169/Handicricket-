@@ -175,6 +175,20 @@
       color: #ffcc80;
       display: none;
     }
+
+    /* Second Innings Ready Status */
+    #secondInningsReadyStatus {
+      margin: 15px auto;
+      padding: 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      max-width: 300px;
+      display: none;
+    }
+
+    #player1Status.ready, #player2Status.ready {
+      color: #4CAF50;
+    }
     
     /* Selection Modal - Positioned above cards */
     .selection-modal { 
@@ -649,6 +663,12 @@
     <div class="target-text">Target: <span id="targetRuns">0</span> runs | <span id="requiredRate" class="required-rate">RR: 0.00</span></div>
   </div>
   
+  <!-- Second Innings Ready Status -->
+  <div id="secondInningsReadyStatus">
+    <div>Player 1: <span id="player1Status">❌ Not Ready</span></div>
+    <div>Player 2: <span id="player2Status">❌ Not Ready</span></div>
+  </div>
+  
   <div id="status">Initializing game...</div>
   
   <div id="loading-spinner" class="loading-spinner"></div>
@@ -869,6 +889,8 @@
     let team2Players = [];
     let batterPenalties = {};
     let lastBatterRuns = {};
+    let player1Ready = false;
+    let player2Ready = false;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -907,6 +929,9 @@
     const testControls = document.getElementById("testControls");
     const declareInningsBtn = document.getElementById("declareInnings");
     const enforceFollowOnBtn = document.getElementById("enforceFollowOn");
+    const secondInningsReadyStatus = document.getElementById("secondInningsReadyStatus");
+    const player1Status = document.getElementById("player1Status");
+    const player2Status = document.getElementById("player2Status");
 
     // Firebase references
     const roomRef = ref(db, `rooms/${room}`);
@@ -927,6 +952,8 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const inningsRef = ref(db, `rooms/${room}/innings`);
+    const player1ReadyRef = ref(db, `rooms/${room}/player1Ready`);
+    const player2ReadyRef = ref(db, `rooms/${room}/player2Ready`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -1645,16 +1672,40 @@
           
           if (countdownInterval) clearInterval(countdownInterval);
           
-          // Signal second innings start
-          await set(startSecondInningsRef, true);
+          // Mark current player as ready
+          if (player === "player1") {
+              await set(player1ReadyRef, true);
+          } else {
+              await set(player2ReadyRef, true);
+          }
           
-          // Update innings in Firebase (this will trigger the listener)
-          await update(roomRef, {
-            innings: 2
-          });
+          // Show ready status UI
+          secondInningsReadyStatus.style.display = "block";
           
-          // Reset all inning-specific states
-          await resetInning();
+          // Check if both players are ready
+          const player1ReadySnap = await get(player1ReadyRef);
+          const player2ReadySnap = await get(player2ReadyRef);
+          
+          if (player1ReadySnap.exists() && player1ReadySnap.val() && 
+              player2ReadySnap.exists() && player2ReadySnap.val()) {
+              
+              // Signal second innings start
+              await set(startSecondInningsRef, true);
+              
+              // Update innings in Firebase (this will trigger the listener)
+              await update(roomRef, {
+                  innings: 2
+              });
+              
+              // Reset all inning-specific states
+              await resetInning();
+              
+              // Reset ready states
+              await set(player1ReadyRef, false);
+              await set(player2ReadyRef, false);
+          } else {
+              status.innerText = "Waiting for opponent to confirm...";
+          }
           
       } catch (error) {
           console.error("Error starting second innings:", error);
@@ -1934,6 +1985,7 @@
         
         if (!isTestMatch) {
           startInningsBtn.style.display = "block";
+          secondInningsReadyStatus.style.display = "block";
           status.innerText += " Click 'Start Second Innings' when ready.";
           
           await set(inningsReadyRef, false);
@@ -2006,6 +2058,7 @@
       startInningsBtn.style.display = "none";
       opponentReadyStatus.style.display = "none";
       autoStartTimerEl.style.display = "none";
+      secondInningsReadyStatus.style.display = "none";
       
       // Setup the correct role
       await setupRole();
@@ -2176,6 +2229,23 @@
             countdownInterval = setInterval(() => updateAutoStartTimer(endTime), 1000);
           }
         }
+      });
+
+      // Listen for player ready states
+      onValue(player1ReadyRef, (snap) => {
+          if (snap.exists()) {
+              player1Ready = snap.val();
+              player1Status.textContent = player1Ready ? "✓ Ready" : "❌ Not Ready";
+              player1Status.className = player1Ready ? "ready" : "";
+          }
+      });
+
+      onValue(player2ReadyRef, (snap) => {
+          if (snap.exists()) {
+              player2Ready = snap.val();
+              player2Status.textContent = player2Ready ? "✓ Ready" : "❌ Not Ready";
+              player2Status.className = player2Ready ? "ready" : "";
+          }
       });
     }
     
