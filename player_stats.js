@@ -1,4 +1,3 @@
-
 export class PlayerStats {
   constructor() {
     this.batters = {};
@@ -14,15 +13,27 @@ export class PlayerStats {
     if (isOut) this.batters[name].outs++;
   }
 
+  updateBowler(name, runs, isWicket) {
+    if (!this.bowlers[name]) {
+      this.bowlers[name] = { runs: 0, balls: 0, wickets: 0 };
+    }
+    this.bowlers[name].runs += runs;
+    this.bowlers[name].balls++;
+    if (isWicket) this.bowlers[name].wickets++;
+  }
+
   getMVP() {
-    let top = null;
-    let maxRuns = 0;
+    let topPlayer = null;
+    let maxImpact = 0;
+
     for (const [name, stats] of Object.entries(this.batters)) {
-      if (stats.runs > maxRuns) {
-        maxRuns = stats.runs;
-        top = name;
+      const impact = stats.runs * (1 - (stats.outs / 10));
+      if (impact > maxImpact) {
+        maxImpact = impact;
+        topPlayer = name;
       }
     }
-    return top;
+
+    return topPlayer || "No MVP";
   }
 }
