@@ -1,71 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HandiCricket - Second Innings</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="firebase.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Second Innings | HandiCricket</title>
+  <style>
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+      padding: 20px;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+    }
+    .btn:hover {
+      background: #1565c0;
+      transform: scale(1.05);
+    }
+    .scorebox {
+      background: #0d2a52;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    #result {
+      font-size: 18px;
+      margin-top: 15px;
+    }
+    .card-btns button {
+      font-size: 18px;
+      margin: 5px;
+    }
+    #matchSummary {
+      display: none;
+    }
+    /* Summary Popup */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: white;
+      color: black;
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+  </style>
 </head>
 <body>
-  <div id="scoreboard">
-    <h2>Second Innings</h2>
-    <div id="targetRuns"></div>
-    <div id="teamName"></div>
-    <div id="runsWickets">Runs: 0 | Wickets: 0</div>
-    <div id="overs">Overs: 0.0</div>
-    <div id="requiredRR"></div>
+  <div class="container">
+    <h1>🏏 Second Innings</h1>
+    <div class="scorebox" id="targetDisplay">Target: ...</div>
+    <div class="scorebox" id="runsWickets">Runs: 0 | Wickets: 0</div>
+    <div class="scorebox" id="overs">Overs: 0.0</div>
+    <div class="scorebox" id="rrr">Required Run Rate: 0.00</div>
+
+    <div id="cardSelection">
+      <h3>Select Your Card</h3>
+      <div class="card-btns">
+        <button class="btn">0</button>
+        <button class="btn">1</button>
+        <button class="btn">2</button>
+        <button class="btn">3</button>
+        <button class="btn">4</button>
+        <button class="btn">5</button>
+        <button class="btn">6</button>
+      </div>
+    </div>
+
+    <div id="result"></div>
   </div>
 
-  <div id="cardSelection">
-    <h3>Select Your Card</h3>
-    <div id="cardOptions">
-      <button class="card">0</button>
-      <button class="card">1</button>
-      <button class="card">2</button>
-      <button class="card">3</button>
-      <button class="card">4</button>
-      <button class="card">5</button>
-      <button class="card">6</button>
+  <!-- Summary Popup -->
+  <div id="popup" class="modal">
+    <div class="modal-content">
+      <h2 id="popupTitle">Match Over</h2>
+      <p id="popupText"></p>
+      <button class="btn" onclick="goToSummary()">View Summary</button>
     </div>
   </div>
 
-  <div id="result"></div>
-
-  <div id="matchOver" style="display:none;">
-    <h3>Second Innings Over</h3>
-    <button onclick="goToSummary()">Show Match Summary</button>
-  </div>
-
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
   <script>
     const db = firebase.database();
-    const targetRef = db.ref("matches/currentMatch/firstInnings");
-    const secondInningsRef = db.ref("matches/currentMatch/secondInnings");
-    const selectionRef = db.ref("matches/currentMatch/selection");
+    const matchRef = db.ref("matches/currentMatch");
 
     let runs = 0;
     let wickets = 0;
     let balls = 0;
-    let maxOvers = 5;
     let target = 0;
+    const maxOvers = 5;
 
-    targetRef.once("value").then((snap) => {
-      const firstData = snap.val();
-      target = (firstData?.totalRuns || 0) + 1;
-      document.getElementById("targetRuns").innerText = `Target: ${target} Runs`;
+    matchRef.child("firstInnings").once("value").then((snap) => {
+      const data = snap.val();
+      target = data.totalRuns + 1;
+      document.getElementById("targetDisplay").innerText = `Target: ${target}`;
     });
 
-    document.querySelectorAll(".card").forEach((btn) => {
+    document.querySelectorAll(".card-btns .btn").forEach((btn) => {
       btn.onclick = () => {
         const selected = parseInt(btn.innerText);
-        selectionRef.set({
-          player: selected,
-        });
+        db.ref("matches/currentMatch/selection").set({ player: selected });
       };
     });
 
-    selectionRef.on("value", (snap) => {
+    db.ref("matches/currentMatch/selection").on("value", (snap) => {
       const data = snap.val();
       if (!data || data.player == null || data.opponent == null) return;
 
@@ -73,14 +139,14 @@
       const opponent = data.opponent;
 
       if (player === opponent) {
-        wickets += 1;
-        document.getElementById("result").innerText = "OUT!";
+        wickets++;
+        document.getElementById("result").innerText = "❌ OUT!";
       } else {
         runs += player;
-        document.getElementById("result").innerText = `${player} runs!`;
+        document.getElementById("result").innerText = `✅ ${player} runs`;
       }
 
-      balls += 1;
+      balls++;
       const over = Math.floor(balls / 6);
       const ballInOver = balls % 6;
       document.getElementById("runsWickets").innerText = `Runs: ${runs} | Wickets: ${wickets}`;
@@ -88,19 +154,26 @@
 
       const remainingBalls = maxOvers * 6 - balls;
       const runsNeeded = target - runs;
-      const requiredRR = remainingBalls > 0 ? (runsNeeded / (remainingBalls / 6)).toFixed(2) : "N/A";
-      document.getElementById("requiredRR").innerText = `Required RR: ${requiredRR}`;
+      const requiredRR = remainingBalls > 0 ? (runsNeeded / (remainingBalls / 6)).toFixed(2) : "∞";
+      document.getElementById("rrr").innerText = `Required Run Rate: ${requiredRR}`;
 
       if (runs >= target || balls >= maxOvers * 6 || wickets >= 10) {
-        secondInningsRef.set({
-          totalRuns: runs,
-          totalWickets: wickets,
-          balls: balls,
-        });
-        document.getElementById("cardSelection").style.display = "none";
-        document.getElementById("matchOver").style.display = "block";
+        endGame();
       }
     });
+
+    function endGame() {
+      document.getElementById("cardSelection").style.display = "none";
+      const msg = runs >= target ? "🎉 You Won!" : "😞 You Lost.";
+      document.getElementById("popupText").innerText = `Final Score: ${runs}/${wickets} in ${Math.floor(balls/6)}.${balls%6} overs`;
+      document.getElementById("popup").style.display = "flex";
+      matchRef.child("secondInnings").set({
+        totalRuns: runs,
+        totalWickets: wickets,
+        balls: balls,
+        result: msg
+      });
+    }
 
     function goToSummary() {
       window.location.href = "summary.html";
