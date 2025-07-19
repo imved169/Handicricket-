@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>HandiCricket - First Innings</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
+</head>
+<body>
+  <div id="scoreboard">
+    <h2>First Innings</h2>
+    <div id="teamName"></div>
+    <div id="runsWickets">Runs: 0 | Wickets: 0</div>
+    <div id="overs">Overs: 0.0</div>
+  </div>
+
+  <div id="cardSelection">
+    <h3>Select Your Card</h3>
+    <div id="cardOptions">
+      <button class="card">0</button>
+      <button class="card">1</button>
+      <button class="card">2</button>
+      <button class="card">3</button>
+      <button class="card">4</button>
+      <button class="card">5</button>
+      <button class="card">6</button>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <div id="nextInnings" style="display:none;">
+    <h3>End of First Innings</h3>
+    <button onclick="goToSecondInnings()">Start Second Innings</button>
+  </div>
+
+  <script>
+    const db = firebase.database();
+    const matchRef = db.ref("matches/currentMatch/firstInnings");
+
+    let runs = 0;
+    let wickets = 0;
+    let balls = 0;
+    let maxOvers = 5; // Change based on format
+
+    document.querySelectorAll(".card").forEach((btn) => {
+      btn.onclick = () => {
+        const selected = parseInt(btn.innerText);
+        db.ref("matches/currentMatch/selection").set({
+          player: selected,
+        });
+      };
+    });
+
+    db.ref("matches/currentMatch/selection").on("value", (snap) => {
+      const data = snap.val();
+      if (!data || data.player == null || data.opponent == null) return;
+
+      const player = data.player;
+      const opponent = data.opponent;
+
+      if (player === opponent) {
+        wickets += 1;
+        document.getElementById("result").innerText = "OUT!";
+      } else {
+        runs += player;
+        document.getElementById("result").innerText = `${player} runs!`;
+      }
+
+      balls += 1;
+      const over = Math.floor(balls / 6);
+      const ballInOver = balls % 6;
+      document.getElementById("runsWickets").innerText = `Runs: ${runs} | Wickets: ${wickets}`;
+      document.getElementById("overs").innerText = `Overs: ${over}.${ballInOver}`;
+
+      if (balls >= maxOvers * 6 || wickets >= 10) {
+        db.ref("matches/currentMatch/firstInnings").set({
+          totalRuns: runs,
+          totalWickets: wickets,
+          balls: balls,
+        });
+        document.getElementById("cardSelection").style.display = "none";
+        document.getElementById("nextInnings").style.display = "block";
+      }
+    });
+
+    function goToSecondInnings() {
+      window.location.href = "game_second_innings.html";
+    }
+  </script>
+</body>
+</html>
