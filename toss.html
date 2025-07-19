@@ -54,15 +54,6 @@
 <body>
   <div class="container">
     <h1>🏏 HandiCricket Toss</h1>
-    <input type="text" id="teamA" placeholder="Enter Team A Name"><br>
-    <input type="text" id="teamB" placeholder="Enter Team B Name"><br>
-    <select id="matchType">
-      <option value="5">5 Overs</option>
-      <option value="10">10 Overs</option>
-      <option value="20">T20</option>
-      <option value="50">ODI</option>
-      <option value="test">Test</option>
-    </select><br>
     <select id="tossCaller">
       <option value="A">Team A Calls</option>
       <option value="B">Team B Calls</option>
@@ -80,52 +71,67 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
   <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get("room");
+    const player = urlParams.get("player");
+
+    let tossWinner = "";
     let teamA = "";
     let teamB = "";
-    let matchType = "";
-    let tossWinner = "";
+
+    firebase.database().ref(`rooms/${room}/player1`).once("value", (snap) => {
+      const data = snap.val();
+      teamA = data.teamName || "Team A";
+    });
+
+    firebase.database().ref(`rooms/${room}/player2`).once("value", (snap) => {
+      const data = snap.val();
+      teamB = data.teamName || "Team B";
+    });
 
     function flipCoin() {
-      teamA = document.getElementById("teamA").value.trim();
-      teamB = document.getElementById("teamB").value.trim();
-      matchType = document.getElementById("matchType").value;
       const caller = document.getElementById("tossCaller").value;
       const call = document.getElementById("call").value;
-
-      if (!teamA || !teamB) {
-        alert("Please enter both team names.");
-        return;
-      }
-
       const coinResult = Math.random() < 0.5 ? "Heads" : "Tails";
       document.getElementById("coin").innerText = coinResult === "Heads" ? "🪙 Heads" : "🪙 Tails";
 
       const callerTeam = caller === "A" ? teamA : teamB;
-      const won = (call === coinResult);
-      tossWinner = callerTeam;
+      const otherTeam = caller === "A" ? teamB : teamA;
 
-      localStorage.setItem("teamA", teamA);
-      localStorage.setItem("teamB", teamB);
-      localStorage.setItem("matchType", matchType);
-      localStorage.setItem("tossWinner", tossWinner);
+      tossWinner = (call === coinResult) ? callerTeam : otherTeam;
 
       document.getElementById("tossResult").innerText = tossWinner + " won the toss! Choose to bat or bowl.";
       document.getElementById("choiceButtons").classList.remove("hidden");
+
+      firebase.database().ref(`rooms/${room}/toss`).set({
+        winner: tossWinner,
+        result: coinResult
+      });
     }
 
     function choose(option) {
       const batFirst = option === "bat" ? tossWinner : (tossWinner === teamA ? teamB : teamA);
       const bowlFirst = option === "bat" ? (tossWinner === teamA ? teamB : teamA) : tossWinner;
 
-      localStorage.setItem("batFirst", batFirst);
-      localStorage.setItem("bowlFirst", bowlFirst);
+      firebase.database().ref(`rooms/${room}/batting`).set(batFirst);
+      firebase.database().ref(`rooms/${room}/bowling`).set(bowlFirst);
 
-      if (matchType === "test") {
-        window.location.href = "game_test_innings1.html";
-      } else {
-        window.location.href = "game_first_innings.html";
-      }
+      redirectToGame();
+    }
+
+    function redirectToGame() {
+      firebase.database().ref(`rooms/${room}/player1/format`).once("value").then((snap) => {
+        const format = snap.val();
+        let targetPage = "game_first_innings.html";
+        if (format === "test") {
+          targetPage = "game_test_innings1.html";
+        }
+        window.location.href = `${targetPage}?room=${room}&player=${player}`;
+      });
     }
   </script>
 </body>
