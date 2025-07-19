@@ -185,7 +185,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, get, child, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
 
     const firebaseConfig = {
@@ -202,15 +202,23 @@
     const analytics = getAnalytics(app);
     const db = getDatabase(app);
 
-    let selectedFormat = "5";
+    let selectedFormat = localStorage.getItem('format') || "5";
+    document.querySelector(`.format-btn[data-format="${selectedFormat}"]`).classList.add('active');
 
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedFormat = btn.dataset.format;
+        localStorage.setItem('format', selectedFormat);
       });
     });
+
+    // Load saved team name if exists
+    const savedTeamName = localStorage.getItem('teamName');
+    if (savedTeamName) {
+      document.getElementById('teamName').value = savedTeamName;
+    }
 
     function generateRoomCode() {
       return Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -221,11 +229,19 @@
       if (!teamName) return alert("Enter your team name first!");
       
       const roomCode = generateRoomCode();
-      await set(ref(db, 'rooms/' + roomCode + '/player1'), {
-        teamName: teamName,
-        format: selectedFormat,
-        online: true,
-        timestamp: Date.now()
+      localStorage.setItem('teamName', teamName);
+      
+      await set(ref(db, 'rooms/' + roomCode), {
+        player1: {
+          teamName: teamName,
+          format: selectedFormat,
+          online: true,
+          timestamp: Date.now()
+        },
+        gameState: {
+          status: "waiting",
+          format: selectedFormat
+        }
       });
       
       document.getElementById("roomDisplay").innerHTML = `
@@ -252,13 +268,20 @@
       const joinCode = document.getElementById("joinCode").value.trim().toUpperCase();
       if (!teamName || !joinCode) return alert("Enter both team name and room code!");
       
+      localStorage.setItem('teamName', teamName);
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, `rooms/${joinCode}`));
+      
       if (snapshot.exists()) {
-        await set(ref(db, 'rooms/' + joinCode + '/player2'), {
-          teamName: teamName,
-          online: true,
-          timestamp: Date.now()
+        await update(ref(db, 'rooms/' + joinCode), {
+          player2: {
+            teamName: teamName,
+            online: true,
+            timestamp: Date.now()
+          },
+          gameState: {
+            status: "ready"
+          }
         });
         
         const format = snapshot.val().player1?.format || "5";
@@ -311,14 +334,14 @@
     }
 
     function getFormatName(format) {
-      switch(format) {
-        case "5": return "5 Overs (Quick Match)";
-        case "10": return "10 Overs";
-        case "20": return "T20 (Classic)";
-        case "50": return "ODI (50 Overs)";
-        case "test": return "Test Match (Unlimited)";
-        default: return "5 Overs";
-      }
+      const formats = {
+        "5": "5 Overs (Quick Match)",
+        "10": "10 Overs",
+        "20": "T20 (Classic)",
+        "50": "ODI (50 Overs)",
+        "test": "Test Match (Unlimited)"
+      };
+      return formats[format] || "5 Overs";
     }
 
     async function loadSavedGames() {
