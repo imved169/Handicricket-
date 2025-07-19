@@ -2149,52 +2149,41 @@
 
     // Reset inning state
     async function resetInning() {
-      try {
-        // Reset local state variables
-        runs = 0;
-        wickets = 0;
-        currentInningRuns = 0;
-        currentInningWickets = 0;
-        legalBalls = 0;
-        oversToday = 0;
-        freeHit = false;
-        freeHitNextBall = false;
-        zerosThisOver = { player1: 0, player2: 0 };
-        
-        // Clear player selections
-        currentBatter = null;
-        currentBowler = null;
-        batterSelected = false;
-        bowlerSelected = false;
-        
-        // Clear Firebase selections
-        await Promise.all([
-          update(playsRef, { player1: null, player2: null }),
-          set(batterRef, null),
-          set(bowlerRef, null),
-          set(inningsReadyRef, false),
-          set(autoStartTimeRef, null)
-        ]);
-        
-        // Update UI
-        currentBatterEl.innerText = "-";
-        currentBowlerEl.innerText = "-";
-        updateScoreboard();
-        
-        // Reset innings button state
-        startInningsBtn.style.display = "none";
-        opponentReadyStatus.style.display = "none";
-        autoStartTimerEl.style.display = "none";
-        secondInningsReadyStatus.style.display = "none";
-        
-        // Setup the correct role
-        await setupRole();
-        
-        showNotification("Game has been reset for both players", 'info');
-      } catch (error) {
-        console.error("Error resetting inning:", error);
-        showNotification("Error resetting game", 'error');
-      }
+      // Reset all game state variables
+      runs = 0;
+      wickets = 0;
+      currentInningRuns = 0;
+      currentInningWickets = 0;
+      legalBalls = 0;
+      oversToday = 0;
+      freeHit = false;
+      freeHitNextBall = false;
+      zerosThisOver = { player1: 0, player2: 0 };
+      
+      // Clear player selections
+      currentBatter = null;
+      currentBowler = null;
+      batterSelected = false;
+      bowlerSelected = false;
+      
+      // Clear Firebase selections
+      await update(playsRef, { player1: null, player2: null });
+      await set(batterRef, null);
+      await set(bowlerRef, null);
+      
+      // Update UI
+      currentBatterEl.innerText = "-";
+      currentBowlerEl.innerText = "-";
+      updateScoreboard();
+      
+      // Reset innings button state
+      startInningsBtn.style.display = "none";
+      opponentReadyStatus.style.display = "none";
+      autoStartTimerEl.style.display = "none";
+      secondInningsReadyStatus.style.display = "none";
+      
+      // Setup the correct role
+      await setupRole();
     }
 
     // End day's play (Test matches)
@@ -2515,8 +2504,8 @@
           }
         }
       });
-      
-      // Listen for force reset
+
+      // Listen for force reset events
       onValue(roomRef, (snap) => {
         const data = snap.val();
         if (data?.forceReset) {
