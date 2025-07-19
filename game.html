@@ -572,6 +572,48 @@
       100% { transform: rotate(360deg); }
     }
     
+    /* Reset Notification */
+    .reset-notification {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-size: 16px;
+      z-index: 1001;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .reset-notification-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .reset-notification button {
+      padding: 5px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .reset-accept {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .reset-decline {
+      background: #f44336;
+      color: white;
+    }
+    
     /* Responsive Design */
     @media (max-width: 768px) {
       .team-container {
@@ -667,6 +709,7 @@
   <div id="secondInningsReadyStatus">
     <div>Player 1: <span id="player1Status">❌ Not Ready</span></div>
     <div>Player 2: <span id="player2Status">❌ Not Ready</span></div>
+    <div id="autoStartTimer">Auto-start in <span id="countdown">10</span>s</div>
   </div>
   
   <div id="status">Initializing game...</div>
@@ -891,6 +934,8 @@
     let lastBatterRuns = {};
     let player1Ready = false;
     let player2Ready = false;
+    let resetRequested = false;
+    let resetRequestedBy = null;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -932,6 +977,7 @@
     const secondInningsReadyStatus = document.getElementById("secondInningsReadyStatus");
     const player1Status = document.getElementById("player1Status");
     const player2Status = document.getElementById("player2Status");
+    const countdownEl = document.getElementById("countdown");
 
     // Firebase references
     const roomRef = ref(db, `rooms/${room}`);
@@ -954,6 +1000,7 @@
     const inningsRef = ref(db, `rooms/${room}/innings`);
     const player1ReadyRef = ref(db, `rooms/${room}/player1Ready`);
     const player2ReadyRef = ref(db, `rooms/${room}/player2Ready`);
+    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -1063,16 +1110,8 @@
         });
         
         resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Force reset the current plays? This will clear both players' selections.")) {
-            await resetPlays();
-            status.innerText = "Plays have been reset";
-            
-            // Additional reset logic to handle stuck state
-            if (!isBatting && !bowlerSelected) {
-              await showBowlerSelection();
-            } else if (isBatting && !batterSelected) {
-              await showBatterSelection();
-            }
+          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
+            await requestReset();
           }
         });
 
@@ -1088,6 +1127,79 @@
                            </button>`;
         status.className = "error";
         loadingSpinner.style.display = "none";
+      }
+    }
+
+    // Request reset and notify opponent
+    async function requestReset() {
+      try {
+        status.innerText = "Requesting reset...";
+        resetPlaysBtn.disabled = true;
+        
+        // Set reset request with player info
+        await set(resetRequestRef, {
+          requested: true,
+          by: player,
+          timestamp: Date.now()
+        });
+        
+        // Show notification for current player
+        showNotification("Reset request sent to opponent", 'info');
+        
+      } catch (error) {
+        console.error("Error requesting reset:", error);
+        status.innerText = "Failed to send reset request";
+        resetPlaysBtn.disabled = false;
+      }
+    }
+
+    // Show reset confirmation dialog to opponent
+    function showResetConfirmation(requestedBy) {
+      const notification = document.createElement('div');
+      notification.className = 'reset-notification';
+      notification.innerHTML = `
+        <div>${requestedBy === "player1" ? "Player 1" : "Player 2"} wants to reset the game</div>
+        <div class="reset-notification-buttons">
+          <button class="reset-accept">Accept</button>
+          <button class="reset-decline">Decline</button>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // Handle accept
+      notification.querySelector('.reset-accept').addEventListener('click', async () => {
+        await acceptReset();
+        notification.remove();
+      });
+      
+      // Handle decline
+      notification.querySelector('.reset-decline').addEventListener('click', async () => {
+        await declineReset();
+        notification.remove();
+      });
+    }
+
+    // Accept reset request
+    async function acceptReset() {
+      try {
+        await resetPlays();
+        await set(resetRequestRef, null);
+        showNotification("Reset accepted. Game has been reset.", 'info');
+      } catch (error) {
+        console.error("Error accepting reset:", error);
+        showNotification("Failed to accept reset", 'error');
+      }
+    }
+
+    // Decline reset request
+    async function declineReset() {
+      try {
+        await set(resetRequestRef, null);
+        showNotification("Reset request declined", 'info');
+      } catch (error) {
+        console.error("Error declining reset:", error);
+        showNotification("Failed to decline reset", 'error');
       }
     }
 
@@ -1990,8 +2102,8 @@
           
           await set(inningsReadyRef, false);
           
-          // Set auto-start timer for 30 seconds
-          const autoStartTime = Date.now() + 30000;
+          // Set auto-start timer for 10 seconds (changed from 30)
+          const autoStartTime = Date.now() + 10000;
           await set(autoStartTimeRef, autoStartTime);
           
           return;
@@ -2251,7 +2363,7 @@
     
     function updateAutoStartTimer(endTime) {
       const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-      autoStartTimerEl.textContent = `Auto-start in ${remaining}s`;
+      countdownEl.textContent = remaining;
       
       if (remaining <= 0) {
         clearInterval(countdownInterval);
@@ -2280,7 +2392,7 @@
       });
     }
 
-    // Enhanced resetPlays function
+    // Enhanced resetPlays function with notification system
     async function resetPlays() {
       try {
         // Reset both players' selections in Firebase
@@ -2297,6 +2409,11 @@
         
         // Force update UI states
         updateButtonStates();
+        
+        // Clear reset request
+        await set(resetRequestRef, null);
+        
+        showNotification("Game has been reset", 'info');
       } catch (error) {
         console.error("Error resetting plays:", error);
         showNotification("Error resetting plays", 'error');
@@ -2364,6 +2481,17 @@
       onValue(spectatorsRef, (snap) => {
         if (snap.exists()) {
           spectatorCountEl.textContent = `👥 Spectators: ${snap.val() || 0}`;
+        }
+      });
+      
+      // Listen for reset requests
+      onValue(resetRequestRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          const request = snap.val();
+          if (request.requested && request.by !== player) {
+            // Show reset confirmation to the other player
+            showResetConfirmation(request.by);
+          }
         }
       });
     }
