@@ -1,94 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Toss</title>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyD2diKlvhJmrxH_2UoT5F06fE4hQz_wfgY",
-      authDomain: "handicricket-a8ac4.firebaseapp.com",
-      databaseURL: "https://handicricket-a8ac4-default-rtdb.firebaseio.com",
-      projectId: "handicricket-a8ac4",
-      storageBucket: "handicricket-a8ac4.appspot.com",
-      messagingSenderId: "193512430134",
-      appId: "1:193512430134:web:e6e9fc2e4cc2502f95b1f0"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    const roomId = localStorage.getItem("roomId");
-    const myTeam = localStorage.getItem("myTeam");
-
-    const tossCallRef = ref(db, `rooms/${roomId}/tossCall`);
-    const tossResultRef = ref(db, `rooms/${roomId}/tossResult`);
-    const tossWinnerRef = ref(db, `rooms/${roomId}/tossWinner`);
-    const tossChoiceRef = ref(db, `rooms/${roomId}/tossChoice`);
-
-    // Step 1: Call toss
-    window.callToss = function (call) {
-      set(tossCallRef, {
-        team: myTeam,
-        call: call
-      });
-
-      const result = Math.random() < 0.5 ? "Heads" : "Tails";
-      set(tossResultRef, result);
-
-      // Get actual winner
-      if (call === result) {
-        set(tossWinnerRef, myTeam);
-      } else {
-        const otherTeam = myTeam === "TeamA" ? "TeamB" : "TeamA";
-        set(tossWinnerRef, otherTeam);
-      }
-    };
-
-    // Step 2: Select batting or bowling if toss is won
-    window.chooseBatBowl = function (choice) {
-      set(tossChoiceRef, choice);
-    };
-
-    // Redirect once everything is ready
-    onValue(tossResultRef, (snapshot) => {
-      const result = snapshot.val();
-      if (result) {
-        document.getElementById("tossResult").textContent = `Toss result: ${result}`;
-      }
-    });
-
-    onValue(tossWinnerRef, (snapshot) => {
-      const winner = snapshot.val();
-      if (winner === myTeam) {
-        document.getElementById("batbowlChoice").style.display = "block";
-      }
-    });
-
-    onValue(tossChoiceRef, (snapshot) => {
-      const choice = snapshot.val();
-      if (choice) {
-        window.location.href = "game_first_innings.html";
-      }
-    });
-  </script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Toss | HandiCricket</title>
+  <style>
+    body {
+      background: #061e3e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 20px;
+    }
+    input, select {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin: 10px;
+      font-size: 16px;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+      margin: 10px;
+      transition: 0.3s;
+    }
+    .btn:hover {
+      background: #1565c0;
+      transform: scale(1.05);
+    }
+    .hidden {
+      display: none;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 20px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Toss</h1>
+  <div class="container">
+    <h1>🏏 HandiCricket Toss</h1>
 
-  <div>
-    <p>Call the toss:</p>
-    <button onclick="callToss('Heads')">Heads</button>
-    <button onclick="callToss('Tails')">Tails</button>
+    <div id="tossSetup">
+      <input type="text" id="teamA" placeholder="Enter Team A Name" required /><br />
+      <input type="text" id="teamB" placeholder="Enter Team B Name" required /><br />
+      <select id="matchType">
+        <option value="5">5 Over</option>
+        <option value="10">10 Over</option>
+        <option value="20">T20</option>
+        <option value="50">ODI</option>
+        <option value="test">Test</option>
+      </select><br />
+      <select id="caller">
+        <option value="A">Team A calls</option>
+        <option value="B">Team B calls</option>
+      </select>
+      <select id="callChoice">
+        <option value="Heads">Heads</option>
+        <option value="Tails">Tails</option>
+      </select><br />
+      <button class="btn" onclick="performToss()">Flip Coin</button>
+    </div>
+
+    <div class="result" id="tossResult"></div>
+
+    <div id="decisionButtons" class="hidden">
+      <button class="btn" onclick="choose('bat')">Bat First</button>
+      <button class="btn" onclick="choose('bowl')">Bowl First</button>
+    </div>
   </div>
 
-  <h2 id="tossResult"></h2>
+  <script>
+    let tossWinner = "";
+    let teamA = "";
+    let teamB = "";
+    let matchType = "";
 
-  <div id="batbowlChoice" style="display: none;">
-    <p>You won the toss! Choose to:</p>
-    <button onclick="chooseBatBowl('bat')">Bat First</button>
-    <button onclick="chooseBatBowl('bowl')">Bowl First</button>
-  </div>
+    function performToss() {
+      teamA = document.getElementById("teamA").value.trim();
+      teamB = document.getElementById("teamB").value.trim();
+      matchType = document.getElementById("matchType").value;
+      const caller = document.getElementById("caller").value;
+      const call = document.getElementById("callChoice").value;
+
+      if (!teamA || !teamB) {
+        alert("Enter both team names.");
+        return;
+      }
+
+      const coin = Math.random() < 0.5 ? "Heads" : "Tails";
+      const callerTeam = caller === "A" ? teamA : teamB;
+      const otherTeam = caller === "A" ? teamB : teamA;
+
+      const wonToss = (call === coin) ? callerTeam : otherTeam;
+      tossWinner = wonToss;
+
+      document.getElementById("tossResult").innerText =
+        `Coin landed on ${coin}.\n${tossWinner} won the toss! Choose to bat or bowl.`;
+
+      document.getElementById("decisionButtons").classList.remove("hidden");
+
+      localStorage.setItem("teamA", teamA);
+      localStorage.setItem("teamB", teamB);
+      localStorage.setItem("matchType", matchType);
+      localStorage.setItem("tossWinner", tossWinner);
+    }
+
+    function choose(choice) {
+      const battingTeam = (choice === "bat") ? tossWinner : (tossWinner === teamA ? teamB : teamA);
+      const bowlingTeam = (choice === "bat") ? (tossWinner === teamA ? teamB : teamA) : tossWinner;
+
+      localStorage.setItem("batFirst", battingTeam);
+      localStorage.setItem("bowlFirst", bowlingTeam);
+
+      if (matchType === "test") {
+        window.location.href = "game_test_innings1.html";
+      } else {
+        window.location.href = "game_first_innings.html";
+      }
+    }
+  </script>
 </body>
 </html>
