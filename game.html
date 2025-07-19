@@ -1159,6 +1159,7 @@
       notification.className = 'reset-notification';
       notification.innerHTML = `
         <div>${requestedBy === "player1" ? "Player 1" : "Player 2"} wants to reset the game</div>
+        <div><small>This will reset scores and selections for both players</small></div>
         <div class="reset-notification-buttons">
           <button class="reset-accept">Accept</button>
           <button class="reset-decline">Decline</button>
@@ -1183,8 +1184,17 @@
     // Accept reset request
     async function acceptReset() {
       try {
-        await resetPlays();
+        // First clear the reset request
         await set(resetRequestRef, null);
+        
+        // Then perform the actual reset for both players
+        await resetInning();
+        
+        // Force both players to reload their game state
+        await update(roomRef, {
+          forceReset: Date.now()
+        });
+        
         showNotification("Reset accepted. Game has been reset.", 'info');
       } catch (error) {
         console.error("Error accepting reset:", error);
@@ -2139,41 +2149,52 @@
 
     // Reset inning state
     async function resetInning() {
-      // Reset all game state variables
-      runs = 0;
-      wickets = 0;
-      currentInningRuns = 0;
-      currentInningWickets = 0;
-      legalBalls = 0;
-      oversToday = 0;
-      freeHit = false;
-      freeHitNextBall = false;
-      zerosThisOver = { player1: 0, player2: 0 };
-      
-      // Clear player selections
-      currentBatter = null;
-      currentBowler = null;
-      batterSelected = false;
-      bowlerSelected = false;
-      
-      // Clear Firebase selections
-      await update(playsRef, { player1: null, player2: null });
-      await set(batterRef, null);
-      await set(bowlerRef, null);
-      
-      // Update UI
-      currentBatterEl.innerText = "-";
-      currentBowlerEl.innerText = "-";
-      updateScoreboard();
-      
-      // Reset innings button state
-      startInningsBtn.style.display = "none";
-      opponentReadyStatus.style.display = "none";
-      autoStartTimerEl.style.display = "none";
-      secondInningsReadyStatus.style.display = "none";
-      
-      // Setup the correct role
-      await setupRole();
+      try {
+        // Reset local state variables
+        runs = 0;
+        wickets = 0;
+        currentInningRuns = 0;
+        currentInningWickets = 0;
+        legalBalls = 0;
+        oversToday = 0;
+        freeHit = false;
+        freeHitNextBall = false;
+        zerosThisOver = { player1: 0, player2: 0 };
+        
+        // Clear player selections
+        currentBatter = null;
+        currentBowler = null;
+        batterSelected = false;
+        bowlerSelected = false;
+        
+        // Clear Firebase selections
+        await Promise.all([
+          update(playsRef, { player1: null, player2: null }),
+          set(batterRef, null),
+          set(bowlerRef, null),
+          set(inningsReadyRef, false),
+          set(autoStartTimeRef, null)
+        ]);
+        
+        // Update UI
+        currentBatterEl.innerText = "-";
+        currentBowlerEl.innerText = "-";
+        updateScoreboard();
+        
+        // Reset innings button state
+        startInningsBtn.style.display = "none";
+        opponentReadyStatus.style.display = "none";
+        autoStartTimerEl.style.display = "none";
+        secondInningsReadyStatus.style.display = "none";
+        
+        // Setup the correct role
+        await setupRole();
+        
+        showNotification("Game has been reset for both players", 'info');
+      } catch (error) {
+        console.error("Error resetting inning:", error);
+        showNotification("Error resetting game", 'error');
+      }
     }
 
     // End day's play (Test matches)
@@ -2492,6 +2513,15 @@
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
+        }
+      });
+      
+      // Listen for force reset
+      onValue(roomRef, (snap) => {
+        const data = snap.val();
+        if (data?.forceReset) {
+          // When forceReset is detected, reset the local game state
+          resetInning();
         }
       });
     }
