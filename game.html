@@ -891,7 +891,6 @@
     let lastBatterRuns = {};
     let player1Ready = false;
     let player2Ready = false;
-    let resetRequested = false;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -938,24 +937,23 @@
     const roomRef = ref(db, `rooms/${room}`);
     const playerRef = ref(db, `rooms/${room}/${player}`);
     const opponentRef = ref(db, `rooms/${room}/${player === "player1" ? "player2" : "player1"}`);
-    const playsRef = ref(db, `rooms/${room}/currentPlays");
-    const batterRef = ref(db, `rooms/${room}/currentBatter");
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
-    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady");
-    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime");
-    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings");
-    const declaredRef = ref(db, `rooms/${room}/declared");
-    const followOnRef = ref(db, `rooms/${room}/followOn");
-    const spectatorsRef = ref(db, `rooms/${room}/spectators");
-    const reactionsRef = ref(db, `rooms/${room}/reactions");
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
-    const liveStateRef = ref(db, `rooms/${room}/liveState");
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
-    const resultRef = ref(db, `rooms/${room}/result");
-    const inningsRef = ref(db, `rooms/${room}/innings");
-    const player1ReadyRef = ref(db, `rooms/${room}/player1Ready");
-    const player2ReadyRef = ref(db, `rooms/${room}/player2Ready");
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest");
+    const playsRef = ref(db, `rooms/${room}/currentPlays`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter`);
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
+    const inningsReadyRef = ref(db, `rooms/${room}/inningsReady`);
+    const autoStartTimeRef = ref(db, `rooms/${room}/autoStartTime`);
+    const startSecondInningsRef = ref(db, `rooms/${room}/startSecondInnings`);
+    const declaredRef = ref(db, `rooms/${room}/declared`);
+    const followOnRef = ref(db, `rooms/${room}/followOn`);
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
+    const reactionsRef = ref(db, `rooms/${room}/reactions`);
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
+    const liveStateRef = ref(db, `rooms/${room}/liveState`);
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
+    const resultRef = ref(db, `rooms/${room}/result`);
+    const inningsRef = ref(db, `rooms/${room}/innings`);
+    const player1ReadyRef = ref(db, `rooms/${room}/player1Ready`);
+    const player2ReadyRef = ref(db, `rooms/${room}/player2Ready`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -1066,7 +1064,6 @@
         
         resetPlaysBtn.addEventListener("click", async () => {
           if (confirm("Force reset the current plays? This will clear both players' selections.")) {
-            await set(resetRequestRef, player); // Notify opponent about reset
             await resetPlays();
             status.innerText = "Plays have been reset";
             
@@ -2250,13 +2247,6 @@
               player2Status.className = player2Ready ? "ready" : "";
           }
       });
-      
-      // Listen for start second innings signal
-      onValue(startSecondInningsRef, (snap) => {
-          if (snap.exists() && snap.val()) {
-              resetInning();
-          }
-      });
     }
     
     function updateAutoStartTimer(endTime) {
@@ -2290,7 +2280,7 @@
       });
     }
 
-    // Enhanced resetPlays function with opponent notification
+    // Enhanced resetPlays function
     async function resetPlays() {
       try {
         // Reset both players' selections in Firebase
@@ -2327,14 +2317,6 @@
           status.innerText = "Waiting for opponent to connect...";
           disableButtons();
         }
-      });
-
-      // Listen for reset requests from opponent
-      onValue(resetRequestRef, (snap) => {
-          if (snap.exists() && snap.val() && snap.val() !== player) {
-              showNotification("Opponent has requested to reset plays", 'info');
-              resetRequested = true;
-          }
       });
 
       // Handle disconnect
