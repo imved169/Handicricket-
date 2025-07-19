@@ -265,14 +265,11 @@
         
         if (tossData?.status === "called") {
           handleTossCalled(tossData);
+        } else if (player === "player1") {
+          elements.tossInstruction.textContent = "Call Heads or Tails:";
+          elements.callOptions.classList.remove("hidden");
         } else {
-          // Only show call options to player1 and flip options to player2
-          if (player === "player1") {
-            elements.tossInstruction.textContent = "Call Heads or Tails:";
-            elements.callOptions.classList.remove("hidden");
-          } else {
-            elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
-          }
+          elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
         }
       } else {
         setTimeout(checkPlayersReady, 1000);
@@ -282,11 +279,11 @@
     function handleTossCalled(tossData) {
       if (player === tossData.caller) {
         elements.tossInstruction.textContent = "Waiting for opponent to flip...";
-        elements.callOptions.classList.add("hidden");
       } else {
         elements.tossInstruction.textContent = `Player 1 called ${tossData.call}. Flip the coin:`;
         elements.flipOptions.classList.remove("hidden");
       }
+      elements.callOptions.classList.add("hidden");
     }
 
     async function makeTossCall(choice) {
@@ -335,10 +332,21 @@
 
       elements.tossOutcome.textContent = `Toss was ${result.toUpperCase()}. ${winner === player ? "You" : "Opponent"} won the toss!`;
 
+      // Only show batting choice if this player won the toss
       if (winner === player) {
         elements.battingChoice.classList.remove("hidden");
+        elements.waitingChoice.classList.add("hidden");
       } else {
+        elements.battingChoice.classList.add("hidden");
         elements.waitingChoice.classList.remove("hidden");
+        
+        // Listen for game status change if we lost the toss
+        const gameStatusRef = ref(db, `rooms/${room}/gameStatus`);
+        onValue(gameStatusRef, (snap) => {
+          if (snap.exists() && snap.val() === "in-progress") {
+            redirectToGame();
+          }
+        });
       }
     }
 
@@ -373,12 +381,6 @@
         localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
         localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
         
-        // Verify game can start before redirecting
-        const gameReady = await verifyGameReady();
-        if (!gameReady) {
-          throw new Error("Game not ready to start");
-        }
-
         redirectToGame();
       } catch (error) {
         console.error("Error making batting choice:", error);
@@ -386,18 +388,6 @@
         gameState.choiceMade = false;
         window.location.href = `playing11.html?room=${room}&player=${player}`;
       }
-    }
-
-    async function verifyGameReady() {
-      const checks = [
-        get(ref(db, `rooms/${room}/teams/player1`)),
-        get(ref(db, `rooms/${room}/teams/player2`)),
-        get(ref(db, `rooms/${room}/tossWinner`)),
-        get(ref(db, `rooms/${room}/battingFirst`))
-      ];
-      
-      const results = await Promise.all(checks);
-      return results.every(snap => snap.exists());
     }
 
     function redirectToGame() {
