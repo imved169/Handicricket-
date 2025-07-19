@@ -1,410 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Toss | HandiCricket</title>
-  <style>
-    body {
-      background: #061e3e;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      padding: 30px;
-    }
-    h1 { margin-bottom: 20px; }
-    .btn {
-      padding: 12px 24px;
-      font-size: 16px;
-      border: none;
-      border-radius: 10px;
-      background: #1e88e5;
-      color: white;
-      cursor: pointer;
-      margin: 10px;
-      transition: all 0.3s;
-    }
-    .btn:hover {
-      background: #1565c0;
-      transform: scale(1.05);
-    }
-    .btn:disabled {
-      background: #607d8b;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .hidden { display: none; }
-    .container {
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 20px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 15px;
-    }
-    .coin {
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, #FFD700, #FFA500);
-      border-radius: 50%;
-      margin: 20px auto;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 24px;
-      font-weight: bold;
-      color: #000;
-      box-shadow: 0 0 20px rgba(255,215,0,0.5);
-      animation: none;
-    }
-    .spinning {
-      animation: spin 0.5s linear infinite;
-    }
-    @keyframes spin {
-      from { transform: rotateY(0deg); }
-      to { transform: rotateY(360deg); }
-    }
-    .player-status {
-      margin-top: 15px;
-      padding: 10px;
-      background: #0d2a52;
-      border-radius: 8px;
-    }
-    #roomCodeDisplay {
-      font-size: 20px;
-      margin-bottom: 15px;
-      background: #0d2a52;
-      padding: 10px;
-      border-radius: 8px;
-      display: inline-block;
-    }
-    #formatDisplay {
-      margin: 15px 0;
-      font-size: 18px;
-      color: #ffeb3b;
-      font-weight: bold;
-    }
-    #flip-coin-btn {
-      margin-top: 20px;
-    }
-    .toss-complete .coin {
-      display: none;
-    }
-    #toss-result {
-      margin-top: 20px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>🏏 Match Toss</h1>
-
-    <div id="roomCodeDisplay">Room Code: Loading...</div>
-    <div id="formatDisplay">Match Format: Loading...</div>
-    <div class="player-status" id="playerStatus">Waiting for both players...</div>
-
-    <div id="toss-waiting">
-      <p>Waiting for opponent to join the toss...</p>
-    </div>
-
-    <div id="toss-options" class="hidden">
-      <p id="toss-instruction"></p>
-      <div id="call-options" class="hidden">
-        <button id="call-heads" class="btn">Heads</button>
-        <button id="call-tails" class="btn">Tails</button>
-      </div>
-      <div id="flip-options" class="hidden">
-        <button id="flip-coin-btn" class="btn">Flip Coin</button>
-      </div>
-    </div>
-
-    <div id="coin" class="coin hidden">TOSS</div>
-
-    <div id="toss-result" class="hidden">
-      <p id="toss-outcome"></p>
-      <div id="batting-choice" class="hidden">
-        <p>You won the toss! Choose to:</p>
-        <button id="choose-bat" class="btn">Bat First</button>
-        <button id="choose-bowl" class="btn">Bowl First</button>
-      </div>
-      <div id="waiting-choice" class="hidden">
-        <p>Waiting for opponent to choose...</p>
-      </div>
-    </div>
-  </div>
-
+  <title>Toss</title>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get, set, onValue, update, off } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f"
+      apiKey: "AIzaSyD2diKlvhJmrxH_2UoT5F06fE4hQz_wfgY",
+      authDomain: "handicricket-a8ac4.firebaseapp.com",
+      databaseURL: "https://handicricket-a8ac4-default-rtdb.firebaseio.com",
+      projectId: "handicricket-a8ac4",
+      storageBucket: "handicricket-a8ac4.appspot.com",
+      messagingSenderId: "193512430134",
+      appId: "1:193512430134:web:e6e9fc2e4cc2502f95b1f0"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get("room");
-    const player = urlParams.get("player");
-    const opponent = player === "player1" ? "player2" : "player1";
+    const roomId = localStorage.getItem("roomId");
+    const myTeam = localStorage.getItem("myTeam");
 
-    // DOM Elements
-    const elements = {
-      roomCodeDisplay: document.getElementById("roomCodeDisplay"),
-      playerStatus: document.getElementById("playerStatus"),
-      tossInstruction: document.getElementById("toss-instruction"),
-      callOptions: document.getElementById("call-options"),
-      flipOptions: document.getElementById("flip-options"),
-      tossOptions: document.getElementById("toss-options"),
-      tossWaiting: document.getElementById("toss-waiting"),
-      coinElement: document.getElementById("coin"),
-      tossResult: document.getElementById("toss-result"),
-      tossOutcome: document.getElementById("toss-outcome"),
-      battingChoice: document.getElementById("batting-choice"),
-      waitingChoice: document.getElementById("waiting-choice"),
-      formatDisplay: document.getElementById("formatDisplay")
+    const tossCallRef = ref(db, `rooms/${roomId}/tossCall`);
+    const tossResultRef = ref(db, `rooms/${roomId}/tossResult`);
+    const tossWinnerRef = ref(db, `rooms/${roomId}/tossWinner`);
+    const tossChoiceRef = ref(db, `rooms/${roomId}/tossChoice`);
+
+    // Step 1: Call toss
+    window.callToss = function (call) {
+      set(tossCallRef, {
+        team: myTeam,
+        call: call
+      });
+
+      const result = Math.random() < 0.5 ? "Heads" : "Tails";
+      set(tossResultRef, result);
+
+      // Get actual winner
+      if (call === result) {
+        set(tossWinnerRef, myTeam);
+      } else {
+        const otherTeam = myTeam === "TeamA" ? "TeamB" : "TeamA";
+        set(tossWinnerRef, otherTeam);
+      }
     };
 
-    // Initialize display
-    elements.roomCodeDisplay.textContent = `Room Code: ${room}`;
-    elements.playerStatus.textContent = `You are ${player.toUpperCase()}`;
-
-    // Event Listeners
-    document.getElementById("call-heads").addEventListener("click", () => makeTossCall("heads"));
-    document.getElementById("call-tails").addEventListener("click", () => makeTossCall("tails"));
-    document.getElementById("flip-coin-btn").addEventListener("click", flipCoin);
-    document.getElementById("choose-bat").addEventListener("click", () => makeBattingChoice("bat"));
-    document.getElementById("choose-bowl").addEventListener("click", () => makeBattingChoice("bowl"));
-
-    // State management
-    let gameState = {
-      tossCompleted: false,
-      choiceMade: false
+    // Step 2: Select batting or bowling if toss is won
+    window.chooseBatBowl = function (choice) {
+      set(tossChoiceRef, choice);
     };
 
-    // Initialize game state
-    async function initializeGame() {
-      const tossRef = ref(db, `rooms/${room}/toss`);
-      const tossSnap = await get(tossRef);
-      
-      if (!tossSnap.exists()) {
-        await set(tossRef, {
-          status: "waiting",
-          caller: null,
-          call: null,
-          result: null,
-          winner: null
-        });
+    // Redirect once everything is ready
+    onValue(tossResultRef, (snapshot) => {
+      const result = snapshot.val();
+      if (result) {
+        document.getElementById("tossResult").textContent = `Toss result: ${result}`;
       }
+    });
 
-      // Set player as ready
-      await set(ref(db, `rooms/${room}/${player}/ready`), true);
-      setupListeners();
-      checkPlayersReady();
-    }
-
-    function setupListeners() {
-      // Remove any existing listeners
-      off(ref(db, `rooms/${room}/toss`));
-      off(ref(db, `rooms/${room}/gameStatus`));
-      off(ref(db, `rooms/${room}/player1/format`));
-
-      // Toss state listener
-      onValue(ref(db, `rooms/${room}/toss`), (snapshot) => {
-        const tossData = snapshot.val();
-        if (!tossData) return;
-
-        if (tossData.status === "called") {
-          handleTossCalled(tossData);
-        } else if (tossData.status === "complete" && !gameState.tossCompleted) {
-          gameState.tossCompleted = true;
-          elements.coinElement.textContent = tossData.result.toUpperCase();
-          showTossResult(tossData.result, tossData.winner);
-        }
-      });
-
-      // Game status listener
-      onValue(ref(db, `rooms/${room}/gameStatus`), (snapshot) => {
-        if (snapshot.exists() && snapshot.val() === "in-progress" && !gameState.choiceMade) {
-          redirectToGame();
-        }
-      });
-
-      // Format listener
-      onValue(ref(db, `rooms/${room}/player1/format`), (snapshot) => {
-        const format = snapshot.val() || "5";
-        const formatMap = {
-          "5": "5 Overs", 
-          "10": "10 Overs", 
-          "20": "T20", 
-          "50": "ODI", 
-          "test": "Test Match"
-        };
-        elements.formatDisplay.textContent = `Match Format: ${formatMap[format]}`;
-      });
-    }
-
-    async function checkPlayersReady() {
-      const [p1, p2] = await Promise.all([
-        get(ref(db, `rooms/${room}/player1/ready`)),
-        get(ref(db, `rooms/${room}/player2/ready`))
-      ]);
-
-      if (p1.exists() && p1.val() && p2.exists() && p2.val()) {
-        elements.tossWaiting.classList.add("hidden");
-        elements.tossOptions.classList.remove("hidden");
-        elements.coinElement.classList.remove("hidden");
-
-        const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-        const tossData = tossSnap.val();
-        
-        if (tossData?.status === "called") {
-          handleTossCalled(tossData);
-        } else if (player === "player1") {
-          // Only show call options for Player 1
-          elements.tossInstruction.textContent = "Call Heads or Tails:";
-          elements.callOptions.classList.remove("hidden");
-        } else {
-          // Player 2 sees different message
-          elements.tossInstruction.textContent = "Waiting for Player 1 to call...";
-        }
-      } else {
-        setTimeout(checkPlayersReady, 1000);
+    onValue(tossWinnerRef, (snapshot) => {
+      const winner = snapshot.val();
+      if (winner === myTeam) {
+        document.getElementById("batbowlChoice").style.display = "block";
       }
-    }
+    });
 
-    function handleTossCalled(tossData) {
-      if (player === tossData.caller) {
-        elements.tossInstruction.textContent = "Waiting for opponent to flip...";
-      } else {
-        elements.tossInstruction.textContent = "Player 1 has called. Flip the coin:";
-        elements.flipOptions.classList.remove("hidden");
+    onValue(tossChoiceRef, (snapshot) => {
+      const choice = snapshot.val();
+      if (choice) {
+        window.location.href = "game_first_innings.html";
       }
-      elements.callOptions.classList.add("hidden");
-    }
-
-    async function makeTossCall(choice) {
-      await update(ref(db, `rooms/${room}/toss`), {
-        caller: player,
-        call: choice,
-        status: "called"
-      });
-    }
-
-    async function flipCoin() {
-      const flipBtn = document.getElementById("flip-coin-btn");
-      flipBtn.disabled = true;
-      
-      elements.flipOptions.classList.add("hidden");
-      elements.coinElement.classList.add("spinning");
-      elements.coinElement.textContent = "FLIPPING...";
-
-      const result = Math.random() < 0.5 ? "heads" : "tails";
-      const tossSnap = await get(ref(db, `rooms/${room}/toss`));
-      const tossData = tossSnap.val();
-      const winner = (result === tossData.call) ? tossData.caller : opponent;
-
-      // Update both root level and toss node
-      await update(ref(db, `rooms/${room}`), {
-        tossWinner: winner,
-        toss: {
-          result,
-          winner,
-          status: "complete"
-        }
-      });
-
-      setTimeout(() => {
-        elements.coinElement.classList.remove("spinning");
-        elements.coinElement.textContent = result.toUpperCase();
-        showTossResult(result, winner);
-        flipBtn.disabled = false;
-      }, 1500);
-    }
-
-    function showTossResult(result, winner) {
-      document.querySelector(".container").classList.add("toss-complete");
-      elements.tossOptions.classList.add("hidden");
-      elements.tossResult.classList.remove("hidden");
-
-      elements.tossOutcome.textContent = `Toss was ${result.toUpperCase()}. ${winner === player ? "You" : "Opponent"} won the toss!`;
-
-      if (winner === player) {
-        elements.battingChoice.classList.remove("hidden");
-      } else {
-        elements.waitingChoice.classList.remove("hidden");
-      }
-    }
-
-    async function makeBattingChoice(decision) {
-      gameState.choiceMade = true;
-      try {
-        // Verify teams exist first
-        const teamsSnap = await get(ref(db, `rooms/${room}/teams`));
-        if (!teamsSnap.exists() || !teamsSnap.val().player1 || !teamsSnap.val().player2) {
-          throw new Error("Both teams must submit playing XIs first");
-        }
-
-        // Verify teams have 11 players each
-        const team1 = teamsSnap.val().player1;
-        const team2 = teamsSnap.val().player2;
-        
-        if (!team1.players || !team2.players || 
-            team1.players.length !== 11 || team2.players.length !== 11) {
-          throw new Error("Each team must have 11 players");
-        }
-
-        // Save batting choice
-        await update(ref(db, `rooms/${room}`), {
-          decision,
-          battingFirst: decision === "bat" ? player : opponent,
-          bowlingFirst: decision === "bowl" ? player : opponent,
-          tossWinner: player,
-          tossDone: true,
-          gameStatus: "in-progress"
-        });
-
-        localStorage.setItem("battingFirst", decision === "bat" ? player : opponent);
-        localStorage.setItem("bowlingFirst", decision === "bowl" ? player : opponent);
-        
-        // Verify game can start before redirecting
-        const gameReady = await verifyGameReady();
-        if (!gameReady) {
-          throw new Error("Game not ready to start");
-        }
-
-        redirectToGame();
-      } catch (error) {
-        console.error("Error making batting choice:", error);
-        alert(error.message);
-        gameState.choiceMade = false;
-        window.location.href = `playing11.html?room=${room}&player=${player}`;
-      }
-    }
-
-    async function verifyGameReady() {
-      const checks = [
-        get(ref(db, `rooms/${room}/teams/player1`)),
-        get(ref(db, `rooms/${room}/teams/player2`)),
-        get(ref(db, `rooms/${room}/tossWinner`)),
-        get(ref(db, `rooms/${room}/battingFirst`))
-      ];
-      
-      const results = await Promise.all(checks);
-      return results.every(snap => snap.exists());
-    }
-
-    function redirectToGame() {
-      window.location.href = `game.html?room=${room}&player=${player}`;
-    }
-
-    // Start the game
-    initializeGame();
+    });
   </script>
+</head>
+<body>
+  <h1>Toss</h1>
+
+  <div>
+    <p>Call the toss:</p>
+    <button onclick="callToss('Heads')">Heads</button>
+    <button onclick="callToss('Tails')">Tails</button>
+  </div>
+
+  <h2 id="tossResult"></h2>
+
+  <div id="batbowlChoice" style="display: none;">
+    <p>You won the toss! Choose to:</p>
+    <button onclick="chooseBatBowl('bat')">Bat First</button>
+    <button onclick="chooseBatBowl('bowl')">Bowl First</button>
+  </div>
 </body>
 </html>
