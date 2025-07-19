@@ -1123,7 +1123,25 @@
   </div>
 
   <!-- JavaScript -->
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, get, onValue, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      databaseURL: "YOUR_DATABASE_URL",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     // Initialize Feather Icons
     document.addEventListener('DOMContentLoaded', function() {
       if (typeof feather !== 'undefined') {
@@ -1131,79 +1149,7 @@
       }
     });
 
-    // Mock data for demonstration
-    let matchHistory = [
-      {
-        id: '1',
-        date: '2023-05-15T14:30:00',
-        format: '20',
-        opponent: 'AI (Medium)',
-        isAI: true,
-        playerScore: 156,
-        playerWickets: 5,
-        opponentScore: 142,
-        opponentWickets: 7,
-        result: {
-          winner: 'player',
-          description: 'Won by 14 runs'
-        },
-        playerStats: {
-          strikeRate: 142.5,
-          boundaries: 18,
-          balls: 110
-        },
-        opponentStats: {
-          strikeRate: 125.3,
-          boundaries: 12,
-          balls: 120
-        },
-        ballByBall: {
-          '1': { runs: 1, description: 'Single to mid-wicket' },
-          '2': { runs: 4, description: 'Boundary through covers' }
-        }
-      },
-      {
-        id: '2',
-        date: '2023-05-10T10:15:00',
-        format: '5',
-        opponent: 'John',
-        isAI: false,
-        playerScore: 42,
-        playerWickets: 3,
-        opponentScore: 45,
-        opponentWickets: 2,
-        result: {
-          winner: 'opponent',
-          description: 'Lost by 3 runs'
-        },
-        playerStats: {
-          strikeRate: 120.0,
-          boundaries: 5,
-          balls: 30
-        }
-      },
-      {
-        id: '3',
-        date: '2023-05-01T18:45:00',
-        format: '50',
-        opponent: 'AI (Hard)',
-        isAI: true,
-        playerScore: 278,
-        playerWickets: 8,
-        opponentScore: 282,
-        opponentWickets: 6,
-        result: {
-          winner: 'opponent',
-          description: 'Lost by 4 runs'
-        },
-        playerStats: {
-          strikeRate: 95.2,
-          boundaries: 22,
-          balls: 300
-        }
-      }
-    ];
-
+    let matchHistory = [];
     let filteredMatches = [];
     let currentPage = 1;
     const matchesPerPage = 10;
@@ -1221,8 +1167,7 @@
       try {
         showLoading('Loading match history...');
         
-        // In a real app, you would load from Firebase/localStorage
-        // For this demo, we're using mock data
+        // Load from Firebase
         await loadMatchHistory();
         await loadPlayerStatistics();
         await loadAchievements();
@@ -1241,8 +1186,17 @@
 
     async function loadMatchHistory() {
       try {
-        // In a real app, you would load from Firebase/localStorage
-        // For this demo, we're using the mock data
+        const snapshot = await get(ref(db, 'matchHistory'));
+        if (!snapshot.exists()) {
+          matchHistory = [];
+          return;
+        }
+        
+        matchHistory = Object.entries(snapshot.val()).map(([id, match]) => ({
+          id,
+          ...match
+        }));
+        
         matchHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
       } catch (error) {
         console.error('Error loading match history:', error);
@@ -1870,22 +1824,30 @@ Result: ${match.result?.description}`;
       }
     }
 
-    function deleteMatch() {
+    async function deleteMatch() {
       const match = document.getElementById('matchDetailsModal').currentMatch;
       if (match && confirm('Are you sure you want to delete this match from your history?')) {
-        // Remove from array
-        const index = matchHistory.findIndex(m => m.id === match.id);
-        if (index > -1) {
-          matchHistory.splice(index, 1);
+        try {
+          // Remove from Firebase
+          await remove(ref(db, `matchHistory/${match.id}`));
           
-          // Recalculate stats and refresh display
-          playerStats = calculatePlayerStatistics(matchHistory);
-          updateStatisticsDisplay();
-          updateFormatStats(selectedFormat);
-          filterAndDisplayMatches();
-          
-          closeMatchDetailsModal();
-          alert('Match deleted from history');
+          // Remove from local array
+          const index = matchHistory.findIndex(m => m.id === match.id);
+          if (index > -1) {
+            matchHistory.splice(index, 1);
+            
+            // Recalculate stats and refresh display
+            playerStats = calculatePlayerStatistics(matchHistory);
+            updateStatisticsDisplay();
+            updateFormatStats(selectedFormat);
+            filterAndDisplayMatches();
+            
+            closeMatchDetailsModal();
+            alert('Match deleted from history');
+          }
+        } catch (error) {
+          console.error('Error deleting match:', error);
+          alert('Failed to delete match. Please try again.');
         }
       }
     }
