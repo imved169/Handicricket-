@@ -192,6 +192,13 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 100;
       display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+    }
+    
+    .selection-modal.visible {
+      display: block;
+      opacity: 1;
     }
     
     .selection-list { 
@@ -648,7 +655,7 @@
 
   <div class="card-row" id="cardButtons">
     <!-- Selection Modal - Now with improved state management -->
-    <div id="selectionModal" class="selection-modal" style="display: none;">
+    <div id="selectionModal" class="selection-modal">
       <h3 id="selectionTitle">Select Next Batter</h3>
       <div id="selectionList" class="selection-list"></div>
       <button id="confirmSelection">Confirm Selection</button>
@@ -1707,12 +1714,9 @@
     async function showBatterSelection() {
       disableButtons();
       
-      // Prevent modal from reopening if already visible
-      if (selectionModal.style.display === "block") {
-        console.log("Batter selection modal already visible, skipping.");
-        return;
-      }
-
+      // Reset modal state first
+      resetSelectionModal();
+      
       try {
           status.innerText = "Loading batters...";
           
@@ -1756,7 +1760,8 @@
               selectionList.appendChild(batterEl);
           });
 
-          selectionModal.style.display = "block";
+          // Show modal with transition
+          selectionModal.classList.add("visible");
           status.innerText = "Select your next batter...";
       } catch (error) {
           console.error("Batter selection error:", error);
@@ -1769,11 +1774,8 @@
     async function showBowlerSelection() {
       disableButtons();
       
-      // Prevent modal from reopening if already visible
-      if (selectionModal.style.display === "block") {
-        console.log("Bowler selection modal already visible, skipping.");
-        return;
-      }
+      // Reset modal state first
+      resetSelectionModal();
 
       try {
           status.innerText = "Loading bowlers...";
@@ -1823,7 +1825,8 @@
               selectionList.appendChild(playerEl);
           });
 
-          selectionModal.style.display = "block";
+          // Show modal with transition
+          selectionModal.classList.add("visible");
           status.innerText = "Select your next bowler...";
       } catch (error) {
           console.error("Bowler selection error:", error);
@@ -1859,23 +1862,17 @@
         // Add slight delay before showing new UI to prevent flicker
         await new Promise(resolve => setTimeout(resolve, 50));
         
-        // Show appropriate selection UI - UPDATED CONDITION TO PREVENT FLICKERING
+        // Show appropriate selection UI
         if (isBatting) {
-            if (!batterSelected || !currentBatter) {
-                console.log("Triggering batter selection...");
-                await showBatterSelection();
-            }
+            await showBatterSelection();
         } else {
-            if (!bowlerSelected || !currentBowler) {
-                console.log("Triggering bowler selection...");
-                await showBowlerSelection();
-            }
+            await showBowlerSelection();
         }
     }
 
     // Function to reset the selection modal
     function resetSelectionModal() {
-      selectionModal.style.display = 'none';
+      selectionModal.classList.remove("visible");
       selectionList.innerHTML = '';
     }
 
