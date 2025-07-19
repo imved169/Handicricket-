@@ -1,130 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Toss | HandiCricket</title>
+  <meta charset="UTF-8">
+  <title>Toss</title>
   <style>
     body {
-      background: #061e3e;
-      color: white;
       font-family: sans-serif;
       text-align: center;
-      padding: 30px;
+      background-color: #061e3e;
+      color: white;
+      padding: 20px;
     }
     .container {
-      max-width: 600px;
+      max-width: 500px;
       margin: auto;
-      background: rgba(0, 0, 0, 0.3);
+      background-color: rgba(0, 0, 0, 0.2);
       border-radius: 15px;
       padding: 20px;
     }
     input, select {
       padding: 10px;
-      border-radius: 8px;
-      border: none;
       margin: 10px;
+      border-radius: 10px;
+      border: none;
       font-size: 16px;
     }
-    .btn {
+    button {
       padding: 12px 24px;
       font-size: 16px;
-      border: none;
       border-radius: 10px;
-      background: #1e88e5;
+      background-color: #1e88e5;
       color: white;
+      border: none;
       cursor: pointer;
       margin: 10px;
-      transition: 0.3s;
     }
-    .btn:hover {
-      background: #1565c0;
-      transform: scale(1.05);
+    button:hover {
+      background-color: #1565c0;
     }
     .hidden {
       display: none;
     }
-    .result {
-      margin-top: 20px;
+    #coin {
+      font-size: 80px;
+      margin: 20px 0;
+    }
+    #tossResult {
       font-size: 20px;
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🏏 HandiCricket Toss</h1>
-
-    <div id="tossSetup">
-      <input type="text" id="teamA" placeholder="Enter Team A Name" required /><br />
-      <input type="text" id="teamB" placeholder="Enter Team B Name" required /><br />
-      <select id="matchType">
-        <option value="5">5 Over</option>
-        <option value="10">10 Over</option>
-        <option value="20">T20</option>
-        <option value="50">ODI</option>
-        <option value="test">Test</option>
-      </select><br />
-      <select id="caller">
-        <option value="A">Team A calls</option>
-        <option value="B">Team B calls</option>
-      </select>
-      <select id="callChoice">
-        <option value="Heads">Heads</option>
-        <option value="Tails">Tails</option>
-      </select><br />
-      <button class="btn" onclick="performToss()">Flip Coin</button>
-    </div>
-
-    <div class="result" id="tossResult"></div>
-
-    <div id="decisionButtons" class="hidden">
-      <button class="btn" onclick="choose('bat')">Bat First</button>
-      <button class="btn" onclick="choose('bowl')">Bowl First</button>
+    <input type="text" id="teamA" placeholder="Enter Team A Name"><br>
+    <input type="text" id="teamB" placeholder="Enter Team B Name"><br>
+    <select id="matchType">
+      <option value="5">5 Overs</option>
+      <option value="10">10 Overs</option>
+      <option value="20">T20</option>
+      <option value="50">ODI</option>
+      <option value="test">Test</option>
+    </select><br>
+    <select id="tossCaller">
+      <option value="A">Team A Calls</option>
+      <option value="B">Team B Calls</option>
+    </select>
+    <select id="call">
+      <option value="Heads">Heads</option>
+      <option value="Tails">Tails</option>
+    </select><br>
+    <button onclick="flipCoin()">Flip Coin</button>
+    <div id="coin">🪙</div>
+    <div id="tossResult"></div>
+    <div id="choiceButtons" class="hidden">
+      <button onclick="choose('bat')">Bat</button>
+      <button onclick="choose('bowl')">Bowl</button>
     </div>
   </div>
 
   <script>
-    let tossWinner = "";
     let teamA = "";
     let teamB = "";
     let matchType = "";
+    let tossWinner = "";
 
-    function performToss() {
+    function flipCoin() {
       teamA = document.getElementById("teamA").value.trim();
       teamB = document.getElementById("teamB").value.trim();
       matchType = document.getElementById("matchType").value;
-      const caller = document.getElementById("caller").value;
-      const call = document.getElementById("callChoice").value;
+      const caller = document.getElementById("tossCaller").value;
+      const call = document.getElementById("call").value;
 
       if (!teamA || !teamB) {
-        alert("Enter both team names.");
+        alert("Please enter both team names.");
         return;
       }
 
-      const coin = Math.random() < 0.5 ? "Heads" : "Tails";
+      const coinResult = Math.random() < 0.5 ? "Heads" : "Tails";
+      document.getElementById("coin").innerText = coinResult === "Heads" ? "🪙 Heads" : "🪙 Tails";
+
       const callerTeam = caller === "A" ? teamA : teamB;
-      const otherTeam = caller === "A" ? teamB : teamA;
-
-      const wonToss = (call === coin) ? callerTeam : otherTeam;
-      tossWinner = wonToss;
-
-      document.getElementById("tossResult").innerText =
-        `Coin landed on ${coin}.\n${tossWinner} won the toss! Choose to bat or bowl.`;
-
-      document.getElementById("decisionButtons").classList.remove("hidden");
+      const won = (call === coinResult);
+      tossWinner = callerTeam;
 
       localStorage.setItem("teamA", teamA);
       localStorage.setItem("teamB", teamB);
       localStorage.setItem("matchType", matchType);
       localStorage.setItem("tossWinner", tossWinner);
+
+      document.getElementById("tossResult").innerText = tossWinner + " won the toss! Choose to bat or bowl.";
+      document.getElementById("choiceButtons").classList.remove("hidden");
     }
 
-    function choose(choice) {
-      const battingTeam = (choice === "bat") ? tossWinner : (tossWinner === teamA ? teamB : teamA);
-      const bowlingTeam = (choice === "bat") ? (tossWinner === teamA ? teamB : teamA) : tossWinner;
+    function choose(option) {
+      const batFirst = option === "bat" ? tossWinner : (tossWinner === teamA ? teamB : teamA);
+      const bowlFirst = option === "bat" ? (tossWinner === teamA ? teamB : teamA) : tossWinner;
 
-      localStorage.setItem("batFirst", battingTeam);
-      localStorage.setItem("bowlFirst", bowlingTeam);
+      localStorage.setItem("batFirst", batFirst);
+      localStorage.setItem("bowlFirst", bowlFirst);
 
       if (matchType === "test") {
         window.location.href = "game_test_innings1.html";
