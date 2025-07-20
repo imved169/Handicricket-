@@ -247,6 +247,54 @@
       transform: scale(1.05);
     }
     
+    /* Top Controls */
+    #topControls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    #topControls button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    #saveBtn { 
+      background: #FF9800;
+      color: white;
+    }
+    
+    #saveBtn:hover {
+      background: #F57C00;
+    }
+    
+    #exitBtn { 
+      background: #f44336;
+      color: white;
+    }
+    
+    #exitBtn:hover {
+      background: #d32f2f;
+    }
+    
+    #resetPlaysBtn { 
+      background: #9c27b0;
+      color: white;
+    }
+    
+    #resetPlaysBtn:hover {
+      background: #7b1fa2;
+    }
+    
     /* Responsive Design */
     @media (max-width: 768px) {
       .card-btns button {
@@ -496,6 +544,13 @@
   <div class="container">
     <h1>🏏 First Innings</h1>
     
+    <!-- Moved controls to top -->
+    <div id="topControls">
+      <button id="saveBtn">💾 Save & Exit</button>
+      <button id="exitBtn">🚪 Exit Without Saving</button>
+      <button id="resetPlaysBtn">🔄 Reset Plays</button>
+    </div>
+    
     <div id="roleText"></div>
     
     <div class="scorebox">
@@ -604,6 +659,8 @@
     let battingFirst = null;
     let batterSelected = false;
     let bowlerSelected = false;
+    let batterPenalties = {};
+    let lastBatterRuns = {};
 
     // Format rules with powerplay and wicket values
     const formatRules = {
@@ -663,8 +720,9 @@
     const deadOverIndicator = document.getElementById("deadOverIndicator");
     const freeHitIndicator = document.getElementById("freeHitIndicator");
     const loadingSpinner = document.getElementById("loading-spinner");
-
-    // Teams modal elements
+    const saveBtn = document.getElementById("saveBtn");
+    const exitBtn = document.getElementById("exitBtn");
+    const resetPlaysBtn = document.getElementById("resetPlaysBtn");
     const showTeamsBtn = document.getElementById("showTeamsBtn");
     const teamsModal = document.getElementById("teamsModal");
     const closeTeamsBtn = document.getElementById("closeTeamsBtn");
@@ -688,6 +746,7 @@
     const batterRef = db.ref(`rooms/${room}/currentBatter`);
     const bowlerRef = db.ref(`rooms/${room}/currentBowler`);
     const teamsRef = db.ref(`rooms/${room}/teams`);
+    const savedGamesRef = db.ref("savedGames");
 
     // Initialize the game
     async function initGame() {
@@ -729,6 +788,7 @@
         setupCardButtons();
         setupFirebaseListeners();
         setupTeamsModal();
+        setupControlButtons();
 
         // Update UI
         updateScoreboard();
@@ -742,6 +802,93 @@
                            </button>`;
         resultEl.className = "error";
         loadingSpinner.style.display = "none";
+      }
+    }
+
+    // Setup control buttons
+    function setupControlButtons() {
+      saveBtn.addEventListener("click", saveGameState);
+      exitBtn.addEventListener("click", async () => {
+        if (confirm("Exit without saving?")) {
+          await resetGame();
+          window.location.href = "index.html";
+        }
+      });
+      
+      resetPlaysBtn.addEventListener("click", async () => {
+        if (confirm("Force reset the current plays? This will clear both players' selections.")) {
+          await resetPlays();
+          resultEl.innerText = "Plays have been reset";
+          
+          // Additional reset logic to handle stuck state
+          if (!isBatting && !bowlerSelected) {
+            await showBowlerSelection();
+          } else if (isBatting && !batterSelected) {
+            await showBatterSelection();
+          }
+        }
+      });
+    }
+
+    // Save game state
+    async function saveGameState() {
+      try {
+        resultEl.innerText = "Saving game...";
+        disableButtons();
+        
+        const gameState = {
+          room: room,
+          player1: player === "player1" ? player : opponent,
+          player2: player === "player2" ? player : opponent,
+          tossWinner: tossWinner,
+          battingFirst: battingFirst,
+          team1Score: runs,
+          team1Wickets: wickets,
+          currentBatter: currentBatter,
+          currentBowler: currentBowler,
+          batterStats: batterStats,
+          bowlerStats: bowlerStats,
+          legalBalls: legalBalls,
+          timestamp: Date.now()
+        };
+        
+        await savedGamesRef.child(room).set(gameState);
+        resultEl.innerText = "Game saved successfully!";
+        setTimeout(() => window.location.href = "index.html", 2000);
+      } catch (error) {
+        console.error("Error saving game:", error);
+        resultEl.innerText = "Error saving game. Please try again.";
+        enableButtons();
+      }
+    }
+
+    // Reset game state
+    async function resetGame() {
+      try {
+        await playerRef.set(false);
+        await playsRef.set({
+          player1: null,
+          player2: null
+        });
+      } catch (error) {
+        console.error("Error resetting game:", error);
+      }
+    }
+
+    // Reset plays
+    async function resetPlays() {
+      try {
+        // Reset both players' selections in Firebase
+        await playsRef.set({
+          player1: null,
+          player2: null
+        });
+        
+        // Force update UI states
+        updateButtonStates();
+      } catch (error) {
+        console.error("Error resetting plays:", error);
+        showNotification("Error resetting plays", 'error');
       }
     }
 
@@ -797,11 +944,15 @@
       team1Players.forEach(player => {
         batterStats[player] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
         batterWickets[player] = 0;
+        batterPenalties[player] = 0;
+        lastBatterRuns[player] = 0;
       });
       
       team2Players.forEach(player => {
         batterStats[player] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
         batterWickets[player] = 0;
+        batterPenalties[player] = 0;
+        lastBatterRuns[player] = 0;
       });
     }
 
@@ -962,7 +1113,9 @@
         if (zerosThisOver[battingPlayer] > 3) {
           const penaltyRuns = 5;
           runs -= penaltyRuns;
+          batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
           outcome = "4th 0 in over! -5 runs";
+          checkBatterMilestones(true);
         } else {
           runsScored = bowlerCard;
           runs += bowlerCard;
@@ -1000,6 +1153,7 @@
         batterStats[currentBatter].balls += 1;
         if (batterCard === 4) batterStats[currentBatter].fours += 1;
         if (batterCard === 6) batterStats[currentBatter].sixes += 1;
+        checkBatterMilestones();
       }
       
       // Update bowler stats
@@ -1043,6 +1197,64 @@
       }, 1500);
     }
 
+    // Accurate batter milestone checking accounting for penalties
+    function checkBatterMilestones(isPenalty = false) {
+      if (!currentBatter) return;
+
+      const batter = batterStats[currentBatter];
+      const netRuns = batter.runs - (batterPenalties[currentBatter] || 0);
+      
+      // Check milestones in descending order
+      const milestones = [50, 100, 150, 200, 250, 300, 350, 400];
+      for (let i = milestones.length - 1; i >= 0; i--) {
+        const milestone = milestones[i];
+        
+        // Check if crossed milestone (either direction)
+        if ((!isPenalty && netRuns >= milestone && lastBatterRuns[currentBatter] < milestone) ||
+            (isPenalty && netRuns < milestone && lastBatterRuns[currentBatter] >= milestone)) {
+          
+          // Only notify if this is a new achievement
+          if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
+            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns})`, 'batting');
+            batter[`milestone${milestone}Notified`] = true;
+            
+            if (milestone >= 100) {
+              createConfetti();
+            }
+          }
+          // Handle losing a milestone due to penalty
+          else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
+            showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
+            batter[`milestone${milestone}Notified`] = false;
+          }
+          break;
+        }
+      }
+      
+      // Special handling for 50 and 100
+      if (netRuns >= 50 && !batter.fiftyNotified) {
+        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns})`, 'batting');
+        batter.fiftyNotified = true;
+      }
+      else if (netRuns < 50 && batter.fiftyNotified) {
+        showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
+        batter.fiftyNotified = false;
+      }
+      
+      if (netRuns >= 100 && !batter.centuryNotified) {
+        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns})`, 'batting');
+        batter.centuryNotified = true;
+        createConfetti();
+      }
+      else if (netRuns < 100 && batter.centuryNotified) {
+        showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
+        batter.centuryNotified = false;
+      }
+
+      // Update last run count
+      lastBatterRuns[currentBatter] = netRuns;
+    }
+
     // Show notification
     function showNotification(message, type = 'info') {
       const notif = document.createElement('div');
@@ -1054,6 +1266,23 @@
         notif.style.opacity = '0';
         setTimeout(() => notif.remove(), 500);
       }, 2500);
+    }
+
+    // Create confetti effect
+    function createConfetti() {
+      const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff'];
+      for (let i = 0; i < 150; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.width = `${Math.random() * 10 + 5}px`;
+        confetti.style.height = `${Math.random() * 10 + 5}px`;
+        confetti.style.animationDuration = `${Math.random() * 3 + 2}s`;
+        confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 5000);
+      }
     }
 
     // Show batter selection modal
@@ -1242,6 +1471,28 @@
             showNotification("Failed to send your card selection", 'error');
             enableButtons();
           }
+        });
+      });
+    }
+
+    // Setup teams modal
+    function setupTeamsModal() {
+      showTeamsBtn.addEventListener("click", () => {
+        teamsModal.style.display = "flex";
+      });
+
+      closeTeamsBtn.addEventListener("click", () => {
+        teamsModal.style.display = "none";
+      });
+
+      // Slide functionality
+      indicatorDots.forEach(dot => {
+        dot.addEventListener("click", () => {
+          const slideIndex = parseInt(dot.dataset.slide);
+          teamsSlider.style.transform = `translateX(-${slideIndex * 100}%)`;
+          
+          indicatorDots.forEach(d => d.classList.remove("active"));
+          dot.classList.add("active");
         });
       });
     }
