@@ -564,8 +564,19 @@
 
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="firebase.js"></script>
   <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const matchRef = db.ref("matches/currentMatch/firstInnings");
 
@@ -587,6 +598,8 @@
     let batterWickets = {};
     let team1Players = [];
     let team2Players = [];
+    let team1Name = "Team 1";
+    let team2Name = "Team 2";
     let tossWinner = null;
     let battingFirst = null;
     let batterSelected = false;
@@ -674,6 +687,7 @@
     const playsRef = db.ref(`rooms/${room}/currentPlays`);
     const batterRef = db.ref(`rooms/${room}/currentBatter`);
     const bowlerRef = db.ref(`rooms/${room}/currentBowler`);
+    const teamsRef = db.ref(`rooms/${room}/teams`);
 
     // Initialize the game
     async function initGame() {
@@ -696,8 +710,8 @@
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
         
-        // Load teams
-        await loadPlaying11(roomData);
+        // Load teams from Firebase
+        await loadTeamsFromFirebase();
 
         // Set game format
         const format = roomData.player1?.format || "5";
@@ -731,97 +745,51 @@
       }
     }
 
-    // Load playing XI from room data
-    async function loadPlaying11(roomData) {
-      team1Players = [];
-      team2Players = [];
-      
-      if (roomData.teams?.player1) {
-        team1Players = roomData.teams.player1.players || [];
-      }
-      
-      if (roomData.teams?.player2) {
-        team2Players = roomData.teams.player2.players || [];
-      }
-      
-      loadTeamsIntoModal();
-    }
+    // Load teams from Firebase
+    async function loadTeamsFromFirebase() {
+      try {
+        const teamsSnap = await teamsRef.once('value');
+        if (!teamsSnap.exists()) {
+          throw new Error("Teams data not found in Firebase");
+        }
 
-    // Load teams into modal
-    function loadTeamsIntoModal() {
-      modalTeam1Name.textContent = "Team 1";
-      modalTeam2Name.textContent = "Team 2";
-      
-      modalTeam1Players.innerHTML = '';
-      modalTeam2Players.innerHTML = '';
-      
-      team1Players.forEach(player => {
-        const li = document.createElement("li");
-        li.textContent = player;
-        modalTeam1Players.appendChild(li);
-      });
-      
-      team2Players.forEach(player => {
-        const li = document.createElement("li");
-        li.textContent = player;
-        modalTeam2Players.appendChild(li);
-      });
-    }
-
-    // Setup teams modal
-    function setupTeamsModal() {
-      showTeamsBtn.addEventListener("click", () => {
-        teamsModal.style.display = "flex";
-        document.body.style.overflow = "hidden";
-      });
-
-      closeTeamsBtn.addEventListener("click", () => {
-        teamsModal.style.display = "none";
-        document.body.style.overflow = "auto";
-      });
-
-      // Sliding functionality
-      let currentSlide = 0;
-      
-      function goToSlide(index) {
-        currentSlide = index;
-        teamsSlider.style.transform = `translateX(-${currentSlide * 100}%)`;
+        const teamsData = teamsSnap.val();
         
-        // Update indicators
-        indicatorDots.forEach((dot, i) => {
-          dot.classList.toggle("active", i === currentSlide);
-        });
-      }
-
-      // Add touch/swipe support
-      let touchStartX = 0;
-      let touchEndX = 0;
-      
-      teamsSlider.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-      }, false);
-
-      teamsSlider.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
-      }, false);
-
-      function handleSwipe() {
-        if (touchEndX < touchStartX && currentSlide < 1) {
-          goToSlide(currentSlide + 1);
+        // Set team 1 data
+        if (teamsData.player1) {
+          team1Players = teamsData.player1.players || [];
+          team1Name = teamsData.player1.teamName || "Team 1";
         }
-        if (touchEndX > touchStartX && currentSlide > 0) {
-          goToSlide(currentSlide - 1);
+        
+        // Set team 2 data
+        if (teamsData.player2) {
+          team2Players = teamsData.player2.players || [];
+          team2Name = teamsData.player2.teamName || "Team 2";
         }
-      }
-
-      // Click on indicators
-      indicatorDots.forEach(dot => {
-        dot.addEventListener("click", () => {
-          const slideIndex = parseInt(dot.dataset.slide);
-          goToSlide(slideIndex);
+        
+        // Update modal with team names and players
+        modalTeam1Name.textContent = team1Name;
+        modalTeam2Name.textContent = team2Name;
+        
+        modalTeam1Players.innerHTML = '';
+        modalTeam2Players.innerHTML = '';
+        
+        team1Players.forEach(player => {
+          const li = document.createElement("li");
+          li.textContent = player;
+          modalTeam1Players.appendChild(li);
         });
-      });
+        
+        team2Players.forEach(player => {
+          const li = document.createElement("li");
+          li.textContent = player;
+          modalTeam2Players.appendChild(li);
+        });
+        
+      } catch (error) {
+        console.error("Error loading teams:", error);
+        throw error;
+      }
     }
 
     // Initialize batter stats
