@@ -58,8 +58,15 @@
     <h1>🏏 First Innings</h1>
 
     <div class="scorebox" id="teamName">Batting: Loading...</div>
-    <div class="scorebox" id="runsWickets">Runs: 0 | Wickets: 0</div>
+    <div class="scorebox" id="runsWickets">Runs: 0 | Wickets: 0.00</div>
     <div class="scorebox" id="overs">Overs: 0.0</div>
+    <div class="scorebox" id="batterName">Batter: -</div>
+    <div class="scorebox" id="bowlerName">Bowler: -</div>
+
+    <div class="scorebox" id="overSummary" style="text-align: left;">
+      <h4>Over Summary</h4>
+      <div id="overLines"></div>
+    </div>
 
     <div id="cardSelection">
       <h3>Select Your Card</h3>
@@ -80,6 +87,49 @@
       <h3>End of First Innings</h3>
       <button class="btn" onclick="goToSecondInnings()">Start Second Innings</button>
     </div>
+
+    <div id="matchSummary" style="display:none; margin-top:20px; text-align:left;">
+      <h3>📋 First Innings Summary</h3>
+      <div id="teamTotalSummary"></div>
+      <h4>🔁 Over-by-Over</h4>
+      <div id="fullOverSummary"></div>
+      <h4>👤 Player Stats</h4>
+      <div id="playerStatsSummary"></div>
+    </div>
+
+    <!-- Show Teams Button & Modal -->
+    <button class="btn" onclick="showTeams()">Show Teams</button>
+    <div id="teamsModal" style="display:none; background-color:#000000aa; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; justify-content:center; align-items:center;">
+      <div style="background:#ffffff; color:black; padding:20px; border-radius:10px; max-width:90%; max-height:80%; overflow:auto;">
+        <h3>Team A: <span id="teamAName"></span></h3>
+        <ul id="teamAPlayers"></ul>
+        <hr>
+        <h3>Team B: <span id="teamBName"></span></h3>
+        <ul id="teamBPlayers"></ul>
+        <br>
+        <button onclick="document.getElementById('teamsModal').style.display='none'" class="btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Batter Modal -->
+    <div id="batterModal" style="display:none; position:fixed; top:0; left:0; background:#000000aa; width:100%; height:100%; z-index:999; justify-content:center; align-items:center;">
+      <div style="background:#fff; color:#000; padding:20px; border-radius:10px; max-height:80%; overflow:auto;">
+        <h3>Select Next Batter</h3>
+        <div id="batterList"></div>
+        <br>
+        <button onclick="document.getElementById('batterModal').style.display='none'" class="btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Bowler Modal -->
+    <div id="bowlerModal" style="display:none; position:fixed; top:0; left:0; background:#000000aa; width:100%; height:100%; z-index:999; justify-content:center; align-items:center;">
+      <div style="background:#fff; color:#000; padding:20px; border-radius:10px; max-height:80%; overflow:auto;">
+        <h3>Select Bowler for This Over</h3>
+        <div id="bowlerList"></div>
+        <br>
+        <button onclick="document.getElementById('bowlerModal').style.display='none'" class="btn">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -89,12 +139,38 @@
     const db = firebase.database();
     const matchRef = db.ref("matches/currentMatch/firstInnings");
 
-    let runs = 0;
-    let wickets = 0;
-    let balls = 0;
+    const matchFormat = "t20"; // Change to "5-over", "10-over", "odi", "test"
     const maxOvers = 5;
 
-    document.querySelectorAll(".card-btns .btn").forEach((btn) => {
+    let powerplayOvers = [];
+    if (matchFormat === "t20") powerplayOvers = [0,1,2,3,4,5];
+    if (matchFormat === "10-over") powerplayOvers = [0,1,2];
+    if (matchFormat === "5-over") powerplayOvers = [0,1];
+    if (matchFormat === "odi") powerplayOvers = [0,1,2,3,4,5,6,7,8,9,20,21,22,23,24,25,26,27,28,29,40,41];
+
+    let teamAPlayers = [];
+    let teamBPlayers = [];
+    let playerLives = {};
+    let playerStats = {};
+    let overSummaries = [];
+    let currentOverBalls = [];
+
+    let runs = 0, wickets = 0, balls = 0;
+    let batter = "-", bowler = "-";
+
+    db.ref("matches/currentMatch/teams/teamA/players").once("value", snap => {
+      teamAPlayers = snap.val() || [];
+      teamAPlayers.forEach(p => playerLives[p] = 0);
+      db.ref("matches/currentMatch/currentPlayers/batter").once("value", snap => {
+        if (!snap.exists()) showBatterSelector();
+      });
+    });
+
+    db.ref("matches/currentMatch/teams/teamB/players").once("value", snap => {
+      teamBPlayers = snap.val() || [];
+    });
+
+    document.querySelectorAll(".card-btns .btn").forEach(btn => {
       btn.onclick = () => {
         const selected = parseInt(btn.innerText);
         db.ref("matches/currentMatch/selection").set({ player: selected });
@@ -108,33 +184,164 @@
       const player = data.player;
       const opponent = data.opponent;
 
-      if (player === opponent) {
-        wickets++;
-        document.getElementById("result").innerText = "❌ OUT!";
-      } else {
-        runs += player;
-        document.getElementById("result").innerText = `✅ ${player} runs`;
-      }
+      const currentOver = Math.floor(balls / 6);
 
-      balls++;
-      const over = Math.floor(balls / 6);
-      const ballInOver = balls % 6;
-      document.getElementById("runsWickets").innerText = `Runs: ${runs} | Wickets: ${wickets}`;
-      document.getElementById("overs").innerText = `Overs: ${over}.${ballInOver}`;
+      db.ref("matches/currentMatch/currentPlayers").once("value", snap => {
+        const players = snap.val();
+        if (!players) return;
 
-      if (balls >= maxOvers * 6 || wickets >= 10) {
-        matchRef.set({
-          totalRuns: runs,
-          totalWickets: wickets,
-          balls: balls
-        });
-        document.getElementById("cardSelection").style.display = "none";
-        document.getElementById("nextInnings").style.display = "block";
-      }
+        batter = players.batter || "-";
+        bowler = players.bowler || "-";
+
+        document.getElementById("batterName").innerText = `Batter: ${batter}`;
+        document.getElementById("bowlerName").innerText = `Bowler: ${bowler}`;
+
+        if (!playerStats[batter]) playerStats[batter] = { runs: 0, balls: 0, dots: 0, outs: 0 };
+        if (!playerStats[bowler]) playerStats[bowler] = { wicketsTaken: 0, ballsBowled: 0, runsConceded: 0 };
+
+        playerStats[bowler].ballsBowled++;
+
+        if (player === opponent) {
+          let loss = 1.0;
+          if (matchFormat === "t20" || matchFormat === "5-over" || matchFormat === "10-over") {
+            loss = powerplayOvers.includes(currentOver) ? 0.5 : 1.0;
+          } else if (matchFormat === "odi") {
+            loss = powerplayOvers.includes(currentOver) ? 0.25 : 0.5;
+          }
+
+          playerLives[batter] += loss;
+          if (playerLives[batter] > 1.0) playerLives[batter] = 1.0;
+
+          wickets += loss;
+          playerStats[batter].balls++;
+          playerStats[batter].outs++;
+          playerStats[bowler].wicketsTaken++;
+
+          if (playerLives[batter] >= 1.0) {
+            document.getElementById("result").innerText = `❌ OUT! ${batter} is out`;
+            showBatterSelector();
+          } else {
+            document.getElementById("result").innerText = `⚠️ ${batter} life: ${playerLives[batter].toFixed(2)}/1.00`;
+          }
+        } else {
+          runs += player;
+          playerStats[batter].runs += player;
+          playerStats[batter].balls++;
+          if (player === 0) playerStats[batter].dots++;
+          playerStats[bowler].runsConceded += player;
+          document.getElementById("result").innerText = `✅ ${player} runs`;
+        }
+
+        balls++;
+        const over = Math.floor(balls / 6);
+        const ballInOver = balls % 6;
+        document.getElementById("runsWickets").innerText = `Runs: ${runs} | Wickets: ${wickets.toFixed(2)}`;
+        document.getElementById("overs").innerText = `Overs: ${over}.${ballInOver}`;
+
+        currentOverBalls.push(player === opponent ? "W" : player);
+        if (ballInOver === 0) {
+          const overText = `Over ${over - 1}: ${currentOverBalls.join(", ")}`;
+          overSummaries.push(overText);
+          currentOverBalls = [];
+          updateOverDisplay();
+          showBowlerSelector();
+        }
+
+        if (balls >= maxOvers * 6 || wickets >= 11) {
+          if (currentOverBalls.length > 0) {
+            const overText = `Over ${over}: ${currentOverBalls.join(", ")}`;
+            overSummaries.push(overText);
+          }
+
+          matchRef.set({ totalRuns: runs, totalWickets: wickets, balls: balls });
+          db.ref("matches/currentMatch/playerStats").set(playerStats);
+
+          document.getElementById("cardSelection").style.display = "none";
+          document.getElementById("nextInnings").style.display = "block";
+          document.getElementById("matchSummary").style.display = "block";
+
+          const oversText = `${Math.floor(balls / 6)}.${balls % 6}`;
+          document.getElementById("teamTotalSummary").innerHTML = `
+            <strong>Team: ${document.getElementById("teamName").innerText}</strong><br>
+            Total: ${runs}/${wickets.toFixed(2)} in ${oversText} overs
+          `;
+
+          updateOverDisplay();
+
+          const statsDiv = document.getElementById("playerStatsSummary");
+          statsDiv.innerHTML = "";
+          Object.entries(playerStats).forEach(([name, stats]) => {
+            let text = stats.runs !== undefined
+              ? `🧤 ${name} → ${stats.runs} runs, ${stats.balls} balls, ${stats.dots} dots, ${stats.outs} outs`
+              : `🎯 ${name} → ${stats.wicketsTaken} wickets, ${stats.runsConceded} runs in ${Math.floor(stats.ballsBowled / 6)}.${stats.ballsBowled % 6} overs`;
+            const li = document.createElement("div");
+            li.innerText = text;
+            statsDiv.appendChild(li);
+          });
+        }
+      });
     });
+
+    function updateOverDisplay() {
+      const summaryDiv = document.getElementById("overLines");
+      const fullSummary = document.getElementById("fullOverSummary");
+      summaryDiv.innerHTML = "";
+      fullSummary.innerHTML = "";
+      overSummaries.forEach(line => {
+        const div = document.createElement("div");
+        div.innerText = line;
+        summaryDiv.appendChild(div);
+        fullSummary.appendChild(div.cloneNode(true));
+      });
+    }
 
     function goToSecondInnings() {
       window.location.href = "game_second_innings.html";
+    }
+
+    function showTeams() {
+      db.ref("matches/currentMatch/teams").once("value", (snapshot) => {
+        const data = snapshot.val();
+        document.getElementById("teamAName").innerText = data.teamA?.name || "Team A";
+        document.getElementById("teamBName").innerText = data.teamB?.name || "Team B";
+        document.getElementById("teamAPlayers").innerHTML = (data.teamA?.players || []).map(p => `<li>${p}</li>`).join("");
+        document.getElementById("teamBPlayers").innerHTML = (data.teamB?.players || []).map(p => `<li>${p}</li>`).join("");
+        document.getElementById("teamsModal").style.display = "flex";
+      });
+    }
+
+    function showBatterSelector() {
+      const listDiv = document.getElementById("batterList");
+      listDiv.innerHTML = "";
+      teamAPlayers.forEach(p => {
+        if (!playerLives[p] || playerLives[p] < 1.0) {
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.innerText = p;
+          btn.onclick = () => {
+            db.ref("matches/currentMatch/currentPlayers/batter").set(p);
+            document.getElementById("batterModal").style.display = "none";
+          };
+          listDiv.appendChild(btn);
+        }
+      });
+      document.getElementById("batterModal").style.display = "flex";
+    }
+
+    function showBowlerSelector() {
+      const listDiv = document.getElementById("bowlerList");
+      listDiv.innerHTML = "";
+      teamBPlayers.forEach(p => {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.innerText = p;
+        btn.onclick = () => {
+          db.ref("matches/currentMatch/currentPlayers/bowler").set(p);
+          document.getElementById("bowlerModal").style.display = "none";
+        };
+        listDiv.appendChild(btn);
+      });
+      document.getElementById("bowlerModal").style.display = "flex";
     }
   </script>
 </body>
