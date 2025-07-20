@@ -815,8 +815,19 @@
     const liveStateRef = ref(db, `rooms/${room}/liveState`);
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
+    const resetRequestRef = ref(db, `rooms/${room}/resetRequest");
     
+    // Helper function to clear local selections
+    function clearLocalSelections() {
+      // Clear selected card highlights
+      buttons.forEach(btn => btn.classList.remove("selected"));
+      // Reset any selection states
+      batterSelected = false;
+      bowlerSelected = false;
+      // Enable buttons for next selection
+      enableButtons();
+    }
+
     // Initialize the game with enhanced error handling
     async function initGame() {
       try {
@@ -911,11 +922,7 @@
           }
         });
         
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
+        resetPlaysBtn.addEventListener("click", requestReset);
 
         // Initial UI update
         updateScoreboard();
@@ -938,7 +945,10 @@
         status.innerText = "Requesting reset...";
         resetPlaysBtn.disabled = true;
         
-        // Set reset request with player info
+        // Clear any existing reset request first
+        await set(resetRequestRef, null);
+        
+        // Set new reset request with player info
         await set(resetRequestRef, {
           requested: true,
           by: player,
@@ -952,6 +962,7 @@
         console.error("Error requesting reset:", error);
         status.innerText = "Failed to send reset request";
         resetPlaysBtn.disabled = false;
+        showNotification("Failed to request reset", 'error');
       }
     }
 
@@ -976,14 +987,14 @@
       
       // Handle accept
       notification.querySelector('.reset-accept').addEventListener('click', async () => {
-        await acceptReset();
         notification.remove();
+        await acceptReset();
       });
       
       // Handle decline
       notification.querySelector('.reset-decline').addEventListener('click', async () => {
-        await declineReset();
         notification.remove();
+        await declineReset();
       });
     }
 
@@ -999,11 +1010,14 @@
           'currentPlays/player2': null
         });
         
+        // Clear local selections and update UI
+        clearLocalSelections();
+        status.innerText = "Plays have been reset. Please make your selection again.";
         showNotification("Plays have been reset for both players", 'info');
-        enableButtons();
       } catch (error) {
         console.error("Error accepting reset:", error);
         showNotification("Failed to reset plays", 'error');
+        enableButtons();
       }
     }
 
@@ -1890,26 +1904,6 @@
       }
     }
 
-    // Enhanced resetPlays function with notification system - UPDATED TO RESET PLAYS FOR BOTH PLAYERS
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in a single update
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
-        
-        // Clear reset request
-        await set(resetRequestRef, null);
-        
-        showNotification("Current plays have been reset for both players", 'info');
-        enableButtons();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Failed to reset plays", 'error');
-      }
-    }
-
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
@@ -1954,7 +1948,14 @@
 
       // Listen for both plays to be submitted
       onValue(playsRef, (snap) => {
-        if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
+        if (!snap.exists()) {
+          // Plays have been reset - clear local selections
+          clearLocalSelections();
+          return;
+        }
+        
+        const plays = snap.val();
+        if (typeof plays.player1 !== 'undefined' && typeof plays.player2 !== 'undefined') {
           handleResult();
         }
       });
