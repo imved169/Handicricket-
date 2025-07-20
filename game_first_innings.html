@@ -563,6 +563,24 @@
       margin-bottom: 10px;
       display: inline-block;
     }
+
+    /* Mini Scorecard */
+    .mini-scorecard {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(6, 30, 62, 0.9);
+      border: 1px solid #1e88e5;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .mini-scorecard div {
+      margin: 3px 0;
+    }
   </style>
 </head>
 <body>
@@ -620,6 +638,12 @@
     </div>
     
     <div id="loading-spinner" class="loading-spinner"></div>
+  </div>
+  
+  <!-- Mini Scorecard (hidden by default) -->
+  <div class="mini-scorecard" id="miniScorecard" style="display: none;">
+    <div><strong id="miniRuns">0</strong>/<strong id="miniWickets">0</strong></div>
+    <div>Overs: <strong id="miniOvers">0.0</strong></div>
   </div>
   
   <!-- Selection Modal -->
@@ -696,6 +720,7 @@
     let lastOverWickets = 0;
     let overSummaries = [];
     let isSpectator = false;
+    let miniScorecardVisible = false;
 
     // Format rules with powerplay and wicket values
     const formatRules = {
@@ -768,6 +793,10 @@
     const modalTeam2Players = document.getElementById("modalTeam2Players");
     const indicatorDots = document.querySelectorAll(".indicator-dot");
     const overSummaryList = document.getElementById("overSummaryList");
+    const miniScorecard = document.getElementById("miniScorecard");
+    const miniRuns = document.getElementById("miniRuns");
+    const miniWickets = document.getElementById("miniWickets");
+    const miniOvers = document.getElementById("miniOvers");
 
     // Firebase references
     const params = new URLSearchParams(window.location.search);
@@ -785,6 +814,7 @@
     const savedGamesRef = db.ref("savedGames");
     const overSummariesRef = db.ref(`rooms/${room}/overSummaries`);
     const scoreboardRef = db.ref(`rooms/${room}/scoreboard`);
+    const resetRequestRef = db.ref(`rooms/${room}/resetRequest`);
 
     // Initialize the game
     async function initGame() {
@@ -834,6 +864,7 @@
         setupFirebaseListeners();
         setupTeamsModal();
         setupControlButtons();
+        setupMiniScorecardToggle();
 
         // Update UI
         updateScoreboard();
@@ -860,6 +891,7 @@
       // Set up all Firebase listeners
       setupFirebaseListeners();
       setupTeamsModal();
+      setupMiniScorecardToggle();
       
       loadingSpinner.style.display = "none";
       resultEl.innerText = "Watching match live...";
@@ -886,6 +918,17 @@
           } else if (isBatting && !batterSelected) {
             await showBatterSelection();
           }
+        }
+      });
+    }
+
+    // Setup mini scorecard toggle
+    function setupMiniScorecardToggle() {
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'm' || e.key === 'M') {
+          miniScorecardVisible = !miniScorecardVisible;
+          miniScorecard.style.display = miniScorecardVisible ? 'block' : 'none';
+          updateMiniScorecard();
         }
       });
     }
@@ -1081,6 +1124,7 @@
       runsEl.textContent = runs;
       wicketsEl.textContent = `${wickets.toFixed(2).replace(/\.00$/, '')}/${currentFormat.totalWickets}`;
       oversEl.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      updateMiniScorecard();
       
       // Sync scoreboard to Firebase
       if (!isSpectator) {
@@ -1090,6 +1134,13 @@
           legalBalls
         });
       }
+    }
+
+    // Update mini scorecard
+    function updateMiniScorecard() {
+      miniRuns.textContent = runs;
+      miniWickets.textContent = wickets.toFixed(2).replace(/\.00$/, '');
+      miniOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
     }
 
     // Update over status (powerplay/dead over)
@@ -1738,6 +1789,25 @@
             }
           }
           overSummaryList.scrollTop = overSummaryList.scrollHeight;
+        }
+      });
+
+      // Listen for reset requests
+      resetRequestRef.on('value', async (snap) => {
+        if (!snap.exists() || !snap.val().requested || snap.val().by === player) return;
+        
+        if (confirm("Opponent requested to reset plays. Accept?")) {
+          await resetPlays();
+          await resetRequestRef.set(null);
+          resultEl.innerText = "Plays have been reset";
+          
+          if (!isBatting && !bowlerSelected) {
+            await showBowlerSelection();
+          } else if (isBatting && !batterSelected) {
+            await showBatterSelection();
+          }
+        } else {
+          await resetRequestRef.set(null);
         }
       });
     }
