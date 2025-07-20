@@ -1023,6 +1023,27 @@
       oversEl.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
     }
 
+    // Update over status (powerplay/dead over)
+    function updateOverStatus() {
+      const currentOver = Math.floor(legalBalls / 6) + 1;
+
+      if (Array.isArray(currentFormat.powerplayOvers)) {
+        isPowerplay = currentFormat.powerplayOvers.includes(currentOver);
+      } else {
+        isPowerplay = currentOver <= currentFormat.powerplayOvers;
+      }
+
+      powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
+
+      if (Array.isArray(currentFormat.deadOvers)) {
+        isDeadOver = currentFormat.deadOvers.includes(currentOver);
+        deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
+      } else {
+        isDeadOver = false;
+        deadOverIndicator.style.display = "none";
+      }
+    }
+
     // Process the outcome of a ball
     async function handleResult() {
       const playsSnap = await playsRef.once('value');
@@ -1167,6 +1188,7 @@
       if (boundary) resultEl.classList.add("boundary-animation");
       if (isWicket) resultEl.classList.add("wicket-animation");
       updateScoreboard();
+      updateOverStatus();
 
       // Check for innings end conditions
       if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
