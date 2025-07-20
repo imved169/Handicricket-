@@ -784,6 +784,7 @@
     const teamsRef = db.ref(`rooms/${room}/teams`);
     const savedGamesRef = db.ref("savedGames");
     const overSummariesRef = db.ref(`rooms/${room}/overSummaries`);
+    const scoreboardRef = db.ref(`rooms/${room}/scoreboard`);
 
     // Initialize the game
     async function initGame() {
@@ -1080,6 +1081,15 @@
       runsEl.textContent = runs;
       wicketsEl.textContent = `${wickets.toFixed(2).replace(/\.00$/, '')}/${currentFormat.totalWickets}`;
       oversEl.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      // Sync scoreboard to Firebase
+      if (!isSpectator) {
+        scoreboardRef.set({
+          runs,
+          wickets,
+          legalBalls
+        });
+      }
     }
 
     // Update over status (powerplay/dead over)
@@ -1290,8 +1300,8 @@
 
       // Prepare for next ball
       setTimeout(async () => {
-        await playsRef.set({});
-        enableButtons();
+        // Reset plays and wait for completion before enabling buttons
+        await playsRef.set({ player1: null, player2: null });
         
         if (isPlayerOut && player === battingPlayer) {
           batterSelected = false;
@@ -1303,10 +1313,9 @@
           } else {
             resultEl.innerText = "Waiting for opponent to select bowler...";
           }
-        } else {
-          updateButtonStates();
         }
         
+        enableButtons();
         resultEl.classList.remove("boundary-animation", "wicket-animation");
       }, 1500);
     }
@@ -1681,6 +1690,18 @@
 
     // Setup Firebase listeners
     function setupFirebaseListeners() {
+      // Scoreboard sync
+      scoreboardRef.on('value', snap => {
+        if (snap.exists()) {
+          const data = snap.val();
+          runs = data.runs;
+          wickets = data.wickets;
+          legalBalls = data.legalBalls;
+          updateScoreboard();
+          updateOverStatus();
+        }
+      });
+
       batterRef.on('value', (snap) => {
         if (snap.exists()) {
           currentBatter = snap.val();
