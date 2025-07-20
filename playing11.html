@@ -111,12 +111,44 @@
       color: #90caf9;
       font-weight: bold;
     }
+    #teamNameInput {
+      margin-bottom: 20px;
+    }
+    .format-selector {
+      margin-bottom: 20px;
+    }
+    .format-selector select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid #1e88e5;
+      font-size: 16px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    .format-selector label {
+      display: block;
+      margin-bottom: 8px;
+      color: #90caf9;
+    }
   </style>
 </head>
 <body>
   <h2>Enter Your Playing XI</h2>
   <div id="roomCode"></div>
   <div class="container" id="formContainer">
+    <div class="format-selector">
+      <label for="gameFormat">Select Match Format:</label>
+      <select id="gameFormat">
+        <option value="5">5 Overs</option>
+        <option value="10">10 Overs</option>
+        <option value="20">T20 (20 Overs)</option>
+        <option value="50">ODI (50 Overs)</option>
+      </select>
+    </div>
+    
+    <input type="text" id="teamNameInput" placeholder="Enter Your Team Name" required>
+    
     <form id="playing11Form"></form>
     <button id="submitXI">Submit Playing XI</button>
     <div id="waitingMessage"></div>
@@ -171,6 +203,8 @@
 
     const form = document.getElementById("playing11Form");
     const waitingMessage = document.getElementById("waitingMessage");
+    const teamNameInput = document.getElementById("teamNameInput");
+    const gameFormat = document.getElementById("gameFormat");
 
     // Create input fields for 11 players
     for (let i = 1; i <= 11; i++) {
@@ -212,32 +246,35 @@
         return alert("All 11 player names are required!");
       }
 
-      // Get format and team name
-      const format = localStorage.getItem('format');
-      const teamName = localStorage.getItem('teamName') || 
-                      (player === 'player1' ? 'Team 1' : 'Team 2');
+      const teamName = teamNameInput.value.trim();
+      if (!teamName) {
+        return alert("Please enter your team name");
+      }
+
+      const format = gameFormat.value;
       
       const teamData = {
-  players: players,
-  format: format,
-  name: teamName   // ✅ add this line!
-};
+        players: players,
+        format: format,
+        name: teamName
+      };
       
       try {
         // Save team to both locations for redundancy
         await Promise.all([
           set(ref(db, `rooms/${roomId}/teams/${player}`), teamData),
           set(ref(db, `rooms/${roomId}/${player}/playing11`), players),
-          set(ref(db, `rooms/${roomId}/${player}/teamName`), teamName)
+          set(ref(db, `rooms/${roomId}/${player}/teamName`), teamName),
+          set(ref(db, `rooms/${roomId}/${player}/format`), format)
         ]);
         
         // Save to localStorage
+        localStorage.setItem('format', format);
+        localStorage.setItem('teamName', teamName);
         if (player === 'player1') {
           localStorage.setItem('team1', JSON.stringify(teamData));
-          localStorage.setItem('team1Name', teamName);
         } else {
           localStorage.setItem('team2', JSON.stringify(teamData));
-          localStorage.setItem('team2Name', teamName);
         }
         
         // Show confirmation
@@ -266,11 +303,15 @@
                 teams.player2.players?.length === 11) {
               unsubscribeTeams();
               
-              // Initialize spectator data structure
-              set(ref(db, `rooms/${roomId}/spectatorData`), {
+              // Initialize game data structure
+              set(ref(db, `rooms/${roomId}/gameData`), {
                 overSummaries: {},
                 matchStats: {},
-                spectatorChat: {}
+                spectatorChat: {},
+                batterStats: {},
+                bowlerStats: {},
+                fallOfWickets: [],
+                ballByBall: {}
               }).then(() => {
                 // Set redirect trigger for both players
                 set(ref(db, `rooms/${roomId}/redirectTrigger`), true)
