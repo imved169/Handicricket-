@@ -155,42 +155,6 @@
       margin-bottom: 10px;
     }
     
-    /* Team Display */
-    .team-container {
-      display: inline-block;
-      vertical-align: top;
-      width: 45%;
-      min-width: 300px;
-      margin: 10px;
-      background: rgba(13, 42, 82, 0.6);
-      border-radius: 10px;
-      padding: 15px;
-    }
-    
-    .team-container h4 {
-      margin: 0 0 15px;
-      padding-bottom: 5px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    
-    .team-container ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      text-align: left;
-    }
-    
-    .team-container li {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.2s;
-    }
-    
-    .team-container li:hover {
-      background: rgba(30, 136, 229, 0.2);
-      transform: translateX(5px);
-    }
-    
     /* Connection Status */
     #connectionStatus {
       padding: 10px;
@@ -285,19 +249,10 @@
     
     /* Responsive Design */
     @media (max-width: 768px) {
-      .team-container {
-        width: 100%;
-        min-width: auto;
-      }
-      
       .card-btns button {
         width: 60px;
         height: 60px;
         font-size: 20px;
-      }
-      
-      .scorebox {
-        grid-template-columns: 1fr 1fr;
       }
       
       .selection-modal {
@@ -307,10 +262,6 @@
     }
     
     @media (max-width: 480px) {
-      .scorebox {
-        grid-template-columns: 1fr;
-      }
-      
       .card-btns button {
         width: 50px;
         height: 50px;
@@ -420,6 +371,125 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Teams Modal Styles */
+    .teams-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .teams-container {
+      width: 90%;
+      max-width: 500px;
+      height: 70%;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .team-slide {
+      min-width: 100%;
+      height: 100%;
+      padding: 20px;
+      background: rgba(13, 42, 82, 0.9);
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      transition: transform 0.5s ease;
+      overflow-y: auto;
+    }
+
+    .team-slide h3 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 10px;
+    }
+
+    .team-slide ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .team-slide li {
+      padding: 12px;
+      margin: 8px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      border-left: 3px solid #1e88e5;
+      transition: all 0.3s;
+    }
+
+    .team-slide li:hover {
+      background: rgba(30, 136, 229, 0.4);
+      transform: translateX(5px);
+    }
+
+    .close-teams {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 1001;
+    }
+
+    .show-teams-btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+      color: white;
+      cursor: pointer;
+      margin: 20px auto;
+      display: block;
+      transition: all 0.3s;
+    }
+
+    .show-teams-btn:hover {
+      background: linear-gradient(135deg, #7b1fa2, #6a1b9a);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .slide-indicator {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .indicator-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      margin: 0 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .indicator-dot.active {
+      background: #1e88e5;
+      transform: scale(1.2);
+    }
   </style>
 </head>
 <body>
@@ -456,19 +526,8 @@
       <button class="btn" data-value="5">5</button>
       <button class="btn" data-value="6">6</button>
     </div>
-    
-    <div id="playingXISection">
-      <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
-        <div class="team-container">
-          <h4 id="team1Name">Team 1</h4>
-          <ul id="team1Players"></ul>
-        </div>
-        <div class="team-container">
-          <h4 id="team2Name">Team 2</h4>
-          <ul id="team2Players"></ul>
-        </div>
-      </div>
-    </div>
+
+    <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
     
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -482,6 +541,25 @@
     <h3 id="selectionTitle">Select Next Batter</h3>
     <div id="selectionList" class="selection-list"></div>
     <button id="confirmSelection">Confirm Selection</button>
+  </div>
+
+  <!-- Teams Modal -->
+  <div id="teamsModal" class="teams-modal">
+    <button class="close-teams" id="closeTeamsBtn">×</button>
+    <div class="teams-container" id="teamsSlider">
+      <div class="team-slide" id="team1Slide">
+        <h3 id="modalTeam1Name">Team 1</h3>
+        <ul id="modalTeam1Players"></ul>
+      </div>
+      <div class="team-slide" id="team2Slide">
+        <h3 id="modalTeam2Name">Team 2</h3>
+        <ul id="modalTeam2Players"></ul>
+      </div>
+    </div>
+    <div class="slide-indicator">
+      <div class="indicator-dot active" data-slide="0"></div>
+      <div class="indicator-dot" data-slide="1"></div>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -567,15 +645,22 @@
     const selectionTitle = document.getElementById("selectionTitle");
     const selectionList = document.getElementById("selectionList");
     const confirmSelection = document.getElementById("confirmSelection");
-    const team1NameEl = document.getElementById("team1Name");
-    const team2NameEl = document.getElementById("team2Name");
-    const team1PlayersEl = document.getElementById("team1Players");
-    const team2PlayersEl = document.getElementById("team2Players");
     const connectionStatus = document.getElementById("connectionStatus");
     const powerplayIndicator = document.getElementById("powerplayIndicator");
     const deadOverIndicator = document.getElementById("deadOverIndicator");
     const freeHitIndicator = document.getElementById("freeHitIndicator");
     const loadingSpinner = document.getElementById("loading-spinner");
+
+    // Teams modal elements
+    const showTeamsBtn = document.getElementById("showTeamsBtn");
+    const teamsModal = document.getElementById("teamsModal");
+    const closeTeamsBtn = document.getElementById("closeTeamsBtn");
+    const teamsSlider = document.getElementById("teamsSlider");
+    const modalTeam1Name = document.getElementById("modalTeam1Name");
+    const modalTeam2Name = document.getElementById("modalTeam2Name");
+    const modalTeam1Players = document.getElementById("modalTeam1Players");
+    const modalTeam2Players = document.getElementById("modalTeam2Players");
+    const indicatorDots = document.querySelectorAll(".indicator-dot");
 
     // Firebase references
     const params = new URLSearchParams(window.location.search);
@@ -629,6 +714,7 @@
         setupSelectionModal();
         setupCardButtons();
         setupFirebaseListeners();
+        setupTeamsModal();
 
         // Update UI
         updateScoreboard();
@@ -649,20 +735,93 @@
     async function loadPlaying11(roomData) {
       team1Players = [];
       team2Players = [];
-      team1PlayersEl.innerHTML = '';
-      team2PlayersEl.innerHTML = '';
       
       if (roomData.teams?.player1) {
-        team1NameEl.textContent = roomData.teams.player1.name || "Team 1";
         team1Players = roomData.teams.player1.players || [];
-        team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
       }
       
       if (roomData.teams?.player2) {
-        team2NameEl.textContent = roomData.teams.player2.name || "Team 2";
         team2Players = roomData.teams.player2.players || [];
-        team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
       }
+      
+      loadTeamsIntoModal();
+    }
+
+    // Load teams into modal
+    function loadTeamsIntoModal() {
+      modalTeam1Name.textContent = "Team 1";
+      modalTeam2Name.textContent = "Team 2";
+      
+      modalTeam1Players.innerHTML = '';
+      modalTeam2Players.innerHTML = '';
+      
+      team1Players.forEach(player => {
+        const li = document.createElement("li");
+        li.textContent = player;
+        modalTeam1Players.appendChild(li);
+      });
+      
+      team2Players.forEach(player => {
+        const li = document.createElement("li");
+        li.textContent = player;
+        modalTeam2Players.appendChild(li);
+      });
+    }
+
+    // Setup teams modal
+    function setupTeamsModal() {
+      showTeamsBtn.addEventListener("click", () => {
+        teamsModal.style.display = "flex";
+        document.body.style.overflow = "hidden";
+      });
+
+      closeTeamsBtn.addEventListener("click", () => {
+        teamsModal.style.display = "none";
+        document.body.style.overflow = "auto";
+      });
+
+      // Sliding functionality
+      let currentSlide = 0;
+      
+      function goToSlide(index) {
+        currentSlide = index;
+        teamsSlider.style.transform = `translateX(-${currentSlide * 100}%)`;
+        
+        // Update indicators
+        indicatorDots.forEach((dot, i) => {
+          dot.classList.toggle("active", i === currentSlide);
+        });
+      }
+
+      // Add touch/swipe support
+      let touchStartX = 0;
+      let touchEndX = 0;
+      
+      teamsSlider.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, false);
+
+      teamsSlider.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+      }, false);
+
+      function handleSwipe() {
+        if (touchEndX < touchStartX && currentSlide < 1) {
+          goToSlide(currentSlide + 1);
+        }
+        if (touchEndX > touchStartX && currentSlide > 0) {
+          goToSlide(currentSlide - 1);
+        }
+      }
+
+      // Click on indicators
+      indicatorDots.forEach(dot => {
+        dot.addEventListener("click", () => {
+          const slideIndex = parseInt(dot.dataset.slide);
+          goToSlide(slideIndex);
+        });
+      });
     }
 
     // Initialize batter stats
