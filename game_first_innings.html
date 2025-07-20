@@ -538,6 +538,31 @@
       background: #1e88e5;
       transform: scale(1.2);
     }
+
+    /* Over Summary Styles */
+    .over-summary-container {
+      margin: 15px 0;
+      padding: 10px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .over-summary-item {
+      padding: 5px;
+      margin: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* Spectator Mode Styles */
+    .spectator-mode {
+      background: #9c27b0;
+      padding: 5px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -580,6 +605,12 @@
       <button class="btn" data-value="4">4</button>
       <button class="btn" data-value="5">5</button>
       <button class="btn" data-value="6">6</button>
+    </div>
+
+    <!-- Over Summary Section -->
+    <div class="over-summary-container">
+      <h4>Over Summary</h4>
+      <div id="overSummaryList"></div>
     </div>
 
     <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
@@ -661,6 +692,10 @@
     let bowlerSelected = false;
     let batterPenalties = {};
     let lastBatterRuns = {};
+    let lastOverRuns = 0;
+    let lastOverWickets = 0;
+    let overSummaries = [];
+    let isSpectator = false;
 
     // Format rules with powerplay and wicket values
     const formatRules = {
@@ -732,11 +767,12 @@
     const modalTeam1Players = document.getElementById("modalTeam1Players");
     const modalTeam2Players = document.getElementById("modalTeam2Players");
     const indicatorDots = document.querySelectorAll(".indicator-dot");
+    const overSummaryList = document.getElementById("overSummaryList");
 
     // Firebase references
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
-    const player = params.get('player');
+    const player = params.get('player') || "spectator"; // Default to spectator if no player param
     const opponent = player === "player1" ? "player2" : "player1";
     
     const roomRef = db.ref(`rooms/${room}`);
@@ -747,12 +783,20 @@
     const bowlerRef = db.ref(`rooms/${room}/currentBowler`);
     const teamsRef = db.ref(`rooms/${room}/teams`);
     const savedGamesRef = db.ref("savedGames");
+    const overSummariesRef = db.ref(`rooms/${room}/overSummaries`);
 
     // Initialize the game
     async function initGame() {
       try {
         loadingSpinner.style.display = "block";
         resultEl.innerText = "Initializing game...";
+
+        // Check if spectator mode
+        isSpectator = player === "spectator";
+        if (isSpectator) {
+          setupSpectatorMode();
+          return;
+        }
 
         // Set player online status
         await playerRef.set(true);
@@ -803,6 +847,21 @@
         resultEl.className = "error";
         loadingSpinner.style.display = "none";
       }
+    }
+
+    // Setup spectator mode
+    function setupSpectatorMode() {
+      roleText.innerHTML = '<div class="spectator-mode">Spectator Mode</div>';
+      document.getElementById("cardButtons").style.display = "none";
+      document.getElementById("topControls").style.display = "none";
+      document.getElementById("connectionStatus").textContent = "Spectating match";
+      
+      // Set up all Firebase listeners
+      setupFirebaseListeners();
+      setupTeamsModal();
+      
+      loadingSpinner.style.display = "none";
+      resultEl.innerText = "Watching match live...";
     }
 
     // Setup control buttons
@@ -1044,6 +1103,33 @@
       }
     }
 
+    // Update over summary
+    function updateOverSummary() {
+      const currentOver = Math.floor(legalBalls / 6);
+      if (currentOver > 0 && currentOver > overSummaries.length) {
+        const runsThisOver = runs - lastOverRuns;
+        const wicketsThisOver = wickets - lastOverWickets;
+        const summary = `Over ${currentOver}: ${runsThisOver} runs, ${wicketsThisOver} wickets`;
+        overSummaries.push(summary);
+        
+        // Update Firebase for spectators
+        overSummariesRef.child(`over${currentOver}`).set(summary);
+        
+        // Update UI
+        const summaryItem = document.createElement("div");
+        summaryItem.className = "over-summary-item";
+        summaryItem.textContent = summary;
+        overSummaryList.appendChild(summaryItem);
+        
+        // Scroll to bottom
+        overSummaryList.scrollTop = overSummaryList.scrollHeight;
+        
+        // Update last over stats
+        lastOverRuns = runs;
+        lastOverWickets = wickets;
+      }
+    }
+
     // Process the outcome of a ball
     async function handleResult() {
       const playsSnap = await playsRef.once('value');
@@ -1189,6 +1275,12 @@
       if (isWicket) resultEl.classList.add("wicket-animation");
       updateScoreboard();
       updateOverStatus();
+
+      // Update legal balls count
+      if (isLegalBall) {
+        legalBalls++;
+        updateOverSummary();
+      }
 
       // Check for innings end conditions
       if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
@@ -1608,6 +1700,23 @@
       playsRef.on('value', (snap) => {
         if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
           handleResult();
+        }
+      });
+
+      // Load over summaries for spectators
+      overSummariesRef.on('value', (snap) => {
+        if (snap.exists()) {
+          overSummaryList.innerHTML = '';
+          const summaries = snap.val();
+          for (const key in summaries) {
+            if (summaries.hasOwnProperty(key)) {
+              const summaryItem = document.createElement("div");
+              summaryItem.className = "over-summary-item";
+              summaryItem.textContent = summaries[key];
+              overSummaryList.appendChild(summaryItem);
+            }
+          }
+          overSummaryList.scrollTop = overSummaryList.scrollHeight;
         }
       });
     }
