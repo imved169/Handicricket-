@@ -256,26 +256,33 @@
       const teamData = {
         players: players,
         format: format,
-        name: teamName
+        teamName: teamName,
+        stats: players.reduce((acc, player) => {
+          acc[player] = {
+            runs: 0,
+            balls: 0,
+            fours: 0,
+            sixes: 0,
+            wickets: 0
+          };
+          return acc;
+        }, {})
       };
       
       try {
-        // Save team to both locations for redundancy
-        await Promise.all([
-          set(ref(db, `rooms/${roomId}/teams/${player}`), teamData),
-          set(ref(db, `rooms/${roomId}/${player}/playing11`), players),
-          set(ref(db, `rooms/${roomId}/${player}/teamName`), teamName),
-          set(ref(db, `rooms/${roomId}/${player}/format`), format)
-        ]);
+        // Save team data to Firebase
+        await set(ref(db, `rooms/${roomId}/teams/${player}`), teamData);
         
+        // Save format and team name for easy access
+        await update(ref(db, `rooms/${roomId}`), {
+          [`${player}/format`]: format,
+          [`${player}/teamName`]: teamName
+        });
+
         // Save to localStorage
         localStorage.setItem('format', format);
         localStorage.setItem('teamName', teamName);
-        if (player === 'player1') {
-          localStorage.setItem('team1', JSON.stringify(teamData));
-        } else {
-          localStorage.setItem('team2', JSON.stringify(teamData));
-        }
+        localStorage.setItem(`team${player === 'player1' ? '1' : '2'}`, JSON.stringify(teamData));
         
         // Show confirmation
         document.getElementById("submitXI").textContent = '✓ Team Submitted';
@@ -304,15 +311,25 @@
               unsubscribeTeams();
               
               // Initialize game data structure
-              set(ref(db, `rooms/${roomId}/gameData`), {
-                overSummaries: {},
-                matchStats: {},
-                spectatorChat: {},
+              const initData = {
+                gameStarted: true,
+                currentInnings: 1,
+                innings1: {
+                  runs: 0,
+                  wickets: 0,
+                  balls: 0,
+                  batters: [],
+                  bowlers: []
+                },
+                currentBatter: null,
+                currentBowler: null,
                 batterStats: {},
                 bowlerStats: {},
                 fallOfWickets: [],
                 ballByBall: {}
-              }).then(() => {
+              };
+
+              set(ref(db, `rooms/${roomId}/gameData`), initData).then(() => {
                 // Set redirect trigger for both players
                 set(ref(db, `rooms/${roomId}/redirectTrigger`), true)
                   .then(() => {
