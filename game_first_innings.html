@@ -806,16 +806,16 @@
     const roomRef = ref(db, `rooms/${room}`);
     const playerRef = ref(db, `rooms/${room}/${player}`);
     const opponentRef = ref(db, `rooms/${room}/${player === "player1" ? "player2" : "player1"}`);
-    const playsRef = ref(db, `rooms/${room}/currentPlays");
-    const batterRef = ref(db, `rooms/${room}/currentBatter");
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
-    const spectatorsRef = ref(db, `rooms/${room}/spectators");
-    const reactionsRef = ref(db, `rooms/${room}/reactions");
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
-    const liveStateRef = ref(db, `rooms/${room}/liveState");
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
-    const resultRef = ref(db, `rooms/${room}/result");
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest");
+    const playsRef = ref(db, `rooms/${room}/currentPlays`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter`);
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
+    const reactionsRef = ref(db, `rooms/${room}/reactions`);
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
+    const liveStateRef = ref(db, `rooms/${room}/liveState`);
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
+    const resultRef = ref(db, `rooms/${room}/result`);
+    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -930,6 +930,41 @@
         status.className = "error";
         loadingSpinner.style.display = "none";
       }
+    }
+
+    // Setup player role (batting/bowling) - UPDATED TO FIX FLICKERING
+    async function setupRole() {
+        // Immediately clear all selection states and UI
+        batterSelected = false;
+        bowlerSelected = false;
+        currentBatter = null;
+        currentBowler = null;
+        currentBatterEl.innerText = "-";
+        currentBowlerEl.innerText = "-";
+        resetSelectionModal();
+
+        // Set role definitively
+        isBatting = (player === battingFirst);
+        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+        
+        console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
+
+        // Atomically clear all Firebase selections
+        await Promise.all([
+            set(batterRef, null),
+            set(bowlerRef, null),
+            update(playsRef, { player1: null, player2: null })
+        ]);
+
+        // Add slight delay before showing new UI to prevent flicker
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Show appropriate selection UI
+        if (isBatting) {
+            await showBatterSelection();
+        } else {
+            await showBowlerSelection();
+        }
     }
 
     // Request reset and notify opponent
@@ -1650,41 +1685,6 @@
           showNotification("Error loading bowlers", 'error');
           enableButtons();
       }
-    }
-
-    // Setup player role (batting/bowling) - UPDATED TO FIX FLICKERING
-    async function setupRole() {
-        // Immediately clear all selection states and UI
-        batterSelected = false;
-        bowlerSelected = false;
-        currentBatter = null;
-        currentBowler = null;
-        currentBatterEl.innerText = "-";
-        currentBowlerEl.innerText = "-";
-        resetSelectionModal();
-
-        // Set role definitively
-        isBatting = (player === battingFirst);
-        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-        
-        console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
-
-        // Atomically clear all Firebase selections
-        await Promise.all([
-            set(batterRef, null),
-            set(bowlerRef, null),
-            update(playsRef, { player1: null, player2: null })
-        ]);
-
-        // Add slight delay before showing new UI to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        // Show appropriate selection UI
-        if (isBatting) {
-            await showBatterSelection();
-        } else {
-            await showBowlerSelection();
-        }
     }
 
     // Function to reset the selection modal
