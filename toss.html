@@ -319,17 +319,24 @@
       elements.coinElement.classList.add("spinning");
       elements.coinElement.textContent = "FLIPPING...";
 
-      // Get the current toss data first
+      // Get current toss data with error checking
       const tossSnap = await get(ref(db, `rooms/${room}/toss`));
       const tossData = tossSnap.val();
       
-      // Generate random result (50/50 chance)
+      if (!tossData || !tossData.caller || !tossData.call) {
+        alert("Toss data is incomplete. Please try again.");
+        return;
+      }
+
+      // Generate truly random result
       const result = Math.random() < 0.5 ? "heads" : "tails";
       
-      // Determine winner fairly
-      const winner = (result === tossData.call) ? tossData.caller : opponent;
+      // Explicit winner determination
+      const winner = (result === tossData.call) ? tossData.caller : 
+                    (tossData.caller === "player1" ? "player2" : "player1");
 
-      console.log(`Call was ${tossData.call}, result was ${result}, winner is ${winner}`);
+      console.log(`Call was ${tossData.call} by ${tossData.caller}, ` +
+                 `result was ${result}, winner is ${winner}`);
 
       // Update database
       await update(ref(db, `rooms/${room}`), {
