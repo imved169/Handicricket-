@@ -911,11 +911,7 @@
           }
         });
         
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
+        resetPlaysBtn.addEventListener("click", resetPlays);
 
         // Initial UI update
         updateScoreboard();
@@ -935,8 +931,15 @@
     // Request reset and notify opponent
     async function requestReset() {
       try {
+        if (resetRequested) {
+          showNotification("Reset already requested. Please wait for opponent.", 'info');
+          return;
+        }
+
         status.innerText = "Requesting reset...";
         resetPlaysBtn.disabled = true;
+        resetRequested = true;
+        resetRequestedBy = player;
         
         // Set reset request with player info
         await set(resetRequestRef, {
@@ -948,8 +951,18 @@
         // Show notification for current player
         showNotification("Reset request sent to opponent", 'info');
         
+        // Set timeout to auto-decline if no response
+        setTimeout(async () => {
+          if (resetRequested) {
+            await declineReset();
+            showNotification("Reset request timed out", 'error');
+          }
+        }, 30000); // 30 second timeout
+        
       } catch (error) {
         console.error("Error requesting reset:", error);
+        resetRequested = false;
+        resetRequestedBy = null;
         status.innerText = "Failed to send reset request";
         resetPlaysBtn.disabled = false;
       }
@@ -961,11 +974,14 @@
       const existingNotif = document.querySelector('.reset-notification');
       if (existingNotif) existingNotif.remove();
 
+      resetRequested = true;
+      resetRequestedBy = requestedBy;
+
       const notification = document.createElement('div');
       notification.className = 'reset-notification';
       notification.innerHTML = `
         <div>${requestedBy === "player1" ? "Player 1" : "Player 2"} wants to reset the current plays</div>
-        <div><small>This will clear both players' card selections for this ball</small></div>
+        <div><small>This will clear both players' card selections</small></div>
         <div class="reset-notification-buttons">
           <button class="reset-accept">Accept</button>
           <button class="reset-decline">Decline</button>
@@ -985,11 +1001,21 @@
         await declineReset();
         notification.remove();
       });
+
+      // Auto-decline after 30 seconds if no response
+      setTimeout(() => {
+        if (resetRequested && notification.parentNode) {
+          notification.remove();
+          declineReset();
+        }
+      }, 30000);
     }
 
-    // Accept reset request - UPDATED TO PROPERLY RESET PLAYS
+    // Accept reset request - PROPERLY CLEARS BOTH PLAYERS' PLAYS
     async function acceptReset() {
       try {
+        if (!resetRequested) return;
+
         // First clear the reset request
         await set(resetRequestRef, null);
         
@@ -999,22 +1025,52 @@
           'currentPlays/player2': null
         });
         
-        showNotification("Current plays have been reset", 'info');
+        showNotification("Both players' selections have been cleared", 'info');
         enableButtons();
+        
       } catch (error) {
         console.error("Error accepting reset:", error);
         showNotification("Failed to reset plays", 'error');
+      } finally {
+        resetRequested = false;
+        resetRequestedBy = null;
       }
     }
 
     // Decline reset request
     async function declineReset() {
       try {
+        if (!resetRequested) return;
+
         await set(resetRequestRef, null);
         showNotification("Reset request declined", 'info');
+        
       } catch (error) {
         console.error("Error declining reset:", error);
         showNotification("Failed to decline reset", 'error');
+      } finally {
+        resetRequested = false;
+        resetRequestedBy = null;
+        resetPlaysBtn.disabled = false;
+      }
+    }
+
+    // Manual reset plays function (from button)
+    async function resetPlays() {
+      try {
+        // First check if there's an existing request
+        const requestSnap = await get(resetRequestRef);
+        if (requestSnap.exists() && requestSnap.val().requested) {
+          showNotification("A reset request is already pending", 'info');
+          return;
+        }
+
+        if (confirm("Request to reset the current plays? This will notify your opponent.")) {
+          await requestReset();
+        }
+      } catch (error) {
+        console.error("Error in resetPlays:", error);
+        showNotification("Failed to initiate reset", 'error');
       }
     }
 
@@ -1890,26 +1946,6 @@
       }
     }
 
-    // Reset plays for both players
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in a single update
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
-        
-        // Clear reset request if it exists
-        await set(resetRequestRef, null);
-        
-        showNotification("Current plays have been reset", 'info');
-        enableButtons();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Failed to reset plays", 'error');
-      }
-    }
-
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
@@ -1932,7 +1968,7 @@
       });
     }
 
-    // Setup Firebase listeners
+    // Setup Firebase listeners - UPDATED RESET LISTENER
     function setupFirebaseListeners() {
       // Listen for batter selection
       onValue(batterRef, (snap) => {
@@ -1966,13 +2002,25 @@
         }
       });
       
-      // Listen for reset requests
+      // Enhanced reset request listener
       onValue(resetRequestRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          const request = snap.val();
-          if (request.requested && request.by !== player) {
+        if (!snap.exists()) {
+          // Reset request was cleared
+          resetRequested = false;
+          resetRequestedBy = null;
+          resetPlaysBtn.disabled = false;
+          return;
+        }
+
+        const request = snap.val();
+        if (request && request.requested) {
+          if (request.by !== player) {
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
+          } else {
+            // This player made the request
+            resetRequested = true;
+            resetRequestedBy = player;
           }
         }
       });
