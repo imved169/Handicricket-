@@ -773,6 +773,9 @@
     let lastBatterRuns = {};
     let resetRequested = false;
     let resetRequestedBy = null;
+    let isResetting = false;
+    let resetCount = 0;
+    const MAX_RESETS = 3;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -1354,7 +1357,7 @@
         else {
           runsScored = batterCard;
           runs += batterCard;
-          batterStats[currentBatter].runs += runsScored;
+          batterStats[currentBatter].runs += batterCard;
           outcome = `${batterCard} Run(s)!`;
           if (batterCard === 4 || batterCard === 6) boundary = true;
           if (batterCard === 6) isSix = true;
@@ -1752,7 +1755,16 @@
 
     // Enable all card buttons
     function enableButtons() {
-      updateButtonStates();
+      if (isResetting) return;
+      
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
+      });
+      
+      if (canPlay) {
+        status.innerText = isBatting ? "Select your shot" : "Select your delivery";
+      }
     }
 
     // End match and show result
@@ -1905,22 +1917,50 @@
 
     // Enhanced resetPlays function with notification system - UPDATED TO RESET PLAYS FOR BOTH PLAYERS
     async function resetPlays() {
+      if (resetCount >= MAX_RESETS) {
+        showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
+        return;
+      }
+
       try {
-        // Reset both players' selections in a single update
+        isResetting = true;
+        disableButtons();
+        resetCount++;
+        
+        // Reset both players' selections in Firebase
         await update(ref(db, `rooms/${room}`), {
           'currentPlays/player1': null,
           'currentPlays/player2': null
         });
+
+        // Clear local selections
+        clearCardSelection();
         
         // Clear reset request
         await set(resetRequestRef, null);
         
-        showNotification("Current plays have been reset for both players", 'info');
-        enableButtons();
-        clearCardSelection();
+        showNotification("Plays have been reset", 'info');
+        
+        // Re-enable buttons based on current game state
+        if (isBatting) {
+          if (!batterSelected) {
+            await showBatterSelection();
+          } else {
+            enableButtons();
+          }
+        } else {
+          if (!bowlerSelected) {
+            await showBowlerSelection();
+          } else {
+            enableButtons();
+          }
+        }
       } catch (error) {
         console.error("Error resetting plays:", error);
         showNotification("Failed to reset plays", 'error');
+        enableButtons();
+      } finally {
+        isResetting = false;
       }
     }
 
@@ -1948,20 +1988,47 @@
 
     // Setup Firebase listeners
     function setupFirebaseListeners() {
-      // Listen for batter selection
+      // Listen for plays reset
+      onValue(playsRef, (snap) => {
+        if (isResetting) return;
+        
+        if (!snap.exists() || (snap.val().player1 === null && snap.val().player2 === null)) {
+          // Plays have been reset by opponent
+          clearCardSelection();
+          enableButtons();
+        }
+      });
+
+      // Listen for batter changes
       onValue(batterRef, (snap) => {
-        if (snap.exists()) {
+        if (!snap.exists()) {
+          currentBatter = null;
+          batterSelected = false;
+          currentBatterEl.textContent = "-";
+          if (isBatting && !isResetting) {
+            showBatterSelection();
+          }
+        } else if (snap.val()) {
           currentBatter = snap.val();
-          currentBatterEl.textContent = currentBatter || "-";
+          currentBatterEl.textContent = currentBatter;
+          batterSelected = true;
           updateButtonStates();
         }
       });
 
-      // Listen for bowler selection
+      // Listen for bowler changes
       onValue(bowlerRef, (snap) => {
-        if (snap.exists()) {
+        if (!snap.exists()) {
+          currentBowler = null;
+          bowlerSelected = false;
+          currentBowlerEl.textContent = "-";
+          if (!isBatting && !isResetting) {
+            showBowlerSelection();
+          }
+        } else if (snap.val()) {
           currentBowler = snap.val();
-          currentBowlerEl.textContent = currentBowler || "-";
+          currentBowlerEl.textContent = currentBowler;
+          bowlerSelected = true;
           updateButtonStates();
         }
       });
