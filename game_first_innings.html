@@ -1056,33 +1056,23 @@
     }
 
     // Manual reset plays function (from button)
-    
-async function acceptReset() {
-  try {
-    if (!resetRequested) return;
+    async function resetPlays() {
+      try {
+        // First check if there's an existing request
+        const requestSnap = await get(resetRequestRef);
+        if (requestSnap.exists() && requestSnap.val().requested) {
+          showNotification("A reset request is already pending", 'info');
+          return;
+        }
 
-    // Clear the reset request first
-    await set(resetRequestRef, null);
-    
-    // Properly clear both players' plays in one atomic operation
-    const updates = {};
-    updates[`rooms/${room}/currentPlays/player1`] = null;
-    updates[`rooms/${room}/currentPlays/player2`] = null;
-    
-    // Perform the update
-    await update(ref(db), updates);
-    
-    showNotification("Both players' card selections have been reset", 'info');
-    enableButtons();
-    
-  } catch (error) {
-    console.error("Error in acceptReset:", error);
-    showNotification("Failed to reset plays", 'error');
-  } finally {
-    resetRequested = false;
-    resetRequestedBy = null;
-  }
-}
+        if (confirm("Request to reset the current plays? This will notify your opponent.")) {
+          await requestReset();
+        }
+      } catch (error) {
+        console.error("Error in resetPlays:", error);
+        showNotification("Failed to initiate reset", 'error');
+      }
+    }
 
     // Highlight selected card
     function highlightSelectedCard(value) {
