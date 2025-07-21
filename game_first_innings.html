@@ -775,7 +775,9 @@
     let resetRequestedBy = null;
     let isResetting = false;
     let resetCount = 0;
-    const MAX_RESETS = 10000000;
+    const MAX_RESETS = 3;
+    let selectedCardValue = null;
+    let isProcessingSelection = false;
 
     // DOM elements
     const status = document.getElementById("status");
@@ -1027,6 +1029,8 @@
       buttons.forEach(btn => {
         btn.classList.remove("selected");
       });
+      selectedCardValue = null;
+      isProcessingSelection = false;
     }
 
     // Highlight selected card
@@ -1037,28 +1041,32 @@
       });
     }
 
-    // Setup card buttons functionality
+    // Setup card buttons functionality with improved selection handling
     function setupCardButtons() {
       buttons.forEach(btn => {
-        btn.addEventListener("click", async () => {
-          if (btn.disabled) return;
+        btn.addEventListener("click", async function() {
+          if (btn.disabled || isProcessingSelection) return;
+          
           const cardValue = parseInt(btn.dataset.value);
+          selectedCardValue = cardValue;
+          isProcessingSelection = true;
 
-          // Disable buttons to prevent double click
+          // Immediate visual feedback
           disableButtons();
           highlightSelectedCard(cardValue);
-          status.innerText = `You selected ${cardValue}`;
+          status.innerText = `Selected: ${cardValue}`;
 
           try {
-            // Save the selected card to Firebase
             await update(playsRef, {
               [player]: cardValue
             });
           } catch (error) {
-            console.error("Error saving card selection:", error);
-            showNotification("Failed to send your card selection", 'error');
+            console.error("Selection failed:", error);
+            status.innerText = "Selection failed, please try again";
             enableButtons();
             clearCardSelection();
+          } finally {
+            isProcessingSelection = false;
           }
         });
       });
@@ -1235,6 +1243,10 @@
     // Process the outcome of a ball with fractional wickets - UPDATED FUNCTION
     async function handleResult() {
       try {
+        // Clear selection state
+        selectedCardValue = null;
+        isProcessingSelection = false;
+        
         const playsSnap = await get(playsRef);
         if (!playsSnap.exists()) return;
         
