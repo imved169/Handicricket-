@@ -459,48 +459,6 @@
       100% { transform: rotate(360deg); }
     }
     
-    /* Reset Notification */
-    .reset-notification {
-      position: fixed;
-      top: 20%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.9);
-      color: white;
-      padding: 15px 25px;
-      border-radius: 10px;
-      font-size: 16px;
-      z-index: 1001;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    
-    .reset-notification-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-    
-    .reset-notification button {
-      padding: 5px 15px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    
-    .reset-accept {
-      background: #4CAF50;
-      color: white;
-    }
-    
-    .reset-decline {
-      background: #f44336;
-      color: white;
-    }
-    
     /* Responsive Design */
     @media (max-width: 768px) {
       .team-container {
@@ -806,16 +764,16 @@
     const roomRef = ref(db, `rooms/${room}`);
     const playerRef = ref(db, `rooms/${room}/${player}`);
     const opponentRef = ref(db, `rooms/${room}/${player === "player1" ? "player2" : "player1"}`);
-    const playsRef = ref(db, `rooms/${room}/currentPlays`);
-    const batterRef = ref(db, `rooms/${room}/currentBatter`);
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
-    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
-    const reactionsRef = ref(db, `rooms/${room}/reactions`);
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
-    const liveStateRef = ref(db, `rooms/${room}/liveState`);
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
+    const playsRef = ref(db, `rooms/${room}/currentPlays");
+    const batterRef = ref(db, `rooms/${room}/currentBatter");
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
+    const spectatorsRef = ref(db, `rooms/${room}/spectators");
+    const reactionsRef = ref(db, `rooms/${room}/reactions");
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
+    const liveStateRef = ref(db, `rooms/${room}/liveState");
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
+    const resultRef = ref(db, `rooms/${room}/result");
+    const lastResetRef = ref(db, `rooms/${room}/lastReset");
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -911,11 +869,7 @@
           }
         });
         
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
+        resetPlaysBtn.addEventListener("click", requestReset);
 
         // Initial UI update
         updateScoreboard();
@@ -935,86 +889,28 @@
     // Request reset and notify opponent
     async function requestReset() {
       try {
-        status.innerText = "Requesting reset...";
+        status.innerText = "Resetting plays...";
         resetPlaysBtn.disabled = true;
         
-        // Set reset request with player info
-        await set(resetRequestRef, {
-          requested: true,
-          by: player,
-          timestamp: Date.now()
-        });
-        
-        // Show notification for current player
-        showNotification("Reset request sent to opponent", 'info');
-        
-      } catch (error) {
-        console.error("Error requesting reset:", error);
-        status.innerText = "Failed to send reset request";
-        resetPlaysBtn.disabled = false;
-      }
-    }
-
-    // Show reset confirmation dialog to opponent
-    function showResetConfirmation(requestedBy) {
-      // Remove any existing notifications first
-      const existingNotif = document.querySelector('.reset-notification');
-      if (existingNotif) existingNotif.remove();
-
-      const notification = document.createElement('div');
-      notification.className = 'reset-notification';
-      notification.innerHTML = `
-        <div>${requestedBy === "player1" ? "Player 1" : "Player 2"} wants to reset the current plays</div>
-        <div><small>This will reset both players' card selections</small></div>
-        <div class="reset-notification-buttons">
-          <button class="reset-accept">Accept</button>
-          <button class="reset-decline">Decline</button>
-        </div>
-      `;
-      
-      document.body.appendChild(notification);
-      
-      // Handle accept
-      notification.querySelector('.reset-accept').addEventListener('click', async () => {
-        await acceptReset();
-        notification.remove();
-      });
-      
-      // Handle decline
-      notification.querySelector('.reset-decline').addEventListener('click', async () => {
-        await declineReset();
-        notification.remove();
-      });
-    }
-
-    // Accept reset request - UPDATED TO RESET PLAYS FOR BOTH PLAYERS
-    async function acceptReset() {
-      try {
-        // First clear the reset request
-        await set(resetRequestRef, null);
-        
-        // Then reset plays for both players in a single transaction
+        // Immediately reset both players' plays
         await update(ref(db, `rooms/${room}`), {
           'currentPlays/player1': null,
           'currentPlays/player2': null
         });
         
+        // Notify opponent that reset occurred
+        await set(lastResetRef, {
+          by: player,
+          timestamp: Date.now()
+        });
+        
         showNotification("Plays have been reset for both players", 'info');
         enableButtons();
+        
       } catch (error) {
-        console.error("Error accepting reset:", error);
-        showNotification("Failed to reset plays", 'error');
-      }
-    }
-
-    // Decline reset request
-    async function declineReset() {
-      try {
-        await set(resetRequestRef, null);
-        showNotification("Reset request declined", 'info');
-      } catch (error) {
-        console.error("Error declining reset:", error);
-        showNotification("Failed to decline reset", 'error');
+        console.error("Error resetting plays:", error);
+        status.innerText = "Failed to reset plays";
+        resetPlaysBtn.disabled = false;
       }
     }
 
@@ -1890,26 +1786,6 @@
       }
     }
 
-    // Enhanced resetPlays function with notification system - UPDATED TO RESET PLAYS FOR BOTH PLAYERS
-    async function resetPlays() {
-      try {
-        // Reset both players' selections in a single update
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
-        
-        // Clear reset request
-        await set(resetRequestRef, null);
-        
-        showNotification("Current plays have been reset for both players", 'info');
-        enableButtons();
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Failed to reset plays", 'error');
-      }
-    }
-
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
@@ -1966,13 +1842,12 @@
         }
       });
       
-      // Listen for reset requests
-      onValue(resetRequestRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          const request = snap.val();
-          if (request.requested && request.by !== player) {
-            // Show reset confirmation to the other player
-            showResetConfirmation(request.by);
+      // Listen for reset notifications
+      onValue(lastResetRef, (snap) => {
+        if (snap.exists()) {
+          const resetInfo = snap.val();
+          if (resetInfo.by !== player) {
+            showNotification(`Opponent has reset the current plays`, 'info');
           }
         }
       });
