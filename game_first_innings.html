@@ -816,6 +816,7 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
+    const notificationsRef = ref(db, `rooms/${room}/notifications`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -912,8 +913,31 @@
         });
         
         resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
+          if (confirm("Reset current plays for both players?")) {
+            try {
+              status.innerText = "Resetting plays...";
+              resetPlaysBtn.disabled = true;
+              
+              // Reset both players' plays
+              await update(ref(db, `rooms/${room}`), {
+                'currentPlays/player1': null,
+                'currentPlays/player2': null
+              });
+              
+              // Show notification to both players
+              await set(notificationsRef, {
+                type: "reset",
+                message: "Plays have been reset",
+                timestamp: Date.now()
+              });
+              
+              showNotification("Plays reset for both players", 'info');
+              enableButtons();
+            } catch (error) {
+              console.error("Error resetting plays:", error);
+              showNotification("Failed to reset plays", 'error');
+              resetPlaysBtn.disabled = false;
+            }
           }
         });
 
@@ -929,92 +953,6 @@
                            </button>`;
         status.className = "error";
         loadingSpinner.style.display = "none";
-      }
-    }
-
-    // Request reset and notify opponent
-    async function requestReset() {
-      try {
-        status.innerText = "Requesting reset...";
-        resetPlaysBtn.disabled = true;
-        
-        // Set reset request with player info
-        await set(resetRequestRef, {
-          requested: true,
-          by: player,
-          timestamp: Date.now()
-        });
-        
-        // Show notification for current player
-        showNotification("Reset request sent to opponent", 'info');
-        
-      } catch (error) {
-        console.error("Error requesting reset:", error);
-        status.innerText = "Failed to send reset request";
-        resetPlaysBtn.disabled = false;
-      }
-    }
-
-    // Show reset confirmation dialog to opponent
-    function showResetConfirmation(requestedBy) {
-      // Remove any existing notifications first
-      const existingNotif = document.querySelector('.reset-notification');
-      if (existingNotif) existingNotif.remove();
-
-      const notification = document.createElement('div');
-      notification.className = 'reset-notification';
-      notification.innerHTML = `
-        <div>${requestedBy === "player1" ? "Player 1" : "Player 2"} wants to reset the current plays</div>
-        <div><small>This will reset both players' card selections</small></div>
-        <div class="reset-notification-buttons">
-          <button class="reset-accept">Accept</button>
-          <button class="reset-decline">Decline</button>
-        </div>
-      `;
-      
-      document.body.appendChild(notification);
-      
-      // Handle accept
-      notification.querySelector('.reset-accept').addEventListener('click', async () => {
-        await acceptReset();
-        notification.remove();
-      });
-      
-      // Handle decline
-      notification.querySelector('.reset-decline').addEventListener('click', async () => {
-        await declineReset();
-        notification.remove();
-      });
-    }
-
-    // Accept reset request - UPDATED TO RESET PLAYS FOR BOTH PLAYERS
-    async function acceptReset() {
-      try {
-        // First clear the reset request
-        await set(resetRequestRef, null);
-        
-        // Then reset plays for both players in a single transaction
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
-        
-        showNotification("Plays have been reset for both players", 'info');
-        enableButtons();
-      } catch (error) {
-        console.error("Error accepting reset:", error);
-        showNotification("Failed to reset plays", 'error');
-      }
-    }
-
-    // Decline reset request
-    async function declineReset() {
-      try {
-        await set(resetRequestRef, null);
-        showNotification("Reset request declined", 'info');
-      } catch (error) {
-        console.error("Error declining reset:", error);
-        showNotification("Failed to decline reset", 'error');
       }
     }
 
@@ -1966,14 +1904,15 @@
         }
       });
       
-      // Listen for reset requests
-      onValue(resetRequestRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          const request = snap.val();
-          if (request.requested && request.by !== player) {
-            // Show reset confirmation to the other player
-            showResetConfirmation(request.by);
+      // Listen for notifications
+      onValue(notificationsRef, (snap) => {
+        if (snap.exists()) {
+          const notification = snap.val();
+          if (notification.type === "reset") {
+            showNotification(notification.message, 'info');
           }
+          // Clear the notification after showing
+          set(notificationsRef, null);
         }
       });
 
