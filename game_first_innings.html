@@ -816,7 +816,6 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
-    const notificationsRef = ref(db, `rooms/${room}/notifications`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -913,31 +912,8 @@
         });
         
         resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Reset current plays for both players?")) {
-            try {
-              status.innerText = "Resetting plays...";
-              resetPlaysBtn.disabled = true;
-              
-              // Reset both players' plays
-              await update(ref(db, `rooms/${room}`), {
-                'currentPlays/player1': null,
-                'currentPlays/player2': null
-              });
-              
-              // Show notification to both players
-              await set(notificationsRef, {
-                type: "reset",
-                message: "Plays have been reset",
-                timestamp: Date.now()
-              });
-              
-              showNotification("Plays reset for both players", 'info');
-              enableButtons();
-            } catch (error) {
-              console.error("Error resetting plays:", error);
-              showNotification("Failed to reset plays", 'error');
-              resetPlaysBtn.disabled = false;
-            }
+          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
+            await requestReset();
           }
         });
 
@@ -1998,18 +1974,6 @@
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
-        }
-      });
-
-      // Listen for notifications
-      onValue(notificationsRef, (snap) => {
-        if (snap.exists()) {
-          const notification = snap.val();
-          if (notification.type === "reset") {
-            showNotification(notification.message, 'info');
-          }
-          // Clear the notification after showing
-          set(notificationsRef, null);
         }
       });
 
