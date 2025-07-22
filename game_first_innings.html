@@ -765,9 +765,10 @@
       measurementId: "G-HSV9H4LEJQ"
     };
 
-    // Initialize Firebase with error handling
+    // Initialize Firebase with enhanced error handling
     let app;
     let db;
+    let roomRef, playerRef, opponentRef, playsRef, batterRef, bowlerRef;
 
     try {
       console.log("Initializing Firebase...");
@@ -779,26 +780,40 @@
       document.getElementById("result").innerHTML = `
         Failed to connect to game server.<br>
         Please check your internet connection and refresh.<br>
-        <button onclick="location.reload()" style="margin-top:10px;">
+        <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
           Refresh Page
         </button>
       `;
-      throw error; // Stop execution if Firebase fails
+      document.getElementById("result").className = "error";
+      throw error;
     }
 
     // Get URL parameters
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
+    
+    if (!room || !player) {
+      document.getElementById("result").innerHTML = `
+        Missing required parameters in URL.<br>
+        Please return to the main page and join the game again.<br>
+        <button onclick="window.location.href='index.html'" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+          Return to Main Page
+        </button>
+      `;
+      document.getElementById("result").className = "error";
+      throw new Error("Missing room or player parameters");
+    }
+
     const opponent = player === "player1" ? "player2" : "player1";
 
-    // Debug game parameters
-    console.log("Game Parameters:", {
-      room: room,
-      player: player,
-      opponent: opponent,
-      url: window.location.href
-    });
+    // Set up Firebase references
+    roomRef = ref(db, `rooms/${room}`);
+    playerRef = ref(db, `rooms/${room}/${player}`);
+    opponentRef = ref(db, `rooms/${room}/${opponent}`);
+    playsRef = ref(db, `rooms/${room}/currentPlays`);
+    batterRef = ref(db, `rooms/${room}/currentBatter`);
+    bowlerRef = ref(db, `rooms/${room}/currentBowler`);
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -943,65 +958,57 @@
     const team1NameDisplay = document.getElementById("team1NameDisplay");
     const team2NameDisplay = document.getElementById("team2NameDisplay");
 
-    // Firebase references
-    const roomRef = ref(db, `rooms/${room}`);
-    const playerRef = ref(db, `rooms/${room}/${player}`);
-    const opponentRef = ref(db, `rooms/${room}/${player === "player1" ? "player2" : "player1"}`);
-    const playsRef = ref(db, `rooms/${room}/currentPlays");
-    const batterRef = ref(db, `rooms/${room}/currentBatter");
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler");
-    const spectatorsRef = ref(db, `rooms/${room}/spectators");
-    const reactionsRef = ref(db, `rooms/${room}/reactions");
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats");
-    const liveStateRef = ref(db, `rooms/${room}/liveState");
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries");
-    const resultRef = ref(db, `rooms/${room}/result");
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest");
-    const teamsRef = ref(db, `rooms/${room}/teams");
+    // Additional Firebase references
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
+    const reactionsRef = ref(db, `rooms/${room}/reactions`);
+    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
+    const liveStateRef = ref(db, `rooms/${room}/liveState`);
+    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
+    const resultRef = ref(db, `rooms/${room}/result`);
+    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
+    const teamsRef = ref(db, `rooms/${room}/teams`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
       try {
-        console.log("Starting game initialization..."); // Debug log
+        console.log("Starting game initialization...");
         resultEl.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
 
-        // 1. Verify URL parameters first
-        console.log("Checking URL parameters...");
-        if (!room || !player) {
-          throw new Error("Missing room or player parameters in URL");
-        }
-
-        // Check if spectator mode
-        isSpectator = player === "spectator";
-        if (isSpectator) {
-          setupSpectatorMode();
-          return;
-        }
-
-        // 2. Set player online status with timeout
+        // Set player online status with timeout
         console.log("Setting player online status...");
-        await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
+        try {
+          await set(playerRef, true);
+          console.log("Player status set successfully");
+        } catch (error) {
+          console.error("Error setting player status:", error);
+          throw new Error("Failed to connect to game server");
+        }
 
-        // 3. Load room data with retries
+        // Load room data with retries
         console.log("Loading room data...");
-        const roomSnap = await getWithRetries(roomRef, 3, 1000);
-        
-        if (!roomSnap.exists()) {
-          throw new Error(`Room ${room} not found in database`);
+        let roomSnap;
+        try {
+          roomSnap = await get(roomRef);
+          if (!roomSnap.exists()) {
+            throw new Error(`Room ${room} not found in database`);
+          }
+        } catch (error) {
+          console.error("Error loading room data:", error);
+          throw new Error("Failed to load game data. Please try again.");
         }
 
         const roomData = roomSnap.val();
         console.log("Room data loaded:", roomData);
 
-        // 4. Verify game setup is complete
+        // Verify game setup is complete
         console.log("Verifying game setup...");
         if (!roomData.toss?.winner && !roomData.tossWinner) {
-          throw new Error("Toss not completed");
+          throw new Error("Toss not completed. Please complete toss first.");
         }
         
         if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          throw new Error("Teams not set up");
+          throw new Error("Teams not set up. Please set teams first.");
         }
 
         // Get toss and batting first info
@@ -1014,34 +1021,21 @@
 
         // Mark game as started if not already
         if (!roomData.gameStarted) {
-          await update(roomRef, {
-            gameStarted: true
-          });
+          await update(roomRef, { gameStarted: true });
         }
 
-        // Load teams with retry logic
+        // Load teams
         console.log("Loading teams...");
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const teamsLoaded = await loadPlaying11();
-            if (teamsLoaded) break;
-          } catch (error) {
-            console.error(`Team load attempt ${retries + 1} failed:`, error);
-            retries++;
-            if (retries >= maxRetries) {
-              throw new Error("Failed to load teams after multiple attempts");
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+        try {
+          await loadPlaying11();
+        } catch (error) {
+          console.error("Error loading teams:", error);
+          throw new Error("Failed to load team data");
         }
 
         // Set game format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
-        
         formatDisplay.innerText = `${currentFormat.name}`;
         
         // Initialize stats
@@ -1075,12 +1069,20 @@
         updateScoreboard();
         resultEl.innerText = "Game ready!";
         loadingSpinner.style.display = "none";
+        console.log("Game initialization completed successfully");
       } catch (error) {
         console.error("Initialization failed:", error);
-        resultEl.innerHTML = `Initialization failed: ${error.message}<br>
-                           <button onclick="initGame()" style="margin-top:10px;">
-                             Retry Initialization
-                           </button>`;
+        resultEl.innerHTML = `
+          ${error.message}<br>
+          <div style="margin-top:15px;">
+            <button onclick="initGame()" style="padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right:10px;">
+              Retry Initialization
+            </button>
+            <button onclick="window.location.href='index.html'" style="padding: 8px 15px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">
+              Return to Main Page
+            </button>
+          </div>
+        `;
         resultEl.className = "error";
         loadingSpinner.style.display = "none";
       }
@@ -1466,8 +1468,8 @@
         const card1 = plays.player1;
         const card2 = plays.player2;
         const battingPlayer = battingFirst;
-        const batterCard = battingPlayer === "player1" ? card1 : card2;
-        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
+        const batterCard = battingPlayer === "player1" ? card2 : card1;
+        const bowlerCard = battingPlayer === "player1" ? card1 : card2;
 
         let outcome = "";
         let isLegalBall = false;
@@ -2261,11 +2263,19 @@
       });
     }
 
-    // Start the game
-    initGame().catch(error => {
-      console.error("Uncaught initialization error:", error);
-      document.getElementById("result").innerHTML = `Fatal error: ${error.message}<br>
-                     Please refresh or check console for details.`;
+    // Start the game with error handling
+    window.addEventListener('DOMContentLoaded', () => {
+      initGame().catch(error => {
+        console.error("Uncaught initialization error:", error);
+        document.getElementById("result").innerHTML = `
+          Fatal error: ${error.message}<br>
+          Please refresh or check console for details.<br>
+          <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Refresh Page
+          </button>
+        `;
+        document.getElementById("result").className = "error";
+      });
     });
   </script>
 </body>
