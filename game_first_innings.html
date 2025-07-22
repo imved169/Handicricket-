@@ -306,7 +306,7 @@
 
     .teams-container {
       width: 90%;
-      max-width: 500px;
+      max-width: 800px;
       height: 70%;
       display: flex;
       overflow: hidden;
@@ -314,7 +314,7 @@
     }
 
     .team-slide {
-      min-width: 100%;
+      min-width: 50%;
       height: 100%;
       padding: 15px;
       background: rgba(13, 42, 82, 0.9);
@@ -322,6 +322,7 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       transition: transform 0.5s ease;
       overflow-y: auto;
+      margin: 0 5px;
     }
 
     .team-slide h3 {
@@ -388,25 +389,27 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
-    .slide-indicator {
+    .team-names {
       display: flex;
-      justify-content: center;
-      margin-top: 15px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-weight: bold;
+      font-size: 14px;
+      background: rgba(13, 42, 82, 0.5);
+      padding: 8px;
+      border-radius: 6px;
     }
 
-    .indicator-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.3);
-      margin: 0 4px;
-      cursor: pointer;
-      transition: all 0.3s;
+    .team-name-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    .indicator-dot.active {
-      background: #1e88e5;
-      transform: scale(1.2);
+    .team-label {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 3px;
     }
 
     .over-summary-container {
@@ -423,14 +426,6 @@
       margin: 4px 0;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       font-size: 13px;
-    }
-
-    .team-names {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      font-weight: bold;
-      font-size: 14px;
     }
 
     .spectator-mode {
@@ -593,6 +588,14 @@
         width: 95%;
         max-height: 60vh;
       }
+      
+      .teams-container {
+        width: 95%;
+      }
+      
+      .team-slide {
+        min-width: 100%;
+      }
     }
     
     @media (max-width: 480px) {
@@ -636,6 +639,11 @@
       .team-slide li {
         font-size: 13px;
       }
+      
+      .team-names {
+        flex-direction: column;
+        gap: 5px;
+      }
     }
   </style>
 </head>
@@ -644,8 +652,14 @@
     <h1>🏏 HandiCricket</h1>
     
     <div class="team-names">
-      <div id="team1NameDisplay">Team 1</div>
-      <div id="team2NameDisplay">Team 2</div>
+      <div id="team1NameDisplay" class="team-name-display">
+        <span class="team-label">Batting:</span>
+        <span id="team1Name">Team A</span>
+      </div>
+      <div id="team2NameDisplay" class="team-name-display">
+        <span class="team-label">Bowling:</span>
+        <span id="team2Name">Team B</span>
+      </div>
     </div>
     
     <div id="topControls">
@@ -717,10 +731,6 @@
         <h3 id="modalTeam2Name">Team 2</h3>
         <ul id="modalTeam2Players"></ul>
       </div>
-    </div>
-    <div class="slide-indicator">
-      <div class="indicator-dot active" data-slide="0"></div>
-      <div class="indicator-dot" data-slide="1"></div>
     </div>
   </div>
 
@@ -915,10 +925,9 @@
     const teamsModal = document.getElementById("teamsModal");
     const closeTeamsBtn = document.getElementById("closeTeamsBtn");
     const teamsSlider = document.getElementById("teamsSlider");
-    const indicatorDots = document.querySelectorAll(".indicator-dot");
     const overSummaryList = document.getElementById("overSummaryList");
-    const team1NameDisplay = document.getElementById("team1NameDisplay");
-    const team2NameDisplay = document.getElementById("team2NameDisplay");
+    const team1NameDisplay = document.getElementById("team1Name");
+    const team2NameDisplay = document.getElementById("team2Name");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2093,16 +2102,14 @@
         teamsModal.style.display = "none";
       });
 
-      // Slide functionality
-      indicatorDots.forEach(dot => {
-        dot.addEventListener("click", () => {
-          const slideIndex = parseInt(dot.dataset.slide);
-          teamsSlider.style.transform = `translateX(-${slideIndex * 100}%)`;
-          
-          indicatorDots.forEach(d => d.classList.remove("active"));
-          dot.classList.add("active");
+      // On larger screens, show both teams side by side
+      if (window.innerWidth > 768) {
+        teamsSlider.style.transform = "translateX(0)";
+        teamsSlider.style.width = "200%";
+        document.querySelectorAll(".team-slide").forEach(slide => {
+          slide.style.minWidth = "50%";
         });
-      });
+      }
     }
 
     // Request reset and notify opponent
