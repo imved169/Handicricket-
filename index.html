@@ -204,7 +204,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -273,11 +273,12 @@
         });
         
         // Redirect to toss when player2 joins
-        onValue(ref(db, `rooms/${roomCode}/team2`), (snap) => {
+        const unsubscribe = onValue(ref(db, `rooms/${roomCode}/team2`), (snap) => {
           if (snap.exists()) {
+            unsubscribe(); // Stop listening
             window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${format}`;
           }
-        });
+        }, { onlyOnce: true });
         
       } catch (error) {
         console.error("Error creating room:", error);
