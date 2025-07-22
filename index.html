@@ -166,6 +166,17 @@
       color: #aaa;
     }
     
+    .room-code-display {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 5px;
+      display: none;
+    }
+    
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
@@ -230,6 +241,7 @@
       </div>
       
       <button id="createGameBtn" class="btn btn-create">Create New Match</button>
+      <div id="roomCodeDisplay" class="room-code-display"></div>
     </div>
     
     <div class="tab-content" id="join-tab">
@@ -246,16 +258,20 @@
     
     <div class="tab-content" id="spectate-tab">
       <div class="input-group">
+        <label for="spectatorName">Your Name</label>
+        <input type="text" id="spectatorName" placeholder="Enter your name">
+      </div>
+      <div class="input-group">
         <label for="spectateRoomCode">Room Code</label>
         <input type="text" id="spectateRoomCode" placeholder="Enter 4-digit room code" maxlength="4">
       </div>
-      <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
+      <button id="spectateGameBtn" class="btn btn-spectate">Spectate Match</button>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -292,7 +308,7 @@
     });
     
     // Create game
-    document.getElementById('createGameBtn').addEventListener('click', function() {
+    document.getElementById('createGameBtn').addEventListener('click', async function() {
       const teamName = document.getElementById('teamName').value.trim();
       if (!teamName) {
         alert('Please enter your team name');
@@ -301,13 +317,45 @@
       
       // Generate a random 4-digit room code
       const roomCode = Math.floor(1000 + Math.random() * 9000);
+      const roomRef = ref(db, `rooms/${roomCode}`);
       
-      // Redirect to toss page with all parameters
-      window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${selectedFormat}`;
+      try {
+        // Check if room already exists
+        const snapshot = await get(roomRef);
+        if (snapshot.exists()) {
+          alert('Room already exists. Please try again.');
+          return;
+        }
+        
+        // Create room with initial data
+        await set(roomRef, {
+          player1: {
+            team: teamName,
+            connected: true,
+            format: selectedFormat
+          },
+          created: Date.now(),
+          status: 'waiting'
+        });
+        
+        // Show room code
+        const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+        roomCodeDisplay.textContent = `Room Code: ${roomCode}`;
+        roomCodeDisplay.style.display = 'block';
+        
+        // Redirect to toss page after 3 seconds
+        setTimeout(() => {
+          window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${selectedFormat}`;
+        }, 3000);
+        
+      } catch (error) {
+        console.error("Error creating room:", error);
+        alert('Failed to create room. Please try again.');
+      }
     });
     
     // Join game
-    document.getElementById('joinGameBtn').addEventListener('click', function() {
+    document.getElementById('joinGameBtn').addEventListener('click', async function() {
       const teamName = document.getElementById('joinTeamName').value.trim();
       const roomCode = document.getElementById('roomCode').value.trim();
       
@@ -321,20 +369,70 @@
         return;
       }
       
-      // Redirect to toss page with all parameters (format will be obtained from room)
-      window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}`;
+      const roomRef = ref(db, `rooms/${roomCode}`);
+      
+      try {
+        const snapshot = await get(roomRef);
+        if (!snapshot.exists()) {
+          alert('Room not found. Please check the code and try again.');
+          return;
+        }
+        
+        const roomData = snapshot.val();
+        if (roomData.player2) {
+          alert('Room is full. Only 2 players allowed per room.');
+          return;
+        }
+        
+        // Join as player2
+        await update(roomRef, {
+          player2: {
+            team: teamName,
+            connected: true
+          },
+          status: 'ready'
+        });
+        
+        // Redirect to toss page
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}`;
+        
+      } catch (error) {
+        console.error("Error joining room:", error);
+        alert('Failed to join room. Please try again.');
+      }
     });
     
     // Spectate game
-    document.getElementById('spectateBtn').addEventListener('click', function() {
+    document.getElementById('spectateGameBtn').addEventListener('click', async function() {
+      const spectatorName = document.getElementById('spectatorName').value.trim();
       const roomCode = document.getElementById('spectateRoomCode').value.trim();
+      
+      if (!spectatorName) {
+        alert('Please enter your name');
+        return;
+      }
       
       if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
         alert('Please enter a valid 4-digit room code');
         return;
       }
       
-      window.location.href = `toss.html?room=${roomCode}&player=spectator`;
+      const roomRef = ref(db, `rooms/${roomCode}`);
+      
+      try {
+        const snapshot = await get(roomRef);
+        if (!snapshot.exists()) {
+          alert('Room not found. Please check the code and try again.');
+          return;
+        }
+        
+        // Redirect to game page as spectator
+        window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator&name=${encodeURIComponent(spectatorName)}`;
+        
+      } catch (error) {
+        console.error("Error spectating room:", error);
+        alert('Failed to join as spectator. Please try again.');
+      }
     });
     
     // Focus on room code input when join/spectate tab is clicked
