@@ -249,6 +249,7 @@
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
+    const teamName = decodeURIComponent(params.get('team') || (player === "player1" ? "Team A" : "Team B"));
     const opponent = player === "player1" ? "player2" : "player1";
 
     // DOM elements
@@ -272,7 +273,7 @@
 
     // Team data
     let myPlayers = [];
-    let myTeamName = player === "player1" ? "Team A" : "Team B";
+    let myTeamName = teamName;
     let opponentTeamReady = false;
 
     // Initialize UI
@@ -346,7 +347,7 @@
       submitTeamBtn.disabled = true;
       waiting.style.display = 'block';
 
-      // Update team in Firebase
+      // Update team in Firebase with name and players
       update(teamsRef, {
         [player]: {
           name: myTeamName,
@@ -365,7 +366,7 @@
       if (!snap.exists()) return;
 
       const teams = snap.val();
-      const bothTeamsReady = teams.player1?.players?.length > 0 && teams.player2?.players?.length > 0;
+      const bothTeamsReady = teams.player1 && teams.player2;
 
       if (bothTeamsReady) {
         waiting.style.display = 'none';
