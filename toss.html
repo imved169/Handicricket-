@@ -116,7 +116,24 @@
       backface-visibility: hidden;
     }
     
+    .coin .heads {
+      background: linear-gradient(145deg, #ffd700, #daa520);
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
     .coin .tails {
+      background: linear-gradient(145deg, #daa520, #ffd700);
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transform: rotateY(180deg);
     }
     
@@ -240,15 +257,6 @@
       margin: 15px auto;
     }
     
-    .spectator-mode {
-      background: #9c27b0;
-      padding: 4px 8px;
-      border-radius: 15px;
-      margin-bottom: 8px;
-      display: inline-block;
-      font-size: 12px;
-    }
-    
     @keyframes flip {
       0% { transform: rotateY(0deg); }
       100% { transform: rotateY(360deg); }
@@ -307,8 +315,6 @@
       </div>
       
       <div class="toss-section">
-        <div id="spectatorMode" class="spectator-mode" style="display: none;">Spectator Mode</div>
-        
         <div class="coin" id="coin">
           <div class="heads">H</div>
           <div class="tails">T</div>
@@ -369,7 +375,6 @@
     const teamName = decodeURIComponent(params.get('team'));
     const format = params.get('format');
     const opponent = player === "player1" ? "player2" : "player1";
-    const isSpectator = player === "spectator";
 
     const team1Name = document.getElementById('team1Name');
     const team2Name = document.getElementById('team2Name');
@@ -390,111 +395,96 @@
     const roomInfo = document.getElementById('room-info');
     const formatInfo = document.getElementById('format-info');
     const playerInfo = document.getElementById('player-info');
-    const spectatorMode = document.getElementById('spectatorMode');
 
     const roomRef = ref(db, `rooms/${room}`);
     const tossRef = ref(db, `rooms/${room}/toss`);
     const playerRef = ref(db, `rooms/${room}/${player}`);
     const opponentRef = ref(db, `rooms/${room}/${opponent}`);
 
-    if (isSpectator) {
-      spectatorMode.style.display = "inline-block";
-      tossChoiceSection.style.display = "none";
-      waiting.style.display = "block";
-      waitingText.textContent = "Spectating match...";
+    roomInfo.textContent = `Room Code: ${room}`;
+    playerInfo.textContent = `You are: ${player === "player1" ? "Player 1" : "Player 2"}`;
+    
+    if (player === "player1") {
+      team1Name.textContent = teamName;
+      team1Role.textContent = "(You)";
+      team2Role.textContent = "(Opponent)";
     } else {
-      roomInfo.textContent = `Room Code: ${room}`;
-      playerInfo.textContent = `You are: ${player === "player1" ? "Player 1 (Team A)" : "Player 2 (Team B)"}`;
+      team2Name.textContent = teamName;
+      team1Role.textContent = "(Opponent)";
+      team2Role.textContent = "(You)";
     }
 
-    onValue(roomRef, (snap) => {
-      if (!snap.exists()) return;
-      
-      const roomData = snap.val();
-      
-      if (roomData.player1) {
-        team1Name.textContent = roomData.player1.team || "Team A";
-        team1Role.textContent = player === "player1" ? "(You)" : "(Opponent)";
-      }
-      
-      if (roomData.player2) {
-        team2Name.textContent = roomData.player2.team || "Team B";
-        team2Role.textContent = player === "player2" ? "(You)" : "(Opponent)";
-      }
-      
-      if (roomData.player1?.format) {
-        const formatNames = {
-          "5": "T5 (5 Overs)",
-          "10": "T10 (10 Overs)",
-          "20": "T20 (20 Overs)",
-          "50": "ODI (50 Overs)"
-        };
-        formatInfo.textContent = `Match Format: ${formatNames[roomData.player1.format] || roomData.player1.format}`;
+    const formatNames = {
+      "5": "T5 (5 Overs)",
+      "10": "T10 (10 Overs)",
+      "20": "T20 (20 Overs)",
+      "50": "ODI (50 Overs)"
+    };
+    
+    if (format) {
+      formatInfo.textContent = `Match Format: ${formatNames[format] || format}`;
+    } else {
+      onValue(roomRef, (snap) => {
+        if (snap.exists() && snap.val().player1?.format) {
+          const roomFormat = snap.val().player1.format;
+          formatInfo.textContent = `Match Format: ${formatNames[roomFormat] || roomFormat}`;
+        }
+      });
+    }
+
+    set(playerRef, {
+      name: teamName,
+      connected: true
+    }).catch(error => {
+      console.error("Error setting player status:", error);
+      tossResult.textContent = "Connection error. Please refresh.";
+    });
+
+    onValue(opponentRef, (snap) => {
+      if (snap.exists() && snap.val().connected) {
+        const opponentName = snap.val().name;
+        if (player === "player1") {
+          team2Name.textContent = opponentName || "Team B";
+        } else {
+          team1Name.textContent = opponentName || "Team A";
+        }
+        
+        waitingText.textContent = "Opponent connected!";
+        setTimeout(() => {
+          waiting.style.display = "none";
+          tossChoiceSection.style.display = "block";
+        }, 1000);
+      } else {
+        waitingText.textContent = "Waiting for opponent to connect...";
+        waiting.style.display = "block";
+        tossChoiceSection.style.display = "none";
       }
     });
 
-    if (!isSpectator) {
-      set(playerRef, {
-        team: teamName,
-        connected: true
-      });
+    headsBtn.addEventListener('click', () => makeTossChoice('heads'));
+    tailsBtn.addEventListener('click', () => makeTossChoice('tails'));
 
-      onValue(opponentRef, (snap) => {
-        if (snap.exists() && snap.val().connected) {
-          waitingText.textContent = "Opponent connected!";
-          setTimeout(() => {
-            waiting.style.display = "none";
-            tossChoiceSection.style.display = "block";
-          }, 1000);
-        } else {
-          waitingText.textContent = "Waiting for opponent to connect...";
-          waiting.style.display = "block";
-          tossChoiceSection.style.display = "none";
-        }
-      });
+    function makeTossChoice(choice) {
+      tossChoiceSection.style.display = "none";
+      waiting.style.display = "block";
+      waitingText.textContent = "Flipping coin...";
+      
+      coin.classList.add('flipping');
+      
+      setTimeout(() => {
+        coin.classList.remove('flipping');
+        submitTossChoice(choice);
+      }, 2000);
+    }
 
-      headsBtn.addEventListener('click', () => makeTossChoice('heads'));
-      tailsBtn.addEventListener('click', () => makeTossChoice('tails'));
-
-      function makeTossChoice(choice) {
-        tossChoiceSection.style.display = "none";
-        waiting.style.display = "block";
-        waitingText.textContent = "Flipping coin...";
-        
-        coin.classList.add('flipping');
-        
-        setTimeout(() => {
-          coin.classList.remove('flipping');
-          submitTossChoice(choice);
-        }, 2000);
-      }
-
-      function submitTossChoice(choice) {
-        update(tossRef, {
-          [player]: choice
-        }).catch(error => {
-          tossResult.textContent = "Error submitting choice. Please try again.";
-          tossChoiceSection.style.display = "block";
-          waiting.style.display = "none";
-        });
-      }
-
-      batBtn.addEventListener('click', () => makeBattingChoice('bat'));
-      bowlBtn.addEventListener('click', () => makeBattingChoice('bowl'));
-
-      function makeBattingChoice(choice) {
-        const battingFirst = choice === 'bat' ? player : opponent;
-        
-        update(tossRef, {
-          battingFirst: battingFirst,
-          battingChoice: choice
-        }).catch(error => {
-          tossResult.textContent = "Error submitting choice. Please try again.";
-        });
-      }
-
-      continueBtn.addEventListener('click', () => {
-        window.location.href = `playing11.html?room=${room}&player=${player}&team=${encodeURIComponent(teamName)}`;
+    function submitTossChoice(choice) {
+      update(tossRef, {
+        [player]: choice
+      }).catch(error => {
+        console.error("Error setting toss choice:", error);
+        tossResult.textContent = "Error submitting choice. Please try again.";
+        tossChoiceSection.style.display = "block";
+        waiting.style.display = "none";
       });
     }
 
@@ -513,7 +503,7 @@
           result: random,
           winner: winner
         }).then(() => {
-          if (!isSpectator && player === winner) {
+          if (player === winner) {
             tossResult.innerHTML = `<strong>Toss Result:</strong> ${random.toUpperCase()}!<br>You won the toss!`;
             battingOptions.style.display = "flex";
           } else {
@@ -529,7 +519,8 @@
         battingOptions.style.display = "none";
         tossOutcome.style.display = "block";
         
-        const battingTeam = tossData.battingFirst === 'player1' ? team1Name.textContent : team2Name.textContent;
+        const battingFirst = tossData.battingFirst;
+        const battingTeam = battingFirst === 'player1' ? team1Name.textContent : team2Name.textContent;
         
         tossOutcome.innerHTML = `
           <strong>Toss Outcome:</strong><br>
@@ -539,13 +530,30 @@
       }
     });
 
+    batBtn.addEventListener('click', () => makeBattingChoice('bat'));
+    bowlBtn.addEventListener('click', () => makeBattingChoice('bowl'));
+
+    function makeBattingChoice(choice) {
+      const battingFirst = choice === 'bat' ? player : opponent;
+      
+      update(tossRef, {
+        battingFirst: battingFirst,
+        battingChoice: choice
+      }).catch(error => {
+        console.error("Error setting batting choice:", error);
+        tossResult.textContent = "Error submitting choice. Please try again.";
+      });
+    }
+
+    continueBtn.addEventListener('click', () => {
+      window.location.href = `playing11.html?room=${room}&player=${player}&team=${encodeURIComponent(teamName)}`;
+    });
+
     window.addEventListener('beforeunload', () => {
-      if (!isSpectator) {
-        set(playerRef, {
-          team: teamName,
-          connected: false
-        });
-      }
+      set(playerRef, {
+        name: teamName,
+        connected: false
+      });
     });
   </script>
 </body>
