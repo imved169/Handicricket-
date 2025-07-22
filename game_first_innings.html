@@ -792,8 +792,6 @@
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
-    const team1Name = params.get('team1') || "Team A";
-    const team2Name = params.get('team2') || "Team B";
     
     if (!room || !player) {
       document.getElementById("result").innerHTML = `
@@ -968,7 +966,7 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
-    const teamsRef = ref(db, `rooms/${room}/teams");
+    const teamsRef = ref(db, `rooms/${room}/teams`);
     
     // Initialize the game with enhanced error handling
     async function initGame() {
@@ -976,12 +974,6 @@
         console.log("Starting game initialization...");
         resultEl.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
-
-        // Set initial team names from URL parameters
-        team1NameDisplay.textContent = team1Name;
-        team2NameDisplay.textContent = team2Name;
-        team1NameEl.textContent = team1Name;
-        team2NameEl.textContent = team2Name;
 
         // Set player online status with timeout
         console.log("Setting player online status...");
@@ -1023,6 +1015,10 @@
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
         
+        // Update team names display with actual entered names
+        team1NameDisplay.textContent = roomData.teams.player1.name || "Team A";
+        team2NameDisplay.textContent = roomData.teams.player2.name || "Team B";
+
         // Mark game as started if not already
         if (!roomData.gameStarted) {
           await update(roomRef, { gameStarted: true });
@@ -1284,8 +1280,8 @@
         
         // Load team names and players with validation
         if (roomData.teams?.player1) {
-          team1NameEl.textContent = team1Name;
-          team1NameDisplay.textContent = team1Name;
+          team1NameEl.textContent = roomData.teams.player1.name || "Team A";
+          team1NameDisplay.textContent = roomData.teams.player1.name || "Team A";
           if (Array.isArray(roomData.teams.player1.players)) {
             team1Players = roomData.teams.player1.players;
             team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
@@ -1297,8 +1293,8 @@
         }
         
         if (roomData.teams?.player2) {
-          team2NameEl.textContent = team2Name;
-          team2NameDisplay.textContent = team2Name;
+          team2NameEl.textContent = roomData.teams.player2.name || "Team B";
+          team2NameDisplay.textContent = roomData.teams.player2.name || "Team B";
           if (Array.isArray(roomData.teams.player2.players)) {
             team2Players = roomData.teams.player2.players;
             team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
@@ -2258,12 +2254,12 @@
         if (snap.exists()) {
           const teams = snap.val();
           if (teams.player1) {
-            team1NameEl.textContent = teams.player1.name || team1Name;
-            team1NameDisplay.textContent = teams.player1.name || team1Name;
+            team1NameEl.textContent = teams.player1.name || "Team A";
+            team1NameDisplay.textContent = teams.player1.name || "Team A";
           }
           if (teams.player2) {
-            team2NameEl.textContent = teams.player2.name || team2Name;
-            team2NameDisplay.textContent = teams.player2.name || team2Name;
+            team2NameEl.textContent = teams.player2.name || "Team B";
+            team2NameDisplay.textContent = teams.player2.name || "Team B";
           }
         }
       });
