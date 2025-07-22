@@ -6,25 +6,36 @@
   <title>HandiCricket - Select Playing 11</title>
   <style>
     body {
-      background: #061e3e;
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
       color: white;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
       padding: 20px;
       margin: 0;
+      min-height: 100vh;
     }
     
     .container {
       max-width: 800px;
       margin: 0 auto;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
       padding: 20px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     h1 {
       color: #ffeb3b;
-      text-shadow: 0 0 5px rgba(255, 235, 59, 0.5);
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-bottom: 20px;
+    }
+    
+    .toss-info {
+      background: rgba(13, 42, 82, 0.5);
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
     }
     
     .team-selection {
@@ -122,11 +133,19 @@
       color: #aaa;
     }
     
-    .toss-info {
-      margin: 20px 0;
-      padding: 15px;
-      background: rgba(13, 42, 82, 0.8);
-      border-radius: 8px;
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid #1e88e5;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 15px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     
     @media (max-width: 700px) {
@@ -159,6 +178,7 @@
         </div>
         <ul class="player-list" id="playerList"></ul>
         <p id="playerCount">Players: 0/11</p>
+        <button id="submitTeamBtn" disabled>Submit Team</button>
       </div>
       
       <div class="team-box">
@@ -170,10 +190,11 @@
       </div>
     </div>
     
-    <button id="submitTeamBtn" disabled>Submit Team</button>
     <div class="waiting" id="waitingForOpponent" style="display: none;">
-      Waiting for opponent to submit their team...
+      <div class="loading-spinner"></div>
+      <p>Waiting for opponent to submit their team...</p>
     </div>
+    
     <button id="startMatchBtn" style="display: none;">Start Match</button>
   </div>
 
@@ -197,6 +218,7 @@
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
     const player = params.get('player');
+    const teamName = decodeURIComponent(params.get('team'));
     const opponent = player === 'player1' ? 'player2' : 'player1';
 
     if (!roomId || !player) {
@@ -224,38 +246,28 @@
 
     let players = [];
     let opponentPlayers = [];
-    let teamName = '';
-    let opponentTeamName = '';
-    let tossWinner = '';
-    let battingFirst = '';
 
     set(playerRef, true).catch(error => {
       console.error('Connection error:', error);
     });
 
+    yourTeamName.textContent = teamName;
+
     onValue(roomRef, (snap) => {
       if (snap.exists()) {
         const room = snap.val();
         
-        if (player === 'player1') {
-          teamName = room.player1.team || 'Team A';
-          yourTeamName.textContent = teamName;
-          opponentTeamName = room.player2?.team || 'Team B';
-        } else {
-          teamName = room.player2.team || 'Team B';
-          yourTeamName.textContent = teamName;
-          opponentTeamName = room.player1?.team || 'Team A';
-        }
-        
         if (room.toss) {
-          tossWinner = room.toss.winner;
-          battingFirst = room.toss.battingFirst;
-          
-          const winnerName = room.toss.winner === 'player1' ? room.player1.team : room.player2.team;
-          const battingFirstName = room.toss.battingFirst === 'player1' ? room.player1.team : room.player2.team;
-          
-          tossSummary.textContent = `Toss won by ${winnerName || (room.toss.winner === 'player1' ? 'Team A' : 'Team B')}`;
-          battingTeam.textContent = `${battingFirstName || (room.toss.battingFirst === 'player1' ? 'Team A' : 'Team B')} chose to bat first`;
+          const winnerName = room.toss.winner === 'player1' ? 
+            (room.player1?.team || 'Team A') : 
+            (room.player2?.team || 'Team B');
+            
+          const battingFirstName = room.toss.battingFirst === 'player1' ? 
+            (room.player1?.team || 'Team A') : 
+            (room.player2?.team || 'Team B');
+            
+          tossSummary.textContent = `Toss won by ${winnerName}`;
+          battingTeam.textContent = `${battingFirstName} chose to ${room.toss.battingChoice === 'bat' ? 'bat' : 'bowl'} first`;
         }
         
         if (room.teams && room.teams[opponent]) {
