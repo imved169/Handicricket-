@@ -151,12 +151,26 @@
       </div>
     </div>
     
-    <div id="roomSection" class="room-section">
-      <h2 id="roomAction">Create Room</h2>
+    <div id="createSection" class="room-section">
+      <h2>Create Room</h2>
       <input type="text" id="playerName" placeholder="Your Name" required>
       <input type="text" id="teamName" placeholder="Your Team Name" required>
-      <button id="createJoinBtn">Create Room</button>
-      <button id="cancelBtn" class="secondary">Cancel</button>
+      <button id="createBtn">Create Room</button>
+      <button id="cancelCreateBtn" class="secondary">Cancel</button>
+    </div>
+    
+    <div id="joinSection" class="room-section">
+      <h2>Join Room</h2>
+      <input type="text" id="joinPlayerName" placeholder="Your Name" required>
+      <input type="text" id="joinTeamName" placeholder="Your Team Name" required>
+      <input type="text" id="joinRoomCode" placeholder="Room Code" required>
+      <button id="joinBtn">Join Room</button>
+      <button id="cancelJoinBtn" class="secondary">Cancel</button>
+    </div>
+    
+    <div id="actionButtons">
+      <button id="showCreateBtn">Create New Room</button>
+      <button id="showJoinBtn">Join Existing Room</button>
     </div>
     
     <div id="spectatorSection">
@@ -184,40 +198,65 @@
     const db = getDatabase(app);
     const roomsRef = ref(db, 'rooms');
 
+    // UI Elements
     const modeCards = document.querySelectorAll('.mode-card');
-    const roomSection = document.getElementById('roomSection');
-    const roomAction = document.getElementById('roomAction');
-    const createJoinBtn = document.getElementById('createJoinBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const playerNameInput = document.getElementById('playerName');
-    const teamNameInput = document.getElementById('teamName');
+    const createSection = document.getElementById('createSection');
+    const joinSection = document.getElementById('joinSection');
+    const actionButtons = document.getElementById('actionButtons');
+    const showCreateBtn = document.getElementById('showCreateBtn');
+    const showJoinBtn = document.getElementById('showJoinBtn');
+    const createBtn = document.getElementById('createBtn');
+    const joinBtn = document.getElementById('joinBtn');
+    const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+    const cancelJoinBtn = document.getElementById('cancelJoinBtn');
     const spectateBtn = document.getElementById('spectateBtn');
     const roomCodeInput = document.getElementById('roomCode');
 
     let selectedFormat = null;
-    let isCreating = false;
 
+    // Mode selection
     modeCards.forEach(card => {
       card.addEventListener('click', () => {
         modeCards.forEach(c => c.style.opacity = '0.6');
         card.style.opacity = '1';
         selectedFormat = card.dataset.format;
-        roomSection.style.display = 'block';
-        isCreating = true;
-        roomAction.textContent = 'Create Room';
-        createJoinBtn.textContent = 'Create Room';
       });
     });
 
-    cancelBtn.addEventListener('click', () => {
-      roomSection.style.display = 'none';
+    // Show create room section
+    showCreateBtn.addEventListener('click', () => {
+      if (!selectedFormat) {
+        alert('Please select a game format first');
+        return;
+      }
+      actionButtons.style.display = 'none';
+      createSection.style.display = 'block';
+    });
+
+    // Show join room section
+    showJoinBtn.addEventListener('click', () => {
+      actionButtons.style.display = 'none';
+      joinSection.style.display = 'block';
+    });
+
+    // Cancel create room
+    cancelCreateBtn.addEventListener('click', () => {
+      createSection.style.display = 'none';
+      actionButtons.style.display = 'block';
       modeCards.forEach(c => c.style.opacity = '1');
       selectedFormat = null;
     });
 
-    createJoinBtn.addEventListener('click', async () => {
-      const playerName = playerNameInput.value.trim();
-      const teamName = teamNameInput.value.trim();
+    // Cancel join room
+    cancelJoinBtn.addEventListener('click', () => {
+      joinSection.style.display = 'none';
+      actionButtons.style.display = 'block';
+    });
+
+    // Create room
+    createBtn.addEventListener('click', async () => {
+      const playerName = document.getElementById('playerName').value.trim();
+      const teamName = document.getElementById('teamName').value.trim();
       
       if (!playerName || !teamName) {
         alert('Please enter your name and team name');
@@ -230,29 +269,68 @@
       }
       
       try {
-        if (isCreating) {
-          const newRoomRef = push(roomsRef);
-          const roomId = newRoomRef.key;
-          
-          await set(newRoomRef, {
-            player1: {
-              name: playerName,
-              team: teamName,
-              format: selectedFormat,
-              connected: true
-            },
-            gameStarted: false,
-            createdAt: Date.now()
-          });
-          
-          window.location.href = `toss.html?room=${roomId}&player=player1`;
-        }
+        const newRoomRef = push(roomsRef);
+        const roomId = newRoomRef.key;
+        
+        await set(newRoomRef, {
+          player1: {
+            name: playerName,
+            team: teamName,
+            format: selectedFormat,
+            connected: true
+          },
+          gameStarted: false,
+          createdAt: Date.now()
+        });
+        
+        window.location.href = `toss.html?room=${roomId}&player=player1`;
       } catch (error) {
         console.error('Error creating room:', error);
         alert('Failed to create room. Please try again.');
       }
     });
 
+    // Join room
+    joinBtn.addEventListener('click', async () => {
+      const playerName = document.getElementById('joinPlayerName').value.trim();
+      const teamName = document.getElementById('joinTeamName').value.trim();
+      const roomCode = document.getElementById('joinRoomCode').value.trim();
+      
+      if (!playerName || !teamName || !roomCode) {
+        alert('Please fill all fields');
+        return;
+      }
+      
+      try {
+        const roomRef = ref(db, `rooms/${roomCode}`);
+        const snapshot = await get(roomRef);
+        
+        if (!snapshot.exists()) {
+          alert('Room not found. Please check the code and try again.');
+          return;
+        }
+        
+        const room = snapshot.val();
+        
+        if (room.player2) {
+          alert('This room already has two players. You can spectate instead.');
+          return;
+        }
+        
+        await set(ref(db, `rooms/${roomCode}/player2`), {
+          name: playerName,
+          team: teamName,
+          connected: true
+        });
+        
+        window.location.href = `toss.html?room=${roomCode}&player=player2`;
+      } catch (error) {
+        console.error('Error joining room:', error);
+        alert('Failed to join room. Please try again.');
+      }
+    });
+
+    // Spectate
     spectateBtn.addEventListener('click', () => {
       const roomCode = roomCodeInput.value.trim();
       if (!roomCode) {
@@ -262,33 +340,14 @@
       window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
     });
 
+    // Check for direct join link
     function checkForJoin() {
       const params = new URLSearchParams(window.location.search);
       const joinRoom = params.get('join');
       
       if (joinRoom) {
-        roomCodeInput.value = joinRoom;
-        onValue(ref(db, `rooms/${joinRoom}`), (snap) => {
-          if (snap.exists()) {
-            const room = snap.val();
-            if (room.player1 && !room.player2) {
-              roomSection.style.display = 'block';
-              isCreating = false;
-              selectedFormat = room.player1.format;
-              roomAction.textContent = 'Join Room';
-              createJoinBtn.textContent = 'Join as Player 2';
-              roomCodeInput.value = joinRoom;
-              
-              modeCards.forEach(card => {
-                card.style.opacity = card.dataset.format === selectedFormat ? '1' : '0.3';
-              });
-            } else if (room.player2) {
-              alert('This room already has two players. You can spectate instead.');
-            }
-          } else {
-            alert('Room not found. Please check the code and try again.');
-          }
-        }, { onlyOnce: true });
+        document.getElementById('joinRoomCode').value = joinRoom;
+        showJoinBtn.click();
       }
     }
 
