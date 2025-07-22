@@ -23,11 +23,28 @@
       margin: 0 auto;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 15px;
-      padding: 30px;
+      padding: 20px;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      position: relative;
+      height: calc(100vh - 100px);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .scrollable-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 5px;
+    }
+    
+    .info-box {
+      background: rgba(13, 42, 82, 0.5);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: left;
+      font-size: 14px;
     }
     
     h1 {
@@ -235,7 +252,7 @@
     
     @media (max-width: 480px) {
       .container {
-        padding: 20px;
+        padding: 15px;
       }
       
       .team-info {
@@ -261,52 +278,60 @@
   <div class="container">
     <h1>🏏 Match Toss</h1>
     
-    <div class="team-info">
-      <div class="team">
-        <div class="team-name" id="team1Name"></div>
-        <div class="team-role" id="team1Role"></div>
-      </div>
-      <div class="vs">VS</div>
-      <div class="team">
-        <div class="team-name" id="team2Name"></div>
-        <div class="team-role" id="team2Role"></div>
-      </div>
+    <div class="info-box">
+      <div id="room-info">Room Code: Loading...</div>
+      <div id="format-info">Match Format: Loading...</div>
+      <div id="player-info">You are: Loading...</div>
     </div>
     
-    <div class="toss-section">
-      <div class="coin" id="coin">
-        <div class="heads">H</div>
-        <div class="tails">T</div>
-      </div>
-      
-      <div id="tossChoiceSection">
-        <h3>Call Heads or Tails</h3>
-        <div class="toss-options">
-          <button class="toss-btn heads" id="headsBtn">Heads</button>
-          <button class="toss-btn tails" id="tailsBtn">Tails</button>
+    <div class="scrollable-content">
+      <div class="team-info">
+        <div class="team">
+          <div class="team-name" id="team1Name"></div>
+          <div class="team-role" id="team1Role"></div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="team">
+          <div class="team-name" id="team2Name"></div>
+          <div class="team-role" id="team2Role"></div>
         </div>
       </div>
       
-      <div class="toss-result" id="tossResult">
-        The toss will decide who bats first.<br>
-        Select Heads or Tails above.
+      <div class="toss-section">
+        <div class="coin" id="coin">
+          <div class="heads">H</div>
+          <div class="tails">T</div>
+        </div>
+        
+        <div id="tossChoiceSection">
+          <h3>Call Heads or Tails</h3>
+          <div class="toss-options">
+            <button class="toss-btn heads" id="headsBtn">Heads</button>
+            <button class="toss-btn tails" id="tailsBtn">Tails</button>
+          </div>
+        </div>
+        
+        <div class="toss-result" id="tossResult">
+          The toss will decide who bats first.<br>
+          Select Heads or Tails above.
+        </div>
+        
+        <div class="batting-options" id="battingOptions">
+          <h3>You won the toss!</h3>
+          <p>Choose to bat or bowl first:</p>
+          <button class="batting-btn" id="batBtn">Bat First</button>
+          <button class="batting-btn bowl" id="bowlBtn">Bowl First</button>
+        </div>
+        
+        <div class="waiting" id="waiting">
+          <div class="loading-spinner"></div>
+          <p id="waitingText">Waiting for opponent...</p>
+        </div>
+        
+        <div class="toss-result" id="tossOutcome" style="display: none;"></div>
+        
+        <button class="continue-btn" id="continueBtn">Continue to Team Selection</button>
       </div>
-      
-      <div class="batting-options" id="battingOptions">
-        <h3>You won the toss!</h3>
-        <p>Choose to bat or bowl first:</p>
-        <button class="batting-btn" id="batBtn">Bat First</button>
-        <button class="batting-btn bowl" id="bowlBtn">Bowl First</button>
-      </div>
-      
-      <div class="waiting" id="waiting">
-        <div class="loading-spinner"></div>
-        <p id="waitingText">Waiting for opponent...</p>
-      </div>
-      
-      <div class="toss-result" id="tossOutcome" style="display: none;"></div>
-      
-      <button class="continue-btn" id="continueBtn">Continue to Team Selection</button>
     </div>
   </div>
 
@@ -333,6 +358,7 @@
     const room = params.get('room');
     const player = params.get('player');
     const teamName = decodeURIComponent(params.get('team'));
+    const format = params.get('format');
     const opponent = player === "player1" ? "player2" : "player1";
 
     // DOM elements
@@ -352,6 +378,9 @@
     const tailsBtn = document.getElementById('tailsBtn');
     const batBtn = document.getElementById('batBtn');
     const bowlBtn = document.getElementById('bowlBtn');
+    const roomInfo = document.getElementById('room-info');
+    const formatInfo = document.getElementById('format-info');
+    const playerInfo = document.getElementById('player-info');
 
     // Firebase references
     const roomRef = ref(db, `rooms/${room}`);
@@ -360,6 +389,9 @@
     const opponentRef = ref(db, `rooms/${room}/${opponent}`);
 
     // Initialize UI
+    roomInfo.textContent = `Room Code: ${room}`;
+    playerInfo.textContent = `You are: ${player === "player1" ? "Player 1" : "Player 2"}`;
+    
     if (player === "player1") {
       team1Name.textContent = teamName;
       team1Role.textContent = "(You)";
@@ -368,6 +400,26 @@
       team2Name.textContent = teamName;
       team1Role.textContent = "(Opponent)";
       team2Role.textContent = "(You)";
+    }
+
+    // Set format info
+    const formatNames = {
+      "5": "T5 (5 Overs)",
+      "10": "T10 (10 Overs)",
+      "20": "T20 (20 Overs)",
+      "50": "ODI (50 Overs)"
+    };
+    
+    if (format) {
+      formatInfo.textContent = `Match Format: ${formatNames[format] || format}`;
+    } else {
+      // If joining player, get format from room
+      onValue(roomRef, (snap) => {
+        if (snap.exists() && snap.val().format) {
+          const roomFormat = snap.val().format;
+          formatInfo.textContent = `Match Format: ${formatNames[roomFormat] || roomFormat}`;
+        }
+      });
     }
 
     // Set player online status
