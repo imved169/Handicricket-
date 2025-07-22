@@ -297,7 +297,7 @@
         <div class="tails">T</div>
       </div>
       
-      <div id="tossChoiceSection">
+      <div id="callSection" style="display: none;">
         <h3>Call Heads or Tails</h3>
         <div class="toss-options">
           <button class="toss-btn heads" id="headsBtn">Heads</button>
@@ -305,9 +305,13 @@
         </div>
       </div>
       
+      <div id="flipSection" style="display: none;">
+        <h3>Flip the Coin</h3>
+        <button class="toss-btn" id="flipBtn">Flip Coin</button>
+      </div>
+      
       <div class="toss-result" id="tossResult">
-        The toss will decide who bats first.<br>
-        Select Heads or Tails above.
+        Initializing toss process...
       </div>
       
       <div class="batting-options" id="battingOptions">
@@ -360,7 +364,8 @@
     const team1RoleEl = document.getElementById('team1Role');
     const team2RoleEl = document.getElementById('team2Role');
     const coin = document.getElementById('coin');
-    const tossChoiceSection = document.getElementById('tossChoiceSection');
+    const callSection = document.getElementById('callSection');
+    const flipSection = document.getElementById('flipSection');
     const tossResult = document.getElementById('tossResult');
     const battingOptions = document.getElementById('battingOptions');
     const waiting = document.getElementById('waiting');
@@ -369,6 +374,7 @@
     const continueBtn = document.getElementById('continueBtn');
     const headsBtn = document.getElementById('headsBtn');
     const tailsBtn = document.getElementById('tailsBtn');
+    const flipBtn = document.getElementById('flipBtn');
     const batBtn = document.getElementById('batBtn');
     const bowlBtn = document.getElementById('bowlBtn');
     const roomCodeEl = document.getElementById('roomCode');
@@ -439,75 +445,121 @@
         waitingText.textContent = "Opponent connected!";
         setTimeout(() => {
           waiting.style.display = "none";
-          tossChoiceSection.style.display = "block";
+          initializeTossProcess();
         }, 1000);
       } else {
         waitingText.textContent = "Waiting for opponent to connect...";
         waiting.style.display = "block";
-        tossChoiceSection.style.display = "none";
+        callSection.style.display = "none";
+        flipSection.style.display = "none";
       }
     });
 
-    // Handle toss selection with animation
-    headsBtn.addEventListener('click', () => makeTossChoice('heads'));
-    tailsBtn.addEventListener('click', () => makeTossChoice('tails'));
+    // Initialize toss process based on player role
+    function initializeTossProcess() {
+      onValue(tossRef, (snap) => {
+        const tossData = snap.exists() ? snap.val() : {};
+        
+        // Player 1 calls, Player 2 flips
+        if (player === "player1" && !tossData.caller) {
+          tossResult.textContent = "Please call Heads or Tails";
+          callSection.style.display = "block";
+          flipSection.style.display = "none";
+        } 
+        else if (player === "player2" && tossData.caller === "player1" && !tossData.flipper) {
+          tossResult.textContent = "Opponent has called. Please flip the coin.";
+          callSection.style.display = "none";
+          flipSection.style.display = "block";
+        }
+        // If toss is complete, show result
+        else if (tossData.result) {
+          handleTossResult(tossData);
+        }
+      });
+    }
 
-    function makeTossChoice(choice) {
-      tossChoiceSection.style.display = "none";
+    // Handle toss selection (Player 1 calls)
+    headsBtn.addEventListener('click', () => makeTossCall('heads'));
+    tailsBtn.addEventListener('click', () => makeTossCall('tails'));
+
+    function makeTossCall(choice) {
+      callSection.style.display = "none";
+      waiting.style.display = "block";
+      waitingText.textContent = "Waiting for opponent to flip...";
+      
+      update(tossRef, {
+        caller: player,
+        call: choice
+      }).catch(error => {
+        console.error("Error setting toss call:", error);
+        tossResult.textContent = "Error submitting call. Please try again.";
+        callSection.style.display = "block";
+        waiting.style.display = "none";
+      });
+    }
+
+    // Handle coin flip (Player 2 flips)
+    flipBtn.addEventListener('click', flipCoin);
+
+    function flipCoin() {
+      flipSection.style.display = "none";
       waiting.style.display = "block";
       waitingText.textContent = "Flipping coin...";
       
       // Animate coin flip
       coin.classList.add('flipping');
       
-      // After animation, show result
+      // After animation, determine result
       setTimeout(() => {
         coin.classList.remove('flipping');
-        submitTossChoice(choice);
+        determineTossResult();
       }, 2000);
     }
 
-    function submitTossChoice(choice) {
-      // Set the toss choice in Firebase
-      update(tossRef, {
-        [player]: choice
-      }).catch(error => {
-        console.error("Error setting toss choice:", error);
-        tossResult.textContent = "Error submitting choice. Please try again.";
-        tossChoiceSection.style.display = "block";
-        waiting.style.display = "none";
+    function determineTossResult() {
+      const result = Math.random() < 0.5 ? 'heads' : 'tails';
+      
+      get(tossRef).then((snap) => {
+        const tossData = snap.exists() ? snap.val() : {};
+        const call = tossData.call;
+        const winner = call === result ? "player1" : "player2";
+        
+        update(tossRef, {
+          flipper: player,
+          result: result,
+          winner: winner
+        }).catch(error => {
+          console.error("Error setting toss result:", error);
+          tossResult.textContent = "Error processing toss. Please try again.";
+          flipSection.style.display = "block";
+          waiting.style.display = "none";
+        });
       });
     }
 
-    // Listen for toss result
-    onValue(tossRef, (snap) => {
-      if (!snap.exists()) return;
-
-      const tossData = snap.val();
+    // Handle toss result
+    function handleTossResult(tossData) {
+      waiting.style.display = "none";
+      callSection.style.display = "none";
+      flipSection.style.display = "none";
       
-      // Both players have made their choice
-      if (tossData.player1 && tossData.player2 && !tossData.result) {
-        waiting.style.display = "none";
-        
-        // Determine toss result (heads or tails)
-        const random = Math.random() < 0.5 ? 'heads' : 'tails';
-        const winner = (tossData.player1 === random) ? 'player1' : 'player2';
-        
-        // Update toss result in Firebase
-        update(tossRef, {
-          result: random,
-          winner: winner
-        }).then(() => {
-          // Show appropriate UI based on who won
-          if (player === winner) {
-            tossResult.innerHTML = `<strong>Toss Result:</strong> ${random.toUpperCase()}!<br>You won the toss!`;
-            battingOptions.style.display = "flex";
-          } else {
-            tossResult.innerHTML = `<strong>Toss Result:</strong> ${random.toUpperCase()}!<br>Opponent won the toss.`;
-            waitingText.textContent = "Waiting for opponent to choose...";
-            waiting.style.display = "block";
-          }
-        });
+      const result = tossData.result;
+      const winner = tossData.winner;
+      const call = tossData.call;
+      
+      if (player === winner) {
+        tossResult.innerHTML = `
+          <strong>Toss Result:</strong> ${result.toUpperCase()}!<br>
+          You won the toss! (Opponent called ${call})
+        `;
+        battingOptions.style.display = "flex";
+      } else {
+        tossResult.innerHTML = `
+          <strong>Toss Result:</strong> ${result.toUpperCase()}!<br>
+          Opponent won the toss. (They called ${call})
+        `;
+        waitingText.textContent = "Waiting for opponent to choose...";
+        waiting.style.display = "block";
       }
       
       // If toss winner has made batting choice
@@ -521,11 +573,11 @@
         
         tossOutcome.innerHTML = `
           <strong>Toss Outcome:</strong><br>
-          ${battingTeam} won the toss and chose to ${tossData.battingChoice === 'bat' ? 'bat' : 'bowl'} first.
+          ${battingTeam} chose to ${tossData.battingChoice === 'bat' ? 'bat' : 'bowl'} first.
         `;
         continueBtn.style.display = "block";
       }
-    });
+    }
 
     // Handle batting choice
     batBtn.addEventListener('click', () => makeBattingChoice('bat'));
@@ -557,4 +609,4 @@
     });
   </script>
 </body>
-</html>
+  </html>
