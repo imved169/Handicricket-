@@ -23,7 +23,7 @@
       margin: 0 auto;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 15px;
-      padding: 25px;
+      padding: 30px;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
@@ -32,14 +32,43 @@
       color: #ffeb3b;
       text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
       margin-bottom: 30px;
+      font-size: 2.2rem;
     }
     
     .logo {
-      font-size: 3rem;
-      margin-bottom: 10px;
+      font-size: 60px;
+      margin-bottom: 20px;
+      animation: bounce 2s infinite;
     }
     
-    .form-group {
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-bottom: 3px solid transparent;
+    }
+    
+    .tab.active {
+      border-bottom: 3px solid #1e88e5;
+      font-weight: bold;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .input-group {
       margin-bottom: 20px;
       text-align: left;
     }
@@ -52,19 +81,23 @@
     
     input, select {
       width: 100%;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 12px 15px;
       border: 1px solid #1e88e5;
+      border-radius: 8px;
       background: rgba(30, 136, 229, 0.1);
       color: white;
       font-size: 16px;
       box-sizing: border-box;
     }
     
+    select option {
+      background: #061e3e;
+    }
+    
     .btn {
       width: 100%;
       padding: 14px;
-      margin: 10px 0;
+      margin-top: 10px;
       border: none;
       border-radius: 8px;
       background: linear-gradient(145deg, #1e88e5, #1565c0);
@@ -97,59 +130,78 @@
       background: linear-gradient(145deg, #9C27B0, #7B1FA2);
     }
     
-    .divider {
-      display: flex;
-      align-items: center;
+    .format-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
       margin: 20px 0;
+    }
+    
+    .format-card {
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    
+    .format-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .format-card.selected {
+      border-color: #ffeb3b;
+      background: rgba(30, 136, 229, 0.3);
+    }
+    
+    .format-card h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+    
+    .format-card p {
+      font-size: 14px;
       color: #aaa;
     }
     
-    .divider::before, .divider::after {
-      content: "";
-      flex: 1;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .divider::before {
-      margin-right: 10px;
-    }
-    
-    .divider::after {
-      margin-left: 10px;
-    }
-    
     .room-code-display {
-      margin-top: 20px;
+      margin: 20px 0;
       padding: 15px;
-      background: rgba(255, 235, 59, 0.2);
-      border-radius: 8px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      font-size: 18px;
       display: none;
     }
     
     .room-code {
-      font-size: 24px;
       font-weight: bold;
-      letter-spacing: 3px;
       color: #ffeb3b;
+      font-size: 24px;
+      letter-spacing: 3px;
     }
     
-    .copy-btn {
-      margin-top: 10px;
-      padding: 8px 15px;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid #ffeb3b;
-      color: #ffeb3b;
-      border-radius: 5px;
-      cursor: pointer;
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
     
     @media (max-width: 480px) {
       .container {
-        padding: 15px;
+        padding: 20px;
       }
       
       h1 {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
+      }
+      
+      .logo {
+        font-size: 50px;
+      }
+      
+      .format-options {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -159,52 +211,70 @@
     <div class="logo">🏏</div>
     <h1>HandiCricket</h1>
     
-    <div id="createSection">
-      <div class="form-group">
+    <div class="tabs">
+      <div class="tab active" data-tab="create">Create Game</div>
+      <div class="tab" data-tab="join">Join Game</div>
+      <div class="tab" data-tab="spectate">Spectate</div>
+    </div>
+    
+    <div class="tab-content active" id="create-tab">
+      <div class="input-group">
         <label for="teamName">Your Team Name</label>
         <input type="text" id="teamName" placeholder="Enter your team name">
       </div>
       
-      <div class="form-group">
-        <label for="gameFormat">Match Format</label>
-        <select id="gameFormat">
-          <option value="5">T5 (5 Overs)</option>
-          <option value="10">T10 (10 Overs)</option>
-          <option value="20">T20 (20 Overs)</option>
-          <option value="50">ODI (50 Overs)</option>
-        </select>
+      <div class="input-group">
+        <label>Match Format</label>
+        <div class="format-options">
+          <div class="format-card selected" data-format="5">
+            <h3>T5 (5 Overs)</h3>
+            <p>Quick 30-minute match</p>
+          </div>
+          <div class="format-card" data-format="10">
+            <h3>T10 (10 Overs)</h3>
+            <p>Standard 1-hour match</p>
+          </div>
+          <div class="format-card" data-format="20">
+            <h3>T20 (20 Overs)</h3>
+            <p>Classic 2-hour match</p>
+          </div>
+          <div class="format-card" data-format="50">
+            <h3>ODI (50 Overs)</h3>
+            <p>Full day challenge</p>
+          </div>
+        </div>
       </div>
       
-      <button id="createBtn" class="btn btn-create">Create New Match</button>
-      
+      <button id="createGameBtn" class="btn btn-create">Create New Match</button>
       <div class="room-code-display" id="roomCodeDisplay">
-        <div>Share this code with opponent:</div>
-        <div class="room-code" id="roomCode"></div>
-        <button class="copy-btn" id="copyBtn">Copy Code</button>
+        Share this code to join: <span class="room-code" id="roomCodeSpan"></span>
       </div>
     </div>
     
-    <div class="divider">OR</div>
-    
-    <div id="joinSection">
-      <div class="form-group">
+    <div class="tab-content" id="join-tab">
+      <div class="input-group">
         <label for="joinTeamName">Your Team Name</label>
         <input type="text" id="joinTeamName" placeholder="Enter your team name">
       </div>
-      
-      <div class="form-group">
-        <label for="roomCodeInput">Room Code</label>
-        <input type="text" id="roomCodeInput" placeholder="Enter room code">
+      <div class="input-group">
+        <label for="roomCode">Room Code</label>
+        <input type="text" id="roomCode" placeholder="Enter 4-digit room code" maxlength="4">
       </div>
-      
-      <button id="joinBtn" class="btn btn-join">Join Match</button>
+      <button id="joinGameBtn" class="btn btn-join">Join Match</button>
+    </div>
+    
+    <div class="tab-content" id="spectate-tab">
+      <div class="input-group">
+        <label for="spectateRoomCode">Room Code</label>
+        <input type="text" id="spectateRoomCode" placeholder="Enter 4-digit room code" maxlength="4">
+      </div>
       <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -216,168 +286,120 @@
       measurementId: "G-HSV9H4LEJQ"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // DOM elements
-    const teamNameInput = document.getElementById('teamName');
-    const gameFormatSelect = document.getElementById('gameFormat');
-    const createBtn = document.getElementById('createBtn');
-    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-    const roomCodeEl = document.getElementById('roomCode');
-    const copyBtn = document.getElementById('copyBtn');
-    const joinTeamNameInput = document.getElementById('joinTeamName');
-    const roomCodeInput = document.getElementById('roomCodeInput');
-    const joinBtn = document.getElementById('joinBtn');
-    const spectateBtn = document.getElementById('spectateBtn');
-
-    // Create new match
-    createBtn.addEventListener('click', async () => {
-      const teamName = teamNameInput.value.trim();
-      const format = gameFormatSelect.value;
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+      });
+    });
+    
+    // Format selection
+    let selectedFormat = '5';
+    document.querySelectorAll('.format-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedFormat = card.dataset.format;
+      });
+    });
+    
+    // Create game
+    document.getElementById('createGameBtn').addEventListener('click', function() {
+      const teamName = document.getElementById('teamName').value.trim();
+      if (!teamName) {
+        alert('Please enter your team name');
+        return;
+      }
+      
+      // Generate a random 4-digit room code
+      const roomCode = Math.floor(1000 + Math.random() * 9000);
+      
+      // Show room code
+      document.getElementById('roomCodeSpan').textContent = roomCode;
+      document.getElementById('roomCodeDisplay').style.display = 'block';
+      
+      // Create room in Firebase
+      set(ref(db, `rooms/${roomCode}`), {
+        player1: {
+          name: teamName,
+          connected: true,
+          team: teamName,
+          format: selectedFormat
+        },
+        createdAt: Date.now()
+      }).then(() => {
+        // Redirect to toss page
+        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${selectedFormat}`;
+      }).catch(error => {
+        console.error("Error creating room:", error);
+        alert("Failed to create room. Please try again.");
+      });
+    });
+    
+    // Join game
+    document.getElementById('joinGameBtn').addEventListener('click', function() {
+      const teamName = document.getElementById('joinTeamName').value.trim();
+      const roomCode = document.getElementById('roomCode').value.trim();
       
       if (!teamName) {
         alert('Please enter your team name');
         return;
       }
       
-      try {
-        createBtn.disabled = true;
-        createBtn.textContent = 'Creating...';
-        
-        // Generate room code
-        const roomCode = generateRoomCode();
-        
-        // Create room in Firebase
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        await set(roomRef, {
-          team1: {
-            name: teamName,
-            player: "player1"
-          },
-          format: format,
-          status: "waiting",
-          createdAt: Date.now()
-        });
-        
-        // Show room code
-        roomCodeEl.textContent = roomCode;
-        roomCodeDisplay.style.display = 'block';
-        createBtn.textContent = 'Match Created!';
-        
-        // Copy to clipboard
-        copyBtn.addEventListener('click', () => {
-          navigator.clipboard.writeText(roomCode);
-          copyBtn.textContent = 'Copied!';
-          setTimeout(() => copyBtn.textContent = 'Copy Code', 2000);
-        });
-        
-        // Redirect to toss when player2 joins
-        const unsubscribe = onValue(ref(db, `rooms/${roomCode}/team2`), (snap) => {
-          if (snap.exists()) {
-            unsubscribe(); // Stop listening
-            window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${format}`;
-          }
-        }, { onlyOnce: true });
-        
-      } catch (error) {
-        console.error("Error creating room:", error);
-        alert('Error creating match. Please try again.');
-        createBtn.disabled = false;
-        createBtn.textContent = 'Create New Match';
-      }
-    });
-
-    // Join existing match
-    joinBtn.addEventListener('click', async () => {
-      const teamName = joinTeamNameInput.value.trim();
-      const roomCode = roomCodeInput.value.trim().toUpperCase();
-      
-      if (!teamName || !roomCode) {
-        alert('Please enter both team name and room code');
+      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
+        alert('Please enter a valid 4-digit room code');
         return;
       }
       
-      try {
-        joinBtn.disabled = true;
-        joinBtn.textContent = 'Joining...';
-        
-        // Check if room exists
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        const snap = await get(roomRef);
-        
-        if (!snap.exists()) {
-          throw new Error('Room not found');
+      // Check if room exists and join
+      update(ref(db, `rooms/${roomCode}`), {
+        player2: {
+          name: teamName,
+          connected: true,
+          team: teamName
         }
-        
-        const roomData = snap.val();
-        
-        // Check if room already has two teams
-        if (roomData.team2) {
-          throw new Error('Room is full');
-        }
-        
-        // Join as player2
-        await update(roomRef, {
-          team2: {
-            name: teamName,
-            player: "player2"
-          },
-          status: "ready"
-        });
-        
-        // Redirect to toss
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}&format=${roomData.format}`;
-        
-      } catch (error) {
+      }).then(() => {
+        // Redirect to toss page
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}`;
+      }).catch(error => {
         console.error("Error joining room:", error);
-        alert(error.message || 'Error joining match. Please try again.');
-        joinBtn.disabled = false;
-        joinBtn.textContent = 'Join Match';
-      }
+        alert("Failed to join room. Please check the room code and try again.");
+      });
     });
-
-    // Spectate match
-    spectateBtn.addEventListener('click', async () => {
-      const roomCode = roomCodeInput.value.trim().toUpperCase();
+    
+    // Spectate game
+    document.getElementById('spectateBtn').addEventListener('click', function() {
+      const roomCode = document.getElementById('spectateRoomCode').value.trim();
       
-      if (!roomCode) {
-        alert('Please enter room code');
+      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
+        alert('Please enter a valid 4-digit room code');
         return;
       }
       
-      try {
-        spectateBtn.disabled = true;
-        spectateBtn.textContent = 'Connecting...';
-        
-        // Check if room exists
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        const snap = await get(roomRef);
-        
-        if (!snap.exists()) {
-          throw new Error('Room not found');
-        }
-        
-        // Redirect to game as spectator
-        window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
-        
-      } catch (error) {
-        console.error("Error spectating:", error);
-        alert(error.message || 'Error joining as spectator. Please try again.');
-        spectateBtn.disabled = false;
-        spectateBtn.textContent = 'Spectate Match';
-      }
+      // Redirect to game page as spectator
+      window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
     });
-
-    // Generate random 6-character room code
-    function generateRoomCode() {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let result = '';
-      for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
-    }
+    
+    // Focus on room code input when join/spectate tab is clicked
+    document.querySelector('.tab[data-tab="join"]').addEventListener('click', () => {
+      setTimeout(() => {
+        document.getElementById('roomCode').focus();
+      }, 100);
+    });
+    
+    document.querySelector('.tab[data-tab="spectate"]').addEventListener('click', () => {
+      setTimeout(() => {
+        document.getElementById('spectateRoomCode').focus();
+      }, 100);
+    });
   </script>
 </body>
 </html>
