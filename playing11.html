@@ -114,39 +114,12 @@
     #teamNameInput {
       margin-bottom: 20px;
     }
-    .format-selector {
-      margin-bottom: 20px;
-    }
-    .format-selector select {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 2px solid #1e88e5;
-      font-size: 16px;
-      background: rgba(255,255,255,0.1);
-      color: white;
-    }
-    .format-selector label {
-      display: block;
-      margin-bottom: 8px;
-      color: #90caf9;
-    }
   </style>
 </head>
 <body>
   <h2>Enter Your Playing XI</h2>
   <div id="roomCode"></div>
   <div class="container" id="formContainer">
-    <div class="format-selector">
-      <label for="gameFormat">Select Match Format:</label>
-      <select id="gameFormat">
-        <option value="5">5 Overs</option>
-        <option value="10">10 Overs</option>
-        <option value="20">T20 (20 Overs)</option>
-        <option value="50">ODI (50 Overs)</option>
-      </select>
-    </div>
-    
     <input type="text" id="teamNameInput" placeholder="Enter Your Team Name" required>
     
     <form id="playing11Form"></form>
@@ -175,7 +148,7 @@
     const db = getDatabase(app);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room') || localStorage.getItem('roomId');
+    const roomId = urlParams.get('room');
     const player = urlParams.get('player') || localStorage.getItem('player');
     
     localStorage.setItem('roomId', roomId);
@@ -204,7 +177,6 @@
     const form = document.getElementById("playing11Form");
     const waitingMessage = document.getElementById("waitingMessage");
     const teamNameInput = document.getElementById("teamNameInput");
-    const gameFormat = document.getElementById("gameFormat");
 
     // Create input fields for 11 players
     for (let i = 1; i <= 11; i++) {
@@ -250,13 +222,10 @@
       if (!teamName) {
         return alert("Please enter your team name");
       }
-
-      const format = gameFormat.value;
       
       const teamData = {
+        name: teamName,
         players: players,
-        format: format,
-        teamName: teamName,
         stats: players.reduce((acc, player) => {
           acc[player] = {
             runs: 0,
@@ -273,14 +242,12 @@
         // Save team data to Firebase
         await set(ref(db, `rooms/${roomId}/teams/${player}`), teamData);
         
-        // Save format and team name for easy access
-        await update(ref(db, `rooms/${roomId}`), {
-          [`${player}/format`]: format,
-          [`${player}/teamName`]: teamName
+        // Save team name for easy access
+        await update(ref(db, `rooms/${roomId}/${player}`), {
+          teamName: teamName
         });
 
         // Save to localStorage
-        localStorage.setItem('format', format);
         localStorage.setItem('teamName', teamName);
         localStorage.setItem(`team${player === 'player1' ? '1' : '2'}`, JSON.stringify(teamData));
         
