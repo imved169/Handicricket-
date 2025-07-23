@@ -311,18 +311,21 @@
       display: flex;
       overflow: hidden;
       position: relative;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
     }
 
     .team-slide {
-      min-width: 50%;
+      min-width: 100%;
       height: 100%;
       padding: 15px;
       background: rgba(13, 42, 82, 0.9);
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: transform 0.5s ease;
       overflow-y: auto;
-      margin: 0 5px;
+      scroll-snap-align: start;
+      flex-shrink: 0;
     }
 
     .team-slide h3 {
@@ -368,6 +371,46 @@
       font-size: 18px;
       cursor: pointer;
       z-index: 1001;
+    }
+
+    .teams-nav {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .team-nav-btn {
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      background: #1e88e5;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .team-nav-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    .team-nav-indicator {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .team-nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #555;
+      cursor: pointer;
+    }
+
+    .team-nav-dot.active {
+      background: #1e88e5;
     }
 
     .show-teams-btn {
@@ -732,6 +775,14 @@
         <ul id="modalTeam2Players"></ul>
       </div>
     </div>
+    <div class="teams-nav">
+      <button class="team-nav-btn" id="prevTeamBtn" disabled>Previous</button>
+      <button class="team-nav-btn" id="nextTeamBtn">Next</button>
+    </div>
+    <div class="team-nav-indicator">
+      <div class="team-nav-dot active" data-index="0"></div>
+      <div class="team-nav-dot" data-index="1"></div>
+    </div>
   </div>
 
   <script type="module">
@@ -928,6 +979,8 @@
     const overSummaryList = document.getElementById("overSummaryList");
     const team1NameDisplay = document.getElementById("team1Name");
     const team2NameDisplay = document.getElementById("team2Name");
+    const prevTeamBtn = document.getElementById("prevTeamBtn");
+    const nextTeamBtn = document.getElementById("nextTeamBtn");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2092,23 +2145,99 @@
       resultEl.innerText = "Watching match live...";
     }
 
-    // Setup teams modal
+    // Setup teams modal with slider functionality
     function setupTeamsModal() {
-      showTeamsBtn.addEventListener("click", () => {
-        teamsModal.style.display = "flex";
-      });
+      const teamsModal = document.getElementById('teamsModal');
+      const teamsSlider = document.getElementById('teamsSlider');
+      const prevBtn = document.getElementById('prevTeamBtn');
+      const nextBtn = document.getElementById('nextTeamBtn');
+      const closeBtn = document.getElementById('closeTeamsBtn');
+      const dots = document.querySelectorAll('.team-nav-dot');
+      const showTeamsBtn = document.getElementById('showTeamsBtn');
 
-      closeTeamsBtn.addEventListener("click", () => {
-        teamsModal.style.display = "none";
-      });
+      let currentSlide = 0;
+      const slideCount = document.querySelectorAll('.team-slide').length;
 
-      // On larger screens, show both teams side by side
-      if (window.innerWidth > 768) {
-        teamsSlider.style.transform = "translateX(0)";
-        teamsSlider.style.width = "200%";
-        document.querySelectorAll(".team-slide").forEach(slide => {
-          slide.style.minWidth = "50%";
+      function updateSlider() {
+        teamsSlider.scrollTo({
+          left: currentSlide * teamsSlider.offsetWidth,
+          behavior: 'smooth'
         });
+        
+        // Update button states
+        prevBtn.disabled = currentSlide === 0;
+        nextBtn.disabled = currentSlide === slideCount - 1;
+        
+        // Update dots
+        dots.forEach((dot, index) => {
+          dot.classList.toggle('active', index === currentSlide);
+        });
+      }
+
+      // Show modal
+      showTeamsBtn.addEventListener('click', () => {
+        teamsModal.style.display = 'flex';
+        currentSlide = 0;
+        updateSlider();
+      });
+
+      // Close modal
+      closeBtn.addEventListener('click', () => {
+        teamsModal.style.display = 'none';
+      });
+
+      // Previous button
+      prevBtn.addEventListener('click', () => {
+        if (currentSlide > 0) {
+          currentSlide--;
+          updateSlider();
+        }
+      });
+
+      // Next button
+      nextBtn.addEventListener('click', () => {
+        if (currentSlide < slideCount - 1) {
+          currentSlide++;
+          updateSlider();
+        }
+      });
+
+      // Dot navigation
+      dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+          currentSlide = parseInt(dot.dataset.index);
+          updateSlider();
+        });
+      });
+
+      // Touch/swipe support
+      let touchStartX = 0;
+      let touchEndX = 0;
+
+      teamsSlider.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+      });
+
+      teamsSlider.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+      });
+
+      function handleSwipe() {
+        const threshold = 50;
+        if (touchEndX < touchStartX - threshold) {
+          // Swipe left
+          if (currentSlide < slideCount - 1) {
+            currentSlide++;
+            updateSlider();
+          }
+        } else if (touchEndX > touchStartX + threshold) {
+          // Swipe right
+          if (currentSlide > 0) {
+            currentSlide--;
+            updateSlider();
+          }
+        }
       }
     }
 
