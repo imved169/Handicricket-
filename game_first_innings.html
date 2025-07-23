@@ -525,6 +525,25 @@
       color: white;
     }
     
+    /* Result Display */
+    #result {
+      font-size: 16px;
+      margin: 10px 0;
+      padding: 8px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #result.error {
+      color: #ff4444;
+      background: rgba(255, 0, 0, 0.1);
+      padding: 8px;
+      border-radius: 4px;
+      border-left: 3px solid #ff4444;
+    }
+    
     /* Connection Status */
     #connectionStatus {
       padding: 8px;
@@ -1175,6 +1194,20 @@
       </div>
     </div>
     
+    <!-- Commentary Box -->
+    <div class="commentary-container">
+      <div class="commentary-header">
+        <h4>Match Commentary</h4>
+        <div class="commentary-controls">
+          <button id="pauseCommentary">Pause</button>
+          <button id="clearCommentary">Clear</button>
+        </div>
+      </div>
+      <div class="commentary-box" id="commentaryBox">
+        <!-- Commentary items will be added here -->
+      </div>
+    </div>
+    
     <!-- Match Timeline -->
     <div class="timeline-container">
       <h4>Match Timeline</h4>
@@ -1215,6 +1248,8 @@
       <span id="freeHitIndicator" class="free-hit-indicator" style="display: none;">Free Hit</span>
     </div>
     
+    <div id="result">Initializing game...</div>
+    
     <div class="card-btns" id="cardButtons">
       <button class="btn" data-value="0">0</button>
       <button class="btn" data-value="1">1</button>
@@ -1223,6 +1258,11 @@
       <button class="btn" data-value="4">4</button>
       <button class="btn" data-value="5">5</button>
       <button class="btn" data-value="6">6</button>
+    </div>
+
+    <div class="over-summary-container">
+      <h4>Over Summary</h4>
+      <div id="overSummaryList"></div>
     </div>
 
     <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
@@ -1287,14 +1327,14 @@
       console.log("Firebase initialized successfully");
     } catch (error) {
       console.error("Firebase initialization failed:", error);
-      document.getElementById("connectionStatus").innerHTML = `
+      document.getElementById("result").innerHTML = `
         Failed to connect to game server.<br>
         Please check your internet connection and refresh.<br>
         <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
           Refresh Page
         </button>
       `;
-      document.getElementById("connectionStatus").className = "error";
+      document.getElementById("result").className = "error";
       throw error;
     }
 
@@ -1304,14 +1344,14 @@
     const player = params.get('player');
     
     if (!room || !player) {
-      document.getElementById("connectionStatus").innerHTML = `
+      document.getElementById("result").innerHTML = `
         Missing required parameters in URL.<br>
         Please return to the main page and join the game again.<br>
         <button onclick="window.location.href='index.html'" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
           Return to Main Page
         </button>
       `;
-      document.getElementById("connectionStatus").className = "error";
+      document.getElementById("result").className = "error";
       throw new Error("Missing room or player parameters");
     }
 
@@ -1427,7 +1467,7 @@
     let commentaryPaused = false;
 
     // DOM elements
-    const connectionStatus = document.getElementById("connectionStatus");
+    const resultEl = document.getElementById("result");
     const scoreboard = document.querySelector(".scorebox");
     const buttons = document.querySelectorAll(".btn");
     const roleText = document.getElementById("roleText");
@@ -1445,6 +1485,7 @@
     const saveBtn = document.getElementById("saveBtn");
     const exitBtn = document.getElementById("exitBtn");
     const resetPlaysBtn = document.getElementById("resetPlaysBtn");
+    const connectionStatus = document.getElementById("connectionStatus");
     const loadingSpinner = document.getElementById("loading-spinner");
     const powerplayIndicator = document.getElementById("powerplayIndicator");
     const deadOverIndicator = document.getElementById("deadOverIndicator");
@@ -1492,7 +1533,7 @@
     // Enhanced loadPlaying11 function with validation
     async function loadPlaying11() {
       try {
-        connectionStatus.innerText = "Loading teams...";
+        resultEl.innerText = "Loading teams...";
         
         const roomSnap = await get(roomRef);
         if (!roomSnap.exists()) throw new Error("Room not found");
@@ -2056,10 +2097,13 @@
         updateAllDisplays();
         
         // Update UI animations
+        resultEl.innerText = outcome;
         if (boundary) {
+          resultEl.classList.add("boundary-animation");
           document.getElementById('runs').classList.add("boundary-flash");
         }
         if (isWicket) {
+          resultEl.classList.add("wicket-animation");
           document.getElementById('wickets').classList.add("score-change");
           document.querySelector('.scorebox-main').classList.add("wicket-flash");
         }
@@ -2069,6 +2113,7 @@
         
         // Remove animation classes after they complete
         setTimeout(() => {
+          resultEl.classList.remove("boundary-animation", "wicket-animation");
           document.getElementById('runs').classList.remove("score-change", "boundary-flash");
           document.getElementById('wickets').classList.remove("score-change");
           document.querySelector('.scorebox-main').classList.remove("wicket-flash");
@@ -2095,21 +2140,21 @@
               if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
                 await showBowlerSelection();
               } else {
-                connectionStatus.innerText = "Waiting for opponent to select bowler...";
+                resultEl.innerText = "Waiting for opponent to select bowler...";
               }
             } else {
               updateButtonStates();
             }
           } catch (error) {
             console.error("Error in post-ball processing:", error);
-            connectionStatus.innerText = "Error processing next ball state";
+            resultEl.innerText = "Error processing next ball state";
             enableButtons();
             clearCardSelection();
           }
         }, 1500);
       } catch (error) {
         console.error("Error processing ball outcome:", error);
-        connectionStatus.innerText = "Error processing ball outcome";
+        resultEl.innerText = "Error processing ball outcome";
         enableButtons();
         clearCardSelection();
       }
@@ -2220,7 +2265,7 @@
       resetSelectionModal();
       
       try {
-          connectionStatus.innerText = "Loading batters...";
+          resultEl.innerText = "Loading batters...";
           
           const currentPlayers = player === "player1" ? team1Players : team2Players;
           const availableBatters = currentPlayers.filter(p => {
@@ -2264,7 +2309,7 @@
 
           // Show modal with transition
           selectionModal.style.display = "block";
-          connectionStatus.innerText = "Select your next batter...";
+          resultEl.innerText = "Select your next batter...";
       } catch (error) {
           console.error("Batter selection error:", error);
           showNotification("Error loading batters", 'error');
@@ -2280,7 +2325,7 @@
       resetSelectionModal();
 
       try {
-          connectionStatus.innerText = "Loading bowlers...";
+          resultEl.innerText = "Loading bowlers...";
           
           const currentPlayers = player === "player1" ? team1Players : team2Players;
           
@@ -2329,7 +2374,7 @@
 
           // Show modal with transition
           selectionModal.style.display = "block";
-          connectionStatus.innerText = "Select your next bowler...";
+          resultEl.innerText = "Select your next bowler...";
       } catch (error) {
           console.error("Bowler selection error:", error);
           showNotification("Error loading bowlers", 'error');
@@ -2400,12 +2445,12 @@
           if (selectionTitle.textContent.includes("Batter")) {
             await set(batterRef, playerName);
             batterSelected = true;
-            connectionStatus.innerText = `${playerName} selected as batter`;
+            resultEl.innerText = `${playerName} selected as batter`;
             addCommentary(`${playerName} comes in to bat`, 'info');
           } else {
             await set(bowlerRef, playerName);
             bowlerSelected = true;
-            connectionStatus.innerText = `${playerName} selected as bowler`;
+            resultEl.innerText = `${playerName} selected as bowler`;
             addCommentary(`${playerName} comes in to bowl`, 'info');
           }
 
@@ -2444,7 +2489,7 @@
       });
       
       if (canPlay) {
-        connectionStatus.innerText = isBatting ? "Select your shot" : "Select your delivery";
+        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
       }
     }
 
@@ -2461,6 +2506,7 @@
         bowlerStats: bowlerStats
       });
       
+      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
       showNotification("First innings completed!", 'info');
       addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
       
@@ -2489,7 +2535,7 @@
     // Save game state
     async function saveGameState() {
       try {
-        connectionStatus.innerText = "Saving game...";
+        resultEl.innerText = "Saving game...";
         disableButtons();
         
         const gameState = {
@@ -2509,11 +2555,11 @@
         };
         
         await set(ref(db, `savedGames/${room}`), gameState);
-        connectionStatus.innerText = "Game saved successfully!";
+        resultEl.innerText = "Game saved successfully!";
         setTimeout(() => window.location.href = "index.html", 2000);
       } catch (error) {
         console.error("Error saving game:", error);
-        connectionStatus.innerText = "Error saving game. Please try again.";
+        resultEl.innerText = "Error saving game. Please try again.";
         enableButtons();
       }
     }
@@ -2593,6 +2639,7 @@
         } else {
           connectionStatus.textContent = "Opponent: Offline";
           connectionStatus.className = "offline";
+          resultEl.innerText = "Waiting for opponent to connect...";
           disableButtons();
         }
       });
@@ -2715,6 +2762,7 @@
     async function initGame() {
       try {
         console.log("Starting game initialization...");
+        resultEl.innerText = "Initializing game...";
         loadingSpinner.style.display = "block";
 
         // 1. Verify URL parameters first
@@ -2835,14 +2883,15 @@
 
         // Initial UI update
         updateAllDisplays();
+        resultEl.innerText = "Game ready!";
         loadingSpinner.style.display = "none";
       } catch (error) {
         console.error("Initialization failed:", error);
-        connectionStatus.innerHTML = `Initialization failed: ${error.message}<br>
+        resultEl.innerHTML = `Initialization failed: ${error.message}<br>
                            <button onclick="initGame()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
                              Retry Initialization
                            </button>`;
-        connectionStatus.className = "error";
+        resultEl.className = "error";
         loadingSpinner.style.display = "none";
       }
     }
@@ -2859,6 +2908,7 @@
       setupTeamsModal();
       
       loadingSpinner.style.display = "none";
+      resultEl.innerText = "Watching match live...";
     }
 
     // Setup teams modal with slider functionality
@@ -2960,7 +3010,7 @@
     // Request reset and notify opponent
     async function requestReset() {
       try {
-        connectionStatus.innerText = "Requesting reset...";
+        resultEl.innerText = "Requesting reset...";
         resetPlaysBtn.disabled = true;
         
         // Set reset request with player info
@@ -2975,7 +3025,7 @@
         
       } catch (error) {
         console.error("Error requesting reset:", error);
-        connectionStatus.innerText = "Failed to send reset request";
+        resultEl.innerText = "Failed to send reset request";
         resetPlaysBtn.disabled = false;
       }
     }
@@ -3075,6 +3125,7 @@
           // Immediate visual feedback
           disableButtons();
           highlightSelectedCard(cardValue);
+          resultEl.innerText = `Selected: ${cardValue}`;
 
           try {
             await update(playsRef, {
@@ -3082,7 +3133,7 @@
             });
           } catch (error) {
             console.error("Selection failed:", error);
-            connectionStatus.innerText = "Selection failed, please try again";
+            resultEl.innerText = "Selection failed, please try again";
             enableButtons();
             clearCardSelection();
           } finally {
@@ -3095,11 +3146,11 @@
     // Start the game
     initGame().catch(error => {
       console.error("Uncaught initialization error:", error);
-      document.getElementById("connectionStatus").innerHTML = `
+      document.getElementById("result").innerHTML = `
         Fatal error: ${error.message}<br>
         Please refresh or check console for details.
       `;
-      document.getElementById("connectionStatus").className = "error";
+      document.getElementById("result").className = "error";
     });
   </script>
 </body>
