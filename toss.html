@@ -99,19 +99,29 @@
       box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
       position: relative;
       transform-style: preserve-3d;
-      transition: transform 1s;
     }
     
     .coin.flipping {
-      animation: flip 2s linear infinite;
+      animation: flip 1s linear 5;
     }
     
     .coin .heads, .coin .tails {
       position: absolute;
       backface-visibility: hidden;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    
+    .coin .heads {
+      background: linear-gradient(145deg, #ffd700, #daa520);
     }
     
     .coin .tails {
+      background: linear-gradient(145deg, #daa520, #ffd700);
       transform: rotateY(180deg);
     }
     
@@ -334,7 +344,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -506,14 +516,14 @@
       waiting.style.display = "block";
       waitingText.textContent = "Flipping coin...";
       
-      // Animate coin flip
+      // Animate coin flip (5 rotations)
       coin.classList.add('flipping');
       
       // After animation, determine result
       setTimeout(() => {
         coin.classList.remove('flipping');
         determineTossResult();
-      }, 2000);
+      }, 5000); // Matches the animation duration (1s * 5 rotations)
     }
 
     function determineTossResult() {
@@ -523,6 +533,13 @@
         const tossData = snap.exists() ? snap.val() : {};
         const call = tossData.call;
         const winner = call === result ? "player1" : "player2";
+        
+        // Show the actual result on the coin
+        if (result === 'heads') {
+          coin.style.transform = 'rotateY(0deg)';
+        } else {
+          coin.style.transform = 'rotateY(180deg)';
+        }
         
         update(tossRef, {
           flipper: player,
@@ -546,6 +563,13 @@
       const result = tossData.result;
       const winner = tossData.winner;
       const call = tossData.call;
+      
+      // Show the final coin position
+      if (result === 'heads') {
+        coin.style.transform = 'rotateY(0deg)';
+      } else {
+        coin.style.transform = 'rotateY(180deg)';
+      }
       
       if (player === winner) {
         tossResult.innerHTML = `
@@ -609,4 +633,4 @@
     });
   </script>
 </body>
-  </html>
+</html>
