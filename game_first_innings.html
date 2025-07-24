@@ -1008,6 +1008,53 @@
       color: white;
     }
     
+    /* Second Innings Popup */
+    .second-innings-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 1001;
+      text-align: center;
+      color: white;
+      max-width: 300px;
+      width: 90%;
+    }
+    
+    .second-innings-popup h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+    
+    .second-innings-popup .countdown {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 10px 0;
+      color: #4CAF50;
+    }
+    
+    .second-innings-popup button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.3s;
+    }
+    
+    .second-innings-popup button:hover {
+      background: #388E3C;
+      transform: scale(1.05);
+    }
+    
     /* Responsive Styles */
     @media (max-width: 768px) {
       .card-btns button {
@@ -1099,16 +1146,6 @@
       }
     }
   </style>
-
-<style>
-#batterCard, #bowlerCard {
-  display: inline-block;
-  width: 48%;
-  vertical-align: top;
-  margin: 0 1%;
-}
-</style>
-
 </head>
 <body>
   <div class="container">
@@ -1312,6 +1349,14 @@
     </div>
   </div>
 
+  <!-- Second Innings Popup -->
+  <div id="secondInningsPopup" class="second-innings-popup" style="display:none;">
+    <h3>First Innings Completed!</h3>
+    <p>Second innings will start in</p>
+    <div class="countdown" id="secondInningsCountdown">10</div>
+    <button id="startSecondInningsNowBtn">🏏 Start Second Innings Now</button>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, get, update, push, remove, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
@@ -1513,6 +1558,9 @@
     const commentaryBox = document.getElementById("commentaryBox");
     const pauseCommentaryBtn = document.getElementById("pauseCommentary");
     const clearCommentaryBtn = document.getElementById("clearCommentary");
+    const secondInningsPopup = document.getElementById("secondInningsPopup");
+    const secondInningsCountdown = document.getElementById("secondInningsCountdown");
+    const startSecondInningsNowBtn = document.getElementById("startSecondInningsNowBtn");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2505,95 +2553,105 @@
 
     // End current inning
     async function endInning() {
-  disableButtons();
+      disableButtons();
 
-  await set(ref(db, `matches/currentMatch/firstInnings`), {
-    totalRuns: runs,
-    totalWickets: wickets,
-    balls: legalBalls,
-    batterStats: batterStats,
-    bowlerStats: bowlerStats,
-    team1Name: team1NameDisplay.textContent,
-    team2Name: team2NameDisplay.textContent,
-    format: currentFormat.name,
-    battingFirst: battingFirst,
-    tossWinner: tossWinner
-  });
-
-  resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
-  showNotification("First innings completed!", 'info');
-  addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
-
-  showSecondInningsPopup(); // ✅ New popup call
-    }
-
-function showSecondInningsPopup() {
-  const popup = document.getElementById('secondInningsPopup');
-  const countdownEl = document.getElementById('secondInningsCountdown');
-  const startNowBtn = document.getElementById('startSecondInningsNowBtn');
-
-  popup.style.display = 'block';
-  let timeLeft = 10;
-  countdownEl.textContent = timeLeft;
-
-  const countdownInterval = setInterval(() => {
-    timeLeft--;
-    countdownEl.textContent = timeLeft;
-    if (timeLeft <= 0) {
-      clearInterval(countdownInterval);
-      saveFirstInningsAndRedirect();
-    }
-  }, 1000);
-
-  startNowBtn.addEventListener('click', () => {
-    clearInterval(countdownInterval);
-    saveFirstInningsAndRedirect();
-  }, { once: true });
-}
-
-async function saveFirstInningsAndRedirect() {
-  try {
-    const firstInningsData = {
-      team1Name: team1NameDisplay.textContent,
-      team2Name: team2NameDisplay.textContent,
-      format: currentFormat.name,
-      score: {
-        runs: runs,
-        wickets: wickets,
-        overs: `${Math.floor(legalBalls/6)}.${legalBalls%6}`
-      },
-      playerStats: {
-        batters: batterStats,
-        bowlers: bowlerStats
-      },
-      matchInfo: {
+      await set(ref(db, `matches/currentMatch/firstInnings`), {
+        totalRuns: runs,
+        totalWickets: wickets,
+        balls: legalBalls,
+        batterStats: batterStats,
+        bowlerStats: bowlerStats,
+        team1Name: team1NameDisplay.textContent,
+        team2Name: team2NameDisplay.textContent,
+        format: currentFormat.name,
         battingFirst: battingFirst,
-        tossWinner: tossWinner,
-        legalBalls: legalBalls,
-        ballByBall: ballByBall,
-        fallOfWickets: fallOfWickets
+        tossWinner: tossWinner
+      });
+
+      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
+      showNotification("First innings completed!", 'info');
+      addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
+
+      showSecondInningsPopup();
+    }
+
+    // Show second innings popup
+    function showSecondInningsPopup() {
+      const popup = document.getElementById('secondInningsPopup');
+      const countdownEl = document.getElementById('secondInningsCountdown');
+      const startNowBtn = document.getElementById('startSecondInningsNowBtn');
+
+      popup.style.display = 'block';
+      let timeLeft = 10;
+      countdownEl.textContent = timeLeft;
+
+      const countdownInterval = setInterval(() => {
+        timeLeft--;
+        countdownEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          saveFirstInningsAndRedirect();
+        }
+      }, 1000);
+
+      startNowBtn.addEventListener('click', () => {
+        clearInterval(countdownInterval);
+        saveFirstInningsAndRedirect();
+      }, { once: true });
+    }
+
+    // Save data and redirect to second innings
+    async function saveFirstInningsAndRedirect() {
+      try {
+        // Prepare first innings data
+        const firstInningsData = {
+          team1Name: team1NameDisplay.textContent,
+          team2Name: team2NameDisplay.textContent,
+          format: currentFormat.name,
+          score: {
+            runs: runs,
+            wickets: wickets,
+            overs: `${Math.floor(legalBalls/6)}.${legalBalls%6}`
+          },
+          playerStats: {
+            batters: batterStats,
+            bowlers: bowlerStats
+          },
+          matchInfo: {
+            battingFirst: battingFirst,
+            tossWinner: tossWinner,
+            legalBalls: legalBalls,
+            ballByBall: ballByBall,
+            fallOfWickets: fallOfWickets
+          },
+          teams: {
+            team1: team1Players,
+            team2: team2Players
+          }
+        };
+
+        // Save to localStorage for second innings
+        localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
+
+        // Clean up Firebase for second innings
+        await Promise.all([
+          set(playsRef, {}),
+          set(batterRef, null),
+          set(bowlerRef, null),
+          update(roomRef, {
+            gameStarted: false,
+            toss: null,
+            battingFirst: null
+          })
+        ]);
+
+        // Redirect to second innings
+        window.location.href = 'game_second_innings.html';
+      } catch (error) {
+        console.error('Error saving first innings data:', error);
+        showNotification('Failed to save first innings data', 'error');
       }
-    };
-
-    localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
-
-    await Promise.all([
-      set(playsRef, {}),
-      set(batterRef, null),
-      set(bowlerRef, null),
-      update(roomRef, {
-        gameStarted: false,
-        toss: null,
-        battingFirst: null
-      })
-    ]);
-
-    window.location.href = 'game_second_innings.html';
-  } catch (error) {
-    console.error('Error saving first innings data:', error);
-    showNotification('Failed to save first innings data', 'error');
-  }
-}
+    }
 
     // Update spectator data with match details
     function updateSpectatorData() {
@@ -3234,163 +3292,5 @@ async function saveFirstInningsAndRedirect() {
       document.getElementById("result").className = "error";
     });
   </script>
-
-<script>
-function saveFirstInningsAndRedirect() {
-  const batterStats = window.batterStats || [];
-  const bowlerStats = window.bowlerStats || [];
-
-  const data = {
-    team1Name: document.getElementById("team1Name").innerText,
-    team2Name: document.getElementById("team2Name").innerText,
-    format: document.getElementById("formatDisplay").innerText || "T20",
-    score: {
-      runs: parseInt(document.getElementById("runs").innerText),
-      wickets: parseInt(document.getElementById("wickets").innerText),
-      overs: document.getElementById("overs").innerText
-    },
-    playerStats: {
-      batters: batterStats,
-      bowlers: bowlerStats
-    }
-  };
-
-  localStorage.setItem("handiCricketFirstInnings", JSON.stringify(data));
-  window.location.href = "game_second_innings.html";
-}
-</script>
-
-
-<!-- Start Second Innings Popup -->
-<div id="startSecondInningsModal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:#123456;padding:20px;border-radius:10px;z-index:9999;display:none;text-align:center;color:white;">
-  <h3>First Innings Completed</h3>
-  <p>Second innings will start in <span id="countdown">10</span> seconds...</p>
-  <button onclick="saveFirstInningsAndRedirect()" style="padding:10px 20px;font-size:16px;background:#4CAF50;color:white;border:none;border-radius:6px;margin-top:10px;">
-    Start Second Innings Now ➡️
-  </button>
-</div>
-
-<script>
-// Call this only when first innings ends (e.g. 10 wickets or overs complete)
-function showStartSecondInningsPopup() {
-  const popup = document.createElement('div');
-  popup.style.position = 'fixed';
-  popup.style.top = '50%';
-  popup.style.left = '50%';
-  popup.style.transform = 'translate(-50%, -50%)';
-  popup.style.background = '#123456';
-  popup.style.color = 'white';
-  popup.style.padding = '20px';
-  popup.style.borderRadius = '10px';
-  popup.style.boxShadow = '0 0 10px black';
-  popup.style.zIndex = '1000';
-  popup.style.textAlign = 'center';
-
-  popup.innerHTML = `
-    <h2>Innings Over!</h2>
-    <p>Second innings will start in <span id="popupTimer">10</span> seconds</p>
-    <button onclick="saveFirstInningsAndRedirect()" style="margin-top:10px;padding:8px 16px;font-size:14px;">▶️ Start Second Innings Now</button>
-  `;
-  document.body.appendChild(popup);
-
-  let timeLeft = 10;
-  const interval = setInterval(() => {
-    timeLeft--;
-    document.getElementById("popupTimer").innerText = timeLeft;
-    if (timeLeft === 0) {
-      clearInterval(interval);
-      saveFirstInningsAndRedirect();
-    }
-  }, 1000);
-}
-</script> 
-
-
-<script>
-function oversCompleted() {
-  const current = document.getElementById("overs").innerText;
-  const [completed, balls] = current.split(".");
-  return parseInt(completed) >= MAX_OVERS;
-}
-
-function checkFirstInningsEnd() {
-  const wickets = parseInt(document.getElementById("wickets").innerText);
-  if (wickets >= 10 || oversCompleted()) {
-    showStartSecondInningsPopup();
-  }
-}
-
-function showStartSecondInningsPopup() {
-  const popup = document.createElement('div');
-  popup.style.position = 'fixed';
-  popup.style.top = '50%';
-  popup.style.left = '50%';
-  popup.style.transform = 'translate(-50%, -50%)';
-  popup.style.background = '#123456';
-  popup.style.color = 'white';
-  popup.style.padding = '20px';
-  popup.style.borderRadius = '10px';
-  popup.style.boxShadow = '0 0 10px black';
-  popup.style.zIndex = '1000';
-  popup.style.textAlign = 'center';
-  popup.style.width = '300px';
-
-  popup.innerHTML = `
-    <h2>Innings Over!</h2>
-    <p>Second innings will start in <span id="popupTimer">10</span> seconds</p>
-    <button onclick="saveFirstInningsAndRedirect()" style="margin-top:10px;padding:8px 16px;font-size:14px;">▶️ Start Second Innings Now</button>
-  `;
-  document.body.appendChild(popup);
-
-  let timeLeft = 10;
-  const interval = setInterval(() => {
-    timeLeft--;
-    const timerEl = document.getElementById("popupTimer");
-    if (timerEl) timerEl.innerText = timeLeft;
-    if (timeLeft === 0) {
-      clearInterval(interval);
-      saveFirstInningsAndRedirect();
-    }
-  }, 1000);
-}
-
-function saveFirstInningsAndRedirect() {
-  const batterStats = window.batterStats || [];
-  const bowlerStats = window.bowlerStats || [];
-
-  const data = {
-    team1Name: document.getElementById("team1Name").innerText,
-    team2Name: document.getElementById("team2Name").innerText,
-    format: document.getElementById("formatDisplay").innerText || "T20",
-    score: {
-      runs: parseInt(document.getElementById("runs").innerText),
-      wickets: parseInt(document.getElementById("wickets").innerText),
-      overs: document.getElementById("overs").innerText
-    },
-    playerStats: {
-      batters: batterStats,
-      bowlers: bowlerStats
-    }
-  };
-
-  localStorage.setItem("handiCricketFirstInnings", JSON.stringify(data));
-  window.location.href = "game_second_innings.html";
-}
-</script>
-<!-- ========== Second Innings Popup HTML ========== -->
-<div id="secondInningsPopup" class="second-innings-popup" style="display:none;">
-  <h3>First Innings Completed!</h3>
-  <p>Second innings will start in</p>
-  <div class="countdown" id="secondInningsCountdown">10</div>
-  <button id="startSecondInningsNowBtn">🏏 Start Second Innings Now</button>
-</div>
 </body>
 </html>
-
-<script>
-function afterEveryPlay() {
-  <!-- 📌 checkFirstInningsEnd() called after every play below -->
-  checkFirstInningsEnd();
-}
-</script>
