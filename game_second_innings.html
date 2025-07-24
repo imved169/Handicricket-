@@ -2425,37 +2425,45 @@
 
     // Setup player role (batting/bowling)
     async function setupRole() {
-        // Immediately clear all selection states and UI
-        batterSelected = false;
-        bowlerSelected = false;
-        currentBatter = null;
-        currentBowler = null;
-        currentBatterEl.textContent = "-";
-        currentBowlerEl.textContent = "-";
-        resetSelectionModal();
+  // Clear all selection states and UI
+  batterSelected = false;
+  bowlerSelected = false;
+  currentBatter = null;
+  currentBowler = null;
+  currentBatterEl.textContent = "-";
+  currentBowlerEl.textContent = "-";
+  resetSelectionModal();
 
-        // Set role definitively
-        isBatting = (player === battingFirst);
-        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-        
-        console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
+  // For second innings, roles are reversed
+  const roomSnap = await get(roomRef);
+  if (roomSnap.exists()) {
+    const roomData = roomSnap.val();
+    const firstInningsBattingFirst = roomData.toss?.battingFirst || "player1";
+    battingFirst = firstInningsBattingFirst === "player1" ? "player2" : "player1";
+  }
 
-        // Atomically clear all Firebase selections
-        await Promise.all([
-            set(batterRef, null),
-            set(bowlerRef, null),
-            update(playsRef, { player1: null, player2: null })
-        ]);
+  // Set role definitively
+  isBatting = (player === battingFirst);
+  roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+  
+  console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
 
-        // Add slight delay before showing new UI to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        // Show appropriate selection UI
-        if (isBatting) {
-            await showBatterSelection();
-        } else {
-            await showBowlerSelection();
-        }
+  // Atomically clear all Firebase selections
+  await Promise.all([
+    set(batterRef, null),
+    set(bowlerRef, null),
+    update(playsRef, { player1: null, player2: null })
+  ]);
+
+  // Add slight delay before showing new UI to prevent flicker
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  // Show appropriate selection UI
+  if (isBatting) {
+    await showBatterSelection();
+  } else {
+    await showBowlerSelection();
+  }
     }
 
     // Function to reset the selection modal
@@ -2799,99 +2807,8 @@
       });
     }
 
-    // Initialize the game
-    async function initGame() {
-      try {
-        console.log("Starting game initialization...");
-        resultEl.innerText = "Initializing game...";
-        loadingSpinner.style.display = "block";
-
-        // 1. Verify URL parameters first
-        console.log("Checking URL parameters...");
-        if (!room || !player) {
-          throw new Error("Missing room or player parameters in URL");
-        }
-
-        // Check if spectator mode
-        isSpectator = player === "spectator";
-        if (isSpectator) {
-          setupSpectatorMode();
-          return;
-        }
-
-        // 2. Set player online status with timeout
-        console.log("Setting player online status...");
-        await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
-
-        // 3. Load room data with retries
-        console.log("Loading room data...");
-        const roomSnap = await getWithRetries(roomRef, 3, 1000);
-        
-        if (!roomSnap.exists()) {
-          throw new Error(`Room ${room} not found in database`);
-        }
-
-        const roomData = roomSnap.val();
-        console.log("Room data loaded:", roomData);
-
-        // 4. Verify game setup is complete
-        console.log("Verifying game setup...");
-        if (!roomData.toss?.winner && !roomData.tossWinner) {
-          throw new Error("Toss not completed");
-        }
-        
-        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          throw new Error("Teams not set up");
-        }
-
-        // Get toss and batting first info
-        tossWinner = roomData.toss?.winner || roomData.tossWinner;
-        battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
-        
-        // Update team names display
-        team1NameDisplay.textContent = roomData.teams.player1.name || "Team 1";
-        team2NameDisplay.textContent = roomData.teams.player2.name || "Team 2";
-        battingTeamName.textContent = roomData.teams.player1.name || "Team 1";
-
-        // Mark game as started if not already
-        if (!roomData.gameStarted) {
-          await update(roomRef, {
-            gameStarted: true
-          });
-        }
-
-        // Load teams with retry logic
-        console.log("Loading teams...");
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const teamsLoaded = await loadPlaying11();
-            if (teamsLoaded) break;
-          } catch (error) {
-            console.error(`Team load attempt ${retries + 1} failed:`, error);
-            retries++;
-            if (retries >= maxRetries) {
-              throw new Error("Failed to load teams after multiple attempts");
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
-        // Set game format
-        const format = roomData.player1?.format || "5";
-        currentFormat = formatRules[format];
-        
-        formatDisplay.innerText = `${currentFormat.name}`;
-        
-        // Initialize stats
-        initializeBatterStats();
-        initializeBowlerStats();
-
-        // Set up game components
-        setupConnectionMonitoring();
-async function initGame() {
+          
+  async function initGame() {
   try {
     console.log("Starting game initialization...");
     resultEl.innerText = "Initializing game...";
@@ -3382,34 +3299,53 @@ window.onload = function () {
 };
 </script>
 
-  <script>
-window.onload = function() {
+<!-- Replace the entire window.onload script at the bottom of game_second_innings.html with this: -->
+<script>
+async function loadSecondInningsData() {
   try {
-    const data = JSON.parse(localStorage.getItem("handiCricketFirstInnings"));
-    if (!data) {
-      alert("No first innings data found. Please complete first innings first.");
-      window.location.href = "index.html";
-      return;
+    // First try to load from Firebase
+    const roomSnap = await get(roomRef);
+    if (!roomSnap.exists()) {
+      throw new Error("Room not found in database");
     }
-
-    // Set target (first innings runs + 1)
-    const target = data.score.runs + 1;
-    document.getElementById("formatDisplay").innerText = 
-      `${data.format} - Target: ${target}`;
-
-    // Switch batting/bowling teams
-    document.getElementById("team1Name").innerText = data.team2Name;
-    document.getElementById("team2Name").innerText = data.team1Name;
-    document.getElementById("battingTeamName").innerText = data.team2Name;
-
-    // Store reversed player roles
-    window.secondInningsBatters = data.playerStats.bowlers;
-    window.secondInningsBowlers = data.playerStats.batters;
-
+    
+    const roomData = roomSnap.val();
+    const teams = roomData.teams;
+    
+    if (!teams?.player1 || !teams?.player2) {
+      throw new Error("Teams data not found in Firebase");
+    }
+    
+    // Set team names
+    document.getElementById("team1Name").textContent = teams.player1.name || "Team A";
+    document.getElementById("team2Name").textContent = teams.player2.name || "Team B";
+    
+    // For second innings, the team that batted first in first innings now bowls
+    const battingFirst = roomData.toss?.battingFirst || "player1";
+    const battingSecond = battingFirst === "player1" ? "player2" : "player1";
+    
+    // Set batting team name display
+    document.getElementById("battingTeamName").textContent = 
+      battingSecond === "player1" ? teams.player1.name : teams.player2.name;
+    
+    // Store players for second innings (roles reversed)
+    window.secondInningsBatters = battingSecond === "player1" ? 
+      teams.player1.players : teams.player2.players;
+    window.secondInningsBowlers = battingSecond === "player1" ? 
+      teams.player2.players : teams.player1.players;
+    
+    // Get target from first innings (if available)
+    if (roomData.firstInnings?.totalRuns) {
+      currentFormat.target = roomData.firstInnings.totalRuns + 1;
+      document.getElementById("targetValue").textContent = currentFormat.target;
+      document.getElementById("formatDisplay").textContent = 
+        `${currentFormat.name} - Target: ${currentFormat.target}`;
+    }
+    
     // Update innings display
     document.getElementById("inningsNumber").textContent = "2nd Innings";
     
-    // Initialize game with second innings data
+    // Initialize the game with this data
     initGame().catch(error => {
       console.error("Second innings init failed:", error);
       document.getElementById("result").innerHTML = `
@@ -3418,17 +3354,20 @@ window.onload = function() {
       `;
       document.getElementById("result").className = "error";
     });
-
+    
   } catch (error) {
-    console.error("Error loading first innings:", error);
+    console.error("Error loading second innings data:", error);
     document.getElementById("result").innerHTML = `
       Error loading match data: ${error.message}<br>
-      Please return to first innings.
+      <button onclick="location.reload()">Retry</button>
     `;
     document.getElementById("result").className = "error";
   }
-};
-  </script>
+}
+
+// Call this when the page loads
+window.onload = loadSecondInningsData;
+</script>
   
 </body>
 </html>
