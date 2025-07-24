@@ -1099,6 +1099,16 @@
       }
     }
   </style>
+
+<style>
+#batterCard, #bowlerCard {
+  display: inline-block;
+  width: 48%;
+  vertical-align: top;
+  margin: 0 1%;
+}
+</style>
+
 </head>
 <body>
   <div class="container">
@@ -3230,7 +3240,7 @@ function showStartSecondInningsPopup() {
 function oversCompleted() {
   const current = document.getElementById("overs").innerText;
   const [completed, balls] = current.split(".");
-  return parseInt(completed) >= MAX_OVERS; // You can define MAX_OVERS globally
+  return parseInt(completed) >= MAX_OVERS;
 }
 
 function checkFirstInningsEnd() {
@@ -3239,9 +3249,71 @@ function checkFirstInningsEnd() {
     showStartSecondInningsPopup();
   }
 }
+
+function showStartSecondInningsPopup() {
+  const popup = document.createElement('div');
+  popup.style.position = 'fixed';
+  popup.style.top = '50%';
+  popup.style.left = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  popup.style.background = '#123456';
+  popup.style.color = 'white';
+  popup.style.padding = '20px';
+  popup.style.borderRadius = '10px';
+  popup.style.boxShadow = '0 0 10px black';
+  popup.style.zIndex = '1000';
+  popup.style.textAlign = 'center';
+  popup.style.width = '300px';
+
+  popup.innerHTML = `
+    <h2>Innings Over!</h2>
+    <p>Second innings will start in <span id="popupTimer">10</span> seconds</p>
+    <button onclick="saveFirstInningsAndRedirect()" style="margin-top:10px;padding:8px 16px;font-size:14px;">▶️ Start Second Innings Now</button>
+  `;
+  document.body.appendChild(popup);
+
+  let timeLeft = 10;
+  const interval = setInterval(() => {
+    timeLeft--;
+    const timerEl = document.getElementById("popupTimer");
+    if (timerEl) timerEl.innerText = timeLeft;
+    if (timeLeft === 0) {
+      clearInterval(interval);
+      saveFirstInningsAndRedirect();
+    }
+  }, 1000);
+}
+
+function saveFirstInningsAndRedirect() {
+  const batterStats = window.batterStats || [];
+  const bowlerStats = window.bowlerStats || [];
+
+  const data = {
+    team1Name: document.getElementById("team1Name").innerText,
+    team2Name: document.getElementById("team2Name").innerText,
+    format: document.getElementById("formatDisplay").innerText || "T20",
+    score: {
+      runs: parseInt(document.getElementById("runs").innerText),
+      wickets: parseInt(document.getElementById("wickets").innerText),
+      overs: document.getElementById("overs").innerText
+    },
+    playerStats: {
+      batters: batterStats,
+      bowlers: bowlerStats
+    }
+  };
+
+  localStorage.setItem("handiCricketFirstInnings", JSON.stringify(data));
+  window.location.href = "game_second_innings.html";
+}
 </script>
 
 </body>
 </html>
 
-<!-- 📌 Make sure to call checkFirstInningsEnd() after each ball -->
+<script>
+function afterEveryPlay() {
+  <!-- 📌 checkFirstInningsEnd() called after every play below -->
+  checkFirstInningsEnd();
+}
+</script>
