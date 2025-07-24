@@ -3300,73 +3300,76 @@ window.onload = function () {
 </script>
 
 <!-- Replace the entire window.onload script at the bottom of game_second_innings.html with this: -->
-<script>
-async function loadSecondInningsData() {
-  try {
-    // First try to load from Firebase
-    const roomSnap = await get(roomRef);
-    if (!roomSnap.exists()) {
-      throw new Error("Room not found in database");
-    }
-    
-    const roomData = roomSnap.val();
-    const teams = roomData.teams;
-    
-    if (!teams?.player1 || !teams?.player2) {
-      throw new Error("Teams data not found in Firebase");
-    }
-    
-    // Set team names
-    document.getElementById("team1Name").textContent = teams.player1.name || "Team A";
-    document.getElementById("team2Name").textContent = teams.player2.name || "Team B";
-    
-    // For second innings, the team that batted first in first innings now bowls
-    const battingFirst = roomData.toss?.battingFirst || "player1";
-    const battingSecond = battingFirst === "player1" ? "player2" : "player1";
-    
-    // Set batting team name display
-    document.getElementById("battingTeamName").textContent = 
-      battingSecond === "player1" ? teams.player1.name : teams.player2.name;
-    
-    // Store players for second innings (roles reversed)
-    window.secondInningsBatters = battingSecond === "player1" ? 
-      teams.player1.players : teams.player2.players;
-    window.secondInningsBowlers = battingSecond === "player1" ? 
-      teams.player2.players : teams.player1.players;
-    
-    // Get target from first innings (if available)
-    if (roomData.firstInnings?.totalRuns) {
-      currentFormat.target = roomData.firstInnings.totalRuns + 1;
-      document.getElementById("targetValue").textContent = currentFormat.target;
-      document.getElementById("formatDisplay").textContent = 
-        `${currentFormat.name} - Target: ${currentFormat.target}`;
-    }
-    
-    // Update innings display
-    document.getElementById("inningsNumber").textContent = "2nd Innings";
-    
-    // Initialize the game with this data
-    initGame().catch(error => {
-      console.error("Second innings init failed:", error);
+<script type="module">
+  // Import Firebase functions again since this is a separate module
+  import { get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+  async function loadSecondInningsData() {
+    try {
+      // First try to load from Firebase
+      const roomSnap = await get(roomRef);
+      if (!roomSnap.exists()) {
+        throw new Error("Room not found in database");
+      }
+      
+      const roomData = roomSnap.val();
+      const teams = roomData.teams;
+      
+      if (!teams?.player1 || !teams?.player2) {
+        throw new Error("Teams data not found in Firebase");
+      }
+      
+      // Set team names
+      document.getElementById("team1Name").textContent = teams.player1.name || "Team A";
+      document.getElementById("team2Name").textContent = teams.player2.name || "Team B";
+      
+      // For second innings, the team that batted first in first innings now bowls
+      const battingFirst = roomData.toss?.battingFirst || "player1";
+      const battingSecond = battingFirst === "player1" ? "player2" : "player1";
+      
+      // Set batting team name display
+      document.getElementById("battingTeamName").textContent = 
+        battingSecond === "player1" ? teams.player1.name : teams.player2.name;
+      
+      // Store players for second innings (roles reversed)
+      window.secondInningsBatters = battingSecond === "player1" ? 
+        teams.player1.players : teams.player2.players;
+      window.secondInningsBowlers = battingSecond === "player1" ? 
+        teams.player2.players : teams.player1.players;
+      
+      // Get target from first innings (if available)
+      if (roomData.firstInnings?.totalRuns) {
+        currentFormat.target = roomData.firstInnings.totalRuns + 1;
+        document.getElementById("targetValue").textContent = currentFormat.target;
+        document.getElementById("formatDisplay").textContent = 
+          `${currentFormat.name} - Target: ${currentFormat.target}`;
+      }
+      
+      // Update innings display
+      document.getElementById("inningsNumber").textContent = "2nd Innings";
+      
+      // Initialize the game with this data
+      initGame().catch(error => {
+        console.error("Second innings init failed:", error);
+        document.getElementById("result").innerHTML = `
+          Failed to start second innings: ${error.message}<br>
+          <button onclick="location.reload()">Retry</button>
+        `;
+        document.getElementById("result").className = "error";
+      });
+      
+    } catch (error) {
+      console.error("Error loading second innings data:", error);
       document.getElementById("result").innerHTML = `
-        Failed to start second innings: ${error.message}<br>
+        Error loading match data: ${error.message}<br>
         <button onclick="location.reload()">Retry</button>
       `;
       document.getElementById("result").className = "error";
-    });
-    
-  } catch (error) {
-    console.error("Error loading second innings data:", error);
-    document.getElementById("result").innerHTML = `
-      Error loading match data: ${error.message}<br>
-      <button onclick="location.reload()">Retry</button>
-    `;
-    document.getElementById("result").className = "error";
+    }
   }
-}
 
-// Call this when the page loads
-window.onload = loadSecondInningsData;
+  // Call this when the page loads
+  window.addEventListener('DOMContentLoaded', loadSecondInningsData);
 </script>
   
 </body>
