@@ -2505,24 +2505,95 @@
 
     // End current inning
     async function endInning() {
-      disableButtons();
-      
-      // Save innings data
-      await set(ref(db, `matches/currentMatch/firstInnings`), {
-        totalRuns: runs,
-        totalWickets: wickets,
-        balls: legalBalls,
-        batterStats: batterStats,
-        bowlerStats: bowlerStats
-      });
-      
-      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
-      showNotification("First innings completed!", 'info');
-      addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
-      
-      // Disable all buttons as this is just first innings
-      buttons.forEach(btn => btn.disabled = true);
+  disableButtons();
+
+  await set(ref(db, `matches/currentMatch/firstInnings`), {
+    totalRuns: runs,
+    totalWickets: wickets,
+    balls: legalBalls,
+    batterStats: batterStats,
+    bowlerStats: bowlerStats,
+    team1Name: team1NameDisplay.textContent,
+    team2Name: team2NameDisplay.textContent,
+    format: currentFormat.name,
+    battingFirst: battingFirst,
+    tossWinner: tossWinner
+  });
+
+  resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
+  showNotification("First innings completed!", 'info');
+  addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
+
+  showSecondInningsPopup(); // ✅ New popup call
     }
+
+function showSecondInningsPopup() {
+  const popup = document.getElementById('secondInningsPopup');
+  const countdownEl = document.getElementById('secondInningsCountdown');
+  const startNowBtn = document.getElementById('startSecondInningsNowBtn');
+
+  popup.style.display = 'block';
+  let timeLeft = 10;
+  countdownEl.textContent = timeLeft;
+
+  const countdownInterval = setInterval(() => {
+    timeLeft--;
+    countdownEl.textContent = timeLeft;
+    if (timeLeft <= 0) {
+      clearInterval(countdownInterval);
+      saveFirstInningsAndRedirect();
+    }
+  }, 1000);
+
+  startNowBtn.addEventListener('click', () => {
+    clearInterval(countdownInterval);
+    saveFirstInningsAndRedirect();
+  }, { once: true });
+}
+
+async function saveFirstInningsAndRedirect() {
+  try {
+    const firstInningsData = {
+      team1Name: team1NameDisplay.textContent,
+      team2Name: team2NameDisplay.textContent,
+      format: currentFormat.name,
+      score: {
+        runs: runs,
+        wickets: wickets,
+        overs: `${Math.floor(legalBalls/6)}.${legalBalls%6}`
+      },
+      playerStats: {
+        batters: batterStats,
+        bowlers: bowlerStats
+      },
+      matchInfo: {
+        battingFirst: battingFirst,
+        tossWinner: tossWinner,
+        legalBalls: legalBalls,
+        ballByBall: ballByBall,
+        fallOfWickets: fallOfWickets
+      }
+    };
+
+    localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
+
+    await Promise.all([
+      set(playsRef, {}),
+      set(batterRef, null),
+      set(bowlerRef, null),
+      update(roomRef, {
+        gameStarted: false,
+        toss: null,
+        battingFirst: null
+      })
+    ]);
+
+    window.location.href = 'game_second_innings.html';
+  } catch (error) {
+    console.error('Error saving first innings data:', error);
+    showNotification('Failed to save first innings data', 'error');
+  }
+}
 
     // Update spectator data with match details
     function updateSpectatorData() {
@@ -3307,7 +3378,13 @@ function saveFirstInningsAndRedirect() {
   window.location.href = "game_second_innings.html";
 }
 </script>
-
+<!-- ========== Second Innings Popup HTML ========== -->
+<div id="secondInningsPopup" class="second-innings-popup" style="display:none;">
+  <h3>First Innings Completed!</h3>
+  <p>Second innings will start in</p>
+  <div class="countdown" id="secondInningsCountdown">10</div>
+  <button id="startSecondInningsNowBtn">🏏 Start Second Innings Now</button>
+</div>
 </body>
 </html>
 
