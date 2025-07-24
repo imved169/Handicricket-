@@ -1897,272 +1897,286 @@
 
     // Process the outcome of a ball with fractional wickets
     async function handleResult() {
+  try {
+    // Clear selection state
+    selectedCardValue = null;
+    isProcessingSelection = false;
+    
+    const playsSnap = await get(playsRef);
+    if (!playsSnap.exists()) return;
+    
+    const plays = playsSnap.val();
+    if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
+
+    const card1 = plays.player1;
+    const card2 = plays.player2;
+    const battingPlayer = battingFirst;
+    const batterCard = battingPlayer === "player1" ? card1 : card2;
+    const bowlerCard = battingPlayer === "player1" ? card2 : card1;
+
+    let outcome = "";
+    let isLegalBall = false;
+    let isWicket = false;
+    let isPlayerOut = false;
+    let runsScored = 0;
+    let boundary = false;
+    let isSix = false;
+
+    // Track zeros for both players
+    if (batterCard === 0) zerosThisOver[battingPlayer]++;
+    if (bowlerCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
+
+    // Handle free hit for next ball
+    if (freeHitNextBall) {
+      freeHit = true;
+      freeHitNextBall = false;
+      updateFreeHitDisplay();
+    }
+
+    // Check powerplay and dead over status
+    checkPowerplay();
+    checkDeadOver();
+
+    // 1. Check for no ball (both 0)
+    if (batterCard === 0 && bowlerCard === 0) {
+      outcome = "NO BALL! +1 run (Free Hit next ball)";
+      runs += 1;
+      freeHitNextBall = true;
+      isLegalBall = false;
+      addCommentary("No ball! Free hit coming up...", 'error');
+      addToTimeline("NB", 'error');
+    } 
+    // 2. Handle free hit balls
+    else if (freeHit) {
+      if (batterCard === bowlerCard && batterCard > 0) {
+        outcome = "Wicket on Free Hit (not out)";
+        isWicket = false;
+        addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
+      } else {
+        runsScored = batterCard;
+        runs += batterCard;
+        batterStats[currentBatter].runs += runsScored;
+        outcome = `${batterCard} Run(s)! (Free Hit)`;
+        if (batterCard === 4 || batterCard === 6) boundary = true;
+        if (batterCard === 6) isSix = true;
+        addCommentary(`${currentBatter} scores ${batterCard} on free hit`, 'info');
+        addToTimeline(`${batterCard} FH`, 'info');
+      }
+      freeHit = false;
+      updateFreeHitDisplay();
+      isLegalBall = true;
+    }
+    // 3. Handle wickets (same number > 0)
+    else if (batterCard === bowlerCard && batterCard > 0) {
+      const wicketValue = getWicketValue();
+      const currentWickets = batterWickets[currentBatter] || 0;
+
+      if (currentWickets < 1.0) {
+        const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
+        batterWickets[currentBatter] = currentWickets + actualWicketValue;
+        wickets += actualWicketValue;
+        isWicket = true;
+
+        if (batterWickets[currentBatter] >= 1.0) {
+          isPlayerOut = true;
+          outcome = "WICKET! (Out)";
+          fallOfWickets.push({
+            score: runs,
+            over: `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`,
+            batter: currentBatter
+          });
+          addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
+          addToTimeline(`W ${currentBatter}`, 'wicket');
+        } else {
+          const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
+          outcome = `WICKET! (${remain} left for this batter)`;
+          addCommentary(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
+          addToTimeline(`W ${actualWicketValue}`, 'wicket');
+        }
+      } else {
+        outcome = "Batter already out!";
+        addCommentary(`${currentBatter} is already out!`, 'error');
+      }
+      
+      isLegalBall = true;
+    }
+    // 4. Handle batter playing 0 with penalty
+    else if (batterCard === 0 && bowlerCard > 0) {
+      if (zerosThisOver[battingPlayer] > 3) {
+        const penaltyRuns = 5;
+        runs -= penaltyRuns;
+        batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
+        outcome = "4th 0 in over! -5 runs";
+        addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
+        addToTimeline("-5", 'error');
+        
+        checkBatterMilestones(true);
+      } else {
+        runsScored = bowlerCard;
+        runs += bowlerCard;
+        batterStats[currentBatter].runs += runsScored;
+        outcome = `Batter played 0. Runs = ${bowlerCard}`;
+        if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
+        if (bowlerCard === 6) isSix = true;
+        addCommentary(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
+        addToTimeline(`${bowlerCard}`, 'info');
+      }
+      isLegalBall = true;
+    }
+    // 5. Handle bowler playing 0
+    else if (bowlerCard === 0 && batterCard > 0) {
+      if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
+        outcome = "4th 0 in over! No ball";
+        runs += 1;
+        freeHitNextBall = true;
+        addCommentary(`4th dot ball from bowler! No ball called`, 'error');
+        addToTimeline("NB", 'error');
+      } else {
+        outcome = "DOT BALL!";
+        addCommentary(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
+        addToTimeline("•", 'info');
+      }
+      isLegalBall = true;
+    }
+    // 6. Normal runs
+    else {
+      runsScored = batterCard;
+      runs += batterCard;
+      batterStats[currentBatter].runs += batterCard;
+      outcome = `${batterCard} Run(s)!`;
+      if (batterCard === 4 || batterCard === 6) boundary = true;
+      if (batterCard === 6) isSix = true;
+      
+      const boundaryType = batterCard === 6 ? 'SIX' : 'FOUR';
+      addCommentary(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
+      addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
+      isLegalBall = true;
+    }
+
+    // Check target in second innings
+    if (battingFirst === "player2") {
+      const target = currentFormat.target;
+      if (runs >= target) {
+        resultEl.innerText = `TARGET ACHIEVED! ${currentBatter} wins!`;
+        showNotification(`${currentBatter} hits the winning runs!`, 'winner');
+        addCommentary(`TEAM WINS BY ${currentFormat.totalWickets - wickets} wickets!`, 'milestone');
+        createConfetti();
+        gameInProgress = false;
+        disableButtons();
+        return;
+      }
+    }
+
+    // Update batter stats
+    if (currentBatter && runsScored > 0) {
+      batterStats[currentBatter].balls += 1;
+      if (batterCard === 4) batterStats[currentBatter].fours += 1;
+      if (batterCard === 6) batterStats[currentBatter].sixes += 1;
+      checkBatterMilestones();
+    }
+    
+    // Update bowler stats
+    if (currentBowler) {
+      bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
+      if (isWicket) bowlerStats[currentBowler].wickets += 1;
+      bowlerStats[currentBowler].runs += runsScored;
+    }
+
+    // Record ball in ball-by-ball
+    ballByBall[legalBalls] = {
+      runs: runsScored,
+      wicket: isWicket || isPlayerOut,
+      batter: currentBatter,
+      bowler: currentBowler,
+      timestamp: Date.now(),
+      outcome: outcome,
+      penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
+    };
+
+    // Record last wicket score for partnership
+    if (isWicket) {
+      lastWicketScore = runs;
+    }
+
+    // Handle legal balls
+    if (isLegalBall) {
+      legalBalls++;
+      updateOverSummary();
+      
+      if (currentBowler) {
+        bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
+        if (legalBalls % 6 === 0) {
+          bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
+          zerosThisOver = { player1: 0, player2: 0 };
+        }
+      }
+    }
+
+    // Update all displays
+    updateAllDisplays();
+    
+    // Update UI animations
+    resultEl.innerText = outcome;
+    if (boundary) {
+      resultEl.classList.add("boundary-animation");
+      document.getElementById('runs').classList.add("boundary-flash");
+    }
+    if (isWicket) {
+      resultEl.classList.add("wicket-animation");
+      document.getElementById('wickets').classList.add("score-change");
+      document.querySelector('.scorebox-main').classList.add("wicket-flash");
+    }
+    if (runsScored > 0) {
+      document.getElementById('runs').classList.add("score-change");
+    }
+    
+    // Remove animation classes after they complete
+    setTimeout(() => {
+      resultEl.classList.remove("boundary-animation", "wicket-animation");
+      document.getElementById('runs').classList.remove("score-change", "boundary-flash");
+      document.getElementById('wickets').classList.remove("score-change");
+      document.querySelector('.scorebox-main').classList.remove("wicket-flash");
+    }, 2000);
+
+    // Check for innings end conditions
+    if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
+      endInning();
+      return;
+    }
+
+    // Prepare for next ball
+    setTimeout(async () => {
       try {
-        // Clear selection state
-        selectedCardValue = null;
-        isProcessingSelection = false;
+        await set(playsRef, {});
+        enableButtons();
+        clearCardSelection();
         
-        const playsSnap = await get(playsRef);
-        if (!playsSnap.exists()) return;
-        
-        const plays = playsSnap.val();
-        if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
-
-        const card1 = plays.player1;
-        const card2 = plays.player2;
-        const battingPlayer = battingFirst;
-        const batterCard = battingPlayer === "player1" ? card1 : card2;
-        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
-
-        let outcome = "";
-        let isLegalBall = false;
-        let isWicket = false;
-        let isPlayerOut = false;
-        let runsScored = 0;
-        let boundary = false;
-        let isSix = false;
-
-        // Track zeros for both players
-        if (batterCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlerCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
-
-        // Handle free hit for next ball
-        if (freeHitNextBall) {
-          freeHit = true;
-          freeHitNextBall = false;
-          updateFreeHitDisplay();
-        }
-
-        // Check powerplay and dead over status
-        checkPowerplay();
-        checkDeadOver();
-
-        // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false;
-          addCommentary("No ball! Free hit coming up...", 'error');
-          addToTimeline("NB", 'error');
-        } 
-        // 2. Handle free hit balls
-        else if (freeHit) {
-          if (batterCard === bowlerCard && batterCard > 0) {
-            outcome = "Wicket on Free Hit (not out)";
-            isWicket = false;
-            addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
+        if (isPlayerOut && player === battingPlayer) {
+          batterSelected = false;
+          await showBatterSelection();
+        } else if (isLegalBall && legalBalls % 6 === 0) {
+          bowlerSelected = false;
+          if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
+            await showBowlerSelection();
           } else {
-            runsScored = batterCard;
-            runs += batterCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `${batterCard} Run(s)! (Free Hit)`;
-            if (batterCard === 4 || batterCard === 6) boundary = true;
-            if (batterCard === 6) isSix = true;
-            addCommentary(`${currentBatter} scores ${batterCard} on free hit`, 'info');
-            addToTimeline(`${batterCard} FH`, 'info');
+            resultEl.innerText = "Waiting for opponent to select bowler...";
           }
-          freeHit = false;
-          updateFreeHitDisplay();
-          isLegalBall = true;
+        } else {
+          updateButtonStates();
         }
-        // 3. Handle wickets (same number > 0)
-        else if (batterCard === bowlerCard && batterCard > 0) {
-          const wicketValue = getWicketValue();
-          const currentWickets = batterWickets[currentBatter] || 0;
-
-          if (currentWickets < 1.0) {
-            const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
-            batterWickets[currentBatter] = currentWickets + actualWicketValue;
-            wickets += actualWicketValue;
-            isWicket = true;
-
-            if (batterWickets[currentBatter] >= 1.0) {
-              isPlayerOut = true;
-              outcome = "WICKET! (Out)";
-              fallOfWickets.push({
-                score: runs,
-                over: `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`,
-                batter: currentBatter
-              });
-              addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
-              addToTimeline(`W ${currentBatter}`, 'wicket');
-            } else {
-              const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
-              outcome = `WICKET! (${remain} left for this batter)`;
-              addCommentary(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
-              addToTimeline(`W ${actualWicketValue}`, 'wicket');
-            }
-          } else {
-            outcome = "Batter already out!";
-            addCommentary(`${currentBatter} is already out!`, 'error');
-          }
-          
-          isLegalBall = true;
-        }
-        // 4. Handle batter playing 0 with penalty
-        else if (batterCard === 0 && bowlerCard > 0) {
-          if (zerosThisOver[battingPlayer] > 3) {
-            const penaltyRuns = 5;
-            runs -= penaltyRuns;
-            batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
-            outcome = "4th 0 in over! -5 runs";
-            addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
-            addToTimeline("-5", 'error');
-            
-            checkBatterMilestones(true);
-          } else {
-            runsScored = bowlerCard;
-            runs += bowlerCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `Batter played 0. Runs = ${bowlerCard}`;
-            if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
-            if (bowlerCard === 6) isSix = true;
-            addCommentary(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
-            addToTimeline(`${bowlerCard}`, 'info');
-          }
-          isLegalBall = true;
-        }
-        // 5. Handle bowler playing 0
-        else if (bowlerCard === 0 && batterCard > 0) {
-          if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
-            outcome = "4th 0 in over! No ball";
-            runs += 1;
-            freeHitNextBall = true;
-            addCommentary(`4th dot ball from bowler! No ball called`, 'error');
-            addToTimeline("NB", 'error');
-          } else {
-            outcome = "DOT BALL!";
-            addCommentary(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
-            addToTimeline("•", 'info');
-          }
-          isLegalBall = true;
-        }
-        // 6. Normal runs
-        else {
-          runsScored = batterCard;
-          runs += batterCard;
-          batterStats[currentBatter].runs += batterCard;
-          outcome = `${batterCard} Run(s)!`;
-          if (batterCard === 4 || batterCard === 6) boundary = true;
-          if (batterCard === 6) isSix = true;
-          
-          const boundaryType = batterCard === 6 ? 'SIX' : 'FOUR';
-          addCommentary(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
-          addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
-          isLegalBall = true;
-        }
-
-        // Update batter stats
-        if (currentBatter && runsScored > 0) {
-          batterStats[currentBatter].balls += 1;
-          if (batterCard === 4) batterStats[currentBatter].fours += 1;
-          if (batterCard === 6) batterStats[currentBatter].sixes += 1;
-          checkBatterMilestones();
-        }
-        
-        // Update bowler stats
-        if (currentBowler) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
-          if (isWicket) bowlerStats[currentBowler].wickets += 1;
-          bowlerStats[currentBowler].runs += runsScored;
-        }
-
-        // Record ball in ball-by-ball
-        ballByBall[legalBalls] = {
-          runs: runsScored,
-          wicket: isWicket || isPlayerOut,
-          batter: currentBatter,
-          bowler: currentBowler,
-          timestamp: Date.now(),
-          outcome: outcome,
-          penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
-        };
-
-        // Record last wicket score for partnership
-        if (isWicket) {
-          lastWicketScore = runs;
-        }
-
-        // Handle legal balls
-        if (isLegalBall) {
-          legalBalls++;
-          updateOverSummary();
-          
-          if (currentBowler) {
-            bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
-            if (legalBalls % 6 === 0) {
-              bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
-              zerosThisOver = { player1: 0, player2: 0 };
-            }
-          }
-        }
-
-        // Update all displays
-        updateAllDisplays();
-        
-        // Update UI animations
-        resultEl.innerText = outcome;
-        if (boundary) {
-          resultEl.classList.add("boundary-animation");
-          document.getElementById('runs').classList.add("boundary-flash");
-        }
-        if (isWicket) {
-          resultEl.classList.add("wicket-animation");
-          document.getElementById('wickets').classList.add("score-change");
-          document.querySelector('.scorebox-main').classList.add("wicket-flash");
-        }
-        if (runsScored > 0) {
-          document.getElementById('runs').classList.add("score-change");
-        }
-        
-        // Remove animation classes after they complete
-        setTimeout(() => {
-          resultEl.classList.remove("boundary-animation", "wicket-animation");
-          document.getElementById('runs').classList.remove("score-change", "boundary-flash");
-          document.getElementById('wickets').classList.remove("score-change");
-          document.querySelector('.scorebox-main').classList.remove("wicket-flash");
-        }, 2000);
-
-        // Check for innings end conditions
-        if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
-          endInning();
-          return;
-        }
-
-        // Prepare for next ball
-        setTimeout(async () => {
-          try {
-            await set(playsRef, {});
-            enableButtons();
-            clearCardSelection();
-            
-            if (isPlayerOut && player === battingPlayer) {
-              batterSelected = false;
-              await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
-              bowlerSelected = false;
-              if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
-                await showBowlerSelection();
-              } else {
-                resultEl.innerText = "Waiting for opponent to select bowler...";
-              }
-            } else {
-              updateButtonStates();
-            }
-          } catch (error) {
-            console.error("Error in post-ball processing:", error);
-            resultEl.innerText = "Error processing next ball state";
-            enableButtons();
-            clearCardSelection();
-          }
-        }, 1500);
       } catch (error) {
-        console.error("Error processing ball outcome:", error);
-        resultEl.innerText = "Error processing ball outcome";
+        console.error("Error in post-ball processing:", error);
+        resultEl.innerText = "Error processing next ball state";
         enableButtons();
         clearCardSelection();
       }
+    }, 1500);
+  } catch (error) {
+    console.error("Error processing ball outcome:", error);
+    resultEl.innerText = "Error processing ball outcome";
+    enableButtons();
+    clearCardSelection();
+  }
     }
 
     // Accurate batter milestone checking accounting for penalties
