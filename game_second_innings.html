@@ -1601,103 +1601,101 @@
     }
 
     // Load first innings data from localStorage
-    function loadFirstInningsData() {
-      try {
-        const data = localStorage.getItem('handiCricketFirstInnings');
-        if (!data) {
-          throw new Error("First innings data not found");
-        }
-        
-        firstInningsData = JSON.parse(data);
-        targetRuns = firstInningsData.score.runs + 1;
-        targetDisplay.textContent = `Target: ${targetRuns}`;
-        
-        // Update team names based on first innings
-        if (firstInningsData.battingFirst === "player1") {
-          team1NameDisplay.textContent = firstInningsData.team1Name;
-          team2NameDisplay.textContent = firstInningsData.team2Name;
-          battingTeamName.textContent = firstInningsData.team2Name; // Roles reversed in second innings
-        } else {
-          team1NameDisplay.textContent = firstInningsData.team2Name;
-          team2NameDisplay.textContent = firstInningsData.team1Name;
-          battingTeamName.textContent = firstInningsData.team1Name; // Roles reversed in second innings
-        }
-        
-        return true;
-      } catch (error) {
-        console.error("Error loading first innings data:", error);
-        showNotification("Failed to load first innings data", 'error');
-        return false;
-      }
+function loadFirstInningsData() {
+  try {
+    const data = localStorage.getItem('handiCricketFirstInnings');
+    if (!data) {
+      throw new Error("First innings data not found");
     }
+    
+    firstInningsData = JSON.parse(data);
+    targetRuns = firstInningsData.score.runs + 1;
+    targetDisplay.textContent = `Target: ${targetRuns}`;
+    
+    // Update team names based on first innings
+    if (firstInningsData.battingFirst === "player1") {
+      team1NameDisplay.textContent = firstInningsData.team1Name;
+      team2NameDisplay.textContent = firstInningsData.team2Name;
+      battingTeamName.textContent = firstInningsData.team2Name; // Roles reversed in second innings
+    } else {
+      team1NameDisplay.textContent = firstInningsData.team2Name;
+      team2NameDisplay.textContent = firstInningsData.team1Name;
+      battingTeamName.textContent = firstInningsData.team1Name; // Roles reversed in second innings
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error loading first innings data:", error);
+    showNotification("Failed to load first innings data", 'error');
+    return false;
+  }
+}
 
     // Enhanced loadPlaying11 function with validation
     async function loadPlaying11() {
-      try {
-        resultEl.innerText = "Loading teams...";
-        
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists()) throw new Error("Room not found");
+  try {
+    resultEl.innerText = "Loading teams...";
+    
+    const roomSnap = await get(roomRef);
+    if (!roomSnap.exists()) throw new Error("Room not found");
 
-        const teams = roomSnap.val().teams;
-        if (!teams?.player1 || !teams?.player2) {
-          throw new Error("Both teams must be submitted before starting");
-        }
+    const teams = roomSnap.val().teams;
+    if (!teams?.player1 || !teams?.player2) {
+      throw new Error("Both teams must be submitted before starting");
+    }
 
-        // Clear previous data
-        team1Players = [];
-        team2Players = [];
-        team1PlayersEl.innerHTML = '';
-        team2PlayersEl.innerHTML = '';
+    // Clear previous data
+    team1Players = [];
+    team2Players = [];
+    team1PlayersEl.innerHTML = '';
+    team2PlayersEl.innerHTML = '';
 
-        // Load Team 1 (now the team that bowled first)
-        if (firstInningsData.battingFirst === "player1") {
-          // Team 2 from first innings is now Team 1 (batting)
-          if (teams.player2?.players) {
-            team1NameEl.textContent = teams.player2.name || "Team B";
-            team1NameDisplay.textContent = teams.player2.name || "Team B";
-            battingTeamName.textContent = teams.player2.name || "Team B";
-            team1Players = teams.player2.players;
-            team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
-          }
-          
-          // Team 1 from first innings is now Team 2 (bowling)
-          if (teams.player1?.players) {
-            team2NameEl.textContent = teams.player1.name || "Team A";
-            team2NameDisplay.textContent = teams.player1.name || "Team A";
-            team2Players = teams.player1.players;
-            team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
-          }
-        } else {
-          // Team 1 from first innings is now Team 1 (batting)
-          if (teams.player1?.players) {
-            team1NameEl.textContent = teams.player1.name || "Team A";
-            team1NameDisplay.textContent = teams.player1.name || "Team A";
-            battingTeamName.textContent = teams.player1.name || "Team A";
-            team1Players = teams.player1.players;
-            team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
-          }
-          
-          // Team 2 from first innings is now Team 2 (bowling)
-          if (teams.player2?.players) {
-            team2NameEl.textContent = teams.player2.name || "Team B";
-            team2NameDisplay.textContent = teams.player2.name || "Team B";
-            team2Players = teams.player2.players;
-            team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
-          }
-        }
+    // Determine which team batted first in first innings
+    const firstInningsBattingTeam = firstInningsData.battingFirst;
+    const firstInningsBowlingTeam = firstInningsData.battingFirst === "player1" ? "player2" : "player1";
 
-        // Validate we have players
-        if (team1Players.length === 0 || team2Players.length === 0) {
-          throw new Error("Both teams must have at least 1 player");
-        }
+    // In second innings, roles are reversed:
+    // - Team that bowled first now bats
+    // - Team that batted first now bowls
+    
+    // Set team names and players based on first innings
+    if (firstInningsBattingTeam === "player1") {
+      // Team 1 batted first (now bowling), Team 2 bowled first (now batting)
+      team1NameEl.textContent = teams.player2.name || "Team B";
+      team1NameDisplay.textContent = teams.player2.name || "Team B";
+      battingTeamName.textContent = teams.player2.name || "Team B";
+      team1Players = teams.player2.players;
+      team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
 
-        return true;
-      } catch (error) {
-        console.error("Error loading teams:", error);
-        showNotification(error.message, 'error');
-        throw error;
-      }
+      team2NameEl.textContent = teams.player1.name || "Team A";
+      team2NameDisplay.textContent = teams.player1.name || "Team A";
+      team2Players = teams.player1.players;
+      team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+    } else {
+      // Team 2 batted first (now bowling), Team 1 bowled first (now batting)
+      team1NameEl.textContent = teams.player1.name || "Team A";
+      team1NameDisplay.textContent = teams.player1.name || "Team A";
+      battingTeamName.textContent = teams.player1.name || "Team A";
+      team1Players = teams.player1.players;
+      team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
+
+      team2NameEl.textContent = teams.player2.name || "Team B";
+      team2NameDisplay.textContent = teams.player2.name || "Team B";
+      team2Players = teams.player2.players;
+      team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+    }
+
+    // Validate we have players
+    if (team1Players.length === 0 || team2Players.length === 0) {
+      throw new Error("Both teams must have at least 1 player");
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error loading teams:", error);
+    showNotification(error.message, 'error');
+    throw error;
+  }
     }
 
     // Initialize batter stats with penalty tracking
@@ -2920,30 +2918,30 @@
 
     // Initialize the game
     async function initGame() {
-      try {
-        console.log("Starting game initialization...");
-        resultEl.innerText = "Initializing game...";
-        loadingSpinner.style.display = "block";
+  try {
+    console.log("Starting game initialization...");
+    resultEl.innerText = "Initializing game...";
+    loadingSpinner.style.display = "block";
 
-        // 1. Verify URL parameters first
-        console.log("Checking URL parameters...");
-        if (!room || !player) {
-          throw new Error("Missing room or player parameters in URL");
-        }
+    // 1. Verify URL parameters first
+    console.log("Checking URL parameters...");
+    if (!room || !player) {
+      throw new Error("Missing room or player parameters in URL");
+    }
 
-        // Check if spectator mode
-        isSpectator = player === "spectator";
-        if (isSpectator) {
-          setupSpectatorMode();
-          return;
-        }
+    // Check if spectator mode
+    isSpectator = player === "spectator";
+    if (isSpectator) {
+      setupSpectatorMode();
+      return;
+    }
 
-        // 2. Load first innings data
-        console.log("Loading first innings data...");
-        const firstInningsLoaded = loadFirstInningsData();
-        if (!firstInningsLoaded) {
-          throw new Error("Failed to load first innings data");
-        }
+    // 2. Load first innings data
+    console.log("Loading first innings data...");
+    const firstInningsLoaded = loadFirstInningsData();
+    if (!firstInningsLoaded) {
+      throw new Error("Failed to load first innings data");
+    }
 
         // 3. Set player online status with timeout
         console.log("Setting player online status...");
