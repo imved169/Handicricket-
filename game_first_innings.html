@@ -2601,7 +2601,7 @@
     }
 
     // Save data and redirect to second innings
- async function saveFirstInningsAndRedirect() {
+async function saveFirstInningsAndRedirect() {
   try {
     // Prepare first innings data
     const firstInningsData = {
@@ -2633,25 +2633,30 @@
     // Save to localStorage for second innings
     localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
 
+    // Update Firebase with necessary data for second innings
+    await update(roomRef, {
+      toss: {
+        winner: tossWinner,
+        decision: battingFirst === tossWinner ? "bat" : "bowl"
+      },
+      battingFirst: battingFirst,
+      gameStarted: false // Reset for second innings
+    });
+
     // Clean up Firebase for second innings
     await Promise.all([
       set(playsRef, {}),
       set(batterRef, null),
-      set(bowlerRef, null),
-      update(roomRef, {
-        gameStarted: false,
-        toss: null,
-        battingFirst: null
-      })
+      set(bowlerRef, null)
     ]);
 
     // Redirect to second innings
-    window.location.href = 'game_second_innings.html?room=' + room + '&player=' + player;
+    window.location.href = `game_second_innings.html?room=${room}&player=${player}`;
   } catch (error) {
     console.error('Error saving first innings data:', error);
     showNotification('Failed to save first innings data', 'error');
   }
-}
+      }
 
     // Update spectator data with match details
     function updateSpectatorData() {
