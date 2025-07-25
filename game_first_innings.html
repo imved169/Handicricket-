@@ -58,44 +58,6 @@
       font-size: 0.9rem;
     }
 
-    .batter-bowler-container {
-      display: flex;
-      gap: 15px;
-      margin-top: 10px;
-    }
-
-    .player-display {
-      flex: 1;
-      padding: 8px;
-      border-radius: 6px;
-      background: rgba(30, 136, 229, 0.2);
-    }
-
-    .player-display.batter {
-      border-left: 3px solid #4CAF50;
-    }
-
-    .player-display.bowler {
-      border-left: 3px solid #F44336;
-    }
-
-    .player-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      color: #aaa;
-    }
-
-    .player-name {
-      font-weight: bold;
-      margin: 3px 0;
-    }
-
-    .player-stats {
-      font-size: 0.85rem;
-      display: flex;
-      justify-content: space-between;
-    }
-
     /* Match Info Bar */
     .match-info-bar {
       display: flex;
@@ -301,7 +263,7 @@
       text-overflow: ellipsis;
     }
 
-    /* Player Comparison Styles */
+    /* Player Comparison Styles - Enhanced */
     .comparison-container {
       background: rgba(13, 42, 82, 0.7);
       border-radius: 8px;
@@ -354,11 +316,14 @@
     .comparison-stats {
       font-size: 0.8rem;
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
     }
 
     .comparison-stats div {
       flex: 1;
+      min-width: 50%;
+      margin: 2px 0;
     }
 
     .vs-circle {
@@ -1109,11 +1074,6 @@
       .score-large {
         font-size: 1.5rem;
       }
-      
-      .batter-bowler-container {
-        flex-direction: column;
-        gap: 8px;
-      }
     }
   </style>
 </head>
@@ -1151,22 +1111,6 @@
         <div class="score-details">
           <div>Overs: <strong id="overs">0.0</strong></div>
           <div>Run Rate: <strong id="runRate">0.00</strong></div>
-        </div>
-      </div>
-      <div class="batter-bowler-container">
-        <div class="player-display batter">
-          <div class="player-label">BATTER</div>
-          <div class="player-name" id="currentBatter">-</div>
-          <div class="player-stats">
-            <span id="batterRuns">0</span>(<span id="batterBalls">0</span>)
-          </div>
-        </div>
-        <div class="player-display bowler">
-          <div class="player-label">BOWLER</div>
-          <div class="player-name" id="currentBowler">-</div>
-          <div class="player-stats">
-            <span id="bowlerOvers">0.0</span>-<span id="bowlerRuns">0</span>-<span id="bowlerWickets">0</span>
-          </div>
         </div>
       </div>
     </div>
@@ -1217,7 +1161,7 @@
       </div>
     </div>
     
-    <!-- Player Comparison -->
+    <!-- Enhanced Player Comparison -->
     <div class="comparison-container">
       <h4>Current Battle</h4>
       <div class="comparison-box">
@@ -1227,6 +1171,8 @@
           <div class="comparison-stats">
             <div>Runs: <span id="comparisonBatterRuns">0</span></div>
             <div>Balls: <span id="comparisonBatterBalls">0</span></div>
+            <div>SR: <span id="comparisonBatterSR">0.00</span></div>
+            <div>4s/6s: <span id="comparisonBatterBoundaries">0/0</span></div>
           </div>
         </div>
         <div class="vs-circle">VS</div>
@@ -1236,6 +1182,8 @@
           <div class="comparison-stats">
             <div>Overs: <span id="comparisonBowlerOvers">0.0</span></div>
             <div>Wkts: <span id="comparisonBowlerWickets">0</span></div>
+            <div>ER: <span id="comparisonBowlerER">0.00</span></div>
+            <div>Runs: <span id="comparisonBowlerRuns">0</span></div>
           </div>
         </div>
       </div>
@@ -1497,8 +1445,6 @@
     const scoreboard = document.querySelector(".scorebox");
     const buttons = document.querySelectorAll(".btn");
     const roleText = document.getElementById("roleText");
-    const currentBatterEl = document.getElementById("currentBatter");
-    const currentBowlerEl = document.getElementById("currentBowler");
     const selectionModal = document.getElementById("selectionModal");
     const selectionTitle = document.getElementById("selectionTitle");
     const selectionList = document.getElementById("selectionList");
@@ -1723,20 +1669,6 @@
 
     // Update player stats display
     function updatePlayerStats() {
-      if (currentBatter) {
-        const batter = batterStats[currentBatter] || { runs: 0, balls: 0 };
-        document.getElementById('batterRuns').textContent = batter.runs;
-        document.getElementById('batterBalls').textContent = batter.balls;
-      }
-      
-      if (currentBowler) {
-        const bowler = bowlerStats[currentBowler] || { runs: 0, overs: 0, wickets: 0 };
-        document.getElementById('bowlerRuns').textContent = bowler.runs;
-        document.getElementById('bowlerWickets').textContent = bowler.wickets;
-        const overs = bowler.overs.toFixed(1);
-        document.getElementById('bowlerOvers').textContent = overs;
-      }
-      
       // Update run rate
       const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
       const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
@@ -1812,20 +1744,28 @@
       document.getElementById('matchDate').textContent = now.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
-    // Update player comparison
+    // Update player comparison with enhanced stats
     function updatePlayerComparison() {
       if (currentBatter) {
-        const batter = batterStats[currentBatter] || { runs: 0, balls: 0 };
+        const batter = batterStats[currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+        const sr = batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(2) : '0.00';
+        
         document.getElementById('comparisonBatterName').textContent = currentBatter;
         document.getElementById('comparisonBatterRuns').textContent = batter.runs;
         document.getElementById('comparisonBatterBalls').textContent = batter.balls;
+        document.getElementById('comparisonBatterSR').textContent = sr;
+        document.getElementById('comparisonBatterBoundaries').textContent = `${batter.fours}/${batter.sixes}`;
       }
       
       if (currentBowler) {
-        const bowler = bowlerStats[currentBowler] || { runs: 0, overs: 0, wickets: 0 };
+        const bowler = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
+        const er = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : '0.00';
+        
         document.getElementById('comparisonBowlerName').textContent = currentBowler;
         document.getElementById('comparisonBowlerWickets').textContent = bowler.wickets;
         document.getElementById('comparisonBowlerOvers').textContent = bowler.overs.toFixed(1);
+        document.getElementById('comparisonBowlerER').textContent = er;
+        document.getElementById('comparisonBowlerRuns').textContent = bowler.runs;
       }
     }
 
@@ -2396,8 +2336,6 @@
         bowlerSelected = false;
         currentBatter = null;
         currentBowler = null;
-        currentBatterEl.textContent = "-";
-        currentBowlerEl.textContent = "-";
         resetSelectionModal();
 
         // Set role definitively
@@ -2758,13 +2696,11 @@
         if (!snap.exists()) {
           currentBatter = null;
           batterSelected = false;
-          currentBatterEl.textContent = "-";
           if (isBatting && !isResetting) {
             showBatterSelection();
           }
         } else if (snap.val()) {
           currentBatter = snap.val();
-          currentBatterEl.textContent = currentBatter;
           batterSelected = true;
           updateButtonStates();
           updateAllDisplays();
@@ -2776,13 +2712,11 @@
         if (!snap.exists()) {
           currentBowler = null;
           bowlerSelected = false;
-          currentBowlerEl.textContent = "-";
           if (!isBatting && !isResetting) {
             showBowlerSelection();
           }
         } else if (snap.val()) {
           currentBowler = snap.val();
-          currentBowlerEl.textContent = currentBowler;
           bowlerSelected = true;
           updateButtonStates();
           updateAllDisplays();
