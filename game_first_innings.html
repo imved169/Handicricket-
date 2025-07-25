@@ -2501,42 +2501,49 @@ function updateTime() {
     }
 
     // Enable all card buttons
-    function enableButtons() {
-      if (isResetting) return;
-      
-      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
-      buttons.forEach(btn => {
-        btn.disabled = !canPlay;
-      });
-      
-      if (canPlay) {
-        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
-      }
-    }
-
-    // End current inning
     async function endInning() {
-      disableButtons();
+  disableButtons();
 
-      // Show summary popup
-      showSummaryPopup();
+  try {
+    // Prepare all innings data
+    const firstInningsData = {
+      totalRuns: runs,
+      totalWickets: wickets,
+      balls: legalBalls,
+      batterStats: batterStats,
+      bowlerStats: bowlerStats,
+      ballByBall: ballByBall,
+      fallOfWickets: fallOfWickets,
+      overSummaries: overSummaries,
+      team1Name: team1NameDisplay.textContent,
+      team2Name: team2NameDisplay.textContent,
+      format: currentFormat.name,
+      timestamp: Date.now(),
+      storageComplete: true  // Explicit completion flag
+    };
 
-      // Update Firebase with innings data
-      await set(ref(db, `rooms/${room}/firstInnings`), {
-        totalRuns: runs,
-        totalWickets: wickets,
-        balls: legalBalls,
-        batterStats: batterStats,
-        bowlerStats: bowlerStats,
-        ballByBall: ballByBall,
-        fallOfWickets: fallOfWickets,
-        overSummaries: overSummaries,
-        timestamp: Date.now()
-      });
+    // Save to Firebase (atomic operation)
+    await set(ref(db, `rooms/${room}/firstInnings`), firstInningsData);
 
-      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
-      showNotification("First innings completed!", 'info');
-      addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
+    // UI Updates
+    resultEl.innerText = `Innings ended! ${team1NameDisplay.textContent} scored ${runs}/${wickets}`;
+    showNotification("First innings completed!", 'info');
+    addCommentary(
+      `Innings ends! ${team1NameDisplay.textContent} scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 
+      'info'
+    );
+
+    // Show summary popup AFTER successful Firebase save
+    showSummaryPopup();
+
+  } catch (error) {
+    console.error("Failed to save innings:", error);
+    resultEl.innerText = "Failed to save innings data! Trying again...";
+    showNotification("Connection issue - retrying...", 'error');
+    
+    // Retry once after 2 seconds
+    setTimeout(() => endInning(), 2000);
+  }
     }
 
     // Show summary popup with countdown
@@ -2583,39 +2590,30 @@ function updateTime() {
 
     // Save data and redirect to second innings
     async function saveFirstInningsAndRedirect() {
-      try {
-        // Prepare first innings data for localStorage
-        const firstInningsData = {
-          totalRuns: runs,
-          totalWickets: wickets,
-          balls: legalBalls,
-          batterStats: batterStats,
-          bowlerStats: bowlerStats,
-          ballByBall: ballByBall,
-          fallOfWickets: fallOfWickets,
-          overSummaries: overSummaries,
-          team1Name: team1NameDisplay.textContent,
-          team2Name: team2NameDisplay.textContent,
-          format: currentFormat.name,
-          timestamp: Date.now()
-        };
+  try {
+    // 1. Clean up Firebase for second innings (no localStorage needed)
+    await Promise.all([
+      set(playsRef, {}),       // Reset card selections
+      set(batterRef, null),    // Clear current batter
+      set(bowlerRef, null)     // Clear current bowler
+    ]);
 
-        // Save to localStorage for second innings
-        localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
+    // 2. Redirect to second innings
+    window.location.href = `game_second_innings.html?room=${room}&player=${player}`;
 
-        // Clean up Firebase for second innings
-        await Promise.all([
-          set(playsRef, {}),
-          set(batterRef, null),
-          set(bowlerRef, null)
-        ]);
-
-        // Redirect to second innings
-        window.location.href = `game_second_innings.html?room=${room}&player=${player}`;
-      } catch (error) {
-        console.error('Error saving first innings data:', error);
-        showNotification('Failed to save first innings data', 'error');
-      }
+  } catch (error) {
+    console.error('Error transitioning to second innings:', error);
+    showNotification('Failed to start second innings', 'error');
+    
+    // Optional: Add a retry button in the UI
+    resultEl.innerHTML = `
+      Connection error starting second innings.<br>
+      <button onclick="saveFirstInningsAndRedirect()" 
+              style="margin-top: 10px; padding: 8px; background: #1e88e5; color: white; border: none; border-radius: 4px;">
+        Retry
+      </button>
+    `;
+  }
     }
 
     // Update spectator data with match details
