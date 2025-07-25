@@ -2553,179 +2553,105 @@
 
     // End current inning
     async function endInning() {
-  disableButtons();
+      disableButtons();
 
-  // Prepare first innings data
-  const firstInningsData = {
-    team1Name: team1NameDisplay.textContent,
-    team2Name: team2NameDisplay.textContent,
-    format: currentFormat.name,
-    score: {
-      runs: runs,
-      wickets: wickets,
-      overs: `${Math.floor(legalBalls/6)}.${legalBalls%6}`
-    },
-    batterStats: batterStats,
-    bowlerStats: bowlerStats,
-    battingFirst: battingFirst,
-    tossWinner: tossWinner,
-    legalBalls: legalBalls,
-    ballByBall: ballByBall,
-    fallOfWickets: fallOfWickets,
-    team1Players: team1Players,
-    team2Players: team2Players
-  };
-
-  // Save to both localStorage and Firebase
-  localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
-  await set(ref(db, `matches/${room}/firstInnings`), firstInningsData);
-
-  resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
-  showNotification("First innings completed!", 'info');
-  addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
-
-  showSecondInningsPopup();
-    }
-
-    // // Enhanced Second Innings Popup with better UX
-function showSecondInningsPopup() {
-  const popup = document.getElementById('secondInningsPopup');
-  const countdownEl = document.getElementById('secondInningsCountdown');
-  const startNowBtn = document.getElementById('startSecondInningsNowBtn');
-  const preparingEl = document.getElementById('preparingStatus');
-
-  // Show popup with animations
-  popup.style.display = 'block';
-  setTimeout(() => popup.style.opacity = 1, 10);
-  
-  let timeLeft = 10;
-  countdownEl.textContent = timeLeft;
-  preparingEl.textContent = "Preparing second innings data...";
-
-  const countdownInterval = setInterval(() => {
-    timeLeft--;
-    countdownEl.textContent = timeLeft;
-    
-    if (timeLeft <= 0) {
-      clearInterval(countdownInterval);
-      preparingEl.textContent = "Redirecting to second innings...";
-      saveFirstInningsAndRedirect();
-    }
-  }, 1000);
-
-  // Enhanced button handler
-  startNowBtn.addEventListener('click', async () => {
-    clearInterval(countdownInterval);
-    preparingEl.textContent = "Starting immediately...";
-    startNowBtn.disabled = true;
-    await saveFirstInningsAndRedirect();
-  }, { once: true });
-}
-
-// Optimized Save and Redirect Function
-async function saveFirstInningsAndRedirect() {
-  try {
-    // Show saving state
-    const savingNotification = showPersistentNotification("Saving match data...", 'info');
-    
-    // Enhanced data structure
-    const firstInningsData = {
-      meta: {
-        matchId: room,
-        timestamp: Date.now(),
-        version: "1.1"
-      },
-      teams: {
-        team1: {
-          name: team1NameDisplay.textContent,
-          players: team1Players,
-          isBattingFirst: battingFirst === "player1"
-        },
-        team2: {
-          name: team2NameDisplay.textContent,
-          players: team2Players,
-          isBattingFirst: battingFirst === "player2"
-        }
-      },
-      innings: {
-        number: 1,
-        format: currentFormat.name,
+      await set(ref(db, `matches/currentMatch/firstInnings`), {
         totalRuns: runs,
         totalWickets: wickets,
-        totalBalls: legalBalls,
-        runRate: (runs / (legalBalls/6)).toFixed(2),
-        target: runs + 1  // Explicit target for second innings
-      },
-      toss: {
-        winner: tossWinner,
-        decision: battingFirst
-      },
-      performances: {
-        batters: batterStats,
-        bowlers: bowlerStats
-      },
-      timeline: {
-        ballByBall: ballByBall,
-        fallOfWickets: fallOfWickets
-      }
-    };
+        balls: legalBalls,
+        batterStats: batterStats,
+        bowlerStats: bowlerStats,
+        team1Name: team1NameDisplay.textContent,
+        team2Name: team2NameDisplay.textContent,
+        format: currentFormat.name,
+        battingFirst: battingFirst,
+        tossWinner: tossWinner
+      });
 
-    // Dual save with error handling
-    try {
-      localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
-    } catch (e) {
-      console.warn("LocalStorage save failed, using Firebase only");
+      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
+      showNotification("First innings completed!", 'info');
+      addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
+
+      showSecondInningsPopup();
     }
 
-    // Optimized Firebase cleanup
-    const updates = {
-      '/currentPlays': null,
-      '/currentBatter': null,
-      '/currentBowler': null,
-      '/gameState': 'between_innings',
-      '/firstInningsData': firstInningsData,  // Store complete data
-      '/target': runs + 1,
-      '/lastUpdated': ServerValue.TIMESTAMP
-    };
-    await update(roomRef, updates);
+    // Show second innings popup
+    function showSecondInningsPopup() {
+      const popup = document.getElementById('secondInningsPopup');
+      const countdownEl = document.getElementById('secondInningsCountdown');
+      const startNowBtn = document.getElementById('startSecondInningsNowBtn');
 
-    // Secure redirect with all parameters
-    const params = new URLSearchParams({
-      room: room,
-      player: player,
-      innings: 2,
-      target: runs + 1,
-      fromFirstInnings: 'true'
-    });
-    
-    window.location.href = `game_second_innings.html?${params.toString()}`;
+      popup.style.display = 'block';
+      let timeLeft = 10;
+      countdownEl.textContent = timeLeft;
 
-  } catch (error) {
-    console.error('Innings transition failed:', error);
-    showNotification(`Failed to save: ${error.message}`, 'error', 5000);
-    
-    // Show retry UI
-    document.getElementById('secondInningsPopup').innerHTML += `
-      <div class="retry-box">
-        <p>Save failed. Would you like to retry?</p>
-        <button onclick="saveFirstInningsAndRedirect()" class="retry-btn">Retry</button>
-        <button onclick="location.reload()" class="cancel-btn">Cancel</button>
-      </div>
-    `;
-  }
-}
+      const countdownInterval = setInterval(() => {
+        timeLeft--;
+        countdownEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          saveFirstInningsAndRedirect();
+        }
+      }, 1000);
 
-// Helper function for persistent notifications
-function showPersistentNotification(message, type) {
-  const notif = document.createElement('div');
-  notif.className = `persistent-notification ${type}`;
-  notif.textContent = message;
-  document.body.appendChild(notif);
-  return {
-    update: (newMsg) => notif.textContent = newMsg,
-    remove: () => notif.remove()
-  };
-}
+      startNowBtn.addEventListener('click', () => {
+        clearInterval(countdownInterval);
+        saveFirstInningsAndRedirect();
+      }, { once: true });
+    }
+
+    // Save data and redirect to second innings
+    async function saveFirstInningsAndRedirect() {
+      try {
+        // Prepare first innings data
+        const firstInningsData = {
+          team1Name: team1NameDisplay.textContent,
+          team2Name: team2NameDisplay.textContent,
+          format: currentFormat.name,
+          score: {
+            runs: runs,
+            wickets: wickets,
+            overs: `${Math.floor(legalBalls/6)}.${legalBalls%6}`
+          },
+          playerStats: {
+            batters: batterStats,
+            bowlers: bowlerStats
+          },
+          matchInfo: {
+            battingFirst: battingFirst,
+            tossWinner: tossWinner,
+            legalBalls: legalBalls,
+            ballByBall: ballByBall,
+            fallOfWickets: fallOfWickets
+          },
+          teams: {
+            team1: team1Players,
+            team2: team2Players
+          }
+        };
+
+        // Save to localStorage for second innings
+        localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
+
+        // Clean up Firebase for second innings
+        await Promise.all([
+          set(playsRef, {}),
+          set(batterRef, null),
+          set(bowlerRef, null),
+          update(roomRef, {
+            gameStarted: false,
+            toss: null,
+            battingFirst: null
+          })
+        ]);
+
+        // Redirect to second innings
+        window.location.href = 'game_second_innings.html';
+      } catch (error) {
+        console.error('Error saving first innings data:', error);
+        showNotification('Failed to save first innings data', 'error');
+      }
+    }
 
     // Update spectator data with match details
     function updateSpectatorData() {
