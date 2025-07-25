@@ -59,20 +59,29 @@
     }
 
     /* Match Info Bar */
-    .match-info-bar {
-      display: flex;
-      justify-content: space-between;
-      background: rgba(13, 42, 82, 0.5);
-      padding: 6px 8px;
-      border-radius: 6px;
-      margin: 6px 0;
-      font-size: 0.8rem;
-    }
+.match-info-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(13, 42, 82, 0.5);
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 4px 0 8px 0;
+  font-size: 0.75rem;
+  gap: 6px;
+}
 
-    .match-info-bar .divider {
-      color: #666;
-      margin: 0 4px;
-    }
+.match-info-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+
+.divider {
+  color: #666;
+  flex-shrink: 0;
+}
 
     /* Over Progress */
     .over-progress {
@@ -741,8 +750,8 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
-    /* Team Names Display */
-    /* Compact Team Names */
+    /* Team Names Display 
+/* Compact Team Names */
 .team-names-compact {
   margin-bottom: 8px;
   font-size: 13px;
@@ -770,6 +779,53 @@
   margin: 0 4px;
 }
 
+/* Compact Top Controls */
+#topControls {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+#topControls button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Smaller result display */
+#result {
+  font-size: 13px;
+  margin: 8px 0;
+  padding: 6px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+}
+
+/* Match info bar adjustments */
+.match-info-bar {
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  margin: 4px 0;
+}
+
+.match-info-bar .divider {
+  margin: 0 3px;
+}
 /* Compact Top Controls */
 #topControls {
   display: flex;
@@ -1163,17 +1219,17 @@
     
     <!-- Match Info Bar -->
     <div class="match-info-bar">
-      <div class="match-format" id="formatDisplay">T20 Match</div>
-      <div class="match-status">
-        <span id="inningsNumber">1st Innings</span>
-        <span class="divider">|</span>
-        <span id="roleText">You are Batting</span>
-      </div>
-      <div class="match-time">
-        <span id="currentTime">14:30</span>
-        <span class="divider">|</span>
-        <span id="matchDate">23 Jul 2023</span>
-      </div>
+  <div class="match-format" id="formatDisplay">T20 Match</div>
+  <div class="match-status">
+    <span id="inningsNumber">1st Innings</span>
+    <span class="divider">|</span>
+    <span id="roleText">You are Batting</span>
+  </div>
+  <div class="match-time">
+    <span id="currentTime">14:30</span>
+    <span class="divider">|</span>
+    <span id="matchDate">23 Jul 2023</span>
+  </div>
     </div>
     
     <!-- Over Progress -->
@@ -1718,13 +1774,14 @@
         `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
     }
 
-    // Update player stats display
-    function updatePlayerStats() {
-      // Update run rate
-      const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
-      const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
-      document.getElementById('runRate').textContent = rr;
-    }
+    /**** TIME DISPLAY FUNCTION ****/
+function updateTime() {
+  const now = new Date();
+  document.getElementById('currentTime').textContent = 
+    now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  document.getElementById('matchDate').textContent = 
+    now.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'});
+}
 
     // Update over progress display
     function updateOverProgress() {
@@ -1758,34 +1815,6 @@
       }
       
       document.getElementById('currentOverNumber').textContent = Math.floor(legalBalls / 6) + 1;
-    }
-
-    // Update partnership info
-    function updatePartnership() {
-      let partnershipRuns = runs - lastWicketScore;
-      let partnershipBalls = 0;
-      
-      // Count balls since last wicket
-      for (let i = legalBalls - 1; i >= 0; i--) {
-        if (ballByBall[i]?.wicket) break;
-        partnershipBalls++;
-      }
-    }
-
-    // Update last 5 overs stats
-    function updateLast5Overs() {
-      let last5Runs = 0;
-      let last5Wickets = 0;
-      let last5Balls = 0;
-      
-      const startBall = Math.max(0, legalBalls - 30); // 5 overs = 30 balls
-      for (let i = startBall; i < legalBalls; i++) {
-        if (ballByBall[i]) {
-          last5Runs += ballByBall[i].runs;
-          if (ballByBall[i].wicket) last5Wickets++;
-          last5Balls++;
-        }
-      }
     }
 
     // Update current time
@@ -1823,10 +1852,8 @@
     // Update all displays
     function updateAllDisplays() {
       updateScoreboard();
-      updatePlayerStats();
+      updateTime()
       updateOverProgress();
-      updatePartnership();
-      updateLast5Overs();
       updateCurrentTime();
       updatePlayerComparison();
     }
@@ -2391,9 +2418,8 @@
 
         // Set role definitively
         isBatting = (player === battingFirst);
-        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-        
-        console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
+        document.getElementById('roleText').textContent = isBatting ? "You are Batting" : "You are Bowling";
+        document.getElementById('inningsNumber').textContent = battingFirst === 'player1' ? '1st Innings' : '2nd Innings';
 
         // Atomically clear all Firebase selections
         await Promise.all([
@@ -2916,8 +2942,7 @@
         // Set game format
         const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
-        
-        formatDisplay.innerText = `${currentFormat.name}`;
+        document.getElementById('formatDisplay').textContent = currentFormat.name;
         
         // Initialize stats
         initializeBatterStats();
@@ -3080,6 +3105,9 @@
           }
         }
       }
+      // Start the clock (updates every minute)
+setInterval(updateTime, 60000); 
+updateTime(); // Show time immediately
     }
 
     // Request reset and notify opponent
