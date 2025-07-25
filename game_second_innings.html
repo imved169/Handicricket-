@@ -1161,11 +1161,11 @@
     <div class="team-names">
       <div id="team1NameDisplay" class="team-name-display">
         <span class="team-label">Batting:</span>
-        <span id="team1Name">Team A</span>
+        <span id="team1Name">-</span>
       </div>
       <div id="team2NameDisplay" class="team-name-display">
         <span class="team-label">Bowling:</span>
-        <span id="team2Name">Team B</span>
+        <span id="team2Name">-</span>
       </div>
     </div>
     
@@ -3350,5 +3350,62 @@ async function initGame() {
       document.getElementById("result").className = "error";
     });
   </script>
+
+<script>
+  const db = firebase.database();
+
+  function updateTeamList(slideId, players) {
+    const slide = document.getElementById(slideId);
+    const list = slide.querySelector("ul");
+    list.innerHTML = "";
+    players.forEach((player) => {
+      const li = document.createElement("li");
+      li.textContent = player;
+      list.appendChild(li);
+    });
+  }
+
+  firebase.database().ref("matchData").once("value").then((snapshot) => {
+    const data = snapshot.val();
+
+    const team1Name = data.team1Name;
+    const team2Name = data.team2Name;
+    const team1Players = data.team1Players || [];
+    const team2Players = data.team2Players || [];
+    const firstBatting = data.firstInningsBatting;
+
+    const battingTeam = firstBatting === "team1" ? "team2" : "team1";
+    const bowlingTeam = firstBatting === "team1" ? "team1" : "team2";
+
+    const battingTeamName = battingTeam === "team1" ? team1Name : team2Name;
+    const bowlingTeamName = bowlingTeam === "team1" ? team1Name : team2Name;
+
+    document.getElementById("team1Name").textContent = battingTeamName;
+    document.getElementById("team2Name").textContent = bowlingTeamName;
+    document.getElementById("battingTeamName").textContent = battingTeamName;
+
+    const batList = battingTeam === "team1" ? team1Players : team2Players;
+    const bowlList = bowlingTeam === "team1" ? team1Players : team2Players;
+
+    updateTeamList("team1Slide", batList);
+    updateTeamList("team2Slide", bowlList);
+
+    document.getElementById("currentBatter").textContent = batList[0] || "-";
+    document.getElementById("currentBowler").textContent = bowlList[0] || "-";
+
+    const yourTeam = data.yourTeam;
+    const userIsBowling =
+      (yourTeam === team1Name && bowlingTeam === "team1") ||
+      (yourTeam === team2Name && bowlingTeam === "team2");
+    document.getElementById("roleText").textContent = userIsBowling
+      ? "You are Bowling"
+      : "You are Batting";
+
+    // Show target score
+    const target = data.firstInningsScore + 1;
+    document.getElementById("targetDisplay").textContent = `Target: ${target}`;
+  });
+</script>
+
 </body>
 </html>
