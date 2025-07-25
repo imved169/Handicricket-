@@ -1623,15 +1623,20 @@ function loadFirstInningsData() {
     targetDisplay.textContent = `Target: ${targetRuns}`;
     
     // Set team names based on first innings
-    if (battingFirst === "player1") {
-      team1NameDisplay.textContent = firstInningsData.team2Name || "Team B";
-      team2NameDisplay.textContent = firstInningsData.team1Name || "Team A";
-      battingTeamName.textContent = firstInningsData.team2Name || "Team B";
-    } else {
-      team1NameDisplay.textContent = firstInningsData.team1Name || "Team A";
-      team2NameDisplay.textContent = firstInstrumentsData.team2Name || "Team B";
-      battingTeamName.textContent = firstInningsData.team1Name || "Team A";
-    }
+    // Set team names based on first innings
+if (battingFirst === "player1") {
+  // Team 1 batted first in first innings (now bowling)
+  // Team 2 bowled first in first innings (now batting)
+  team1NameDisplay.textContent = firstInningsData.team2Name || "Team B";
+  team2NameDisplay.textContent = firstInningsData.team1Name || "Team A";
+  battingTeamName.textContent = firstInningsData.team2Name || "Team B";
+} else {
+  // Team 2 batted first in first innings (now bowling)
+  // Team 1 bowled first in first innings (now batting)
+  team1NameDisplay.textContent = firstInningsData.team1Name || "Team A";
+  team2NameDisplay.textContent = firstInningsData.team2Name || "Team B"; // Fixed typo here
+  battingTeamName.textContent = firstInningsData.team1Name || "Team A";
+        }
     
     return true;
   } catch (error) {
@@ -1661,16 +1666,15 @@ function loadFirstInningsData() {
     team2PlayersEl.innerHTML = '';
 
     // Determine which team batted first in first innings
-    const firstInningsBattingTeam = firstInningsData.battingFirst;
-    const firstInningsBowlingTeam = firstInningsData.battingFirst === "player1" ? "player2" : "player1";
-
-    // In second innings, roles are reversed:
-    // - Team that bowled first now bats
-    // - Team that batted first now bowls
+    const firstInningsBattingTeam = firstInningsData.matchInfo.battingFirst;
     
-    // Set team names and players based on first innings
+    // In second innings, roles are reversed:
+    // Team that batted first now bowls
+    // Team that bowled first now bats
+    
     if (firstInningsBattingTeam === "player1") {
-      // Team 1 batted first (now bowling), Team 2 bowled first (now batting)
+      // Team 1 batted first in first innings (now bowls)
+      // Team 2 bowled first in first innings (now bats)
       team1NameEl.textContent = teams.player2.name || "Team B";
       team1NameDisplay.textContent = teams.player2.name || "Team B";
       battingTeamName.textContent = teams.player2.name || "Team B";
@@ -1682,7 +1686,8 @@ function loadFirstInningsData() {
       team2Players = teams.player1.players;
       team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
     } else {
-      // Team 2 batted first (now bowling), Team 1 bowled first (now batting)
+      // Team 2 batted first in first innings (now bowls)
+      // Team 1 bowled first in first innings (now bats)
       team1NameEl.textContent = teams.player1.name || "Team A";
       team1NameDisplay.textContent = teams.player1.name || "Team A";
       battingTeamName.textContent = teams.player1.name || "Team A";
@@ -1706,7 +1711,7 @@ function loadFirstInningsData() {
     showNotification(error.message, 'error');
     throw error;
   }
-    }
+}
 
     // Initialize batter stats with penalty tracking
     function initializeBatterStats() {
@@ -2524,37 +2529,38 @@ function loadFirstInningsData() {
 
     // Setup player role (batting/bowling)
     async function setupRole() {
-        // Immediately clear all selection states and UI
-        batterSelected = false;
-        bowlerSelected = false;
-        currentBatter = null;
-        currentBowler = null;
-        currentBatterEl.textContent = "-";
-        currentBowlerEl.textContent = "-";
-        resetSelectionModal();
+    // Immediately clear all selection states and UI
+    batterSelected = false;
+    bowlerSelected = false;
+    currentBatter = null;
+    currentBowler = null;
+    currentBatterEl.textContent = "-";
+    currentBowlerEl.textContent = "-";
+    resetSelectionModal();
 
-        // Set role definitively - roles are reversed in second innings
-        isBatting = (player !== battingFirst);
-        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-        
-        console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
+    // Set role based on first innings batting team
+    // In second innings, roles are reversed
+    isBatting = (player !== battingFirst);
+    roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+    
+    console.log(`Player: ${player}, BattingFirst: ${battingFirst}, isBatting: ${isBatting}`);
 
-        // Atomically clear all Firebase selections
-        await Promise.all([
-            set(batterRef, null),
-            set(bowlerRef, null),
-            update(playsRef, { player1: null, player2: null })
-        ]);
+    // Atomically clear all Firebase selections
+    await Promise.all([
+        set(batterRef, null),
+        set(bowlerRef, null),
+        update(playsRef, { player1: null, player2: null })
+    ]);
 
-        // Add slight delay before showing new UI to prevent flicker
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        // Show appropriate selection UI
-        if (isBatting) {
-            await showBatterSelection();
-        } else {
-            await showBowlerSelection();
-        }
+    // Add slight delay before showing new UI to prevent flicker
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Show appropriate selection UI
+    if (isBatting) {
+        await showBatterSelection();
+    } else {
+        await showBowlerSelection();
+    }
     }
 
     // Function to reset the selection modal
