@@ -63,39 +63,24 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(13, 42, 82, 0.7);
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin: 8px 0;
-  font-size: 0.85rem;
-  gap: 8px;
-  flex-wrap: wrap;
+  background: rgba(13, 42, 82, 0.5);
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 4px 0 8px 0;
+  font-size: 0.75rem;
+  gap: 6px;
 }
 
 .match-info-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
 }
 
 .divider {
-  color: rgba(255,255,255,0.3);
-}
-
-#roleText {
-  font-weight: bold;
-  color: #ffeb3b;
-}
-
-#formatDisplay {
-  font-weight: bold;
-}
-
-@media (max-width: 480px) {
-  .match-info-bar {
-    gap: 6px;
-    padding: 6px 8px;
-  }
+  color: #666;
+  flex-shrink: 0;
 }
 
     /* Over Progress */
@@ -841,6 +826,53 @@
 .match-info-bar .divider {
   margin: 0 3px;
 }
+/* Compact Top Controls */
+#topControls {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+#topControls button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Smaller result display */
+#result {
+  font-size: 13px;
+  margin: 8px 0;
+  padding: 6px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+}
+
+/* Match info bar adjustments */
+.match-info-bar {
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  margin: 4px 0;
+}
+
+.match-info-bar .divider {
+  margin: 0 3px;
+      }
 
     /* Over Summary */
     .over-summary-container {
@@ -1184,27 +1216,21 @@
         </div>
       </div>
     </div>
-
+    
     <!-- Match Info Bar -->
-<div class="match-info-bar">
-  <div class="match-info-item">
-    <span id="formatDisplay">Loading...</span>
+    <div class="match-info-bar">
+  <div class="match-format" id="formatDisplay">T20 Match</div>
+  <div class="match-status">
+    <span id="inningsNumber">1st Innings</span>
+    <span class="divider">|</span>
+    <span id="roleText">You are Batting</span>
   </div>
-  <div class="divider">|</div>
-  <div class="match-info-item">
-    <span id="inningsNumber">-</span>
+  <div class="match-time">
+    <span id="currentTime">14:30</span>
+    <span class="divider">|</span>
+    <span id="matchDate">23 Jul 2023</span>
   </div>
-  <div class="divider">|</div>
-  <div class="match-info-item">
-    <span id="roleText">-</span>
-  </div>
-  <div class="divider">|</div>
-  <div class="match-info-item">
-    <i class="fas fa-clock"></i>
-    <span id="currentTime">-:-</span>
-    <span id="matchDate">-</span>
-  </div>
-</div>
+    </div>
     
     <!-- Over Progress -->
     <div class="over-progress">
@@ -1754,7 +1780,7 @@ function updateTime() {
   document.getElementById('currentTime').textContent = 
     now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   document.getElementById('matchDate').textContent = 
-    now.toLocaleDateString([], {day: 'numeric', month: 'short'});
+    now.toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'});
 }
 
     // Update over progress display
@@ -2392,8 +2418,8 @@ function updateTime() {
 
         // Set role definitively
         isBatting = (player === battingFirst);
-document.getElementById('roleText').textContent = isBatting ? "You are Batting" : "You are Bowling";
-document.getElementById('inningsNumber').textContent = battingFirst === 'player1' ? '1st Innings' : '2nd Innings';
+        document.getElementById('roleText').textContent = isBatting ? "You are Batting" : "You are Bowling";
+        document.getElementById('inningsNumber').textContent = battingFirst === 'player1' ? '1st Innings' : '2nd Innings';
 
         // Atomically clear all Firebase selections
         await Promise.all([
@@ -2913,8 +2939,8 @@ document.getElementById('inningsNumber').textContent = battingFirst === 'player1
           }
         }
 
-        // Set format display.  
-         const format = roomData.player1?.format || "5";
+        // Set game format
+        const format = roomData.player1?.format || "5";
         currentFormat = formatRules[format];
         document.getElementById('formatDisplay').textContent = currentFormat.name;
         
