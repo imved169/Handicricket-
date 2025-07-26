@@ -1407,6 +1407,8 @@
     let bowlerSelected = false;
     let isSpectator = false;
     let commentaryPaused = false;
+    let selectedCardValue = null;
+    let isProcessingSelection = false;
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -1751,6 +1753,15 @@
       }
     }
 
+    // Clear card selection highlights
+    function clearCardSelection() {
+      document.querySelectorAll(".btn").forEach(btn => {
+        btn.classList.remove("selected");
+      });
+      selectedCardValue = null;
+      isProcessingSelection = false;
+    }
+
     // Process the outcome of a ball
     async function handleResult() {
       try {
@@ -1805,6 +1816,7 @@
             isWicket = false;
             addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
           } else {
+            // Only batter's card counts on free hit
             runsScored = batterCard;
             runs += batterCard;
             batterStats[currentBatter].runs += runsScored;
@@ -1861,6 +1873,7 @@
             addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
             addToTimeline("-5", 'error');
           } else {
+            // Only bowler's card counts when batter plays 0 (defensive play)
             runsScored = bowlerCard;
             runs += bowlerCard;
             batterStats[currentBatter].runs += runsScored;
@@ -1887,7 +1900,7 @@
           }
           isLegalBall = true;
         }
-        // 6. Normal runs
+        // 6. Normal runs - only batter's card counts
         else {
           runsScored = batterCard;
           runs += batterCard;
@@ -1942,6 +1955,9 @@
 
         // Update all displays
         updateAllDisplays();
+        
+        // Clear card selection highlights
+        clearCardSelection();
         
         // Update UI animations
         resultEl.innerText = outcome;
@@ -2001,6 +2017,7 @@
         console.error("Error processing ball outcome:", error);
         resultEl.innerText = "Error processing ball outcome";
         enableButtons();
+        clearCardSelection();
       }
     }
 
@@ -2477,15 +2494,18 @@
     function setupCardButtons() {
       document.querySelectorAll(".btn").forEach(btn => {
         btn.addEventListener("click", async function() {
-          if (btn.disabled) return;
+          if (btn.disabled || isProcessingSelection) return;
           
           const cardValue = parseInt(btn.dataset.value);
-          
-          try {
-            disableButtons();
-            btn.classList.add("selected");
-            resultEl.innerText = `Selected: ${cardValue}`;
+          selectedCardValue = cardValue;
+          isProcessingSelection = true;
 
+          // Immediate visual feedback
+          disableButtons();
+          btn.classList.add("selected");
+          resultEl.innerText = `Selected: ${cardValue}`;
+
+          try {
             await update(playsRef, {
               [player]: cardValue
             });
@@ -2493,7 +2513,9 @@
             console.error("Selection failed:", error);
             resultEl.innerText = "Selection failed, please try again";
             enableButtons();
-            btn.classList.remove("selected");
+            clearCardSelection();
+          } finally {
+            isProcessingSelection = false;
           }
         });
       });
