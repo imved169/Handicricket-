@@ -1763,19 +1763,22 @@
     }
 
     // Process the outcome of a ball
-    async function handleResult() {
-      try {
+   else {async function handleResult() {
+    try {
         const playsSnap = await get(playsRef);
         if (!playsSnap.exists()) return;
         
         const plays = playsSnap.val();
         if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
 
+        // Get cards - IMPORTANT: battingPlayer is who batted FIRST (in first innings)
         const card1 = plays.player1;
         const card2 = plays.player2;
         const battingPlayer = battingFirst;
-        const batterCard = battingPlayer === "player1" ? card1 : card2;
-        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
+        
+        // Determine which card belongs to the current batting team (second innings)
+        const battingTeamCard = player === battingPlayer ? card2 : card1;
+        const bowlingTeamCard = player === battingPlayer ? card1 : card2;
 
         let outcome = "";
         let isLegalBall = false;
@@ -1786,14 +1789,14 @@
         let isSix = false;
 
         // Track zeros for both players
-        if (batterCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlerCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
+        if (battingTeamCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
+        if (bowlingTeamCard === 0) zerosThisOver[battingPlayer]++;
 
         // Handle free hit for next ball
         if (freeHitNextBall) {
-          freeHit = true;
-          freeHitNextBall = false;
-          updateFreeHitDisplay();
+            freeHit = true;
+            freeHitNextBall = false;
+            updateFreeHitDisplay();
         }
 
         // Check powerplay and dead over status
@@ -1801,134 +1804,130 @@
         checkDeadOver();
 
         // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false;
-          addCommentary("No ball! Free hit coming up...", 'error');
-          addToTimeline("NB", 'error');
+        if (battingTeamCard === 0 && bowlingTeamCard === 0) {
+            outcome = "NO BALL! +1 run (Free Hit next ball)";
+            runs += 1;
+            freeHitNextBall = true;
+            isLegalBall = false;
+            addCommentary("No ball! Free hit coming up...", 'error');
+            addToTimeline("NB", 'error');
         } 
         // 2. Handle free hit balls
         else if (freeHit) {
-          if (batterCard === bowlerCard && batterCard > 0) {
-            outcome = "Wicket on Free Hit (not out)";
-            isWicket = false;
-            addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
-          } else {
-            // Only batter's card counts on free hit
-            runsScored = batterCard;
-            runs += batterCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `${batterCard} Run(s)! (Free Hit)`;
-            if (batterCard === 4 || batterCard === 6) boundary = true;
-            if (batterCard === 6) isSix = true;
-            addCommentary(`${currentBatter} scores ${batterCard} on free hit`, 'info');
-            addToTimeline(`${batterCard} FH`, 'info');
-          }
-          freeHit = false;
-          updateFreeHitDisplay();
-          isLegalBall = true;
+            if (battingTeamCard === bowlingTeamCard && battingTeamCard > 0) {
+                outcome = "Wicket on Free Hit (not out)";
+                isWicket = false;
+                addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
+            } else {
+                // Only batting team's card counts on free hit
+                runsScored = battingTeamCard;
+                runs += battingTeamCard;
+                batterStats[currentBatter].runs += runsScored;
+                outcome = `${battingTeamCard} Run(s)! (Free Hit)`;
+                if (battingTeamCard === 4 || battingTeamCard === 6) boundary = true;
+                if (battingTeamCard === 6) isSix = true;
+                addCommentary(`${currentBatter} scores ${battingTeamCard} on free hit`, 'info');
+                addToTimeline(`${battingTeamCard} FH`, 'info');
+            }
+            freeHit = false;
+            updateFreeHitDisplay();
+            isLegalBall = true;
         }
         // 3. Handle wickets (same number > 0)
-        else if (batterCard === bowlerCard && batterCard > 0) {
-          const wicketValue = getWicketValue();
-          const currentWickets = batterWickets[currentBatter] || 0;
+        else if (battingTeamCard === bowlingTeamCard && battingTeamCard > 0) {
+            const wicketValue = getWicketValue();
+            const currentWickets = batterWickets[currentBatter] || 0;
 
-          if (currentWickets < 1.0) {
-            const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
-            batterWickets[currentBatter] = currentWickets + actualWicketValue;
-            wickets += actualWicketValue;
-            isWicket = true;
+            if (currentWickets < 1.0) {
+                const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
+                batterWickets[currentBatter] = currentWickets + actualWicketValue;
+                wickets += actualWicketValue;
+                isWicket = true;
 
-            if (batterWickets[currentBatter] >= 1.0) {
-              isPlayerOut = true;
-              outcome = "WICKET! (Out)";
-              fallOfWickets.push({
-                score: runs,
-                over: `${Math.floor(legalBalls / 6)}.${(legalBalls % 6) + 1}`,
-                batter: currentBatter
-              });
-              addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
-              addToTimeline(`W ${currentBatter}`, 'wicket');
+                if (batterWickets[currentBatter] >= 1.0) {
+                    isPlayerOut = true;
+                    outcome = "WICKET! (Out)";
+                    fallOfWickets.push({
+                        score: runs,
+                        over: `${Math.floor(legalBalls / 6)}.${(legalBalls % 6) + 1}`,
+                        batter: currentBatter
+                    });
+                    addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
+                    addToTimeline(`W ${currentBatter}`, 'wicket');
+                } else {
+                    const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
+                    outcome = `WICKET! (${remain} left for this batter)`;
+                    addCommentary(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
+                    addToTimeline(`W ${actualWicketValue}`, 'wicket');
+                }
             } else {
-              const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
-              outcome = `WICKET! (${remain} left for this batter)`;
-              addCommentary(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
-              addToTimeline(`W ${actualWicketValue}`, 'wicket');
+                outcome = "Batter already out!";
+                addCommentary(`${currentBatter} is already out!`, 'error');
             }
-          } else {
-            outcome = "Batter already out!";
-            addCommentary(`${currentBatter} is already out!`, 'error');
-          }
-          
-          isLegalBall = true;
+            
+            isLegalBall = true;
         }
-        // 4. Handle batter playing 0 with penalty
-        else if (batterCard === 0 && bowlerCard > 0) {
-          if (zerosThisOver[battingPlayer] > 3) {
-            const penaltyRuns = 5;
-            runs -= penaltyRuns;
-            outcome = "4th 0 in over! -5 runs";
-            addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
-            addToTimeline("-5", 'error');
-          } else {
-            // Only bowler's card counts when batter plays 0 (defensive play)
-            runsScored = bowlerCard;
-            runs += bowlerCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `Batter played 0. Runs = ${bowlerCard}`;
-            if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
-            if (bowlerCard === 6) isSix = true;
-            addCommentary(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
-            addToTimeline(`${bowlerCard}`, 'info');
-          }
-          isLegalBall = true;
+        // 4. Handle batting team playing 0
+        else if (battingTeamCard === 0 && bowlingTeamCard > 0) {
+            if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
+                const penaltyRuns = 5;
+                runs -= penaltyRuns;
+                outcome = "4th 0 in over! -5 runs";
+                addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
+                addToTimeline("-5", 'error');
+            } else {
+                outcome = "DOT BALL!";
+                addCommentary(`${currentBatter} plays defensive, dot ball`, 'info');
+                addToTimeline("•", 'info');
+            }
+            batterStats[currentBatter].balls += 1;
+            isLegalBall = true;
         }
-        // 5. Handle bowler playing 0
-        else if (bowlerCard === 0 && batterCard > 0) {
-          if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
-            outcome = "4th 0 in over! No ball";
-            runs += 1;
-            freeHitNextBall = true;
-            addCommentary(`4th dot ball from bowler! No ball called`, 'error');
-            addToTimeline("NB", 'error');
-          } else {
-            outcome = "DOT BALL!";
-            addCommentary(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
-            addToTimeline("•", 'info');
-          }
-          isLegalBall = true;
+        // 5. Handle bowling team playing 0
+        else if (bowlingTeamCard === 0 && battingTeamCard > 0) {
+            if (zerosThisOver[battingPlayer] > 3) {
+                outcome = "4th 0 in over! No ball";
+                runs += 1;
+                freeHitNextBall = true;
+                addCommentary(`4th dot ball from bowler! No ball called`, 'error');
+                addToTimeline("NB", 'error');
+            } else {
+                // Only batting team's card counts
+                runsScored = battingTeamCard;
+                runs += battingTeamCard;
+                batterStats[currentBatter].runs += battingTeamCard;
+                outcome = `${battingTeamCard} Run(s)!`;
+                if (battingTeamCard === 4 || battingTeamCard === 6) boundary = true;
+                if (battingTeamCard === 6) isSix = true;
+                
+                const boundaryType = battingTeamCard === 6 ? 'SIX' : 'FOUR';
+                addCommentary(`${boundaryType}! ${currentBatter} hits ${battingTeamCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
+                addToTimeline(`${battingTeamCard}`, boundary ? 'boundary' : '');
+            }
+            isLegalBall = true;
         }
-        // 6. Normal runs - only batter's card counts
+        // 6. Normal runs - only batting team's card counts
         else {
-          runsScored = batterCard;
-          runs += batterCard;
-          batterStats[currentBatter].runs += batterCard;
-          outcome = `${batterCard} Run(s)!`;
-          if (batterCard === 4 || batterCard === 6) boundary = true;
-          if (batterCard === 6) isSix = true;
-          
-          const boundaryType = batterCard === 6 ? 'SIX' : 'FOUR';
-          addCommentary(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
-          addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
-          isLegalBall = true;
+            runsScored = battingTeamCard;
+            runs += battingTeamCard;
+            batterStats[currentBatter].runs += battingTeamCard;
+            outcome = `${battingTeamCard} Run(s)!`;
+            if (battingTeamCard === 4 || battingTeamCard === 6) boundary = true;
+            if (battingTeamCard === 6) isSix = true;
+            
+            const boundaryType = battingTeamCard === 6 ? 'SIX' : 'FOUR';
+            addCommentary(`${boundaryType}! ${currentBatter} hits ${battingTeamCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
+            addToTimeline(`${battingTeamCard}`, boundary ? 'boundary' : '');
+            isLegalBall = true;
         }
 
         // Update batter stats
-        if (currentBatter && runsScored > 0) {
-          batterStats[currentBatter].balls += 1;
-          if (batterCard === 4) batterStats[currentBatter].fours += 1;
-          if (batterCard === 6) batterStats[currentBatter].sixes += 1;
+        if (currentBatter && isLegalBall) {
+            batterStats[currentBatter].balls += 1;
+            if (battingTeamCard === 4) batterStats[currentBatter].fours += 1;
+            if (battingTeamCard === 6) batterStats[currentBatter].sixes += 1;
         }
         
-        // Update bowler stats
-        if (currentBowler) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
-          if (isWicket) bowlerStats[currentBowler].wickets += 1;
-          bowlerStats[currentBowler].runs += runsScored;
-        }
-
         // Record ball in ball-by-ball
         ballByBall[legalBalls] = {
           runs: runsScored,
