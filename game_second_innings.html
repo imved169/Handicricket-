@@ -1762,7 +1762,7 @@
       isProcessingSelection = false;
     }
 
-    // Process the outcome of a ball - FIXED VERSION
+    // Process the outcome of a ball
     async function handleResult() {
       try {
         const playsSnap = await get(playsRef);
@@ -1820,7 +1820,6 @@
             runsScored = batterCard;
             runs += batterCard;
             batterStats[currentBatter].runs += runsScored;
-            batterStats[currentBatter].balls += 1;
             outcome = `${batterCard} Run(s)! (Free Hit)`;
             if (batterCard === 4 || batterCard === 6) boundary = true;
             if (batterCard === 6) isSix = true;
@@ -1865,8 +1864,8 @@
           
           isLegalBall = true;
         }
-        // 4. Handle batter playing 0
-        else if (batterCard === 0) {
+        // 4. Handle batter playing 0 with penalty
+        else if (batterCard === 0 && bowlerCard > 0) {
           if (zerosThisOver[battingPlayer] > 3) {
             const penaltyRuns = 5;
             runs -= penaltyRuns;
@@ -1874,7 +1873,7 @@
             addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
             addToTimeline("-5", 'error');
           } else {
-            // Dot ball - no runs
+            // Only batter's card counts (0 runs)
             runsScored = 0;
             batterStats[currentBatter].balls += 1;
             outcome = "DOT BALL!";
@@ -1884,7 +1883,7 @@
           isLegalBall = true;
         }
         // 5. Handle bowler playing 0
-        else if (bowlerCard === 0) {
+        else if (bowlerCard === 0 && batterCard > 0) {
           if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
             outcome = "4th 0 in over! No ball";
             runs += 1;
@@ -1892,7 +1891,7 @@
             addCommentary(`4th dot ball from bowler! No ball called`, 'error');
             addToTimeline("NB", 'error');
           } else {
-            // Normal runs - only batter's card counts
+            // Only batter's card counts
             runsScored = batterCard;
             runs += batterCard;
             batterStats[currentBatter].runs += batterCard;
