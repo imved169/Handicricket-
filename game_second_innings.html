@@ -1595,11 +1595,8 @@
         firstInningsData = JSON.parse(data);
         targetRuns = firstInningsData.totalRuns + 1; // Target is 1 more than first innings score
         
-        // Update target display with correct team names
-        const battingTeam = battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
-        const bowlingTeam = battingFirst === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent;
-        
-        targetDisplay.textContent = `${bowlingTeam} need ${targetRuns} runs to win (${battingTeam} scored ${firstInningsData.totalRuns}/${firstInningsData.totalWickets})`;
+        // Update target display
+        targetDisplay.textContent = `Target: ${targetRuns} (${firstInningsData.totalRuns}/${firstInningsData.totalWickets} in ${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs)`;
         
         return true;
       } catch (error) {
@@ -1631,11 +1628,8 @@
         // Load Team 1
         if (teams.player1?.players) {
           team1NameEl.textContent = teams.player1.name || "Team A";
-          // Show the team that is currently batting first
-          if (battingFirst === "player1") {
-            team1NameDisplay.textContent = teams.player1.name || "Team A";
-            battingTeamName.textContent = teams.player1.name || "Team A";
-          }
+          team1NameDisplay.textContent = teams.player1.name || "Team A";
+          battingTeamName.textContent = teams.player1.name || "Team A";
           team1Players = teams.player1.players;
           team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
         }
@@ -1643,11 +1637,7 @@
         // Load Team 2
         if (teams.player2?.players) {
           team2NameEl.textContent = teams.player2.name || "Team B";
-          // Show the team that is currently batting first
-          if (battingFirst === "player2") {
-            team2NameDisplay.textContent = teams.player2.name || "Team B";
-            battingTeamName.textContent = teams.player2.name || "Team B";
-          }
+          team2NameDisplay.textContent = teams.player2.name || "Team B";
           team2Players = teams.player2.players;
           team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
         }
@@ -1939,14 +1929,9 @@
       const now = new Date();
       const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
-      // Add team context to commentary
-      const teamContext = isBatting ? 
-          (player === "player1" ? `[${team1NameDisplay.textContent}] ` : `[${team2NameDisplay.textContent}] `) :
-          (player === "player1" ? `[${team2NameDisplay.textContent}] ` : `[${team1NameDisplay.textContent}] `);
-      
       const commentaryItem = document.createElement('div');
       commentaryItem.className = `commentary-item ${type}`;
-      commentaryItem.innerHTML = `<span class="commentary-time">${timeString}</span>${teamContext}${message}`;
+      commentaryItem.innerHTML = `<span class="commentary-time">${timeString}</span>${message}`;
       
       commentaryBox.insertBefore(commentaryItem, commentaryBox.firstChild);
       
@@ -2468,12 +2453,7 @@
         currentBowler = null;
         resetSelectionModal();
 
-        // Get the battingFirst value from room data
-        const roomSnap = await get(roomRef);
-        const roomData = roomSnap.val();
-        battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
-
-        // In second innings, the roles are reversed
+        // Set role definitively - REVERSED from first innings
         isBatting = (player !== battingFirst);
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         
@@ -2609,28 +2589,23 @@
     function showResultPopup(wonMatch) {
       resultPopup.style.display = 'block';
       
-      const chasingTeam = isBatting ? (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent) 
-                                   : (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent);
-      const defendingTeam = isBatting ? (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent)
-                                     : (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent);
-
       // Update result data
-      resultTarget.textContent = `${targetRuns} (set by ${defendingTeam})`;
-      resultScore.textContent = `${runs}/${wickets} (${chasingTeam})`;
+      resultTarget.textContent = targetRuns;
+      resultScore.textContent = `${runs}/${wickets}`;
       resultOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
       
       // Set highlight based on result
       if (wonMatch) {
-          resultHighlight.textContent = `${chasingTeam} won the match!`;
-          resultHighlight.style.color = "#4CAF50";
+        resultHighlight.textContent = "Congratulations! You won the match!";
+        resultHighlight.style.color = "#4CAF50";
       } else {
-          resultHighlight.textContent = `${defendingTeam} won the match!`;
-          resultHighlight.style.color = "#F44336";
+        resultHighlight.textContent = "Better luck next time!";
+        resultHighlight.style.color = "#F44336";
       }
       
       // Setup view summary button
       viewSummaryBtn.onclick = () => {
-          window.location.href = "summary.html";
+        window.location.href = "summary.html";
       };
     }
 
@@ -3267,102 +3242,6 @@
         });
       });
     }
-    <script>
-  let target = 0;
-  let runs = 0;
-  let wickets = 0;
-  let legalBalls = 0;
-  const maxOvers = parseInt(localStorage.getItem("matchOvers") || "5");
-  const maxBalls = maxOvers * 6;
-
-  // Load target and team names from first innings
-  window.onload = () => {
-    target = Number(localStorage.getItem("targetScore")) || 0;
-    document.getElementById("targetDisplay").innerText = `Target: ${target}`;
-    
-    const battingTeam = localStorage.getItem("team2Name") || "Team B";
-    const bowlingTeam = localStorage.getItem("team1Name") || "Team A";
-    
-    document.getElementById("team1Name").innerText = battingTeam;
-    document.getElementById("team2Name").innerText = bowlingTeam;
-    document.getElementById("battingTeamName").innerText = battingTeam;
-
-    updateScoreboard();
-    updateRRR();
-  };
-
-  // Simulated function call when ball is played
-  function playBall(batterCard, bowlerCard) {
-    if (batterCard == null || bowlerCard == null) return;
-
-    legalBalls++;
-    let commentary = "";
-    let isWicket = false;
-
-    if (batterCard === bowlerCard) {
-      wickets++;
-      commentary = `WICKET! Batter matched bowler’s card (${batterCard})`;
-      isWicket = true;
-    } else {
-      runs += parseInt(batterCard);
-      commentary = `Batter scores ${batterCard} runs.`;
-    }
-
-    updateScoreboard();
-    updateRRR();
-    addCommentary(commentary, isWicket);
-
-    if (runs > target) {
-      declareWinner("batting");
-    } else if (legalBalls >= maxBalls || wickets >= 10) {
-      declareWinner("bowling");
-    }
-  }
-
-  function updateScoreboard() {
-    document.getElementById("runs").innerText = runs;
-    document.getElementById("wickets").innerText = wickets;
-    const overText = `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
-    document.getElementById("overs").innerText = overText;
-
-    const runRate = (runs / (legalBalls / 6 || 1)).toFixed(2);
-    document.getElementById("runRate").innerText = runRate;
-  }
-
-  function updateRRR() {
-    const ballsLeft = maxBalls - legalBalls;
-    const runsLeft = target - runs;
-    let rrr = 0;
-    if (ballsLeft > 0) rrr = (runsLeft / (ballsLeft / 6)).toFixed(2);
-    document.getElementById("rrrDisplay").innerText = `Required Run Rate: ${rrr}`;
-  }
-
-  function declareWinner(winnerSide) {
-    const resultBox = document.getElementById("result");
-    if (winnerSide === "batting") {
-      resultBox.innerText = "🎉 Batting team has won the match!";
-      resultBox.classList.add("milestone-notification", "winner");
-    } else {
-      resultBox.innerText = "🎯 Bowling team has won the match!";
-      resultBox.classList.add("milestone-notification", "winner");
-    }
-
-    disableAllCardButtons();
-  }
-
-  function addCommentary(text, isWicket = false) {
-    const box = document.getElementById("commentaryBox");
-    const p = document.createElement("div");
-    p.className = "commentary-item" + (isWicket ? " wicket" : "");
-    p.innerText = text;
-    box.appendChild(p);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  function disableAllCardButtons() {
-    document.querySelectorAll(".card-btns button").forEach(btn => btn.disabled = true);
-  }
-</script>
 
     // Start the game
     initGame().catch(error => {
