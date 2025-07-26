@@ -2160,59 +2160,39 @@ function updateTime() {
         }
 
         // Prepare for next ball
-setTimeout(async () => {
-  try {
-    await set(playsRef, {});
-    enableButtons();
-    clearCardSelection();
-    
-    // Check if innings ended during processing
-    if (!gameInProgress) return;
-    
-    // Handle batter out case
-    if (isPlayerOut && player === battingFirst) {
-      batterSelected = false;
-      await showBatterSelection();
-      return;
-    }
-    
-    // Handle over completion
-    if (isLegalBall && legalBalls % 6 === 0) {
-      bowlerSelected = false;
-      if (player !== battingFirst) {
-        await showBowlerSelection();
-      } else {
-        resultEl.innerText = "Waiting for opponent to select bowler...";
+        setTimeout(async () => {
+          try {
+            await set(playsRef, {});
+            enableButtons();
+            clearCardSelection();
+            
+            if (isPlayerOut && player === battingPlayer) {
+              batterSelected = false;
+              await showBatterSelection();
+            } else if (isLegalBall && legalBalls % 6 === 0) {
+              bowlerSelected = false;
+              if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
+                await showBowlerSelection();
+              } else {
+                resultEl.innerText = "Waiting for opponent to select bowler...";
+              }
+            } else {
+              updateButtonStates();
+            }
+          } catch (error) {
+            console.error("Error in post-ball processing:", error);
+            resultEl.innerText = "Error processing next ball state";
+            enableButtons();
+            clearCardSelection();
+          }
+        }, 1500);
+      } catch (error) {
+        console.error("Error processing ball outcome:", error);
+        resultEl.innerText = "Error processing ball outcome";
+        enableButtons();
+        clearCardSelection();
       }
-      return;
     }
-    
-    // Default case - ready for next ball
-    updateButtonStates();
-    
-  } catch (error) {
-    console.error("Error in post-ball processing:", error);
-    resultEl.innerText = "Error processing next ball state";
-    enableButtons();
-    clearCardSelection();
-    
-    // Attempt to recover state
-    try {
-      const batterSnap = await get(batterRef);
-      const bowlerSnap = await get(bowlerRef);
-      
-      if (!batterSnap.exists() && isBatting) {
-        await showBatterSelection();
-      } else if (!bowlerSnap.exists() && !isBatting) {
-        await showBowlerSelection();
-      } else {
-        updateButtonStates();
-      }
-    } catch (recoveryError) {
-      console.error("Recovery failed:", recoveryError);
-    }
-  }
-}, 1500);
 
     // Accurate batter milestone checking accounting for penalties
     function checkBatterMilestones(isPenalty = false) {
@@ -2521,17 +2501,10 @@ setTimeout(async () => {
     }
 
     // Enable all card buttons
-        function enableButtons() {
-  buttons.forEach(btn => {
-    const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
-    btn.disabled = !canPlay;
-  });
-        }
-
-    // End Innings 
     async function endInning() {
-  gameInProgress = false;
   disableButtons();
+
+  try {
     // Prepare all innings data
     const firstInningsData = {
       totalRuns: runs,
@@ -2571,49 +2544,49 @@ setTimeout(async () => {
     // Retry once after 2 seconds
     setTimeout(() => endInning(), 2000);
   }
-}
+    }
 
     // Show summary popup with countdown
     function showSummaryPopup() {
-  summaryPopup.style.display = 'block';
-  
-  // Update summary data
-  summaryTotalRuns.textContent = runs;
-  summaryWickets.textContent = wickets;
-  summaryOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
-  
-  const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
-  const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
-  summaryRunRate.textContent = rr;
-  
-  // Set highlight based on performance
-  if (runs >= 200) {
-    summaryHighlight.textContent = "Excellent Batting Performance!";
-  } else if (runs >= 150) {
-    summaryHighlight.textContent = "Good Total Posted!";
-  } else if (runs <= 100) {
-    summaryHighlight.textContent = "Bowlers Dominated This Innings";
-  } else {
-    summaryHighlight.textContent = "Competitive Total";
-  }
-  
-  let timeLeft = 30;
-  summaryCountdown.textContent = timeLeft;
-  
-  const countdownInterval = setInterval(() => {
-    timeLeft--;
-    summaryCountdown.textContent = timeLeft;
-    if (timeLeft <= 0) {
-      clearInterval(countdownInterval);
-      saveFirstInningsAndRedirect();
+      summaryPopup.style.display = 'block';
+      
+      // Update summary data
+      summaryTotalRuns.textContent = runs;
+      summaryWickets.textContent = wickets;
+      summaryOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
+      const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
+      summaryRunRate.textContent = rr;
+      
+      // Set highlight based on performance
+      if (runs >= 200) {
+        summaryHighlight.textContent = "Excellent Batting Performance!";
+      } else if (runs >= 150) {
+        summaryHighlight.textContent = "Good Total Posted!";
+      } else if (runs <= 100) {
+        summaryHighlight.textContent = "Bowlers Dominated This Innings";
+      } else {
+        summaryHighlight.textContent = "Competitive Total";
+      }
+      
+      let timeLeft = 30;
+      summaryCountdown.textContent = timeLeft;
+      
+      const countdownInterval = setInterval(() => {
+        timeLeft--;
+        summaryCountdown.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          saveFirstInningsAndRedirect();
+        }
+      }, 1000);
+      
+      startSecondInningsNowBtn.addEventListener('click', () => {
+        clearInterval(countdownInterval);
+        saveFirstInningsAndRedirect();
+      }, { once: true });
     }
-  }, 1000);
-  
-  startSecondInningsNowBtn.addEventListener('click', () => {
-    clearInterval(countdownInterval);
-    saveFirstInningsAndRedirect();
-  }, { once: true });
-}
 
     // Save data and redirect to second innings
     async function saveFirstInningsAndRedirect() {
@@ -2642,6 +2615,7 @@ setTimeout(async () => {
     `;
   }
     }
+
     // Update spectator data with match details
     function updateSpectatorData() {
       const currentOver = Math.floor(legalBalls / 6);
@@ -3223,12 +3197,13 @@ updateTime(); // Show time immediately
 
     // Clear card selection highlights
     function clearCardSelection() {
-  buttons.forEach(btn => {
-    btn.classList.remove("selected");
-  });
-  selectedCardValue = null;
-  isProcessingSelection = false;
-        }
+      buttons.forEach(btn => {
+        btn.classList.remove("selected");
+      });
+      selectedCardValue = null;
+      isProcessingSelection = false;
+    }
+
     // Highlight selected card
     function highlightSelectedCard(value) {
       buttons.forEach(btn => {
