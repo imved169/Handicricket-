@@ -1438,12 +1438,17 @@
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
-      return Promise.race([
-        set(ref, value),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(timeoutMsg)), timeoutMs)
-        )
-      ]);
+      try {
+        return await Promise.race([
+          set(ref, value),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(timeoutMsg)), timeoutMs)
+          )
+        ]);
+      } catch (error) {
+        console.error("setWithTimeout failed:", error);
+        throw error;
+      }
     }
 
     // Helper function with retries
@@ -1775,10 +1780,16 @@
     async function handleResult() {
       try {
         const playsSnap = await get(playsRef);
-        if (!playsSnap.exists()) return;
+        if (!playsSnap.exists()) {
+          console.log("No plays data found");
+          return;
+        }
         
         const plays = playsSnap.val();
-        if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
+        if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') {
+          console.log("Incomplete plays data:", plays);
+          return;
+        }
 
         const card1 = plays.player1;
         const card2 = plays.player2;
@@ -1795,6 +1806,8 @@
         let runsScored = 0;
         let boundary = false;
         let isSix = false;
+
+        console.log(`Processing ball: batter=${batterCard}, bowler=${bowlerCard}, currentBatter=${currentBatter}, currentBowler=${currentBowler}`);
 
         // Track zeros for both players
         if (batterCard === 0) zerosThisOver[secondInningsBatter]++;
@@ -1966,6 +1979,17 @@
             if (legalBalls % 6 === 0) {
               bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
               zerosThisOver = { player1: 0, player2: 0 };
+              
+              // Clear current bowler and trigger selection
+              await set(bowlerRef, null);
+              bowlerSelected = false;
+              
+              // Only show selection UI if current player is bowling
+              if (player !== secondInningsBatter) {
+                await showBowlerSelection();
+              } else {
+                resultEl.innerText = "Waiting for opponent to select bowler...";
+              }
             }
           }
         }
@@ -2014,15 +2038,6 @@
             if (isPlayerOut && player === secondInningsBatter) {
               batterSelected = false;
               await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
-              bowlerSelected = false;
-              if (player === (secondInningsBatter === "player1" ? "player2" : "player1")) {
-                await showBowlerSelection();
-              } else {
-                resultEl.innerText = "Waiting for opponent to select bowler...";
-              }
-            } else {
-              updateButtonStates();
             }
           } catch (error) {
             console.error("Error in post-ball processing:", error);
@@ -2152,15 +2167,19 @@
       currentBatter = null;
       currentBowler = null;
 
-      // Key change - roles are reversed from first innings
+      // Correct role determination for second innings
       isBatting = (player !== battingFirst);
       
       // Update UI to reflect correct roles
       document.getElementById('roleText').textContent = isBatting ? "You are Batting" : "You are Bowling";
       document.getElementById('inningsNumber').textContent = '2nd Innings';
-      document.getElementById('battingTeamName').textContent = isBatting ? 
-        (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent) : 
-        (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent);
+      
+      // Correct batting team name display
+      const battingTeamName = isBatting 
+        ? (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent)
+        : (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent);
+      
+      document.getElementById('battingTeamName').textContent = battingTeamName;
 
       await Promise.all([
         set(batterRef, null),
