@@ -3267,6 +3267,102 @@
         });
       });
     }
+    <script>
+  let target = 0;
+  let runs = 0;
+  let wickets = 0;
+  let legalBalls = 0;
+  const maxOvers = parseInt(localStorage.getItem("matchOvers") || "5");
+  const maxBalls = maxOvers * 6;
+
+  // Load target and team names from first innings
+  window.onload = () => {
+    target = Number(localStorage.getItem("targetScore")) || 0;
+    document.getElementById("targetDisplay").innerText = `Target: ${target}`;
+    
+    const battingTeam = localStorage.getItem("team2Name") || "Team B";
+    const bowlingTeam = localStorage.getItem("team1Name") || "Team A";
+    
+    document.getElementById("team1Name").innerText = battingTeam;
+    document.getElementById("team2Name").innerText = bowlingTeam;
+    document.getElementById("battingTeamName").innerText = battingTeam;
+
+    updateScoreboard();
+    updateRRR();
+  };
+
+  // Simulated function call when ball is played
+  function playBall(batterCard, bowlerCard) {
+    if (batterCard == null || bowlerCard == null) return;
+
+    legalBalls++;
+    let commentary = "";
+    let isWicket = false;
+
+    if (batterCard === bowlerCard) {
+      wickets++;
+      commentary = `WICKET! Batter matched bowler’s card (${batterCard})`;
+      isWicket = true;
+    } else {
+      runs += parseInt(batterCard);
+      commentary = `Batter scores ${batterCard} runs.`;
+    }
+
+    updateScoreboard();
+    updateRRR();
+    addCommentary(commentary, isWicket);
+
+    if (runs > target) {
+      declareWinner("batting");
+    } else if (legalBalls >= maxBalls || wickets >= 10) {
+      declareWinner("bowling");
+    }
+  }
+
+  function updateScoreboard() {
+    document.getElementById("runs").innerText = runs;
+    document.getElementById("wickets").innerText = wickets;
+    const overText = `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
+    document.getElementById("overs").innerText = overText;
+
+    const runRate = (runs / (legalBalls / 6 || 1)).toFixed(2);
+    document.getElementById("runRate").innerText = runRate;
+  }
+
+  function updateRRR() {
+    const ballsLeft = maxBalls - legalBalls;
+    const runsLeft = target - runs;
+    let rrr = 0;
+    if (ballsLeft > 0) rrr = (runsLeft / (ballsLeft / 6)).toFixed(2);
+    document.getElementById("rrrDisplay").innerText = `Required Run Rate: ${rrr}`;
+  }
+
+  function declareWinner(winnerSide) {
+    const resultBox = document.getElementById("result");
+    if (winnerSide === "batting") {
+      resultBox.innerText = "🎉 Batting team has won the match!";
+      resultBox.classList.add("milestone-notification", "winner");
+    } else {
+      resultBox.innerText = "🎯 Bowling team has won the match!";
+      resultBox.classList.add("milestone-notification", "winner");
+    }
+
+    disableAllCardButtons();
+  }
+
+  function addCommentary(text, isWicket = false) {
+    const box = document.getElementById("commentaryBox");
+    const p = document.createElement("div");
+    p.className = "commentary-item" + (isWicket ? " wicket" : "");
+    p.innerText = text;
+    box.appendChild(p);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function disableAllCardButtons() {
+    document.querySelectorAll(".card-btns button").forEach(btn => btn.disabled = true);
+  }
+</script>
 
     // Start the game
     initGame().catch(error => {
