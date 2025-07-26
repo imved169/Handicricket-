@@ -2160,39 +2160,59 @@ function updateTime() {
         }
 
         // Prepare for next ball
-        setTimeout(async () => {
-          try {
-            await set(playsRef, {});
-            enableButtons();
-            clearCardSelection();
-            
-            if (isPlayerOut && player === battingPlayer) {
-              batterSelected = false;
-              await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
-              bowlerSelected = false;
-              if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
-                await showBowlerSelection();
-              } else {
-                resultEl.innerText = "Waiting for opponent to select bowler...";
-              }
-            } else {
-              updateButtonStates();
-            }
-          } catch (error) {
-            console.error("Error in post-ball processing:", error);
-            resultEl.innerText = "Error processing next ball state";
-            enableButtons();
-            clearCardSelection();
-          }
-        }, 1500);
-      } catch (error) {
-        console.error("Error processing ball outcome:", error);
-        resultEl.innerText = "Error processing ball outcome";
-        enableButtons();
-        clearCardSelection();
-      }
+setTimeout(async () => {
+  try {
+    await set(playsRef, {});
+    enableButtons();
+    clearCardSelection();
+    
+    // Check if innings ended during processing
+    if (!gameInProgress) return;
+    
+    // Handle batter out case
+    if (isPlayerOut && player === battingFirst) {
+      batterSelected = false;
+      await showBatterSelection();
+      return;
     }
+    
+    // Handle over completion
+    if (isLegalBall && legalBalls % 6 === 0) {
+      bowlerSelected = false;
+      if (player !== battingFirst) {
+        await showBowlerSelection();
+      } else {
+        resultEl.innerText = "Waiting for opponent to select bowler...";
+      }
+      return;
+    }
+    
+    // Default case - ready for next ball
+    updateButtonStates();
+    
+  } catch (error) {
+    console.error("Error in post-ball processing:", error);
+    resultEl.innerText = "Error processing next ball state";
+    enableButtons();
+    clearCardSelection();
+    
+    // Attempt to recover state
+    try {
+      const batterSnap = await get(batterRef);
+      const bowlerSnap = await get(bowlerRef);
+      
+      if (!batterSnap.exists() && isBatting) {
+        await showBatterSelection();
+      } else if (!bowlerSnap.exists() && !isBatting) {
+        await showBowlerSelection();
+      } else {
+        updateButtonStates();
+      }
+    } catch (recoveryError) {
+      console.error("Recovery failed:", recoveryError);
+    }
+  }
+}, 1500);
 
     // Accurate batter milestone checking accounting for penalties
     function checkBatterMilestones(isPenalty = false) {
@@ -2501,10 +2521,17 @@ function updateTime() {
     }
 
     // Enable all card buttons
-    async function endInning() {
-  disableButtons();
+        function enableButtons() {
+  buttons.forEach(btn => {
+    const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+    btn.disabled = !canPlay;
+  });
+        }
 
-  try {
+    // End Innings 
+    async function endInning() {
+  gameInProgress = false;
+  disableButtons();
     // Prepare all innings data
     const firstInningsData = {
       totalRuns: runs,
@@ -3196,13 +3223,12 @@ updateTime(); // Show time immediately
 
     // Clear card selection highlights
     function clearCardSelection() {
-      buttons.forEach(btn => {
-        btn.classList.remove("selected");
-      });
-      selectedCardValue = null;
-      isProcessingSelection = false;
-    }
-
+  buttons.forEach(btn => {
+    btn.classList.remove("selected");
+  });
+  selectedCardValue = null;
+  isProcessingSelection = false;
+        }
     // Highlight selected card
     function highlightSelectedCard(value) {
       buttons.forEach(btn => {
