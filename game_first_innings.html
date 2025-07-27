@@ -2660,57 +2660,59 @@
     }
 
     // Handle match end
-    async function endMatch(chasingTeamWon) {
-      disableButtons();
-      
-      const winner = chasingTeamWon ? chasingTeam : battingFirst;
-      const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
-      
-      // Update result
-      resultEl.innerHTML = `<strong>${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}</strong>`;
-      
-      // Show match summary
-      document.getElementById('summaryTitle').textContent = "Match Result";
-      document.getElementById('summaryHighlight').textContent = `${winnerName} won the match!`;
-      document.getElementById('startSecondInningsBtn').style.display = 'none';
-      
-      // Add match stats to summary
-      const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
-      const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
-      
-      const summaryContent = document.querySelector('.summary-content');
-      summaryContent.innerHTML += `
-        <div class="summary-row">
-          <span class="summary-label">First Innings:</span>
-          <span class="summary-value">${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs, RR: ${firstInningsRR})</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-label">Second Innings:</span>
-          <span class="summary-value">${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs, RR: ${secondInningsRR})</span>
-        </div>
-      `;
-      
-      // Show popup
-      showSummaryPopup();
-      
-      // Add to commentary
-      addCommentary(`Match over! ${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}`, 'milestone');
-      
-      // Create confetti for winner
-      createConfetti();
-      
-      // Save match result
-      await set(resultRef, {
-        winner: winner,
-        winningMargin: chasingTeamWon ? `${currentFormat.totalWickets - wickets} wickets` : `${target - runs - 1} runs`,
-        firstInnings: firstInningsData,
-        secondInnings: {
-          totalRuns: runs,
-          totalWickets: wickets,
-          balls: legalBalls
-        },
-        timestamp: Date.now()
-      });
+    // FIXED WIN/LOSS LOGIC
+async function endMatch() {
+  // 1. Determine if chasing team reached target
+  const chasingTeamReachedTarget = runs >= target;
+  const chasingTeamAllOut = wickets >= currentFormat.totalWickets;
+  const oversCompleted = legalBalls >= currentFormat.totalOvers * 6;
+
+  // 2. Calculate winner CORRECTLY
+  let winner;
+  if (secondInningsStarted) {
+    if (chasingTeamReachedTarget) {
+      winner = chasingTeam; // Chasing team won
+    } else if (chasingTeamAllOut || oversCompleted) {
+      winner = battingFirst; // Bowling team won (Ratnagiri in this case)
+    }
+  } else {
+    // First innings ended (no result yet)
+    return;
+  }
+
+  // 3. Get team names
+  const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+  const loserName = winner === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent;
+
+  // 4. Calculate margin CORRECTLY
+  let margin;
+  if (winner === chasingTeam) {
+    margin = `${currentFormat.totalWickets - wickets} wickets`;
+  } else {
+    margin = `${target - runs - 1} runs`; // Ratnagiri's win by 12 runs
+  }
+
+  // 5. Update UI with CORRECT result
+  resultEl.innerHTML = `
+    <div class="match-result-title">${winnerName} WON!</div>
+    <div class="match-result-details">
+      by ${margin}<br>
+      (${loserName} all out for ${runs})
+    </div>
+  `;
+
+  // 6. Save correct result to database
+  await set(resultRef, {
+    winner: winner,
+    winningMargin: margin,
+    firstInnings: firstInningsData,
+    secondInnings: {
+      totalRuns: runs,
+      totalWickets: wickets,
+      balls: legalBalls
+    },
+    timestamp: Date.now()
+  });
     }
 
     // Update spectator data with match details
