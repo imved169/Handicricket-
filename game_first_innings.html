@@ -1379,6 +1379,47 @@
       }
     }
 </style>
+
+<style>
+.momentum-bar-container {
+  margin: 8px 0;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+.momentum-label {
+  font-size: 12px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.momentum-track {
+  background: #444;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.momentum-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #ffeb3b, #4caf50);
+  transition: width 0.4s ease;
+}
+.player-emotion {
+  position: absolute;
+  top: -25px;
+  right: 5px;
+  font-size: 18px;
+  animation: fadeInOut 2s forwards;
+  color: white;
+}
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(5px); }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(5px); }
+}
+</style>
+
 </head>
 <body>
   <div class="stadium-effects">
@@ -3897,5 +3938,1309 @@
       document.getElementById("result").className = "error";
     });
   </script>
+Here are the complete, integrated code blocks for implementing the dynamic match result screen:
+
+### 1. HTML Block (Add to your `<body>`)
+```html
+<!-- Match Result Popup -->
+<div id="summaryPopup" class="summary-popup newspaper-style">
+  <h3 class="headline">Match Summary</h3>
+  
+  <div class="match-header">
+    <div class="match-result" id="dynamicMatchResult"></div>
+    <div class="match-teams">
+      <span id="dynamicTeam1Name"></span> vs 
+      <span id="dynamicTeam2Name"></span> • 
+      <span id="dynamicMatchFormat"></span>
+    </div>
+  </div>
+
+  <div class="pom-box">
+    <div class="section-title">PLAYER OF THE MATCH</div>
+    <div class="pom-player" id="pomValue"></div>
+  </div>
+
+  <div class="scorecard-grid">
+    <div class="scorecard">
+      <div class="scorecard-title" id="team1BattingTitle"></div>
+      <div id="team1BattingStats"></div>
+    </div>
+    <div class="scorecard">
+      <div class="scorecard-title" id="team2BowlingTitle"></div>
+      <div id="team2BowlingStats"></div>
+    </div>
+    <div class="scorecard">
+      <div class="scorecard-title" id="team2BattingTitle"></div>
+      <div id="team2BattingStats"></div>
+    </div>
+    <div class="scorecard">
+      <div class="scorecard-title" id="team1BowlingTitle"></div>
+      <div id="team1BowlingStats"></div>
+    </div>
+  </div>
+
+  <div class="awards-container" id="awardsContainer"></div>
+  <button id="closeSummaryBtn">Close</button>
+</div>
+```
+
+### 2. CSS Block (Add to your `<style>` section)
+```css
+/* Match Result Popup Styles */
+.summary-popup.newspaper-style {
+  background: white;
+  color: #333;
+  font-family: Georgia, 'Times New Roman', serif;
+  max-width: 500px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  display: none;
+}
+
+.summary-popup.newspaper-style h3.headline {
+  font-size: 24px;
+  text-align: center;
+  border-bottom: 2px solid #000;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.match-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.match-result {
+  font-size: 20px;
+  font-weight: bold;
+  color: #d22b2b;
+}
+.match-teams {
+  font-size: 14px;
+  color: #555;
+}
+
+.section-title {
+  font-weight: bold;
+  border-bottom: 1px solid #000;
+  margin: 15px 0 10px 0;
+  font-size: 16px;
+}
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.scorecard {
+  border: 1px solid #eee;
+  padding: 10px;
+  background: #f9f9f9;
+}
+.scorecard-title {
+  font-weight: bold;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.scorecard-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+.pom-box {
+  text-align: center;
+  margin: 15px 0;
+}
+.pom-player {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.awards-container {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.award-badge {
+  background: rgba(255,215,0,0.2);
+  border: 1px solid gold;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+#closeSummaryBtn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 8px 20px;
+  background: #1e88e5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+```
+
+### 3. JavaScript Blocks
+
+#### A. Add to your variable declarations:
+```javascript
+// Player of Match tracking
+let pom = null; // Player name
+let pomStats = null; // { type: 'batting'/'bowling', ...stats }
+```
+
+#### B. Add these functions:
+```javascript
+function showSummaryPopup() {
+  // Set basic match info
+  document.getElementById('dynamicTeam1Name').textContent = team1NameDisplay.textContent;
+  document.getElementById('dynamicTeam2Name').textContent = team2NameDisplay.textContent;
+  document.getElementById('dynamicMatchFormat').textContent = currentFormat.name;
+
+  // Calculate winner
+  const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
+  const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+  const winningMargin = chasingTeamWon 
+    ? `${currentFormat.totalWickets - wickets} wickets` 
+    : `${target - runs - 1} runs`;
+  
+  document.getElementById('dynamicMatchResult').textContent = 
+    `${winnerName} WON BY ${winningMargin.toUpperCase()}`;
+
+  // Set scorecard titles
+  document.getElementById('team1BattingTitle').textContent = 
+    `${team1NameDisplay.textContent} - ${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs)`;
+  
+  document.getElementById('team2BowlingTitle').textContent = 
+    `${team2NameDisplay.textContent} BOWLING`;
+  
+  document.getElementById('team2BattingTitle').textContent = 
+    `${team2NameDisplay.textContent} - ${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs)`;
+  
+  document.getElementById('team1BowlingTitle').textContent = 
+    `${team1NameDisplay.textContent} BOWLING`;
+
+  // Populate stats
+  populateBattingStats('team1BattingStats', firstInningsData.batterStats);
+  populateBattingStats('team2BattingStats', batterStats);
+  populateBowlingStats('team2BowlingStats', firstInningsData.bowlerStats);
+  populateBowlingStats('team1BowlingStats', bowlerStats);
+
+  // Determine Player of the Match
+  determinePlayerOfMatch();
+  populateAwards();
+
+  // Show popup
+  summaryPopup.style.display = 'block';
+}
+
+function populateBattingStats(containerId, stats) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const sortedBatters = Object.entries(stats)
+    .sort((a, b) => b[1].runs - a[1].runs)
+    .slice(0, 3);
+
+  sortedBatters.forEach(([player, stat]) => {
+    const row = document.createElement('div');
+    row.className = 'scorecard-row';
+    row.innerHTML = `
+      <span>${player}</span>
+      <span>${stat.runs}${stat.runs >= 50 ? '*' : ''} (${stat.balls})</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function populateBowlingStats(containerId, stats) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const sortedBowlers = Object.entries(stats)
+    .sort((a, b) => b[1].wickets - a[1].wickets || a[1].runs - b[1].runs)
+    .slice(0, 3);
+
+  sortedBowlers.forEach(([player, stat]) => {
+    const row = document.createElement('div');
+    row.className = 'scorecard-row';
+    row.innerHTML = `
+      <span>${player}</span>
+      <span>${stat.wickets}/${stat.runs}</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function determinePlayerOfMatch() {
+  // Find top batter (combining both innings)
+  let topBatter = { name: null, runs: 0 };
+  for (const player in batterStats) {
+    if (batterStats[player].runs > topBatter.runs) {
+      topBatter = { name: player, runs: batterStats[player].runs };
+    }
+  }
+
+  // Find top bowler (combining both innings)
+  let topBowler = { name: null, wickets: 0 };
+  for (const player in bowlerStats) {
+    if (bowlerStats[player].wickets > topBowler.wickets) {
+      topBowler = { name: player, wickets: bowlerStats[player].wickets };
+    }
+  }
+
+  // Decide PoM (simple logic - can be enhanced)
+  if (topBatter.runs >= 50 || topBowler.wickets < 3) {
+    pom = topBatter.name;
+    pomStats = { type: 'batting', ...batterStats[pom] };
+  } else {
+    pom = topBowler.name;
+    pomStats = { type: 'bowling', ...bowlerStats[pom] };
+  }
+}
+
+function populateAwards() {
+  const container = document.getElementById('awardsContainer');
+  container.innerHTML = '';
+  
+  if (pom) {
+    document.getElementById('pomValue').textContent = 
+      `${pom} ${pomStats.type === 'batting' ? 
+        `${batterStats[pom].runs}* (${batterStats[pom].balls})` : 
+        `${bowlerStats[pom].wickets}/${bowlerStats[pom].runs}`}`;
+  }
+
+  // Top Scorer Award
+  let topScorer = { name: null, runs: 0 };
+  for (const player in batterStats) {
+    if (batterStats[player].runs > topScorer.runs) {
+      topScorer = { name: player, runs: batterStats[player].runs };
+    }
+  }
+  if (topScorer.name) {
+    const award = document.createElement('div');
+    award.className = 'award-badge';
+    award.textContent = `🏆 Top Scorer: ${topScorer.name} (${topScorer.runs} runs)`;
+    container.appendChild(award);
+  }
+
+  // Best Bowler Award
+  let bestBowler = { name: null, wickets: 0, economy: Infinity };
+  for (const player in bowlerStats) {
+    const economy = bowlerStats[player].overs > 0 
+      ? bowlerStats[player].runs / bowlerStats[player].overs 
+      : Infinity;
+    if (bowlerStats[player].wickets > bestBowler.wickets || 
+        (bowlerStats[player].wickets === bestBowler.wickets && economy < bestBowler.economy)) {
+      bestBowler = {
+        name: player,
+        wickets: bowlerStats[player].wickets,
+        economy: economy
+      };
+    }
+  }
+  if (bestBowler.name) {
+    const award = document.createElement('div');
+    award.className = 'award-badge';
+    award.textContent = `🎯 Best Bowler: ${bestBowler.name} (${bestBowler.wickets}/${bestBowler.economy.toFixed(1)})`;
+    container.appendChild(award);
+  }
+}
+```
+
+#### C. Add this event listener (typically in your initialization):
+```javascript
+document.getElementById('closeSummaryBtn').addEventListener('click', () => {
+  document.getElementById('summaryPopup').style.display = 'none';
+});
+```
+
+### 4. Integration Points
+1. **Call `showSummaryPopup()`** when the match ends (in your `endMatch()` function)
+2. **Ensure these variables exist** in your scope:
+   - `team1NameDisplay`, `team2NameDisplay` (DOM elements showing team names)
+   - `currentFormat` (object with match format info)
+   - `firstInningsData` (object containing first innings stats)
+   - `batterStats`, `bowlerStats` (current innings stats)
+   - `wickets`, `runs`, `target`, `legalBalls` (match state)
+
+This implementation will dynamically show all player performances from both innings in a clean, newspaper-style layout while preserving your existing game logic.
+
+
+add this in the above file and give me the complete code with no lines missing I have no issues with copy paste 
+
+Add this to
+# HandiCricket Commentary & Game Enhancements
+
+Here are optimized commentary lines and game elements specifically tailored for a card-based cricket game like HandiCricket:
+
+## 1. Card-Specific Commentary Lines
+
+### For Batting Cards:
+```javascript
+const battingCommentary = {
+  0: [
+    "Defensive block! No run taken",
+    "Solid forward defense from the batter",
+    "Played straight to the fielder, dot ball",
+    "Carefully leaves it outside off"
+  ],
+  1: [
+    "Quick single taken! Good running",
+    "Taps it into the gap for an easy run",
+    "Pushes it to mid-on and scampers through",
+    "Smart cricket - rotates the strike"
+  ],
+  2: [
+    "Crisp drive! They come back for two",
+    "Placed perfectly between fielders - two runs",
+    "Good calling! Comfortable two",
+    "Works it off the pads for a couple"
+  ],
+  3: [
+    "Rare three runs! Excellent running",
+    "Misfield allows an extra run",
+    "All the way to the rope but they stop at three",
+    "Great placement! Three valuable runs"
+  ],
+  4: [
+    "CRACK! Boundary all the way!",
+    "FOUR! Textbook cover drive",
+    "Races to the rope, beautiful shot",
+    "No need to run for those!"
+  ],
+  5: [
+    "Unusual five! Overthrow bonus",
+    "Misfield and it's five runs!",
+    "Boundary plus an overthrow - five!",
+    "Lucky extras for the batting team"
+  ],
+  6: [
+    "MASSIVE! Clears the ropes with ease!",
+    "SIX! That's gone miles!",
+    "HUGE hit into the crowd!",
+    "Maximum! What a strike!"
+  ]
+};
+```
+
+### For Bowling Cards:
+```javascript
+const bowlingCommentary = {
+  0: [
+    "Dot ball! Perfect line and length",
+    "Beaten! Great delivery",
+    "Play and miss - excellent bowling",
+    "Tight line, no run conceded"
+  ],
+  1: [
+    "Just a single - good containment",
+    "Keeps it to one run",
+    "Controlled bowling - only a single",
+    "Good fielding keeps it to one"
+  ],
+  2: [
+    "Two runs but could have been worse",
+    "Decent delivery but they get two",
+    "Not a bad ball but placed well for two",
+    "Bowled to his field - two runs"
+  ],
+  3: [
+    "Loose delivery - three runs",
+    "Could have bowled better there",
+    "Not his best ball - three taken",
+    "Misses his length and pays the price"
+  ],
+  4: [
+    "Boundary! Poor delivery punished",
+    "Bad ball and it's dispatched!",
+    "Four runs! Needs to bowl better",
+    "Too short and it's cut away"
+  ],
+  5: [
+    "Five runs! Terrible over so far",
+    "Nightmare delivery - five conceded",
+    "What was that? Gifted five runs",
+    "Bowling all over the place"
+  ],
+  6: [
+    "Disaster! Smashed for six!",
+    "Horrible ball - maximum result!",
+    "Six runs! Captain won't be happy",
+    "Worst possible outcome for the bowler"
+  ]
+};
+```
+
+## 2. Special Event Commentary
+
+### For Wickets:
+```javascript
+const wicketCommentary = [
+  "OUT! Perfect card match takes the wicket!",
+  "WICKET! Batter's card matched the bowler's!",
+  "Gone! That's exactly what the bowler wanted!",
+  "Dismissal! Cards aligned for the breakthrough!",
+  "Bowled 'em! Perfect card selection!",
+  "Caught! Batter's card was their downfall!",
+  "LBW! Cards don't lie - that's out!",
+  "Edged and taken! Card strategy pays off!"
+];
+```
+
+### For Powerplays:
+```javascript
+const powerplayCommentary = [
+  "Powerplay in effect - wickets worth more now!",
+  "Fielding restrictions on - batters looking to attack!",
+  "High stakes period of the game!",
+  "Crucial phase - teams playing their cards carefully!"
+];
+```
+
+### For Milestones:
+```javascript
+const milestoneCommentary = {
+  50: [
+    "Half century! What an innings!",
+    "Fifty up! Magnificent card play!",
+    "Raises his bat for a well-made fifty!"
+  ],
+  100: [
+    "CENTURY! Absolute masterclass!",
+    "Hundred! Stunning performance!",
+    "Raises the bat for a magnificent hundred!"
+  ]
+};
+```
+
+## 3. Game Flow Enhancements
+
+### Card Play Animations:
+```javascript
+function playCardAnimation(cardValue, isBatting) {
+  const card = document.createElement('div');
+  card.className = `card-animation ${isBatting ? 'batting-card' : 'bowling-card'}`;
+  card.textContent = cardValue;
+  
+  // Position based on batting/bowling
+  card.style.left = isBatting ? '30%' : '70%';
+  card.style.top = '50%';
+  
+  document.getElementById('matchGraphics').appendChild(card);
+  
+  // Animation
+  setTimeout(() => {
+    card.style.transform = isBatting 
+      ? 'translateX(100px) rotate(360deg)' 
+      : 'translateX(-100px) rotate(-360deg)';
+    card.style.opacity = '0';
+  }, 50);
+  
+  // Remove after animation
+  setTimeout(() => {
+    card.remove();
+  }, 1000);
+}
+
+// Add to your CSS:
+.card-animation {
+  position: absolute;
+  width: 60px;
+  height: 90px;
+  background: white;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  z-index: 100;
+  transition: all 0.8s ease-out;
+}
+
+.batting-card { background: #4CAF50; color: white; }
+.bowling-card { background: #F44336; color: white; }
+```
+
+### Result Comparison Animation:
+```javascript
+function showCardComparison(battingCard, bowlingCard) {
+  const container = document.createElement('div');
+  container.className = 'card-comparison';
+  
+  const battingEl = document.createElement('div');
+  battingEl.className = 'comparison-card batting';
+  battingEl.textContent = battingCard;
+  
+  const vsEl = document.createElement('div');
+  vsEl.className = 'vs-circle';
+  vsEl.textContent = 'VS';
+  
+  const bowlingEl = document.createElement('div');
+  bowlingEl.className = 'comparison-card bowling';
+  bowlingEl.textContent = bowlingCard;
+  
+  container.appendChild(battingEl);
+  container.appendChild(vsEl);
+  container.appendChild(bowlingEl);
+  
+  document.getElementById('matchGraphics').appendChild(container);
+  
+  // Remove after animation
+  setTimeout(() => {
+    container.remove();
+  }, 2000);
+}
+
+// Add to your CSS:
+.card-comparison {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 200;
+}
+
+.comparison-card {
+  width: 80px;
+  height: 120px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 36px;
+  font-weight: bold;
+  border-radius: 10px;
+  color: white;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+.comparison-card.batting { background: #4CAF50; }
+.comparison-card.bowling { background: #F44336; }
+```
+
+## 4. Implementation Tips
+
+1. **Random Selection**: Use these arrays with random selection for variety:
+```javascript
+function getRandomLine(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+// Usage:
+showCommentary(getRandomLine(battingCommentary[cardValue]));
+```
+
+2. **Context Awareness**: Add conditions to select appropriate commentary:
+```javascript
+function getOutcomeCommentary(battingCard, bowlingCard, isWicket) {
+  if (isWicket) return getRandomLine(wicketCommentary);
+  if (battingCard === bowlingCard) return getRandomLine(specialCommentary);
+  return getRandomLine(battingCommentary[battingCard]);
+}
+```
+
+3. **Timing**: Show commentary with slight delays for natural flow:
+```javascript
+setTimeout(() => {
+  showCommentary(getOutcomeCommentary(battingCard, bowlingCard, isWicket));
+}, 500);
+```
+
+These enhancements will make your HandiCricket game feel much more immersive while keeping the card-based gameplay at its core. The commentary lines are specifically tailored to acknowledge the card-playing nature of the game while maintaining cricket authenticity.
+
+# Ultimate HandiCricket Game Enhancements
+
+Here are even more immersive features to take your HandiCricket game to the next level:
+
+## 1. Dynamic Player Reactions
+
+### Player Avatar Emotions:
+```javascript
+const playerEmotions = {
+  'happy': ['😊', '😄', '😎', '🤩'],
+  'angry': ['😠', '🤬', '👿', '😤'],
+  'sad': ['😢', '😭', '😞', '💔'],
+  'confused': ['😕', '🤔', '😟', '😳']
+};
+
+function showPlayerEmotion(playerName, emotion) {
+  const emotionEl = document.createElement('div');
+  emotionEl.className = 'player-emotion';
+  emotionEl.innerHTML = `${playerName} ${getRandomLine(playerEmotions[emotion])}`;
+  
+  // Position near player's name in comparison box
+  const comparisonBox = document.querySelector('.comparison-container');
+  comparisonBox.appendChild(emotionEl);
+  
+  setTimeout(() => {
+    emotionEl.style.opacity = '0';
+    setTimeout(() => emotionEl.remove(), 1000);
+  }, 2000);
+}
+
+// Usage:
+// showPlayerEmotion(currentBatter, 'happy');
+// showPlayerEmotion(currentBowler, 'angry');
+```
+
+## 2. Stadium Atmosphere System
+
+```javascript
+function updateStadiumAtmosphere(runs, wickets) {
+  const runRate = runs / (legalBalls/6);
+  const crowdNoise = document.getElementById('crowdNoise');
+  
+  // Calculate atmosphere level (0-100)
+  let atmosphere = 50;
+  if (runRate > 8) atmosphere += 20;
+  if (wickets > 3) atmosphere -= 15;
+  if (freeHit) atmosphere += 10;
+  if (isPowerplay) atmosphere += 5;
+  
+  // Clamp between 0-100
+  atmosphere = Math.max(0, Math.min(100, atmosphere));
+  
+  // Update crowd noise
+  crowdNoise.volume = atmosphere/100;
+  
+  // Visual feedback
+  const crowd = document.querySelector('.crowd');
+  crowd.style.opacity = (0.3 + (atmosphere/200)).toString();
+  
+  // Special chants
+  if (atmosphere > 80) {
+    playSpecialChant('cheer');
+  } else if (atmosphere < 20) {
+    playSpecialChant('boo');
+  }
+}
+
+function playSpecialChant(type) {
+  const chant = document.createElement('div');
+  chant.className = `stadium-chant ${type}`;
+  document.querySelector('.stadium-effects').appendChild(chant);
+  
+  setTimeout(() => {
+    chant.remove();
+  }, 3000);
+}
+
+// Add to CSS:
+.stadium-chant {
+  position: absolute;
+  bottom: 120px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 24px;
+  color: white;
+  text-shadow: 0 0 10px rgba(255,255,255,0.7);
+  animation: fadeInOut 2s;
+}
+
+.stadium-chant.cheer::before { content: "👏👏👏 CHEER! 👏👏👏"; }
+.stadium-chant.boo::before { content: "👎👎👎 BOOO! 👎👎👎"; }
+```
+
+## 3. Advanced Statistics Dashboard
+
+```javascript
+function showAdvancedStats() {
+  const statsPopup = document.createElement('div');
+  statsPopup.className = 'stats-popup';
+  
+  // Calculate key metrics
+  const dotBalls = Object.values(ballByBall).filter(b => b.runs === 0).length;
+  const boundaries = Object.values(ballByBall).filter(b => b.runs >= 4).length;
+  const strikeRate = ((runs/legalBalls)*100).toFixed(2);
+  
+  statsPopup.innerHTML = `
+    <h3>Advanced Match Statistics</h3>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-label">Dot Balls</div>
+        <div class="stat-value">${dotBalls}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Boundaries</div>
+        <div class="stat-value">${boundaries}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Strike Rate</div>
+        <div class="stat-value">${strikeRate}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Partnership</div>
+        <div class="stat-value">${runs - lastWicketScore}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Last 5 Overs</div>
+        <div class="stat-value">${last5Runs}/${last5Wickets}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Required RR</div>
+        <div class="stat-value">${tickerRequiredRate.textContent}</div>
+      </div>
+    </div>
+    <button id="closeStats">Close</button>
+  `;
+  
+  document.body.appendChild(statsPopup);
+  
+  document.getElementById('closeStats').addEventListener('click', () => {
+    statsPopup.remove();
+  });
+}
+
+// Add to CSS:
+.stats-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(6, 30, 62, 0.95);
+  border: 2px solid #1e88e5;
+  border-radius: 10px;
+  padding: 20px;
+  z-index: 1000;
+  max-width: 90%;
+  width: 400px;
+  box-shadow: 0 0 30px rgba(0,0,0,0.7);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin: 15px 0;
+}
+
+.stat-item {
+  background: rgba(30, 136, 229, 0.2);
+  padding: 10px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffeb3b;
+}
+```
+
+## 4. Match Momentum Indicator
+
+```javascript
+function updateMomentumIndicator() {
+  const momentumBar = document.getElementById('momentumBar') || createMomentumBar();
+  
+  // Calculate momentum (-100 to +100)
+  let momentum = 0;
+  
+  // Recent runs boost momentum
+  const last10Balls = Object.values(ballByBall).slice(-10);
+  const recentRuns = last10Balls.reduce((sum, ball) => sum + ball.runs, 0);
+  momentum += recentRuns * 5;
+  
+  // Wickets reduce momentum
+  const recentWickets = last10Balls.filter(ball => ball.wicket).length;
+  momentum -= recentWickets * 20;
+  
+  // Powerplay effects
+  if (isPowerplay) momentum += 10;
+  if (isDeadOver) momentum -= 10;
+  
+  // Clamp between -100 and 100
+  momentum = Math.max(-100, Math.min(100, momentum));
+  
+  // Update display
+  const team1Width = momentum > 0 ? Math.abs(momentum) : 50;
+  const team2Width = momentum < 0 ? Math.abs(momentum) : 50;
+  
+  document.getElementById('momentumTeam1').style.width = `${team1Width}%`;
+  document.getElementById('momentumTeam2').style.width = `${team2Width}%`;
+  
+  // Color coding
+  const team1Bar = document.getElementById('momentumTeam1');
+  const team2Bar = document.getElementById('momentumTeam2');
+  
+  if (momentum > 30) {
+    team1Bar.style.background = '#4CAF50'; // Strong green
+    team2Bar.style.background = '#F44336'; // Red
+  } else if (momentum < -30) {
+    team1Bar.style.background = '#F44336'; // Red
+    team2Bar.style.background = '#4CAF50'; // Strong green
+  } else {
+    team1Bar.style.background = '#8BC34A'; // Light green
+    team2Bar.style.background = '#FF9800'; // Orange
+  }
+}
+
+function createMomentumBar() {
+  const barContainer = document.createElement('div');
+  barContainer.id = 'momentumBar';
+  barContainer.className = 'momentum-container';
+  
+  barContainer.innerHTML = `
+    <div class="momentum-labels">
+      <span>${team1NameDisplay.textContent}</span>
+      <span>Momentum</span>
+      <span>${team2NameDisplay.textContent}</span>
+    </div>
+    <div class="momentum-bars">
+      <div id="momentumTeam1" class="momentum-bar team1"></div>
+      <div id="momentumTeam2" class="momentum-bar team2"></div>
+    </div>
+  `;
+  
+  document.querySelector('.container').prepend(barContainer);
+  return barContainer;
+}
+
+// Add to CSS:
+.momentum-container {
+  margin-bottom: 15px;
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.momentum-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.momentum-bars {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.momentum-bar {
+  height: 100%;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+.momentum-bar.team1 {
+  background: #8BC34A; /* Default light green */
+}
+
+.momentum-bar.team2 {
+  background: #FF9800; /* Default orange */
+}
+```
+
+## 5. Player Form System
+
+```javascript
+// Track player form throughout the match
+const playerForm = {};
+
+function updatePlayerForm(player, performance) {
+  // Initialize if not exists
+  if (!playerForm[player]) {
+    playerForm[player] = 50; // Neutral form (0-100 scale)
+  }
+  
+  // Adjust based on performance
+  if (performance === 'good') {
+    playerForm[player] = Math.min(100, playerForm[player] + 15);
+  } else if (performance === 'bad') {
+    playerForm[player] = Math.max(0, playerForm[player] - 15);
+  }
+  
+  // Visual indicator
+  updatePlayerFormIndicator(player);
+}
+
+function updatePlayerFormIndicator(player) {
+  const formValue = playerForm[player] || 50;
+  const formElement = document.getElementById(`form-${player.replace(/\s+/g, '-')}`);
+  
+  if (!formElement) return;
+  
+  // Update color based on form
+  if (formValue > 70) {
+    formElement.style.background = '#4CAF50'; // Green
+    formElement.title = "In excellent form";
+  } else if (formValue > 40) {
+    formElement.style.background = '#FFC107'; // Yellow
+    formElement.title = "Average form";
+  } else {
+    formElement.style.background = '#F44336'; // Red
+    formElement.title = "Poor form";
+  }
+  
+  // Update width
+  formElement.style.width = `${formValue}%`;
+}
+
+// Add form indicators to player comparison
+function enhancePlayerComparison() {
+  const batterName = document.getElementById('comparisonBatterName').textContent;
+  const bowlerName = document.getElementById('comparisonBowlerName').textContent;
+  
+  // Add to batter comparison
+  const batterStats = document.querySelector('.batter-comparison .comparison-stats');
+  batterStats.innerHTML += `
+    <div class="form-container">
+      <div>Form:</div>
+      <div class="form-bar">
+        <div id="form-${batterName.replace(/\s+/g, '-')}" class="form-indicator"></div>
+      </div>
+    </div>
+  `;
+  
+  // Add to bowler comparison
+  const bowlerStats = document.querySelector('.bowler-comparison .comparison-stats');
+  bowlerStats.innerHTML += `
+    <div class="form-container">
+      <div>Form:</div>
+      <div class="form-bar">
+        <div id="form-${bowlerName.replace(/\s+/g, '-')}" class="form-indicator"></div>
+      </div>
+    </div>
+  `;
+  
+  // Initialize form
+  updatePlayerForm(batterName, 'neutral');
+  updatePlayerForm(bowlerName, 'neutral');
+}
+
+// Add to CSS:
+.form-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+
+.form-bar {
+  flex-grow: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.form-indicator {
+  height: 100%;
+  width: 50%;
+  border-radius: 4px;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+```
+
+## Implementation Notes:
+
+1. **Initialization**: Call these functions during game setup:
+```javascript
+// In your initGame() function:
+setupPlayerEmotions();
+createMomentumBar();
+enhancePlayerComparison();
+
+// Add audio element for crowd noise (put in HTML):
+// <audio id="crowdNoise" loop src="crowd-ambience.mp3"></audio>
+```
+
+2. **During Gameplay**:
+```javascript
+// After each ball:
+updateStadiumAtmosphere(runs, wickets);
+updateMomentumIndicator();
+
+// When players perform well/poorly:
+updatePlayerForm(currentBatter, runs > 0 ? 'good' : 'bad');
+updatePlayerForm(currentBowler, runs > 0 ? 'bad' : 'good');
+
+// Show emotions on key events:
+if (isWicket) {
+  showPlayerEmotion(currentBowler, 'happy');
+  showPlayerEmotion(currentBatter, 'sad');
+} else if (runs >= 4) {
+  showPlayerEmotion(currentBatter, 'happy');
+  showPlayerEmotion(currentBowler, 'angry');
+}
+```
+
+3. **Advanced Stats Access**:
+Add a button to your UI that calls `showAdvancedStats()` when clicked.
+
+These enhancements will create a much more dynamic and immersive HandiCricket experience while maintaining the core card-based gameplay mechanics. The systems work together to give players visual feedback about match flow, individual performances, and the overall state of the game.
+
+Match Highlight reel generator
+// Generate match highlights at innings breaks
+function generateHighlights() {
+  const highlights = [];
+  
+  // 1. Biggest six
+  const sixes = Object.values(ballByBall).filter(b => b.runs === 6);
+  if (sixes.length > 0) {
+    const biggestSix = sixes.reduce((max, ball) => 
+      (ball.distance > max.distance ? ball : max), sixes[0]);
+    highlights.push({
+      type: 'six',
+      ball: biggestSix,
+      description: `Massive six by ${biggestSix.batter} off ${biggestSix.bowler}`
+    });
+  }
+  
+  // 2. Best wicket
+  const wickets = fallOfWickets;
+  if (wickets.length > 0) {
+    const keyWicket = wickets.reduce((key, w) => 
+      (w.score > key.score ? w : w), wickets[0]);
+    highlights.push({
+      type: 'wicket',
+      ball: keyWicket,
+      description: `Crucial wicket of ${keyWicket.batter} at ${keyWicket.score}`
+    });
+  }
+  
+  // 3. Best partnership
+  if (fallOfWickets.length > 1) {
+    let bestPartnership = { runs: 0 };
+    for (let i = 1; i < fallOfWickets.length; i++) {
+      const partnership = fallOfWickets[i].score - fallOfWickets[i-1].score;
+      if (partnership > bestPartnership.runs) {
+        bestPartnership = {
+          runs: partnership,
+          start: fallOfWickets[i-1],
+          end: fallOfWickets[i]
+        };
+      }
+    }
+    if (bestPartnership.runs > 30) {
+      highlights.push({
+        type: 'partnership',
+        data: bestPartnership,
+        description: `${bestPartnership.runs}-run stand changed the game`
+      });
+    }
+  }
+  
+  // 4. Best over
+  const overs = {};
+  Object.values(ballByBall).forEach((ball, index) => {
+    const over = Math.floor(index / 6);
+    if (!overs[over]) overs[over] = { runs: 0, wickets: 0 };
+    overs[over].runs += ball.runs;
+    if (ball.wicket) overs[over].wickets++;
+  });
+  
+  const bestOver = Object.entries(overs).reduce((best, [over, stats]) => {
+    const score = stats.wickets * 20 - stats.runs; // Weight wickets more
+    return score > best.score ? { over, stats, score } : best;
+  }, { over: 0, stats: { runs: 0, wickets: 0 }, score: -Infinity });
+  
+  if (bestOver.stats.wickets > 0 || bestOver.stats.runs < 4) {
+    highlights.push({
+      type: 'over',
+      data: bestOver,
+      description: `Game-changing over ${parseInt(bestOver.over)+1}: ${bestOver.stats.runs}r/${bestOver.stats.wickets}w`
+    });
+  }
+  
+  return highlights;
+}
+
+function showHighlightsReel() {
+  const highlights = generateHighlights();
+  const reel = document.createElement('div');
+  reel.id = 'highlightsReel';
+  reel.className = 'highlights-reel';
+  
+  let html = `<h3>🏆 Match Highlights</h3><div class="highlights-container">`;
+  
+  highlights.forEach((highlight, index) => {
+    html += `
+      <div class="highlight-item ${highlight.type}">
+        <div class="highlight-number">${index+1}.</div>
+        <div class="highlight-desc">${highlight.description}</div>
+        <div class="highlight-icon">
+          ${highlight.type === 'six' ? '💥' : 
+            highlight.type === 'wicket' ? '🎯' : 
+            highlight.type === 'partnership' ? '🤝' : '🔥'}
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `</div><button id="closeHighlights">Continue</button>`;
+  reel.innerHTML = html;
+  
+  document.body.appendChild(reel);
+  
+  document.getElementById('closeHighlights').addEventListener('click', () => {
+    reel.remove();
+  });
+}
+
+// Add to CSS:
+.highlights-reel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(6, 30, 62, 0.95);
+  border: 2px solid #ffeb3b;
+  border-radius: 10px;
+  padding: 20px;
+  z-index: 1000;
+  max-width: 90%;
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 30px rgba(0,0,0,0.7);
+}
+
+.highlights-container {
+  margin: 15px 0;
+}
+
+.highlight-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin: 5px 0;
+  background: rgba(255,255,255,0.1);
+  border-radius: 5px;
+}
+
+.highlight-item.six { border-left: 3px solid #4CAF50; }
+.highlight-item.wicket { border-left: 3px solid #F44336; }
+.highlight-item.partnership { border-left: 3px solid #1e88e5; }
+.highlight-item.over { border-left: 3px solid #FFC107; }
+
+.highlight-number {
+  font-weight: bold;
+  margin-right: 10px;
+  color: #ffeb3b;
+}
+
+.highlight-desc {
+  flex-grow: 1;
+  font-size: 14px;
+}
+
+.highlight-icon {
+  font-size: 20px;
+  margin-left: 10px;
+}
+
+
+Add all this and one more add a feature when batters momentum bar gets full give him a extra wicket and when it gets half half wicket that is 0.5
+
+<!-- Batter Momentum UI -->
+<div class="momentum-bar-container">
+  <div class="momentum-label">Batter Momentum</div>
+  <div class="momentum-track">
+    <div class="momentum-fill" id="batterMomentumFill"></div>
+  </div>
+</div>
+
+
+<script>
+// Batter Momentum Tracking
+let batterMomentum = {};
+function setupBatterMomentum() {
+  const comparison = document.querySelector('.comparison-container');
+  if (comparison) {
+    const bar = document.createElement('div');
+    bar.innerHTML = `
+      <div class="momentum-bar-container">
+        <div class="momentum-label">Batter Momentum</div>
+        <div class="momentum-track">
+          <div class="momentum-fill" id="batterMomentumFill"></div>
+        </div>
+      </div>`;
+    comparison.appendChild(bar);
+  }
+}
+
+function updateBatterMomentum(player, runs) {
+  if (!batterMomentum[player]) batterMomentum[player] = 0;
+  batterMomentum[player] += runs * 5;
+  if (batterMomentum[player] >= 100) {
+    grantExtraWicket(player, 1.0);
+    batterMomentum[player] = 0;
+  } else if (batterMomentum[player] >= 50) {
+    grantExtraWicket(player, 0.5);
+  }
+  const fill = document.getElementById('batterMomentumFill');
+  if (fill) fill.style.width = batterMomentum[player] + '%';
+}
+
+function grantExtraWicket(player, value) {
+  console.log(`🏏 ${player} awarded extra wicket value: ${value}`);
+}
+
+// Emotion System
+const playerEmotions = {
+  happy: ['😊', '😄', '😎', '🤩'],
+  angry: ['😠', '🤬', '👿', '😤'],
+  sad: ['😢', '😭', '😞', '💔'],
+  confused: ['😕', '🤔', '😟', '😳']
+};
+
+function showPlayerEmotion(playerName, emotion) {
+  const el = document.createElement('div');
+  el.className = 'player-emotion';
+  el.innerHTML = `${playerName} ${getRandomLine(playerEmotions[emotion])}`;
+  const comparison = document.querySelector('.comparison-container');
+  if (comparison) {
+    comparison.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+  }
+}
+
+// Stadium Atmosphere
+function updateStadiumAtmosphere(runs, wickets) {
+  const crowd = document.querySelector('.crowd');
+  let atmosphere = 50;
+  if (runs / (legalBalls / 6) > 8) atmosphere += 20;
+  if (wickets > 3) atmosphere -= 15;
+  if (freeHit) atmosphere += 10;
+  if (isPowerplay) atmosphere += 5;
+  atmosphere = Math.min(100, Math.max(0, atmosphere));
+  if (crowd) crowd.style.opacity = (0.3 + atmosphere / 200).toString();
+}
+
+// Utility
+function getRandomLine(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+</script>
+
 </body>
 </html>
