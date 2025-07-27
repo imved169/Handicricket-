@@ -750,6 +750,47 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
+    /* Team name display styles */
+    .team-names-compact {
+      margin-bottom: 8px;
+      font-size: 14px;
+      background: rgba(13, 42, 82, 0.7);
+      padding: 8px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .team-name-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .team-label {
+      color: #aaa;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .team-name {
+      font-weight: bold;
+    }
+
+    .batting-team {
+      color: #4CAF50;
+    }
+
+    .bowling-team {
+      color: #F44336;
+    }
+
+    .team-divider {
+      color: #666;
+      margin: 0 4px;
+    }
 
     /* Summary popup enhancements */
     .summary-popup .summary-content {
@@ -1361,7 +1402,7 @@
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 11,
+        totalWickets: 10,
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1472,7 +1513,9 @@
     const teamsModal = document.getElementById("teamsModal");
     const closeTeamsBtn = document.getElementById("closeTeamsBtn");
     const teamsSlider = document.getElementById("teamsSlider");
-    const overSummaryList = document.getElementById("overSummaryList")
+    const overSummaryList = document.getElementById("overSummaryList");
+    const team1NameDisplay = document.getElementById("team1Name");
+    const team2NameDisplay = document.getElementById("team2Name");
     const prevTeamBtn = document.getElementById("prevTeamBtn");
     const nextTeamBtn = document.getElementById("nextTeamBtn");
     const battingTeamName = document.getElementById("battingTeamName");
@@ -1525,25 +1568,46 @@
 
     // Update team displays
     function updateTeamDisplays() {
-    // Get the team names from the modal elements
-    const team1Name = document.getElementById("modalTeam1Name").textContent;
-    const team2Name = document.getElementById("modalTeam2Name").textContent;
-    
-    // Update batting team display based on innings
-    if (secondInningsStarted) {
+      // Update team names based on current innings
+      if (secondInningsStarted) {
         // Second innings - roles are reversed
-        battingTeamName.textContent = isBatting ? 
-            (battingFirst === "player1" ? team2Name : team1Name) :
-            (battingFirst === "player1" ? team1Name : team2Name);
-    } else {
+        team1NameDisplay.textContent = battingFirst === "player1" ? team2NameEl.textContent : team1NameEl.textContent;
+        team2NameDisplay.textContent = battingFirst === "player1" ? team1NameEl.textContent : team2NameEl.textContent;
+        battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+      } else {
         // First innings - normal order
-        battingTeamName.textContent = team1Name;
+        team1NameDisplay.textContent = team1NameEl.textContent;
+        team2NameDisplay.textContent = team2NameEl.textContent;
+        battingTeamName.textContent = team1NameDisplay.textContent;
+      }
+
+      updateCompactTeamDisplay();
     }
 
-    updateCompactTeamDisplay();
+    // Update compact team display
+    function updateCompactTeamDisplay() {
+      const compactDisplay = document.querySelector('.team-names-compact');
+      if (!compactDisplay) return;
+
+      const battingTeam = isBatting ? 
+        (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent) :
+        (battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent);
+        
+      const bowlingTeam = isBatting ? 
+        (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent) :
+        (battingFirst === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent);
+
+      compactDisplay.innerHTML = `
+        <div class="team-name-line">
+          <span class="team-label">Batting:</span>
+          <span class="team-name batting-team">${battingTeam}</span>
+          <span class="team-divider">|</span>
+          <span class="team-label">Bowling:</span>
+          <span class="team-name bowling-team">${bowlingTeam}</span>
+        </div>
+      `;
     }
 
-    
     // Enhanced loadPlaying11 function with validation
     async function loadPlaying11() {
       try {
