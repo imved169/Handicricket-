@@ -246,80 +246,6 @@
       color: #aaa;
     }
 
-    /* Commentary Box Styles */
-    .commentary-container {
-      background: rgba(13, 42, 82, 0.7);
-      border-radius: 8px;
-      margin: 8px 0;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .commentary-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 8px;
-      background: rgba(30, 136, 229, 0.3);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .commentary-header h4 {
-      margin: 0;
-      font-size: 0.85rem;
-    }
-
-    .commentary-controls button {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.65rem;
-      margin-left: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .commentary-controls button:hover {
-      background: rgba(255,255,255,0.2);
-    }
-
-    .commentary-box {
-      max-height: 120px;
-      overflow-y: auto;
-      padding: 6px;
-      font-size: 0.8rem;
-    }
-
-    .commentary-item {
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      animation: fadeIn 0.3s ease-in;
-    }
-
-    .commentary-item:last-child {
-      border-bottom: none;
-    }
-
-    .commentary-item.wicket {
-      color: #F44336;
-    }
-
-    .commentary-item.boundary {
-      color: #FFC107;
-    }
-
-    .commentary-item.milestone {
-      color: #4CAF50;
-    }
-
-    .commentary-time {
-      color: #aaa;
-      font-size: 0.65rem;
-      margin-right: 4px;
-    }
-
     /* Timeline Styles */
     .timeline-container {
       background: rgba(13, 42, 82, 0.7);
@@ -1133,7 +1059,7 @@
       background: #d32f2f;
     }
     
-    /* Innings Summary Popup */
+    /* Innings Summary Popup - Updated to match image */
     .summary-popup {
       position: fixed;
       top: 50%;
@@ -1521,20 +1447,6 @@
       <div class="over-number">Over <span id="currentOverNumber">1</span></div>
     </div>
     
-    <!-- Commentary Box -->
-    <div class="commentary-container">
-      <div class="commentary-header">
-        <h4>Match Commentary</h4>
-        <div class="commentary-controls">
-          <button id="pauseCommentary">Pause</button>
-          <button id="clearCommentary">Clear</button>
-        </div>
-      </div>
-      <div class="commentary-box" id="commentaryBox">
-        <!-- Commentary items will be added here -->
-      </div>
-    </div>
-    
     <!-- Match Timeline -->
     <div class="timeline-container">
       <h4>Match Timeline</h4>
@@ -1845,7 +1757,6 @@
     let isProcessingSelection = false;
     let overSummaries = [];
     let isSpectator = false;
-    let commentaryPaused = false;
     let firstInningsCompleted = false;
     let firstInningsData = null;
     let target = 0;
@@ -1890,9 +1801,6 @@
     const prevTeamBtn = document.getElementById("prevTeamBtn");
     const nextTeamBtn = document.getElementById("nextTeamBtn");
     const battingTeamName = document.getElementById("battingTeamName");
-    const commentaryBox = document.getElementById("commentaryBox");
-    const pauseCommentaryBtn = document.getElementById("pauseCommentary");
-    const clearCommentaryBtn = document.getElementById("clearCommentary");
     const summaryPopup = document.getElementById("summaryPopup");
     const summaryCountdown = document.getElementById("summaryCountdown");
     const startSecondInningsBtn = document.getElementById("startSecondInningsBtn");
@@ -2177,7 +2085,7 @@
       
       // Add contextual commentary for partnerships
       if (partnershipRuns >= 50 && partnershipRuns % 10 === 0) {
-        addCommentary(`Partnership now ${partnershipRuns} runs from ${partnershipBalls} balls`, 'milestone');
+        showNotification(`Partnership now ${partnershipRuns} runs from ${partnershipBalls} balls`, 'info');
       }
     }
 
@@ -2201,7 +2109,7 @@
       // Add expert analysis
       if (legalBalls % 30 === 0 && legalBalls > 0) { // Every 5 overs
         const rrLast5 = (last5Runs / 5).toFixed(1);
-        addCommentary(`Last 5 overs: ${last5Runs} runs, ${last5Wickets} wickets (RR: ${rrLast5})`, 'info');
+        showNotification(`Last 5 overs: ${last5Runs} runs, ${last5Wickets} wickets (RR: ${rrLast5})`, 'info');
       }
     }
 
@@ -2291,23 +2199,17 @@
       }
     }
 
-    // Commentary functions
-    function addCommentary(message, type = '') {
-      if (commentaryPaused) return;
+    // Show notification with different styles
+    function showNotification(message, type = 'info') {
+      const notif = document.createElement('div');
+      notif.className = `milestone-notification ${type}`;
+      notif.textContent = message;
+      document.body.appendChild(notif);
       
-      const now = new Date();
-      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      
-      const commentaryItem = document.createElement('div');
-      commentaryItem.className = `commentary-item ${type}`;
-      commentaryItem.innerHTML = `<span class="commentary-time">${timeString}</span>${message}`;
-      
-      commentaryBox.insertBefore(commentaryItem, commentaryBox.firstChild);
-      
-      // Limit to 50 commentary items
-      if (commentaryBox.children.length > 50) {
-        commentaryBox.removeChild(commentaryBox.lastChild);
-      }
+      setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => notif.remove(), 500);
+      }, 2500);
     }
 
     // Add to timeline with proper over numbering (0.1 to 0.6, then 1.1 to 1.6, etc.)
@@ -2476,7 +2378,7 @@
           runs += 1;
           freeHitNextBall = true;
           isLegalBall = false;
-          addCommentary("No ball! Free hit coming up...", 'error');
+          showNotification("No ball! Free hit coming up...", 'error');
           addToTimeline("NB", 'error');
           createUmpireSignal("👆");
         } 
@@ -2485,7 +2387,7 @@
           if (batterCard === bowlerCard && batterCard > 0) {
             outcome = "Wicket on Free Hit (not out)";
             isWicket = false;
-            addCommentary(`Wicket on free hit! ${currentBatter} survives`, 'info');
+            showNotification(`Wicket on free hit! ${currentBatter} survives`, 'info');
             createUmpireSignal("👈");
           } else {
             runsScored = batterCard;
@@ -2494,7 +2396,7 @@
             outcome = `${batterCard} Run(s)! (Free Hit)`;
             if (batterCard === 4 || batterCard === 6) boundary = true;
             if (batterCard === 6) isSix = true;
-            addCommentary(`${currentBatter} scores ${batterCard} on free hit`, 'info');
+            showNotification(`${currentBatter} scores ${batterCard} on free hit`, 'info');
             addToTimeline(`${batterCard} FH`, 'info');
             if (batterCard === 4) createUmpireSignal("👈");
             if (batterCard === 6) createUmpireSignal("↖️");
@@ -2523,19 +2425,19 @@
                 batter: currentBatter,
                 bowler: currentBowler
               });
-              addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
+              showNotification(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
               addToTimeline(`W ${currentBatter}`, 'wicket');
               createWicketAnimation();
               createUmpireSignal("☝️");
             } else {
               const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
               outcome = `WICKET! (${remain} left for this batter)`;
-              addCommentary(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
+              showNotification(`Close call! ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
               addToTimeline(`W ${actualWicketValue}`, 'wicket');
             }
           } else {
             outcome = "Batter already out!";
-            addCommentary(`${currentBatter} is already out!`, 'error');
+            showNotification(`${currentBatter} is already out!`, 'error');
           }
           
           isLegalBall = true;
@@ -2547,7 +2449,7 @@
             runs -= penaltyRuns;
             batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
             outcome = "4th 0 in over! -5 runs";
-            addCommentary(`4th dot ball in over! Penalty of 5 runs`, 'error');
+            showNotification(`4th dot ball in over! Penalty of 5 runs`, 'error');
             addToTimeline("-5", 'error');
             
             checkBatterMilestones(true);
@@ -2558,7 +2460,7 @@
             outcome = `Batter played 0. Runs = ${bowlerCard}`;
             if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
             if (bowlerCard === 6) isSix = true;
-            addCommentary(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
+            showNotification(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
             addToTimeline(`${bowlerCard}`, 'info');
           }
           isLegalBall = true;
@@ -2569,12 +2471,12 @@
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
-            addCommentary(`4th dot ball from bowler! No ball called`, 'error');
+            showNotification(`4th dot ball from bowler! No ball called`, 'error');
             addToTimeline("NB", 'error');
             createUmpireSignal("👆");
           } else {
             outcome = "DOT BALL!";
-            addCommentary(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
+            showNotification(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
             addToTimeline("•", 'info');
           }
           isLegalBall = true;
@@ -2589,7 +2491,7 @@
           if (batterCard === 6) isSix = true;
           
           const boundaryType = batterCard === 6 ? 'SIX' : 'FOUR';
-          addCommentary(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
+          showNotification(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, 'info');
           addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
           
           if (boundary) {
@@ -2757,8 +2659,6 @@
           // Only notify if this is a new achievement
           if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
             showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns})`, 'batting');
-            addCommentary(`${currentBatter} reaches ${milestone} runs!`, 'milestone');
-            addToTimeline(`${milestone}`, 'milestone');
             batter[`milestone${milestone}Notified`] = true;
             
             if (milestone >= 100) {
@@ -2769,7 +2669,6 @@
           // Handle losing a milestone due to penalty
           else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
             showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
-            addCommentary(`${currentBatter} loses ${milestone} after penalty`, 'error');
             batter[`milestone${milestone}Notified`] = false;
           }
           break;
@@ -2779,47 +2678,28 @@
       // Special handling for 50 and 100
       if (netRuns >= 50 && !batter.fiftyNotified) {
         showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns})`, 'batting');
-        addCommentary(`${currentBatter} scores a half-century!`, 'milestone');
-        addToTimeline("50", 'milestone');
         batter.fiftyNotified = true;
         createConfetti();
         createUmpireSignal("5️⃣0️⃣");
       }
       else if (netRuns < 50 && batter.fiftyNotified) {
         showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
-        addCommentary(`${currentBatter} loses half-century after penalty`, 'error');
         batter.fiftyNotified = false;
       }
       
       if (netRuns >= 100 && !batter.centuryNotified) {
         showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns})`, 'batting');
-        addCommentary(`${currentBatter} scores a century! 💯`, 'milestone');
-        addToTimeline("100", 'milestone');
         batter.centuryNotified = true;
         createConfetti();
         createUmpireSignal("💯");
       }
       else if (netRuns < 100 && batter.centuryNotified) {
         showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
-        addCommentary(`${currentBatter} loses century after penalty`, 'error');
         batter.centuryNotified = false;
       }
 
       // Update last run count
       lastBatterRuns[currentBatter] = netRuns;
-    }
-
-    // Show notification with different styles
-    function showNotification(message, type = 'info') {
-      const notif = document.createElement('div');
-      notif.className = `milestone-notification ${type}`;
-      notif.textContent = message;
-      document.body.appendChild(notif);
-      
-      setTimeout(() => {
-        notif.style.opacity = '0';
-        setTimeout(() => notif.remove(), 500);
-      }, 2500);
     }
 
     // Create confetti effect
@@ -2981,9 +2861,9 @@
         
         // Show appropriate selection UI
         if (isBatting) {
-            await showBatterSelection();
+            if (!isSpectator) await showBatterSelection();
         } else {
-            await showBowlerSelection();
+            if (!isSpectator) await showBowlerSelection();
         }
     }
 
@@ -2999,7 +2879,7 @@
     // Modified setupSelectionModal function
     function setupSelectionModal() {
       confirmSelection.addEventListener("click", async () => {
-        if (isConfirmingSelection) return; // Prevent double clicks
+        if (isConfirmingSelection || isSpectator) return; // Prevent double clicks
         isConfirmingSelection = true;
         
         try {
@@ -3016,12 +2896,12 @@
             await set(batterRef, playerName);
             batterSelected = true;
             resultEl.innerText = `${playerName} selected as batter`;
-            addCommentary(`${playerName} comes in to bat`, 'info');
+            showNotification(`${playerName} comes in to bat`, 'info');
           } else {
             await set(bowlerRef, playerName);
             bowlerSelected = true;
             resultEl.innerText = `${playerName} selected as bowler`;
-            addCommentary(`${playerName} comes in to bowl`, 'info');
+            showNotification(`${playerName} comes in to bowl`, 'info');
           }
 
           updateButtonStates();
@@ -3038,7 +2918,7 @@
     function updateButtonStates() {
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
-        btn.disabled = !canPlay;
+        btn.disabled = !canPlay || isSpectator;
       });
     }
 
@@ -3051,7 +2931,7 @@
 
     // Enable all card buttons
     function enableButtons() {
-      if (isResetting) return;
+      if (isResetting || isSpectator) return;
       
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
@@ -3099,7 +2979,6 @@
 
       resultEl.innerText = `First innings ended! Target is ${target}`;
       showNotification("First innings completed! Target set.", 'info');
-      addCommentary(`First innings ends! Target is ${target} runs`, 'info');
       
       // Mark first innings as completed
       firstInningsCompleted = true;
@@ -3177,7 +3056,6 @@
         await setupRole();
         
         showNotification("Second innings started! Target: " + target, 'info');
-        addCommentary(`Second innings begins! Target is ${target} runs`, 'info');
       } catch (error) {
         console.error("Error starting second innings:", error);
         showNotification("Failed to start second innings", 'error');
@@ -3311,10 +3189,6 @@
       // Show popup
       summaryPopup.style.display = 'block';
       
-      // Add to commentary
-      addCommentary(`Match over! ${winnerName} won by ${winningMargin}`, 'milestone');
-      addCommentary(`Player of the Match: ${pom}`, 'milestone');
-      
       // Create confetti for winner
       createConfetti();
       
@@ -3401,7 +3275,7 @@
 
     // Enhanced resetPlays function with notification system
     async function resetPlays() {
-      if (resetCount >= MAX_RESETS) {
+      if (resetCount >= MAX_RESETS || isSpectator) {
         showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
         return;
       }
@@ -3424,7 +3298,6 @@
         await set(resetRequestRef, null);
         
         showNotification("Plays have been reset", 'info');
-        addCommentary("Plays have been reset by umpire", 'info');
         
         // Re-enable buttons based on current game state
         if (isBatting) {
@@ -3489,7 +3362,7 @@
         if (!snap.exists()) {
           currentBatter = null;
           batterSelected = false;
-          if (isBatting && !isResetting) {
+          if (isBatting && !isResetting && !isSpectator) {
             showBatterSelection();
           }
         } else if (snap.val()) {
@@ -3505,7 +3378,7 @@
         if (!snap.exists()) {
           currentBowler = null;
           bowlerSelected = false;
-          if (!isBatting && !isResetting) {
+          if (!isBatting && !isResetting && !isSpectator) {
             showBowlerSelection();
           }
         } else if (snap.val()) {
@@ -3534,7 +3407,7 @@
       onValue(resetRequestRef, (snap) => {
         if (snap.exists() && snap.val()) {
           const request = snap.val();
-          if (request.requested && request.by !== player) {
+          if (request.requested && request.by !== player && !isSpectator) {
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
@@ -3727,16 +3600,6 @@
           }
         });
 
-        // Setup commentary controls
-        pauseCommentaryBtn.addEventListener('click', function() {
-          commentaryPaused = !commentaryPaused;
-          this.textContent = commentaryPaused ? 'Resume' : 'Pause';
-        });
-
-        clearCommentaryBtn.addEventListener('click', function() {
-          commentaryBox.innerHTML = '';
-        });
-
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
 
@@ -3765,6 +3628,29 @@
       // Set up all Firebase listeners
       setupFirebaseListeners();
       setupTeamsModal();
+      
+      // Listen for live state changes
+      onValue(liveStateRef, (snap) => {
+        if (snap.exists()) {
+          const state = snap.val();
+          runs = state.runs;
+          wickets = state.wickets;
+          legalBalls = state.legalBalls;
+          currentBatter = state.currentBatter;
+          currentBowler = state.currentBowler;
+          isPowerplay = state.isPowerplay;
+          isDeadOver = state.isDeadOver;
+          freeHit = state.freeHit;
+          
+          // Update UI
+          updateAllDisplays();
+          
+          // Update indicators
+          powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
+          deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
+          freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
+        }
+      });
       
       loadingSpinner.style.display = "none";
       resultEl.innerText = "Watching match live...";
@@ -3934,7 +3820,6 @@
         });
         
         showNotification("Plays have been reset for both players", 'info');
-        addCommentary("Plays have been reset by mutual agreement", 'info');
         enableButtons();
         clearCardSelection();
       } catch (error) {
@@ -3975,7 +3860,7 @@
     function setupCardButtons() {
       buttons.forEach(btn => {
         btn.addEventListener("click", async function() {
-          if (btn.disabled || isProcessingSelection) return;
+          if (btn.disabled || isProcessingSelection || isSpectator) return;
           
           const cardValue = parseInt(btn.dataset.value);
           selectedCardValue = cardValue;
@@ -4013,4 +3898,4 @@
     });
   </script>
 </body>
-</html>
+</html>v
