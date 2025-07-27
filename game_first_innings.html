@@ -750,82 +750,68 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
-    /* Team Names Display 
-/* Compact Team Names */
-.team-names-compact {
-  margin-bottom: 8px;
-  font-size: 13px;
-  background: rgba(13, 42, 82, 0.5);
-  padding: 6px;
-  border-radius: 6px;
-  text-align: center;
-}
+    /* Team name display styles */
+    .team-names-compact {
+      margin-bottom: 8px;
+      font-size: 14px;
+      background: rgba(13, 42, 82, 0.7);
+      padding: 8px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
 
-.team-name-line {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-}
+    .team-name-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
 
-.team-label {
-  color: #aaa;
-  font-size: 11px;
-}
+    .team-label {
+      color: #aaa;
+      font-size: 12px;
+      font-weight: bold;
+    }
 
-.team-divider {
-  color: #666;
-  margin: 0 4px;
-}
+    .team-name {
+      font-weight: bold;
+    }
 
-/* Compact Top Controls */
-#topControls {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin: 8px 0;
-  flex-wrap: wrap;
-}
+    .batting-team {
+      color: #4CAF50;
+    }
 
-#topControls button {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+    .bowling-team {
+      color: #F44336;
+    }
 
-/* Smaller result display */
-#result {
-  font-size: 13px;
-  margin: 8px 0;
-  padding: 6px;
-  min-height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 90%;
-  margin-left: auto;
-  margin-right: auto;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.1);
-}
+    .team-divider {
+      color: #666;
+      margin: 0 4px;
+    }
 
-/* Match info bar adjustments */
-.match-info-bar {
-  font-size: 0.75rem;
-  padding: 4px 6px;
-  margin: 4px 0;
-}
+    /* Summary popup enhancements */
+    .summary-popup .summary-content {
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
 
-.match-info-bar .divider {
-  margin: 0 3px;
-      }
+    .summary-popup .summary-row {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .summary-popup .summary-label {
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+
+    .summary-popup .summary-value {
+      text-align: right;
+    }
 
     /* Over Summary */
     .over-summary-container {
@@ -1137,23 +1123,14 @@
         font-size: 1.5rem;
       }
     }
-      </style>
+</style>
   
 </head>
 <body>
   <div class="container">
-    
     <div class="team-names-compact">
-  <div class="team-name-line">
-    <span class="team-label">Batting:</span>
-    <span id="team1Name">Team A</span>
-    <span class="team-divider">|</span>
-    <span class="team-label">Bowling:</span>
-    <span id="team2Name">Team B</span>
-  </div>
+      <!-- This will be populated dynamically by updateCompactTeamDisplay() -->
     </div>
-    
-    
     
     <!-- Enhanced Scoreboard -->
     <div class="scorebox">
@@ -1425,7 +1402,7 @@
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1434,7 +1411,7 @@
       "10": { 
         name: "10 Overs", 
         totalOvers: 10, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1443,7 +1420,7 @@
       "20": { 
         name: "T20", 
         totalOvers: 20, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1452,7 +1429,7 @@
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: [1,10, 21,30, 41,42], 
         powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
@@ -1580,6 +1557,55 @@
         }
       }
       throw lastError;
+    }
+
+    // Calculate run rate
+    function calculateRunRate(runs, balls) {
+      const overs = balls / 6;
+      if (overs === 0) return '0.00';
+      return (runs / overs).toFixed(2);
+    }
+
+    // Update team displays
+    function updateTeamDisplays() {
+      // Update team names based on current innings
+      if (secondInningsStarted) {
+        // Second innings - roles are reversed
+        team1NameDisplay.textContent = battingFirst === "player1" ? team2NameEl.textContent : team1NameEl.textContent;
+        team2NameDisplay.textContent = battingFirst === "player1" ? team1NameEl.textContent : team2NameEl.textContent;
+        battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+      } else {
+        // First innings - normal order
+        team1NameDisplay.textContent = team1NameEl.textContent;
+        team2NameDisplay.textContent = team2NameEl.textContent;
+        battingTeamName.textContent = team1NameDisplay.textContent;
+      }
+
+      updateCompactTeamDisplay();
+    }
+
+    // Update compact team display
+    function updateCompactTeamDisplay() {
+      const compactDisplay = document.querySelector('.team-names-compact');
+      if (!compactDisplay) return;
+
+      const battingTeam = isBatting ? 
+        (player === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent) :
+        (battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent);
+        
+      const bowlingTeam = isBatting ? 
+        (player === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent) :
+        (battingFirst === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent);
+
+      compactDisplay.innerHTML = `
+        <div class="team-name-line">
+          <span class="team-label">Batting:</span>
+          <span class="team-name batting-team">${battingTeam}</span>
+          <span class="team-divider">|</span>
+          <span class="team-label">Bowling:</span>
+          <span class="team-name bowling-team">${bowlingTeam}</span>
+        </div>
+      `;
     }
 
     // Enhanced loadPlaying11 function with validation
@@ -1854,6 +1880,7 @@
       updateLast5Overs();
       updateCurrentTime();
       updatePlayerComparison();
+      updateTeamDisplays();
     }
 
     // Update over summary
@@ -2629,7 +2656,7 @@
         isBatting = (player === battingFirst);
         
         // Update UI
-        battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+        updateTeamDisplays();
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         document.getElementById('inningsNumber').textContent = "2nd Innings";
         
@@ -2663,23 +2690,42 @@
     async function endMatch(chasingTeamWon) {
       disableButtons();
       
+      // Calculate winning margin correctly
+      let winningMargin;
+      if (chasingTeamWon) {
+        const wicketsLeft = currentFormat.totalWickets - wickets;
+        winningMargin = `${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}`;
+      } else {
+        const runsDifference = target - runs - 1;
+        winningMargin = `${runsDifference} run${runsDifference !== 1 ? 's' : ''}`;
+      }
+      
       const winner = chasingTeamWon ? chasingTeam : battingFirst;
       const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+      const loserName = winner === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent;
       
       // Update result
-      resultEl.innerHTML = `<strong>${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}</strong>`;
+      resultEl.innerHTML = `<strong>${winnerName} won by ${winningMargin}</strong>`;
       
-      // Show match summary
+      // Calculate run rates
+      const firstInningsRR = calculateRunRate(firstInningsData.totalRuns, firstInningsData.balls);
+      const secondInningsRR = calculateRunRate(runs, legalBalls);
+      
+      // Update summary popup
       document.getElementById('summaryTitle').textContent = "Match Result";
       document.getElementById('summaryHighlight').textContent = `${winnerName} won the match!`;
       document.getElementById('startSecondInningsBtn').style.display = 'none';
       
-      // Add match stats to summary
-      const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
-      const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
-      
       const summaryContent = document.querySelector('.summary-content');
-      summaryContent.innerHTML += `
+      summaryContent.innerHTML = `
+        <div class="summary-row">
+          <span class="summary-label">Winner:</span>
+          <span class="summary-value">${winnerName} by ${winningMargin}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Target:</span>
+          <span class="summary-value">${target}</span>
+        </div>
         <div class="summary-row">
           <span class="summary-label">First Innings:</span>
           <span class="summary-value">${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs, RR: ${firstInningsRR})</span>
@@ -2690,24 +2736,25 @@
         </div>
       `;
       
-      // Show popup
-      showSummaryPopup();
-      
       // Add to commentary
-      addCommentary(`Match over! ${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}`, 'milestone');
+      addCommentary(`Match over! ${winnerName} defeated ${loserName} by ${winningMargin}`, 'milestone');
       
       // Create confetti for winner
       createConfetti();
       
+      // Update team displays
+      updateTeamDisplays();
+      
       // Save match result
       await set(resultRef, {
         winner: winner,
-        winningMargin: chasingTeamWon ? `${currentFormat.totalWickets - wickets} wickets` : `${target - runs - 1} runs`,
+        winningMargin: winningMargin,
         firstInnings: firstInningsData,
         secondInnings: {
           totalRuns: runs,
           totalWickets: wickets,
-          balls: legalBalls
+          balls: legalBalls,
+          runRate: secondInningsRR
         },
         timestamp: Date.now()
       });
@@ -3038,11 +3085,9 @@
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
         
-        // Update team names display
-        team1NameDisplay.textContent = roomData.teams.player1.name || "Team 1";
-        team2NameDisplay.textContent = roomData.teams.player2.name || "Team 2";
-        battingTeamName.textContent = roomData.teams.player1.name || "Team 1";
-
+        // Initialize team displays
+        updateTeamDisplays();
+        
         // Mark game as started if not already
         if (!roomData.gameStarted) {
           await update(roomRef, {
