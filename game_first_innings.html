@@ -2624,12 +2624,12 @@
         freeHit = false;
         freeHitNextBall = false;
         
-        // Reverse roles
+        // Reverse roles - chasing team bats second
         battingFirst = chasingTeam;
         isBatting = (player === battingFirst);
         
         // Update UI
-        battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+        battingTeamName.textContent = battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         document.getElementById('inningsNumber').textContent = "2nd Innings";
         
@@ -2663,23 +2663,29 @@
     async function endMatch(chasingTeamWon) {
       disableButtons();
       
-      const winner = chasingTeamWon ? chasingTeam : battingFirst;
+      // Correct winner determination
+      const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
       const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
       
       // Update result
-      resultEl.innerHTML = `<strong>${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}</strong>`;
+      const winningMargin = chasingTeamWon 
+        ? `${currentFormat.totalWickets - wickets} wickets` 
+        : `${target - runs - 1} runs`;
       
-      // Show match summary
+      resultEl.innerHTML = `<strong>${winnerName} won by ${winningMargin}</strong>`;
+      
+      // Show match summary with both innings data
       document.getElementById('summaryTitle').textContent = "Match Result";
       document.getElementById('summaryHighlight').textContent = `${winnerName} won the match!`;
       document.getElementById('startSecondInningsBtn').style.display = 'none';
       
-      // Add match stats to summary
+      // Calculate run rates
       const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
       const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
       
+      // Update summary content
       const summaryContent = document.querySelector('.summary-content');
-      summaryContent.innerHTML += `
+      summaryContent.innerHTML = `
         <div class="summary-row">
           <span class="summary-label">First Innings:</span>
           <span class="summary-value">${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs, RR: ${firstInningsRR})</span>
@@ -2688,13 +2694,14 @@
           <span class="summary-label">Second Innings:</span>
           <span class="summary-value">${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs, RR: ${secondInningsRR})</span>
         </div>
+        <div class="summary-highlight">${winnerName} won by ${winningMargin}</div>
       `;
       
       // Show popup
-      showSummaryPopup();
+      summaryPopup.style.display = 'block';
       
       // Add to commentary
-      addCommentary(`Match over! ${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}`, 'milestone');
+      addCommentary(`Match over! ${winnerName} won by ${winningMargin}`, 'milestone');
       
       // Create confetti for winner
       createConfetti();
@@ -2702,7 +2709,7 @@
       // Save match result
       await set(resultRef, {
         winner: winner,
-        winningMargin: chasingTeamWon ? `${currentFormat.totalWickets - wickets} wickets` : `${target - runs - 1} runs`,
+        winningMargin: winningMargin,
         firstInnings: firstInningsData,
         secondInnings: {
           totalRuns: runs,
