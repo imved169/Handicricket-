@@ -1355,9 +1355,9 @@
     </div>
   </div>
 
-  <!-- Innings Summary Popup -->
+  <!-- Modified Innings Summary Popup -->
   <div id="summaryPopup" class="summary-popup">
-    <h3>First Innings Summary</h3>
+    <h3 id="summaryTitle">First Innings Summary</h3>
     <div class="summary-content">
       <div class="summary-row">
         <span class="summary-label">Total Runs:</span>
@@ -1376,13 +1376,14 @@
         <span class="summary-value" id="summaryRunRate">0.00</span>
       </div>
       <div class="summary-highlight" id="summaryHighlight"></div>
+      <!-- Add target display for second innings -->
+      <div class="summary-row" id="targetDisplay" style="display: none;">
+        <span class="summary-label">Target:</span>
+        <span class="summary-value" id="targetValue">0</span>
+      </div>
     </div>
-    <p>Second innings will start in</p>
-    <div class="summary-countdown" id="summaryCountdown">30</div>
-    <button id="startSecondInningsNowBtn">🏏 Start Second Innings Now</button>
+    <button id="startSecondInningsBtn">🏏 Start Second Innings</button>
   </div>
-
-
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -1462,6 +1463,9 @@
     const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
     const resultRef = ref(db, `rooms/${room}/result`);
     const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
+    const firstInningsRef = ref(db, `rooms/${room}/firstInnings`);
+    const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
+    const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
     
     // Format rules
     const formatRules = {
@@ -1547,6 +1551,11 @@
     let overSummaries = [];
     let isSpectator = false;
     let commentaryPaused = false;
+    let firstInningsCompleted = false;
+    let firstInningsData = null;
+    let target = 0;
+    let chasingTeam = null;
+    let secondInningsStarted = false;
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -1585,12 +1594,14 @@
     const clearCommentaryBtn = document.getElementById("clearCommentary");
     const summaryPopup = document.getElementById("summaryPopup");
     const summaryCountdown = document.getElementById("summaryCountdown");
-    const startSecondInningsNowBtn = document.getElementById("startSecondInningsNowBtn");
+    const startSecondInningsBtn = document.getElementById("startSecondInningsBtn");
     const summaryTotalRuns = document.getElementById("summaryTotalRuns");
     const summaryWickets = document.getElementById("summaryWickets");
     const summaryOvers = document.getElementById("summaryOvers");
     const summaryRunRate = document.getElementById("summaryRunRate");
     const summaryHighlight = document.getElementById("summaryHighlight");
+    const targetDisplay = document.getElementById("targetDisplay");
+    const targetValue = document.getElementById("targetValue");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2190,6 +2201,27 @@
           return;
         }
 
+        // Check for second innings win conditions
+        if (secondInningsStarted) {
+          // Check if chasing team has won
+          if (runs >= target) {
+            await endMatch(true);
+            return;
+          }
+          
+          // Check if chasing team has been bowled out
+          if (wickets >= currentFormat.totalWickets) {
+            await endMatch(false);
+            return;
+          }
+          
+          // Check if overs completed without reaching target
+          if (legalBalls >= currentFormat.totalOvers * 6) {
+            await endMatch(false);
+            return;
+          }
+        }
+
         // Prepare for next ball
         setTimeout(async () => {
           try {
@@ -2550,11 +2582,8 @@
     async function endInning() {
       disableButtons();
 
-      // Show summary popup
-      showSummaryPopup();
-
-      // Update Firebase with innings data
-      await set(ref(db, `rooms/${room}/firstInnings`), {
+      // Save first innings data
+      firstInningsData = {
         totalRuns: runs,
         totalWickets: wickets,
         balls: legalBalls,
@@ -2563,15 +2592,35 @@
         ballByBall: ballByBall,
         fallOfWickets: fallOfWickets,
         overSummaries: overSummaries,
+        team1Name: team1NameDisplay.textContent,
+        team2Name: team2NameDisplay.textContent,
+        format: currentFormat.name,
         timestamp: Date.now()
-      });
+      };
 
-      resultEl.innerText = `Innings ended! Team scored ${runs} runs`;
-      showNotification("First innings completed!", 'info');
-      addCommentary(`Innings ends! Team scored ${runs}/${wickets} in ${Math.floor(legalBalls/6)}.${legalBalls%6} overs`, 'info');
+      // Set target (runs + 1)
+      target = runs + 1;
+      chasingTeam = battingFirst === "player1" ? "player2" : "player1";
+
+      // Update UI
+      targetDisplay.style.display = 'block';
+      targetValue.textContent = target;
+      document.getElementById('summaryTitle').textContent = "First Innings Summary";
+      document.getElementById('startSecondInningsBtn').textContent = "🏏 Start Second Innings";
+      
+      // Show summary popup
+      showSummaryPopup();
+
+      resultEl.innerText = `First innings ended! Target is ${target}`;
+      showNotification("First innings completed! Target set.", 'info');
+      addCommentary(`First innings ends! Target is ${target} runs`, 'info');
+      
+      // Mark first innings as completed
+      firstInningsCompleted = true;
+      await set(firstInningsCompletedRef, true);
     }
 
-    // Show summary popup with countdown
+    // Show summary popup
     function showSummaryPopup() {
       summaryPopup.style.display = 'block';
       
@@ -2594,60 +2643,112 @@
       } else {
         summaryHighlight.textContent = "Competitive Total";
       }
-      
-      let timeLeft = 30;
-      summaryCountdown.textContent = timeLeft;
-      
-      const countdownInterval = setInterval(() => {
-        timeLeft--;
-        summaryCountdown.textContent = timeLeft;
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          saveFirstInningsAndRedirect();
-        }
-      }, 1000);
-      
-      startSecondInningsNowBtn.addEventListener('click', () => {
-        clearInterval(countdownInterval);
-        saveFirstInningsAndRedirect();
-      }, { once: true });
     }
 
-    // Save data and redirect to second innings
-    async function saveFirstInningsAndRedirect() {
+    // Start second innings
+    async function startSecondInnings() {
       try {
-        // Prepare first innings data for localStorage
-        const firstInningsData = {
+        // Reset game state for second innings
+        runs = 0;
+        wickets = 0;
+        legalBalls = 0;
+        lastOverRuns = 0;
+        lastOverWickets = 0;
+        lastWicketScore = 0;
+        ballByBall = {};
+        fallOfWickets = [];
+        overSummaries = [];
+        zerosThisOver = { player1: 0, player2: 0 };
+        freeHit = false;
+        freeHitNextBall = false;
+        
+        // Reverse roles
+        battingFirst = chasingTeam;
+        isBatting = (player === battingFirst);
+        
+        // Update UI
+        battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+        roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+        document.getElementById('inningsNumber').textContent = "2nd Innings";
+        
+        // Reset player stats for second innings
+        initializeBatterStats();
+        initializeBowlerStats();
+        
+        // Update target display
+        targetDisplay.style.display = 'block';
+        targetValue.textContent = target;
+        
+        // Hide summary popup
+        summaryPopup.style.display = 'none';
+        
+        // Mark second innings as started
+        secondInningsStarted = true;
+        await set(secondInningsStartedRef, true);
+        
+        // Start the innings
+        await setupRole();
+        
+        showNotification("Second innings started! Target: " + target, 'info');
+        addCommentary(`Second innings begins! Target is ${target} runs`, 'info');
+      } catch (error) {
+        console.error("Error starting second innings:", error);
+        showNotification("Failed to start second innings", 'error');
+      }
+    }
+
+    // Handle match end
+    async function endMatch(chasingTeamWon) {
+      disableButtons();
+      
+      const winner = chasingTeamWon ? chasingTeam : battingFirst;
+      const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+      
+      // Update result
+      resultEl.innerHTML = `<strong>${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}</strong>`;
+      
+      // Show match summary
+      document.getElementById('summaryTitle').textContent = "Match Result";
+      document.getElementById('summaryHighlight').textContent = `${winnerName} won the match!`;
+      document.getElementById('startSecondInningsBtn').style.display = 'none';
+      
+      // Add match stats to summary
+      const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
+      const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
+      
+      const summaryContent = document.querySelector('.summary-content');
+      summaryContent.innerHTML += `
+        <div class="summary-row">
+          <span class="summary-label">First Innings:</span>
+          <span class="summary-value">${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs, RR: ${firstInningsRR})</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Second Innings:</span>
+          <span class="summary-value">${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs, RR: ${secondInningsRR})</span>
+        </div>
+      `;
+      
+      // Show popup
+      showSummaryPopup();
+      
+      // Add to commentary
+      addCommentary(`Match over! ${winnerName} won by ${chasingTeamWon ? (currentFormat.totalWickets - wickets) + " wickets" : (target - runs - 1) + " runs"}`, 'milestone');
+      
+      // Create confetti for winner
+      createConfetti();
+      
+      // Save match result
+      await set(resultRef, {
+        winner: winner,
+        winningMargin: chasingTeamWon ? `${currentFormat.totalWickets - wickets} wickets` : `${target - runs - 1} runs`,
+        firstInnings: firstInningsData,
+        secondInnings: {
           totalRuns: runs,
           totalWickets: wickets,
-          balls: legalBalls,
-          batterStats: batterStats,
-          bowlerStats: bowlerStats,
-          ballByBall: ballByBall,
-          fallOfWickets: fallOfWickets,
-          overSummaries: overSummaries,
-          team1Name: team1NameDisplay.textContent,
-          team2Name: team2NameDisplay.textContent,
-          format: currentFormat.name,
-          timestamp: Date.now()
-        };
-
-        // Save to localStorage for second innings
-        localStorage.setItem('handiCricketFirstInnings', JSON.stringify(firstInningsData));
-
-        // Clean up Firebase for second innings
-        await Promise.all([
-          set(playsRef, {}),
-          set(batterRef, null),
-          set(bowlerRef, null)
-        ]);
-
-        // Redirect to second innings
-        window.location.href = `game_second_innings.html?room=${room}&player=${player}`;
-      } catch (error) {
-        console.error('Error saving first innings data:', error);
-        showNotification('Failed to save first innings data', 'error');
-      }
+          balls: legalBalls
+        },
+        timestamp: Date.now()
+      });
     }
 
     // Update spectator data with match details
@@ -2888,6 +2989,42 @@
           }
         }
       });
+
+      // Listen for first innings completion
+      onValue(firstInningsCompletedRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          firstInningsCompleted = true;
+          get(firstInningsRef).then((firstInningsSnap) => {
+            if (firstInningsSnap.exists()) {
+              firstInningsData = firstInningsSnap.val();
+              target = firstInningsData.totalRuns + 1;
+              chasingTeam = battingFirst === "player1" ? "player2" : "player1";
+              
+              // Update UI
+              targetDisplay.style.display = 'block';
+              targetValue.textContent = target;
+              
+              // Check if second innings already started
+              get(secondInningsStartedRef).then((secondInningsSnap) => {
+                if (secondInningsSnap.exists() && secondInningsSnap.val()) {
+                  secondInningsStarted = true;
+                  document.getElementById('inningsNumber').textContent = "2nd Innings";
+                  
+                  // Set up for second innings
+                  isBatting = (player === chasingTeam);
+                  roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
+                  battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+                } else {
+                  // Show summary popup to start second innings
+                  showSummaryPopup();
+                  document.getElementById('summaryTitle').textContent = "First Innings Summary";
+                  document.getElementById('startSecondInningsBtn').style.display = 'block';
+                }
+              });
+            }
+          });
+        }
+      });
     }
 
     // Initialize the game
@@ -3012,6 +3149,9 @@
         clearCommentaryBtn.addEventListener('click', function() {
           commentaryBox.innerHTML = '';
         });
+
+        // Setup second innings button
+        startSecondInningsBtn.addEventListener('click', startSecondInnings);
 
         // Initial UI update
         updateAllDisplays();
