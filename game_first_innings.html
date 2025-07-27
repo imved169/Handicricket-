@@ -1378,9 +1378,7 @@
         font-size: 0.7rem;
       }
     }
-</style>
-
-<style>
+  
 .momentum-bar-container {
   margin: 8px 0;
   padding: 6px;
@@ -1523,6 +1521,14 @@
         </div>
       </div>
     </div>
+
+  <!-- Batter Momentum UI -->
+<div class="momentum-bar-container">
+  <div class="momentum-label">Batter Momentum</div>
+  <div class="momentum-track">
+    <div class="momentum-fill" id="batterMomentumFill"></div>
+  </div>
+</div>
     
     <div id="statusIndicators">
       <span id="powerplayIndicator" class="powerplay-indicator" style="display: none;">Powerplay</span>
@@ -2016,6 +2022,40 @@
       deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
     }
 
+    // Batter Momentum Tracking
+let batterMomentum = {};
+
+function updateBatterMomentum(player, runs) {
+  if (!batterMomentum[player]) batterMomentum[player] = 0;
+  batterMomentum[player] += runs * 5;
+  
+  // Update UI
+  const fill = document.getElementById('batterMomentumFill');
+  if (fill) fill.style.width = batterMomentum[player] + '%';
+  
+  // Check for rewards
+  if (batterMomentum[player] >= 100) {
+    grantExtraWicket(player, 1.0);
+    batterMomentum[player] = 0;
+    showNotification(`${player} gained an extra wicket from momentum!`, 'batting');
+  } 
+  else if (batterMomentum[player] >= 50 && batterMomentum[player] - runs * 5 < 50) {
+    grantExtraWicket(player, 0.5);
+    showNotification(`${player} gained 0.5 extra wickets from momentum!`, 'batting');
+  }
+}
+
+function grantExtraWicket(player, value) {
+  const currentWickets = batterWickets[player] || 0;
+  const newWickets = Math.min(1.0, currentWickets + value);
+  batterWickets[player] = newWickets;
+  wickets += value;
+  
+  // Update UI
+  updateScoreboard();
+  createUmpireSignal("🎁");
+}
+
     // Update free hit display
     function updateFreeHitDisplay() {
       freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
@@ -2483,6 +2523,11 @@
           
           isLegalBall = true;
         }
+          if (isPlayerOut) {
+  batterMomentum[currentBatter] = 0; // Reset momentum when out
+  const fill = document.getElementById('batterMomentumFill');
+  if (fill) fill.style.width = '0%';
+            }
         // 4. Handle batter playing 0 with penalty
         else if (batterCard === 0 && bowlerCard > 0) {
           if (zerosThisOver[battingPlayer] > 3) {
@@ -2551,6 +2596,10 @@
           if (batterCard === 6) batterStats[currentBatter].sixes += 1;
           checkBatterMilestones();
         }
+        // Update batter momentum
+if (runsScored > 0) {
+  updateBatterMomentum(currentBatter, runsScored);
+}
         
         // Update bowler stats
         if (currentBowler) {
@@ -2558,6 +2607,7 @@
           if (isWicket) bowlerStats[currentBowler].wickets += 1;
           bowlerStats[currentBowler].runs += runsScored;
         }
+        
 
         // Record ball in ball-by-ball
         ballByBall[legalBalls] = {
