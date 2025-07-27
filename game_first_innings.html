@@ -825,53 +825,6 @@
 
 .match-info-bar .divider {
   margin: 0 3px;
-}
-/* Compact Top Controls */
-#topControls {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin: 8px 0;
-  flex-wrap: wrap;
-}
-
-#topControls button {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Smaller result display */
-#result {
-  font-size: 13px;
-  margin: 8px 0;
-  padding: 6px;
-  min-height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 90%;
-  margin-left: auto;
-  margin-right: auto;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.1);
-}
-
-/* Match info bar adjustments */
-.match-info-bar {
-  font-size: 0.75rem;
-  padding: 4px 6px;
-  margin: 4px 0;
-}
-
-.match-info-bar .divider {
-  margin: 0 3px;
       }
 
     /* Over Summary */
@@ -1472,7 +1425,7 @@
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 11, 
+        totalWickets: 10,  // Changed from 11 to 10 for consistency
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1481,7 +1434,7 @@
       "10": { 
         name: "10 Overs", 
         totalOvers: 10, 
-        totalWickets: 11, 
+        totalWickets: 10,  // Changed from 11 to 10 for consistency
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1490,7 +1443,7 @@
       "20": { 
         name: "T20", 
         totalOvers: 20, 
-        totalWickets: 11, 
+        totalWickets: 10,  // Changed from 11 to 10 for consistency
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1499,7 +1452,7 @@
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
-        totalWickets: 11, 
+        totalWickets: 10,  // Changed from 11 to 10 for consistency
         powerplayOvers: [1,10, 21,30, 41,42], 
         powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
@@ -1760,9 +1713,13 @@
 
     // Format wickets to max 1.0 per batter
     function formatWickets(value) {
-      return Math.min(value, currentFormat.totalWickets)
+      const maxWickets = currentFormat.totalWickets;
+      const formattedValue = Math.min(value, maxWickets)
         .toFixed(2)
-        .replace(/\.00$/, ''); // clean display if whole number
+        .replace(/\.00$/, '');
+      
+      // For display purposes, show integer if it's a whole number
+      return formattedValue.includes('.') ? formattedValue : parseInt(formattedValue);
     }
 
     // Get wicket value based on format and powerplay status
@@ -2197,7 +2154,11 @@
 
         // Check for innings end conditions
         if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
-          endInning();
+          if (secondInningsStarted) {
+            await endMatch(false); // Second innings ended without reaching target
+          } else {
+            endInning(); // First innings ended
+          }
           return;
         }
 
@@ -2618,6 +2579,7 @@
       // Mark first innings as completed
       firstInningsCompleted = true;
       await set(firstInningsCompletedRef, true);
+      await set(firstInningsRef, firstInningsData); // Save first innings data
     }
 
     // Show summary popup
