@@ -976,7 +976,7 @@
       color: white;
     }
     
-    /* Updated Summary Popup Styles */
+    /* Innings Summary Popup */
     .summary-popup {
       position: fixed;
       top: 50%;
@@ -993,9 +993,8 @@
       max-width: 320px;
       width: 90%;
       display: none;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-
+    
     .summary-popup h3 {
       margin-top: 0;
       color: #ffeb3b;
@@ -1003,78 +1002,43 @@
       border-bottom: 2px solid #1e88e5;
       padding-bottom: 6px;
       margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
     }
-
+    
     .summary-content {
       text-align: left;
       margin-bottom: 12px;
-      font-size: 0.9rem;
     }
-
-    .summary-teams {
+    
+    .summary-row {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .summary-team {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 8px;
-      border-radius: 6px;
-    }
-
-    .team-name {
-      font-weight: bold;
-      font-size: 1rem;
-      margin-bottom: 4px;
-      color: #ffeb3b;
-    }
-
-    .team-score {
-      font-weight: bold;
+      justify-content: space-between;
       margin-bottom: 6px;
+      font-size: 13px;
     }
-
-    .team-batters {
-      font-size: 0.8rem;
-      margin-left: 8px;
+    
+    .summary-label {
+      color: #aaa;
     }
-
-    .team-batters div {
-      margin-bottom: 2px;
-    }
-
-    .summary-bowlers {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 8px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-size: 0.8rem;
-    }
-
-    .summary-bowlers div {
-      margin-bottom: 2px;
-    }
-
-    .summary-result {
+    
+    .summary-value {
       font-weight: bold;
-      text-align: center;
-      font-size: 1rem;
-      margin-bottom: 8px;
+    }
+    
+    .summary-highlight {
+      background: rgba(255, 235, 59, 0.2);
+      padding: 4px;
+      border-radius: 4px;
+      margin: 8px 0;
+      font-weight: bold;
+    }
+    
+    .summary-countdown {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 8px 0;
       color: #4CAF50;
     }
-
-    .summary-player-of-match {
-      font-style: italic;
-      text-align: center;
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-      color: #FFC107;
-    }
-
+    
     .summary-popup button {
       background: #4CAF50;
       color: white;
@@ -1085,9 +1049,8 @@
       cursor: pointer;
       margin-top: 8px;
       transition: all 0.3s;
-      width: 100%;
     }
-
+    
     .summary-popup button:hover {
       background: #388E3C;
       transform: scale(1.05);
@@ -1345,28 +1308,34 @@
     </div>
   </div>
 
-  <!-- Updated Summary Popup -->
+  <!-- Modified Innings Summary Popup -->
   <div id="summaryPopup" class="summary-popup">
-    <h3 id="summaryTitle">MATCH SUMMARY</h3>
+    <h3 id="summaryTitle">First Innings Summary</h3>
     <div class="summary-content">
-      <div class="summary-teams">
-        <div class="summary-team" id="summaryTeam1">
-          <div class="team-name"></div>
-          <div class="team-score"></div>
-          <div class="team-batters"></div>
-        </div>
-        <div class="summary-team" id="summaryTeam2">
-          <div class="team-name"></div>
-          <div class="team-score"></div>
-          <div class="team-batters"></div>
-        </div>
+      <div class="summary-row">
+        <span class="summary-label">Total Runs:</span>
+        <span class="summary-value" id="summaryTotalRuns">0</span>
       </div>
-      <div class="summary-bowlers" id="summaryBowlers"></div>
-      <div class="summary-result" id="summaryResult"></div>
-      <div class="summary-player-of-match" id="summaryPlayerOfMatch"></div>
+      <div class="summary-row">
+        <span class="summary-label">Wickets:</span>
+        <span class="summary-value" id="summaryWickets">0</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Overs:</span>
+        <span class="summary-value" id="summaryOvers">0.0</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Run Rate:</span>
+        <span class="summary-value" id="summaryRunRate">0.00</span>
+      </div>
+      <div class="summary-highlight" id="summaryHighlight"></div>
+      <!-- Add target display for second innings -->
+      <div class="summary-row" id="targetDisplay" style="display: none;">
+        <span class="summary-label">Target:</span>
+        <span class="summary-value" id="targetValue">0</span>
+      </div>
     </div>
     <button id="startSecondInningsBtn">🏏 Start Second Innings</button>
-    <button id="closeSummaryBtn" style="background: #f44336; margin-top: 8px;">Close</button>
   </div>
 
   <script type="module">
@@ -2597,6 +2566,8 @@
       // Update UI
       targetDisplay.style.display = 'block';
       targetValue.textContent = target;
+      document.getElementById('summaryTitle').textContent = "First Innings Summary";
+      document.getElementById('startSecondInningsBtn').textContent = "🏏 Start Second Innings";
       
       // Show summary popup
       showSummaryPopup();
@@ -2611,96 +2582,29 @@
       await set(firstInningsRef, firstInningsData); // Save first innings data
     }
 
-    // Show summary popup with match data
+    // Show summary popup
     function showSummaryPopup() {
       summaryPopup.style.display = 'block';
       
-      // Clear previous content
-      document.getElementById('summaryTeam1').innerHTML = '';
-      document.getElementById('summaryTeam2').innerHTML = '';
-      document.getElementById('summaryBowlers').innerHTML = '';
-      document.getElementById('summaryResult').innerHTML = '';
-      document.getElementById('summaryPlayerOfMatch').innerHTML = '';
+      // Update summary data
+      summaryTotalRuns.textContent = runs;
+      summaryWickets.textContent = wickets;
+      summaryOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
       
-      // Set team names
-      const team1Name = team1NameDisplay.textContent;
-      const team2Name = team2NameDisplay.textContent;
+      const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
+      const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
+      summaryRunRate.textContent = rr;
       
-      // Determine which team is batting/bowling
-      const battingTeam = battingFirst === "player1" ? team1Name : team2Name;
-      const bowlingTeam = battingFirst === "player1" ? team2Name : team1Name;
-      
-      // Update title based on innings
-      if (secondInningsStarted) {
-        document.getElementById('summaryTitle').textContent = "MATCH SUMMARY";
+      // Set highlight based on performance
+      if (runs >= 200) {
+        summaryHighlight.textContent = "Excellent Batting Performance!";
+      } else if (runs >= 150) {
+        summaryHighlight.textContent = "Good Total Posted!";
+      } else if (runs <= 100) {
+        summaryHighlight.textContent = "Bowlers Dominated This Innings";
       } else {
-        document.getElementById('summaryTitle').textContent = "FIRST INNINGS SUMMARY";
+        summaryHighlight.textContent = "Competitive Total";
       }
-      
-      // Add batting team info
-      const battingTeamEl = document.getElementById('summaryTeam1');
-      battingTeamEl.innerHTML = `
-        <div class="team-name">${battingTeam}</div>
-        <div class="team-score">${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs)</div>
-        <div class="team-batters" id="battingSummary"></div>
-      `;
-      
-      // Add top 3 batters
-      const battingSummaryEl = document.getElementById('battingSummary');
-      const batters = Object.entries(batterStats)
-        .filter(([name]) => (battingFirst === "player1" ? team1Players.includes(name) : team2Players.includes(name)))
-        .sort((a, b) => b[1].runs - a[1].runs)
-        .slice(0, 3);
-      
-      batters.forEach(([name, stats]) => {
-        const batterEl = document.createElement('div');
-        batterEl.innerHTML = `${name} ${stats.runs}${stats.runs === batterStats[name].runs ? '*' : ''}`;
-        battingSummaryEl.appendChild(batterEl);
-      });
-      
-      // Add bowling team info
-      const bowlingTeamEl = document.getElementById('summaryTeam2');
-      bowlingTeamEl.innerHTML = `
-        <div class="team-name">${bowlingTeam}</div>
-        <div class="team-score"></div>
-        <div class="team-batters" id="bowlingSummary"></div>
-      `;
-      
-      // Add top 3 bowlers
-      const bowlingSummaryEl = document.getElementById('bowlingSummary');
-      const bowlers = Object.entries(bowlerStats)
-        .filter(([name]) => (battingFirst === "player1" ? team2Players.includes(name) : team1Players.includes(name)))
-        .sort((a, b) => b[1].wickets - a[1].wickets || a[1].runs - b[1].runs)
-        .slice(0, 3);
-      
-      bowlers.forEach(([name, stats]) => {
-        const bowlerEl = document.createElement('div');
-        bowlerEl.innerHTML = `${name} ${stats.wickets}/${stats.runs}`;
-        bowlingSummaryEl.appendChild(bowlerEl);
-      });
-      
-      // Add result
-      const resultEl = document.getElementById('summaryResult');
-      if (secondInningsStarted) {
-        const winner = runs >= target ? battingTeam : bowlingTeam;
-        const margin = runs >= target ? 
-          `${currentFormat.totalWickets - wickets} wickets` : 
-          `${target - runs - 1} runs`;
-        resultEl.textContent = `${winner} WON BY ${margin.toUpperCase()}`;
-        
-        // Add player of the match (top scorer)
-        const topScorer = batters[0];
-        document.getElementById('summaryPlayerOfMatch').textContent = 
-          `PLAYER OF THE MATCH: ${topScorer[0].toUpperCase()} ${topScorer[1].runs}* (${topScorer[1].balls})`;
-      } else {
-        resultEl.textContent = `TARGET: ${target} runs`;
-        document.getElementById('startSecondInningsBtn').style.display = 'block';
-      }
-      
-      // Add close button handler
-      document.getElementById('closeSummaryBtn').addEventListener('click', () => {
-        summaryPopup.style.display = 'none';
-      });
     }
 
     // Start second innings
@@ -2771,22 +2675,27 @@
       resultEl.innerHTML = `<strong>${winnerName} won by ${winningMargin}</strong>`;
       
       // Show match summary with both innings data
-      document.getElementById('summaryTitle').textContent = "MATCH RESULT";
-      document.getElementById('summaryResult').textContent = `${winnerName} WON BY ${winningMargin.toUpperCase()}`;
+      document.getElementById('summaryTitle').textContent = "Match Result";
+      document.getElementById('summaryHighlight').textContent = `${winnerName} won the match!`;
       document.getElementById('startSecondInningsBtn').style.display = 'none';
       
       // Calculate run rates
       const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
       const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
       
-      // Add player of the match (top scorer from both innings)
-      const allBatters = Object.entries(batterStats)
-        .filter(([name]) => (battingFirst === "player1" ? team1Players.includes(name) : team2Players.includes(name)))
-        .sort((a, b) => b[1].runs - a[1].runs);
-      
-      const topScorer = allBatters[0];
-      document.getElementById('summaryPlayerOfMatch').textContent = 
-        `PLAYER OF THE MATCH: ${topScorer[0].toUpperCase()} ${topScorer[1].runs}* (${topScorer[1].balls})`;
+      // Update summary content
+      const summaryContent = document.querySelector('.summary-content');
+      summaryContent.innerHTML = `
+        <div class="summary-row">
+          <span class="summary-label">First Innings:</span>
+          <span class="summary-value">${firstInningsData.totalRuns}/${firstInningsData.totalWickets} (${Math.floor(firstInningsData.balls/6)}.${firstInningsData.balls%6} overs, RR: ${firstInningsRR})</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Second Innings:</span>
+          <span class="summary-value">${runs}/${wickets} (${Math.floor(legalBalls/6)}.${legalBalls%6} overs, RR: ${secondInningsRR})</span>
+        </div>
+        <div class="summary-highlight">${winnerName} won by ${winningMargin}</div>
+      `;
       
       // Show popup
       summaryPopup.style.display = 'block';
@@ -3212,11 +3121,6 @@
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
-
-        // Setup close summary button
-        document.getElementById('closeSummaryBtn').addEventListener('click', function() {
-          summaryPopup.style.display = 'none';
-        });
 
         // Initial UI update
         updateAllDisplays();
