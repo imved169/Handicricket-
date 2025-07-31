@@ -130,6 +130,10 @@
       background: linear-gradient(145deg, #9C27B0, #7B1FA2);
     }
     
+    .btn-logout {
+      background: linear-gradient(145deg, #f44336, #d32f2f);
+    }
+    
     .format-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -182,50 +186,29 @@
       letter-spacing: 3px;
     }
     
-    /* New styles for login and team management */
-    .login-form, .team-management {
-      display: none;
-    }
-    
-    .player-pool {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
-      margin: 15px 0;
-    }
-    
-    .player-card {
-      background: rgba(30, 136, 229, 0.2);
-      padding: 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid transparent;
-    }
-    
-    .player-card:hover {
-      background: rgba(30, 136, 229, 0.4);
-    }
-    
-    .player-card.selected {
-      border-color: #ffeb3b;
-      background: rgba(30, 136, 229, 0.3);
-    }
-    
-    .player-stats {
-      font-size: 12px;
-      color: #aaa;
-    }
-    
-    .transfer-notification {
-      position: fixed;
-      bottom: 20px;
+    .user-info {
+      position: absolute;
+      top: 20px;
       right: 20px;
-      background: rgba(0,0,0,0.9);
-      padding: 10px;
-      border-radius: 8px;
-      border-left: 4px solid #ff9800;
-      z-index: 1000;
+      background: rgba(0,0,0,0.5);
+      padding: 10px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    
+    .user-info span {
+      color: #ffeb3b;
+      font-weight: bold;
+    }
+    
+    .nav-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .nav-buttons .btn {
+      flex: 1;
     }
     
     @keyframes bounce {
@@ -250,13 +233,19 @@
         grid-template-columns: 1fr;
       }
       
-      .player-pool {
-        grid-template-columns: 1fr 1fr;
+      .user-info {
+        position: static;
+        margin-bottom: 15px;
       }
     }
   </style>
 </head>
 <body>
+  <!-- User Info (shown when logged in) -->
+  <div class="user-info" id="userInfo" style="display: none;">
+    Logged in as: <span id="usernameDisplay"></span> | Team: <span id="teamNameDisplay"></span>
+  </div>
+
   <!-- Main Game Container -->
   <div class="container" id="mainContainer">
     <div class="logo">🏏</div>
@@ -269,11 +258,6 @@
     </div>
     
     <div class="tab-content active" id="create-tab">
-      <div class="input-group">
-        <label for="teamName">Your Team Name</label>
-        <input type="text" id="teamName" placeholder="Enter your team name">
-      </div>
-      
       <div class="input-group">
         <label>Match Format</label>
         <div class="format-options">
@@ -304,10 +288,6 @@
     
     <div class="tab-content" id="join-tab">
       <div class="input-group">
-        <label for="joinTeamName">Your Team Name</label>
-        <input type="text" id="joinTeamName" placeholder="Enter your team name">
-      </div>
-      <div class="input-group">
         <label for="roomCode">Room Code</label>
         <input type="text" id="roomCode" placeholder="Enter 4-digit room code" maxlength="4">
       </div>
@@ -321,10 +301,16 @@
       </div>
       <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
     </div>
+    
+    <div class="nav-buttons">
+      <button id="manageTeamBtn" class="btn">Manage Team</button>
+      <button id="leaderboardsBtn" class="btn">Leaderboards</button>
+      <button id="logoutBtn" class="btn btn-logout">Logout</button>
+    </div>
   </div>
 
   <!-- Login Form -->
-  <div class="container login-form" id="loginForm">
+  <div class="container" id="loginForm">
     <h1>🏏 HandiCricket Login</h1>
     <div class="input-group">
       <label for="username">Username</label>
@@ -339,7 +325,7 @@
   </div>
   
   <!-- Team Management -->
-  <div class="container team-management" id="teamManagement">
+  <div class="container" id="teamManagement" style="display: none;">
     <h1>🏏 Manage Your Squad</h1>
     
     <div class="tabs">
@@ -426,11 +412,55 @@
       });
     });
     
+    // Authentication state management
+    let currentUser = null;
+    let currentTeam = null;
+    
+    // Check if user is logged in
+    function checkAuthState() {
+      const user = localStorage.getItem('handicricket_user');
+      if (user) {
+        currentUser = JSON.parse(user);
+        showMainMenu();
+        loadUserTeam();
+        updateUserInfo();
+      } else {
+        showLoginForm();
+      }
+    }
+    
+    function showLoginForm() {
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('teamManagement').style.display = 'none';
+      document.getElementById('mainContainer').style.display = 'none';
+      document.getElementById('userInfo').style.display = 'none';
+    }
+    
+    function showTeamManagement() {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('teamManagement').style.display = 'block';
+      document.getElementById('mainContainer').style.display = 'none';
+      document.getElementById('userInfo').style.display = 'block';
+    }
+    
+    function showMainMenu() {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('teamManagement').style.display = 'none';
+      document.getElementById('mainContainer').style.display = 'block';
+      document.getElementById('userInfo').style.display = 'block';
+    }
+    
+    function updateUserInfo() {
+      if (currentUser && currentTeam) {
+        document.getElementById('usernameDisplay').textContent = currentUser.username;
+        document.getElementById('teamNameDisplay').textContent = currentTeam.name;
+      }
+    }
+    
     // Create game
     document.getElementById('createGameBtn').addEventListener('click', function() {
-      const teamName = document.getElementById('teamName').value.trim();
-      if (!teamName) {
-        alert('Please enter your team name');
+      if (!currentUser || !currentTeam) {
+        alert('Please login and set up your team first');
         return;
       }
       
@@ -444,15 +474,16 @@
       // Create room in Firebase
       set(ref(db, `rooms/${roomCode}`), {
         player1: {
-          name: teamName,
+          name: currentUser.username,
           connected: true,
-          team: teamName,
+          team: currentTeam.name,
+          teamId: currentUser.teamId,
           format: selectedFormat
         },
         createdAt: Date.now()
       }).then(() => {
         // Redirect to toss page
-        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${selectedFormat}`;
+        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam.name)}&format=${selectedFormat}`;
       }).catch(error => {
         console.error("Error creating room:", error);
         alert("Failed to create room. Please try again.");
@@ -461,13 +492,12 @@
     
     // Join game
     document.getElementById('joinGameBtn').addEventListener('click', function() {
-      const teamName = document.getElementById('joinTeamName').value.trim();
-      const roomCode = document.getElementById('roomCode').value.trim();
-      
-      if (!teamName) {
-        alert('Please enter your team name');
+      if (!currentUser || !currentTeam) {
+        alert('Please login and set up your team first');
         return;
       }
+      
+      const roomCode = document.getElementById('roomCode').value.trim();
       
       if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
         alert('Please enter a valid 4-digit room code');
@@ -477,13 +507,14 @@
       // Check if room exists and join
       update(ref(db, `rooms/${roomCode}`), {
         player2: {
-          name: teamName,
+          name: currentUser.username,
           connected: true,
-          team: teamName
+          team: currentTeam.name,
+          teamId: currentUser.teamId
         }
       }).then(() => {
         // Redirect to toss page
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}`;
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam.name)}`;
       }).catch(error => {
         console.error("Error joining room:", error);
         alert("Failed to join room. Please check the room code and try again.");
@@ -516,40 +547,6 @@
       }, 100);
     });
 
-    // Authentication state management
-    let currentUser = null;
-    let currentTeam = null;
-    
-    // Check if user is logged in
-    function checkAuthState() {
-      const user = localStorage.getItem('handicricket_user');
-      if (user) {
-        currentUser = JSON.parse(user);
-        showTeamManagement();
-        loadUserTeam();
-      } else {
-        showLoginForm();
-      }
-    }
-    
-    function showLoginForm() {
-      document.getElementById('loginForm').style.display = 'block';
-      document.getElementById('teamManagement').style.display = 'none';
-      document.getElementById('mainContainer').style.display = 'none';
-    }
-    
-    function showTeamManagement() {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('teamManagement').style.display = 'block';
-      document.getElementById('mainContainer').style.display = 'none';
-    }
-    
-    function showMainMenu() {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('teamManagement').style.display = 'none';
-      document.getElementById('mainContainer').style.display = 'block';
-    }
-    
     // Login/Register functionality
     document.getElementById('loginBtn').addEventListener('click', async () => {
       const username = document.getElementById('username').value.trim();
@@ -573,10 +570,15 @@
           return;
         }
         
-        currentUser = { username, teamId: userData.teamId };
+        currentUser = { 
+          username, 
+          teamId: userData.teamId,
+          isAdmin: userData.isAdmin || false
+        };
         localStorage.setItem('handicricket_user', JSON.stringify(currentUser));
-        showTeamManagement();
+        showMainMenu();
         loadUserTeam();
+        updateUserInfo();
       } catch (error) {
         console.error('Login error:', error);
         alert('Login failed');
@@ -598,6 +600,22 @@
         const userSnap = await get(child(usersRef, username));
         if (userSnap.exists()) {
           alert('Username already taken');
+          return;
+        }
+        
+        // Check if team name exists
+        const teamsSnap = await get(teamsRef);
+        let teamExists = false;
+        if (teamsSnap.exists()) {
+          teamsSnap.forEach(teamSnap => {
+            if (teamSnap.val().name.toLowerCase() === teamName.toLowerCase()) {
+              teamExists = true;
+            }
+          });
+        }
+        
+        if (teamExists) {
+          alert('Team name already taken');
           return;
         }
         
@@ -626,12 +644,13 @@
           password: password, // In real app, hash this
           teamId: newTeamRef.key,
           createdAt: Date.now()
-        });
+        };
         
         currentUser = { username, teamId: newTeamRef.key };
         localStorage.setItem('handicricket_user', JSON.stringify(currentUser));
-        showTeamManagement();
+        showMainMenu();
         loadUserTeam();
+        updateUserInfo();
       } catch (error) {
         console.error('Registration error:', error);
         alert('Registration failed');
@@ -643,10 +662,14 @@
       try {
         const teamSnap = await get(child(teamsRef, currentUser.teamId));
         if (teamSnap.exists()) {
-          currentTeam = teamSnap.val();
+          currentTeam = {
+            id: teamSnap.key,
+            ...teamSnap.val()
+          };
           renderTeamPlayers();
           loadPlayerPool();
           loadTransferMarket();
+          updateUserInfo();
         }
       } catch (error) {
         console.error('Error loading team:', error);
@@ -656,6 +679,11 @@
     function renderTeamPlayers() {
       const container = document.getElementById('mySquadList');
       container.innerHTML = '';
+      
+      if (!currentTeam.players || currentTeam.players.length === 0) {
+        container.innerHTML = '<p>No players in your squad yet. Sign players from the Player Pool tab.</p>';
+        return;
+      }
       
       currentTeam.players.forEach(playerId => {
         get(child(playersRef, playerId)).then(snap => {
@@ -804,6 +832,11 @@
         return;
       }
       
+      if (currentTeam.players.length + selected.length > 30) {
+        alert('Your squad cannot exceed 30 players');
+        return;
+      }
+      
       try {
         const playerIds = Array.from(selected).map(card => card.dataset.id);
         const updatedPlayers = [...currentTeam.players, ...playerIds];
@@ -853,9 +886,24 @@
       }
     });
     
-    // Back to main menu
+    // Navigation buttons
+    document.getElementById('manageTeamBtn').addEventListener('click', () => {
+      showTeamManagement();
+    });
+    
+    document.getElementById('leaderboardsBtn').addEventListener('click', () => {
+      window.location.href = 'leaderboards.html';
+    });
+    
     document.getElementById('backToMainBtn').addEventListener('click', () => {
       showMainMenu();
+    });
+    
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('handicricket_user');
+      currentUser = null;
+      currentTeam = null;
+      showLoginForm();
     });
     
     // Notification function
@@ -874,301 +922,4 @@
     checkAuthState();
   </script>
 </body>
-</html>      transition: all 0.3s;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    }
-    
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
-    }
-    
-    .btn:active {
-      transform: translateY(1px);
-    }
-    
-    .btn-create {
-      background: linear-gradient(145deg, #4CAF50, #2E7D32);
-    }
-    
-    .btn-join {
-      background: linear-gradient(145deg, #FF9800, #F57C00);
-    }
-    
-    .btn-spectate {
-      background: linear-gradient(145deg, #9C27B0, #7B1FA2);
-    }
-    
-    .format-options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin: 20px 0;
-    }
-    
-    .format-card {
-      padding: 15px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-    }
-    
-    .format-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
-    }
-    
-    .format-card.selected {
-      border-color: #ffeb3b;
-      background: rgba(30, 136, 229, 0.3);
-    }
-    
-    .format-card h3 {
-      margin-top: 0;
-      color: #ffeb3b;
-    }
-    
-    .format-card p {
-      font-size: 14px;
-      color: #aaa;
-    }
-    
-    .room-code-display {
-      margin: 20px 0;
-      padding: 15px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 10px;
-      font-size: 18px;
-      display: none;
-    }
-    
-    .room-code {
-      font-weight: bold;
-      color: #ffeb3b;
-      font-size: 24px;
-      letter-spacing: 3px;
-    }
-    
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    
-    @media (max-width: 480px) {
-      .container {
-        padding: 20px;
-      }
-      
-      h1 {
-        font-size: 1.8rem;
-      }
-      
-      .logo {
-        font-size: 50px;
-      }
-      
-      .format-options {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">🏏</div>
-    <h1>HandiCricket</h1>
-    
-    <div class="tabs">
-      <div class="tab active" data-tab="create">Create Game</div>
-      <div class="tab" data-tab="join">Join Game</div>
-      <div class="tab" data-tab="spectate">Spectate</div>
-    </div>
-    
-    <div class="tab-content active" id="create-tab">
-      <div class="input-group">
-        <label for="teamName">Your Team Name</label>
-        <input type="text" id="teamName" placeholder="Enter your team name">
-      </div>
-      
-      <div class="input-group">
-        <label>Match Format</label>
-        <div class="format-options">
-          <div class="format-card selected" data-format="5">
-            <h3>T5 (5 Overs)</h3>
-            <p>Quick 30-minute match</p>
-          </div>
-          <div class="format-card" data-format="10">
-            <h3>T10 (10 Overs)</h3>
-            <p>Standard 1-hour match</p>
-          </div>
-          <div class="format-card" data-format="20">
-            <h3>T20 (20 Overs)</h3>
-            <p>Classic 2-hour match</p>
-          </div>
-          <div class="format-card" data-format="50">
-            <h3>ODI (50 Overs)</h3>
-            <p>Full day challenge</p>
-          </div>
-        </div>
-      </div>
-      
-      <button id="createGameBtn" class="btn btn-create">Create New Match</button>
-      <div class="room-code-display" id="roomCodeDisplay">
-        Share this code to join: <span class="room-code" id="roomCodeSpan"></span>
-      </div>
-    </div>
-    
-    <div class="tab-content" id="join-tab">
-      <div class="input-group">
-        <label for="joinTeamName">Your Team Name</label>
-        <input type="text" id="joinTeamName" placeholder="Enter your team name">
-      </div>
-      <div class="input-group">
-        <label for="roomCode">Room Code</label>
-        <input type="text" id="roomCode" placeholder="Enter 4-digit room code" maxlength="4">
-      </div>
-      <button id="joinGameBtn" class="btn btn-join">Join Match</button>
-    </div>
-    
-    <div class="tab-content" id="spectate-tab">
-      <div class="input-group">
-        <label for="spectateRoomCode">Room Code</label>
-        <input type="text" id="spectateRoomCode" placeholder="Enter 4-digit room code" maxlength="4">
-      </div>
-      <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
-    </div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
-        tab.classList.add('active');
-        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
-      });
-    });
-    
-    // Format selection
-    let selectedFormat = '5';
-    document.querySelectorAll('.format-card').forEach(card => {
-      card.addEventListener('click', () => {
-        document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedFormat = card.dataset.format;
-      });
-    });
-    
-    // Create game
-    document.getElementById('createGameBtn').addEventListener('click', function() {
-      const teamName = document.getElementById('teamName').value.trim();
-      if (!teamName) {
-        alert('Please enter your team name');
-        return;
-      }
-      
-      // Generate a random 4-digit room code
-      const roomCode = Math.floor(1000 + Math.random() * 9000);
-      
-      // Show room code
-      document.getElementById('roomCodeSpan').textContent = roomCode;
-      document.getElementById('roomCodeDisplay').style.display = 'block';
-      
-      // Create room in Firebase
-      set(ref(db, `rooms/${roomCode}`), {
-        player1: {
-          name: teamName,
-          connected: true,
-          team: teamName,
-          format: selectedFormat
-        },
-        createdAt: Date.now()
-      }).then(() => {
-        // Redirect to toss page
-        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(teamName)}&format=${selectedFormat}`;
-      }).catch(error => {
-        console.error("Error creating room:", error);
-        alert("Failed to create room. Please try again.");
-      });
-    });
-    
-    // Join game
-    document.getElementById('joinGameBtn').addEventListener('click', function() {
-      const teamName = document.getElementById('joinTeamName').value.trim();
-      const roomCode = document.getElementById('roomCode').value.trim();
-      
-      if (!teamName) {
-        alert('Please enter your team name');
-        return;
-      }
-      
-      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
-        alert('Please enter a valid 4-digit room code');
-        return;
-      }
-      
-      // Check if room exists and join
-      update(ref(db, `rooms/${roomCode}`), {
-        player2: {
-          name: teamName,
-          connected: true,
-          team: teamName
-        }
-      }).then(() => {
-        // Redirect to toss page
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(teamName)}`;
-      }).catch(error => {
-        console.error("Error joining room:", error);
-        alert("Failed to join room. Please check the room code and try again.");
-      });
-    });
-    
-    // Spectate game
-    document.getElementById('spectateBtn').addEventListener('click', function() {
-      const roomCode = document.getElementById('spectateRoomCode').value.trim();
-      
-      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
-        alert('Please enter a valid 4-digit room code');
-        return;
-      }
-      
-      // Redirect to game page as spectator
-      window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
-    });
-    
-    // Focus on room code input when join/spectate tab is clicked
-    document.querySelector('.tab[data-tab="join"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('roomCode').focus();
-      }, 100);
-    });
-    
-    document.querySelector('.tab[data-tab="spectate"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('spectateRoomCode').focus();
-      }, 100);
-    });
-  </script>
-</body>
-</html>
+  </html>
