@@ -3208,6 +3208,84 @@
         timestamp: Date.now()
       });
     }
+    // Update player and team statistics after match
+async function updateStatistics() {
+  try {
+    // Update team stats
+    const teamUpdates = {};
+    const isWinner = winner === player;
+    
+    // Batting team stats
+    teamUpdates[`${teamsRef.path}/${battingFirst}/stats/matches`] = increment(1);
+    teamUpdates[`${teamsRef.path}/${battingFirst}/stats/totalRuns`] = increment(firstInningsData.totalRuns);
+    teamUpdates[`${teamsRef.path}/${battingFirst}/stats/totalWickets`] = increment(firstInningsData.totalWickets);
+    
+    if (isWinner && battingFirst === player) {
+      teamUpdates[`${teamsRef.path}/${battingFirst}/stats/wins`] = increment(1);
+    } else if (!isWinner && battingFirst === player) {
+      teamUpdates[`${teamsRef.path}/${battingFirst}/stats/losses`] = increment(1);
+    }
+    
+    // Bowling team stats
+    teamUpdates[`${teamsRef.path}/${chasingTeam}/stats/matches`] = increment(1);
+    teamUpdates[`${teamsRef.path}/${chasingTeam}/stats/totalRuns`] = increment(runs);
+    teamUpdates[`${teamsRef.path}/${chasingTeam}/stats/totalWickets`] = increment(wickets);
+    
+    if (isWinner && chasingTeam === player) {
+      teamUpdates[`${teamsRef.path}/${chasingTeam}/stats/wins`] = increment(1);
+    } else if (!isWinner && chasingTeam === player) {
+      teamUpdates[`${teamsRef.path}/${chasingTeam}/stats/losses`] = increment(1);
+    }
+    
+    // Update player stats
+    for (const playerName in batterStats) {
+      const stats = batterStats[playerName];
+      teamUpdates[`${playersRef.path}/${playerName}/stats/matches`] = increment(1);
+      teamUpdates[`${playersRef.path}/${playerName}/stats/runs`] = increment(stats.runs);
+      teamUpdates[`${playersRef.path}/${playerName}/stats/fours`] = increment(stats.fours);
+      teamUpdates[`${playersRef.path}/${playerName}/stats/sixes`] = increment(stats.sixes);
+    }
+    
+    for (const playerName in bowlerStats) {
+      const stats = bowlerStats[playerName];
+      teamUpdates[`${playersRef.path}/${playerName}/stats/matches`] = increment(1);
+      teamUpdates[`${playersRef.path}/${playerName}/stats/wickets`] = increment(stats.wickets);
+      teamUpdates[`${playersRef.path}/${playerName}/stats/runsConceded`] = increment(stats.runs);
+    }
+    
+    // Save match record
+    const matchRef = push(matchesRef);
+    await set(matchRef, {
+      team1: team1NameDisplay.textContent,
+      team2: team2NameDisplay.textContent,
+      team1Score: firstInningsData.totalRuns,
+      team1Wickets: firstInningsData.totalWickets,
+      team2Score: runs,
+      team2Wickets: wickets,
+      winner: winner === 'player1' ? team1NameDisplay.textContent : team2NameDisplay.textContent,
+      date: Date.now(),
+      players: {
+        ...batterStats,
+        ...bowlerStats
+      }
+    });
+    
+    // Update leaderboard
+    await update(ref(db), teamUpdates);
+    
+  } catch (error) {
+    console.error('Error updating statistics:', error);
+  }
+}
+
+// Helper function for Firebase increments
+function increment(value = 1) {
+  return {
+    '.sv': {
+      'increment': value
+    }
+  };
+}
 
     // Update spectator data with match details
     function updateSpectatorData() {
