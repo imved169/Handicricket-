@@ -252,6 +252,406 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room');
+    const player = params.get('player');
+    const teamName = decodeURIComponent(params.get('team'));
+    const opponent = player === 'player1' ? 'player2' : 'player1';
+
+    if (!roomId || !player) {
+      alert('Invalid room or player');
+      window.location.href = 'index.html';
+    }
+
+    const roomRef = ref(db, `rooms/${roomId}`);
+    const teamsRef = ref(db, `rooms/${roomId}/teams`);
+    const playerRef = ref(db, `rooms/${roomId}/${player}`);
+    const opponentRef = ref(db, `rooms/${roomId}/${opponent}`);
+    const playersRef = ref(db, 'players');
+    const teamsSquadRef = ref(db, 'teams');
+
+    const playerNameInput = document.getElementById('playerNameInput');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const playerList = document.getElementById('playerList');
+    const playerCount = document.getElementById('playerCount');
+    const submitTeamBtn = document.getElementById('submitTeamBtn');
+    const waitingForOpponent = document.getElementById('waitingForOpponent');
+    const startMatchBtn = document.getElementById('startMatchBtn');
+    const opponentPlayerList = document.getElementById('opponentPlayerList');
+    const opponentWaiting = document.getElementById('opponentWaiting');
+    const yourTeamName = document.getElementById('yourTeamName');
+    const tossSummary = document.getElementById('tossSummary');
+    const battingTeam = document.getElementById('battingTeam');
+
+    let players = [];
+    let opponentPlayers = [];
+    let opponentTeamName = '';
+    let tossWinner = '';
+    let battingFirst = '';
+
+    // Set player online status
+    set(playerRef, true).catch(error => {
+      console.error('Connection error:', error);
+    });
+
+    // Load toss and team info
+    onValue(roomRef, (snap) => {
+      if (snap.exists()) {
+        const room = snap.val();
+        
+        // Set team names
+        yourTeamName.textContent = teamName;
+        opponentTeamName = player === 'player1' ? 
+          (room.player2?.team || 'Team B') : 
+          (room.player1?.team || 'Team A');
+        
+        // Set toss info
+        if (room.toss) {
+          tossWinner = room.toss.winner;
+          battingFirst = room.toss.battingFirst;
+          
+          const winnerName = room.toss.winner === 'player1' ? 
+            room.player1?.team || 'Team A' : 
+            room.player2?.team || 'Team B';
+          
+          const battingFirstName = room.toss.battingFirst === 'player1' ? 
+            room.player1?.team || 'Team A' : 
+            room.player2?.team || 'Team B';
+          
+          tossSummary.textContent = `Toss won by ${winnerName}`;
+          battingTeam.textContent = `${battingFirstName} chose to ${room.toss.battingChoice === 'bat' ? 'bat' : 'bowl'} first`;
+        }
+        
+        // Load opponent team if available
+        if (room.teams && room.teams[opponent]) {
+          opponentPlayers = room.teams[opponent].players || [];
+          updateOpponentPlayerList();
+          
+          // Show start button for player1 if both teams submitted
+          if (player === 'player1' && room.teams.player1 && room.teams.player2) {
+            startMatchBtn.style.display = 'inline-block';
+            waitingForOpponent.style.display = 'none';
+          } else if (player === 'player2' && room.teams.player1 && room.teams.player2) {
+            // Auto-redirect player2 to game page
+            window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
+          }
+        }
+      }
+    });
+
+    // Modified add player function with validation
+    addPlayerBtn.addEventListener('click', async () => {
+      const playerName = playerNameInput.value.trim();
+      if (!playerName) return;
+      
+      if (players.length >= 11) {
+        alert('Maximum 11 players allowed');
+        return;
+      }
+      
+      if (players.includes(playerName)) {
+        alert('Player already added');
+        return;
+      }
+      
+      // Check if player exists in database
+      try {
+        const playerSnap = await get(child(playersRef, playerName));
+        if (!playerSnap.exists()) {
+          // Create new player if doesn't exist
+          await set(child(playersRef, playerName), {
+            name: playerName,
+            type: 'All-rounder', // Default type
+            specialty: 'None',
+            stats: {
+              runs: 0,
+              wickets: 0,
+              matches: 0
+            },
+            createdAt: Date.now()
+          });
+        }
+        
+        // Check if player is already in team's 30-man squad
+        const teamSnap = await get(child(teamsSquadRef, teamName));
+        if (teamSnap.exists()) {
+          const team = teamSnap.val();
+          if (!team.players || !team.players.includes(playerName)) {
+            alert('Player not in your 30-man squad');
+            return;
+          }
+        }
+        
+        players.push(playerName);
+        updatePlayerList();
+        playerNameInput.value = '';
+        
+        if (players.length >= 11) {
+          playerNameInput.disabled = true;
+          addPlayerBtn.disabled = true;
+        }
+        
+        submitTeamBtn.disabled = players.length < 2;
+      } catch (error) {
+        console.error('Error validating player:', error);
+        alert('Error validating player');
+      }
+    });
+
+    // Remove player from team
+    function removePlayer(index) {
+      players.splice(index, 1);
+      updatePlayerList();
+      
+      if (players.length < 11) {
+        playerNameInput.disabled = false;
+        addPlayerBtn.disabled = false;
+      }
+      
+      submitTeamBtn.disabled = players.length < 2;
+    }
+
+    // Update player list UI
+    function updatePlayerList() {
+      playerList.innerHTML = '';
+      players.forEach((player, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">${player}</span>
+          <button onclick="removePlayer(${index})">×</button>
+        `;
+        playerList.appendChild(li);
+      });
+      
+      playerCount.textContent = `Players: ${players.length}/11`;
+    }
+
+    // Update opponent player list UI
+    function updateOpponentPlayerList() {
+      if (opponentPlayers.length > 0) {
+        opponentWaiting.style.display = 'none';
+        opponentPlayerList.style.display = 'block';
+        opponentPlayerList.innerHTML = opponentPlayers.map(player => `
+          <li style="justify-content: center;"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90%;">${player}</span></li>
+        `).join('');
+      }
+    }
+
+    // Submit team to Firebase
+    submitTeamBtn.addEventListener('click', () => {
+      if (players.length < 2) {
+        alert('Minimum 2 players required');
+        return;
+      }
+      
+      update(teamsRef, {
+        [player]: {
+          name: teamName,
+          players: players
+        }
+      }).then(() => {
+        submitTeamBtn.style.display = 'none';
+        waitingForOpponent.style.display = 'block';
+      });
+    });
+
+    // Start match (only for player1)
+    startMatchBtn.addEventListener('click', () => {
+      update(roomRef, {
+        gameStarted: true
+      }).then(() => {
+        window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
+      });
+    });
+
+    // Auto-redirect player2 when both teams are ready
+    onValue(teamsRef, (snap) => {
+      if (snap.exists() && snap.val().player1 && snap.val().player2 && player === 'player2') {
+        window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
+      }
+    });
+
+    // Handle opponent disconnect
+    onValue(opponentRef, (snap) => {
+      if (!snap.exists() || !snap.val()) {
+        alert('Opponent disconnected');
+        window.location.href = 'index.html';
+      }
+    });
+
+    // Add player on Enter key
+    playerNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addPlayerBtn.click();
+      }
+    });
+
+    // Make removePlayer function available globally
+    window.removePlayer = removePlayer;
+  </script>
+</body>
+</html>      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .player-list li {
+      padding: 6px 8px;
+      margin: 4px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      transition: all 0.2s;
+      width: calc(100% - 16px); /* Adjusted width */
+    }
+    
+    .player-list li:hover {
+      background: rgba(30, 136, 229, 0.4);
+    }
+    
+    .player-list li button {
+      background: none;
+      border: none;
+      color: #f44336;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      padding: 0 4px;
+      margin-left: 8px;
+    }
+    
+    .player-count {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 6px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: none;
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 180px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .waiting {
+      margin: 12px 0;
+      padding: 10px;
+      background: rgba(255, 235, 59, 0.2);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    
+    .loading-spinner {
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 2px solid #1e88e5;
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+      margin: 8px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 12px;
+      }
+      
+      h1 {
+        font-size: 1.4rem;
+      }
+      
+      .team-box {
+        min-height: 260px;
+      }
+      
+      .player-list li {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 Select Your Playing 11</h1>
+    
+    <div class="toss-info">
+      <h2 id="tossSummary">Toss Summary</h2>
+      <p id="battingTeam"></p>
+    </div>
+    
+    <div class="team-selection">
+      <div class="team-box">
+        <h2 id="yourTeamName">Your Team</h2>
+        <div class="player-input">
+          <input type="text" id="playerNameInput" placeholder="Player name">
+          <button id="addPlayerBtn">Add</button>
+        </div>
+        <ul class="player-list" id="playerList"></ul>
+        <p class="player-count" id="playerCount">Players: 0/11</p>
+      </div>
+      
+      <div class="team-box">
+        <h2>Opponent Team</h2>
+        <div class="waiting" id="opponentWaiting">
+          Waiting for opponent to select their team...
+        </div>
+        <ul class="player-list" id="opponentPlayerList" style="display: none;"></ul>
+      </div>
+    </div>
+    
+    <button id="submitTeamBtn" disabled>Submit Team</button>
+    <div class="waiting" id="waitingForOpponent" style="display: none;">
+      <div class="loading-spinner"></div>
+      <p>Waiting for opponent to submit their team...</p>
+    </div>
+    <button id="startMatchBtn" style="display: none;">Start Match</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
