@@ -75,30 +75,31 @@
       width: 100%;
     }
     
-    .player-input input {
+    .player-input select {
       flex: 1;
       padding: 8px 10px;
-      border-radius: 5px 0 0 5px;
+      border-radius: 5px;
       border: none;
       background: rgba(255,255,255,0.9);
       font-size: 14px;
-      min-width: 0; /* Allows input to shrink properly */
+      min-width: 0;
     }
     
     .player-input button {
       padding: 8px 12px;
-      border-radius: 0 5px 5px 0;
+      border-radius: 5px;
       border: none;
-      background: #f44336;
+      background: #4CAF50;
       color: white;
       cursor: pointer;
       transition: all 0.2s;
       font-size: 14px;
       white-space: nowrap;
+      margin-left: 8px;
     }
     
     .player-input button:hover {
-      background: #d32f2f;
+      background: #2E7D32;
     }
     
     .player-list {
@@ -119,7 +120,7 @@
       align-items: center;
       font-size: 13px;
       transition: all 0.2s;
-      width: calc(100% - 16px); /* Adjusted width */
+      width: calc(100% - 16px);
     }
     
     .player-list li:hover {
@@ -361,8 +362,10 @@
       <div class="team-box">
         <h2 id="yourTeamName">Your Team</h2>
         <div class="player-input">
-          <input type="text" id="playerNameInput" placeholder="Player name">
-          <button id="addPlayerBtn">Add</button>
+          <select id="playerSelect">
+            <option value="">Select player from squad</option>
+          </select>
+          <button id="addPlayerBtn">Add Player</button>
         </div>
         <ul class="player-list" id="playerList"></ul>
         <p class="player-count" id="playerCount">Players: 0/11 (Select Captain & Vice-Captain)</p>
@@ -435,7 +438,7 @@
     const opponentRef = ref(db, `rooms/${roomId}/${opponent}`);
 
     // DOM elements
-    const playerNameInput = document.getElementById('playerNameInput');
+    const playerSelect = document.getElementById('playerSelect');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const playerList = document.getElementById('playerList');
     const playerCount = document.getElementById('playerCount');
@@ -454,6 +457,7 @@
     const closeTeamManagement = document.getElementById('closeTeamManagement');
 
     let players = [];
+    let squadPlayers = [];
     let opponentPlayers = [];
     let opponentTeamName = '';
     let tossWinner = '';
@@ -473,10 +477,24 @@
         if (snap.exists()) {
           const userData = snap.val();
           if (userData.players && userData.players.length > 0) {
-            players = userData.players.slice(0, 11); // Load first 11 players by default
-            updatePlayerList();
-            submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+            squadPlayers = userData.players;
+            populatePlayerSelect();
           }
+        }
+      });
+    }
+
+    // Populate the player select dropdown
+    function populatePlayerSelect() {
+      playerSelect.innerHTML = '<option value="">Select player from squad</option>';
+      
+      // Add players not already in the playing 11
+      squadPlayers.forEach(player => {
+        if (!players.includes(player)) {
+          const option = document.createElement('option');
+          option.value = player;
+          option.textContent = player;
+          playerSelect.appendChild(option);
         }
       });
     }
@@ -528,7 +546,7 @@
 
     // Add player to team
     addPlayerBtn.addEventListener('click', () => {
-      const playerName = playerNameInput.value.trim();
+      const playerName = playerSelect.value.trim();
       if (!playerName) return;
       
       if (players.length >= 11) {
@@ -543,10 +561,11 @@
       
       players.push(playerName);
       updatePlayerList();
-      playerNameInput.value = '';
+      populatePlayerSelect();
+      playerSelect.value = '';
       
       if (players.length >= 11) {
-        playerNameInput.disabled = true;
+        playerSelect.disabled = true;
         addPlayerBtn.disabled = true;
       }
       
@@ -561,9 +580,10 @@
       
       players.splice(index, 1);
       updatePlayerList();
+      populatePlayerSelect();
       
       if (players.length < 11) {
-        playerNameInput.disabled = false;
+        playerSelect.disabled = false;
         addPlayerBtn.disabled = false;
       }
       
@@ -714,13 +734,6 @@
       if (!snap.exists() || !snap.val()) {
         alert('Opponent disconnected');
         window.location.href = 'index.html';
-      }
-    });
-
-    // Add player on Enter key
-    playerNameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        addPlayerBtn.click();
       }
     });
 
