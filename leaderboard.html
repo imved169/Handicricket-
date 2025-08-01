@@ -220,8 +220,7 @@
       <div class="tab" data-tab="batters">Batters</div>
       <div class="tab" data-tab="bowlers">Bowlers</div>
       <div class="tab" data-tab="allrounders">All-Rounders</div>
-      <div class="tab" data-tab="captains">Captains</div>
-      <div class="tab" data-tab="centuries">Centuries</div>
+      <div class="tab" data-tab="matches">Recent Matches</div>
     </div>
     
     <div class="tab-content active" id="teams-tab">
@@ -257,7 +256,7 @@
             <th>Runs</th>
             <th>Avg</th>
             <th>SR</th>
-            <th>100s</th>
+            <th>100s/50s</th>
           </tr>
         </thead>
         <tbody id="battersTable">
@@ -281,7 +280,7 @@
             <th>Wickets</th>
             <th>Avg</th>
             <th>Econ</th>
-            <th>5W</th>
+            <th>Best</th>
           </tr>
         </thead>
         <tbody id="bowlersTable">
@@ -302,49 +301,22 @@
       </div>
     </div>
     
-    <div class="tab-content" id="captains-tab">
+    <div class="tab-content" id="matches-tab">
       <table class="leaderboard-table">
         <thead>
           <tr>
             <th class="rank">#</th>
-            <th>Captain</th>
-            <th>Team</th>
-            <th>Matches</th>
-            <th>Wins</th>
-            <th>Win %</th>
-            <th>Runs</th>
-            <th>Wickets</th>
+            <th>Match</th>
+            <th>Result</th>
+            <th>Scorecard</th>
+            <th>Date</th>
           </tr>
         </thead>
-        <tbody id="captainsTable">
+        <tbody id="matchesTable">
           <tr>
-            <td colspan="8" style="text-align: center;">
+            <td colspan="5" style="text-align: center;">
               <div class="loading-spinner"></div>
-              Loading captains...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <div class="tab-content" id="centuries-tab">
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th class="rank">#</th>
-            <th>Player</th>
-            <th>Team</th>
-            <th>100s</th>
-            <th>50s</th>
-            <th>HS</th>
-            <th>Runs</th>
-          </tr>
-        </thead>
-        <tbody id="centuriesTable">
-          <tr>
-            <td colspan="7" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading century makers...
+              Loading matches...
             </td>
           </tr>
         </tbody>
@@ -356,7 +328,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -386,290 +358,645 @@
     document.getElementById('backBtn').addEventListener('click', () => {
       window.location.href = 'index.html';
     });
-    
-    // Load teams leaderboard
-    const usersRef = ref(db, 'users');
-    onValue(usersRef, (snap) => {
-      if (snap.exists()) {
-        const users = Object.entries(snap.val()).map(([id, user]) => ({
-          id,
-          ...user
-        }));
+
+    // Helper function to format date
+    function formatDate(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+
+    // Load all match data and process statistics
+    async function loadAllStats() {
+      try {
+        // Load completed matches
+        const matchesRef = query(ref(db, 'completedMatches'), orderByChild('timestamp'), limitToLast(50));
+        const matchesSnap = await get(matchesRef);
         
-        // Sort by wins
-        const sortedTeams = users
-          .filter(user => user.matches > 0)
-          .sort((a, b) => {
-            const aWinPct = a.wins / a.matches;
-            const bWinPct = b.wins / b.matches;
-            return bWinPct - aWinPct || b.wins - a.wins;
+        if (!matchesSnap.exists()) {
+          console.log("No completed matches found");
+          return;
+        }
+
+        const matches = [];
+        const teamStats = {};
+        const playerStats = {};
+        const allMatches = [];
+
+        matchesSnap.forEach(matchSnap => {
+          const match = matchSnap.val();
+          matches.push(match);
+          
+          // Process team stats
+          const team1 = match.team1Name || "Team 1";
+          const team2 = match.team2Name || "Team 2";
+          const winner = match.winner;
+          
+          // Initialize team stats if not exists
+          if (!teamStats[team1]) {
+            teamStats[team1] = { matches: 0, wins: 0, losses: 0, runs: 0, wickets: 0 };
+          }
+          if (!teamStats[team2]) {
+            teamStats[team2] = { matches: 0, wins: 0, losses: 0, runs: 0, wickets: 0 };
+          }
+          
+          // Update team stats
+          teamStats[team1].matches++;
+          teamStats[team2].matches++;
+          
+          if (winner === "player1") {
+            teamStats[team1].wins++;
+            teamStats[team2].losses++;
+          } else if (winner === "player2") {
+            teamStats[team2].wins++;
+            teamStats[team1].losses++;
+          }
+          
+          // Process player stats from first innings
+          if (match.firstInnings) {
+            processInningsStats(match.firstInnings, playerStats, team1, team2);
+          }
+          
+          // Process player stats from second innings if exists
+          if (match.secondInnings) {
+            processInningsStats(match.secondInnings, playerStats, team1, team2);
+          }
+          
+          // Add to recent matches list
+          allMatches.push({
+            id: matchSnap.key,
+            team1: team1,
+            team2: team2,
+            winner: winner === "player1" ? team1 : team2,
+            result: getMatchResultText(match),
+            date: match.timestamp,
+            scorecard: match
           });
+        });
+
+        // Sort matches by date (newest first)
+        allMatches.sort((a, b) => b.date - a.date);
         
-        const teamsTable = document.getElementById('teamsTable');
-        teamsTable.innerHTML = '';
+        // Update all leaderboards
+        updateTeamsLeaderboard(teamStats);
+        updateBattersLeaderboard(playerStats);
+        updateBowlersLeaderboard(playerStats);
+        updateAllRoundersLeaderboard(playerStats);
+        updateMatchesLeaderboard(allMatches);
         
-        sortedTeams.forEach((team, index) => {
-          const winPct = ((team.wins / team.matches) * 100).toFixed(1);
-          const isCurrent = team.team === localStorage.getItem('hc_team');
-          
-          const row = document.createElement('tr');
-          if (isCurrent) row.classList.add('highlight');
-          
-          row.innerHTML = `
-            <td class="rank">
-              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
-            </td>
-            <td>${team.team}</td>
-            <td>${team.matches || 0}</td>
-            <td>${team.wins || 0}</td>
-            <td>${team.losses || 0}</td>
-            <td>${winPct}%</td>
-          `;
-          
-          teamsTable.appendChild(row);
+      } catch (error) {
+        console.error("Error loading stats:", error);
+        // Show error in all tables
+        document.querySelectorAll('tbody').forEach(tbody => {
+          tbody.innerHTML = `<tr><td colspan="10" style="color: #ff4444;">Error loading data: ${error.message}</td></tr>`;
         });
       }
-    });
-    
-    // Load batters leaderboard
-    const playersRef = ref(db, 'players');
-    onValue(playersRef, (snap) => {
-      if (snap.exists()) {
-        const players = Object.entries(snap.val()).map(([id, player]) => ({
-          id,
-          ...player
-        }));
-        
-        // Filter batters with stats and sort by runs
-        const batters = players
-          .filter(p => p.batting && p.batting.runs > 0)
-          .sort((a, b) => b.batting.runs - a.batting.runs);
-        
-        const battersTable = document.getElementById('battersTable');
-        battersTable.innerHTML = '';
-        
-        batters.forEach((player, index) => {
-          const batting = player.batting;
-          const avg = (batting.runs / (batting.dismissals || 1)).toFixed(2);
-          const sr = ((batting.runs / batting.balls) * 100).toFixed(2);
-          const centuries = batting.centuries || 0;
-          const isCurrent = player.team === localStorage.getItem('hc_team');
+    }
+
+    // Process innings stats for players
+    function processInningsStats(innings, playerStats, team1, team2) {
+      // Process batter stats
+      if (innings.batterStats) {
+        for (const [player, stats] of Object.entries(innings.batterStats)) {
+          if (!playerStats[player]) {
+            playerStats[player] = {
+              team: stats.team || (team1.includes(player) ? team1 : team2,
+              batting: {
+                runs: 0,
+                balls: 0,
+                dismissals: 0,
+                fours: 0,
+                sixes: 0,
+                highScore: 0,
+                fifties: 0,
+                centuries: 0
+              },
+              bowling: {
+                wickets: 0,
+                runs: 0,
+                overs: 0,
+                best: { wickets: 0, runs: 0 }
+              }
+            };
+          }
           
-          const row = document.createElement('tr');
-          if (isCurrent) row.classList.add('highlight');
+          // Update batting stats
+          playerStats[player].batting.runs += stats.runs || 0;
+          playerStats[player].batting.balls += stats.balls || 0;
+          playerStats[player].batting.fours += stats.fours || 0;
+          playerStats[player].batting.sixes += stats.sixes || 0;
           
-          row.innerHTML = `
-            <td class="rank">
-              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
-            </td>
-            <td>${player.name}</td>
-            <td>${player.team || '-'}</td>
-            <td>${batting.runs}</td>
-            <td>${avg}</td>
-            <td>${sr}</td>
-            <td>${centuries}</td>
-          `;
+          // Check for dismissal (wickets >= 1.0)
+          if (innings.batterWickets && innings.batterWickets[player] >= 1.0) {
+            playerStats[player].batting.dismissals++;
+          }
           
-          battersTable.appendChild(row);
-        });
+          // Update high score
+          if (stats.runs > playerStats[player].batting.highScore) {
+            playerStats[player].batting.highScore = stats.runs;
+          }
+          
+          // Update milestones
+          if (stats.runs >= 50) playerStats[player].batting.fifties++;
+          if (stats.runs >= 100) playerStats[player].batting.centuries++;
+        }
       }
-    });
-    
-    // Load bowlers leaderboard
-    onValue(playersRef, (snap) => {
-      if (snap.exists()) {
-        const players = Object.entries(snap.val()).map(([id, player]) => ({
-          id,
-          ...player
-        }));
-        
-        // Filter bowlers with stats and sort by wickets
-        const bowlers = players
-          .filter(p => p.bowling && p.bowling.wickets > 0)
-          .sort((a, b) => b.bowling.wickets - a.bowling.wickets);
-        
-        const bowlersTable = document.getElementById('bowlersTable');
-        bowlersTable.innerHTML = '';
-        
-        bowlers.forEach((player, index) => {
-          const bowling = player.bowling;
-          const avg = (bowling.runs / bowling.wickets).toFixed(2);
-          const econ = (bowling.runs / (bowling.overs || 1)).toFixed(2);
-          const fiveW = bowling.fiveWickets || 0;
-          const isCurrent = player.team === localStorage.getItem('hc_team');
+      
+      // Process bowler stats
+      if (innings.bowlerStats) {
+        for (const [player, stats] of Object.entries(innings.bowlerStats)) {
+          if (!playerStats[player]) {
+            playerStats[player] = {
+              team: stats.team || (team1.includes(player) ? team1 : team2),
+              batting: {
+                runs: 0,
+                balls: 0,
+                dismissals: 0,
+                fours: 0,
+                sixes: 0,
+                highScore: 0,
+                fifties: 0,
+                centuries: 0
+              },
+              bowling: {
+                wickets: 0,
+                runs: 0,
+                overs: 0,
+                best: { wickets: 0, runs: 0 }
+              }
+            };
+          }
           
-          const row = document.createElement('tr');
-          if (isCurrent) row.classList.add('highlight');
+          // Update bowling stats
+          playerStats[player].bowling.wickets += stats.wickets || 0;
+          playerStats[player].bowling.runs += stats.runs || 0;
+          playerStats[player].bowling.overs += stats.overs || 0;
           
-          row.innerHTML = `
-            <td class="rank">
-              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
-            </td>
-            <td>${player.name}</td>
-            <td>${player.team || '-'}</td>
-            <td>${bowling.wickets}</td>
-            <td>${avg}</td>
-            <td>${econ}</td>
-            <td>${fiveW}</td>
-          `;
-          
-          bowlersTable.appendChild(row);
-        });
+          // Update best bowling
+          if (stats.wickets > playerStats[player].bowling.best.wickets || 
+              (stats.wickets === playerStats[player].bowling.best.wickets && 
+               stats.runs < playerStats[player].bowling.best.runs)) {
+            playerStats[player].bowling.best = {
+              wickets: stats.wickets,
+              runs: stats.runs
+            };
+          }
+        }
       }
-    });
-    
-    // Load all-rounders leaderboard
-    onValue(playersRef, (snap) => {
-      if (snap.exists()) {
-        const players = Object.entries(snap.val()).map(([id, player]) => ({
-          id,
-          ...player
-        }));
+    }
+
+    // Generate match result text
+    function getMatchResultText(match) {
+      if (!match.winner) return "No result";
+      
+      const winner = match.winner === "player1" ? match.team1Name : match.team2Name;
+      const loser = match.winner === "player1" ? match.team2Name : match.team1Name;
+      
+      if (match.secondInnings) {
+        // Match with two innings
+        const margin = match.winningMargin;
+        return `${winner} won by ${margin}`;
+      } else {
+        // Single innings match (or incomplete)
+        return `${winner} vs ${loser}`;
+      }
+    }
+
+    // Update teams leaderboard
+    function updateTeamsLeaderboard(teamStats) {
+      const teamsTable = document.getElementById('teamsTable');
+      teamsTable.innerHTML = '';
+      
+      // Convert to array and sort by win percentage
+      const sortedTeams = Object.entries(teamStats)
+        .map(([team, stats]) => ({
+          team,
+          ...stats,
+          winPct: (stats.wins / stats.matches) * 100
+        }))
+        .sort((a, b) => b.winPct - a.winPct || b.wins - a.wins);
+      
+      sortedTeams.forEach((team, index) => {
+        const isCurrent = team.team === localStorage.getItem('hc_team');
         
-        // Filter all-rounders with both batting and bowling stats
-        const allrounders = players
-          .filter(p => p.batting && p.bowling && p.batting.runs > 100 && p.bowling.wickets > 5)
-          .sort((a, b) => {
-            // Simple all-rounder rating (runs + wickets*25)
-            const aRating = a.batting.runs + (a.bowling.wickets * 25);
-            const bRating = b.batting.runs + (b.bowling.wickets * 25);
-            return bRating - aRating;
-          });
+        const row = document.createElement('tr');
+        if (isCurrent) row.classList.add('highlight');
         
-        const allroundersGrid = document.getElementById('allroundersGrid');
-        allroundersGrid.innerHTML = '';
+        row.innerHTML = `
+          <td class="rank">
+            ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
+          </td>
+          <td>${team.team}</td>
+          <td>${team.matches}</td>
+          <td>${team.wins}</td>
+          <td>${team.losses}</td>
+          <td>${team.winPct.toFixed(1)}%</td>
+        `;
         
-        allrounders.forEach((player, index) => {
-          const batting = player.batting;
-          const bowling = player.bowling;
-          const batAvg = (batting.runs / (batting.dismissals || 1)).toFixed(2);
-          const batSr = ((batting.runs / batting.balls) * 100).toFixed(2);
-          const bowlAvg = (bowling.runs / bowling.wickets).toFixed(2);
-          const bowlEcon = (bowling.runs / (bowling.overs || 1)).toFixed(2);
-          const isCurrent = player.team === localStorage.getItem('hc_team');
+        teamsTable.appendChild(row);
+      });
+    }
+
+    // Update batters leaderboard
+    function updateBattersLeaderboard(playerStats) {
+      const battersTable = document.getElementById('battersTable');
+      battersTable.innerHTML = '';
+      
+      // Filter players with batting stats and sort by runs
+      const batters = Object.entries(playerStats)
+        .filter(([_, stats]) => stats.batting.runs > 0)
+        .map(([player, stats]) => ({
+          player,
+          ...stats
+        }))
+        .sort((a, b) => b.batting.runs - a.batting.runs);
+      
+      batters.forEach((player, index) => {
+        const batting = player.batting;
+        const avg = batting.dismissals > 0 ? (batting.runs / batting.dismissals).toFixed(2) : '-';
+        const sr = batting.balls > 0 ? ((batting.runs / batting.balls) * 100).toFixed(2) : '-';
+        const isCurrent = player.team === localStorage.getItem('hc_team');
+        
+        const row = document.createElement('tr');
+        if (isCurrent) row.classList.add('highlight');
+        
+        row.innerHTML = `
+          <td class="rank">
+            ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
+          </td>
+          <td>${player.player}</td>
+          <td>${player.team || '-'}</td>
+          <td>${batting.runs}</td>
+          <td>${avg}</td>
+          <td>${sr}</td>
+          <td>${batting.centuries || 0}/${batting.fifties || 0}</td>
+        `;
+        
+        battersTable.appendChild(row);
+      });
+    }
+
+    // Update bowlers leaderboard
+    function updateBowlersLeaderboard(playerStats) {
+      const bowlersTable = document.getElementById('bowlersTable');
+      bowlersTable.innerHTML = '';
+      
+      // Filter players with bowling stats and sort by wickets
+      const bowlers = Object.entries(playerStats)
+        .filter(([_, stats]) => stats.bowling.wickets > 0)
+        .map(([player, stats]) => ({
+          player,
+          ...stats
+        }))
+        .sort((a, b) => b.bowling.wickets - a.bowling.wickets);
+      
+      bowlers.forEach((player, index) => {
+        const bowling = player.bowling;
+        const avg = bowling.wickets > 0 ? (bowling.runs / bowling.wickets).toFixed(2) : '-';
+        const econ = bowling.overs > 0 ? (bowling.runs / bowling.overs).toFixed(2) : '-';
+        const best = bowling.best.wickets > 0 ? `${bowling.best.wickets}/${bowling.best.runs}` : '-';
+        const isCurrent = player.team === localStorage.getItem('hc_team');
+        
+        const row = document.createElement('tr');
+        if (isCurrent) row.classList.add('highlight');
+        
+        row.innerHTML = `
+          <td class="rank">
+            ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
+          </td>
+          <td>${player.player}</td>
+          <td>${player.team || '-'}</td>
+          <td>${bowling.wickets}</td>
+          <td>${avg}</td>
+          <td>${econ}</td>
+          <td>${best}</td>
+        `;
+        
+        bowlersTable.appendChild(row);
+      });
+    }
+
+    // Update all-rounders leaderboard
+    function updateAllRoundersLeaderboard(playerStats) {
+      const allroundersGrid = document.getElementById('allroundersGrid');
+      allroundersGrid.innerHTML = '';
+      
+      // Filter players with both batting and bowling stats
+      const allrounders = Object.entries(playerStats)
+        .filter(([_, stats]) => stats.batting.runs > 100 && stats.bowling.wickets > 5)
+        .map(([player, stats]) => ({
+          player,
+          ...stats,
+          rating: stats.batting.runs + (stats.bowling.wickets * 25) // Simple rating formula
+        }))
+        .sort((a, b) => b.rating - a.rating);
+      
+      allrounders.forEach((player, index) => {
+        const batting = player.batting;
+        const bowling = player.bowling;
+        const batAvg = batting.dismissals > 0 ? (batting.runs / batting.dismissals).toFixed(2) : '-';
+        const batSr = batting.balls > 0 ? ((batting.runs / batting.balls) * 100).toFixed(2) : '-';
+        const bowlAvg = bowling.wickets > 0 ? (bowling.runs / bowling.wickets).toFixed(2) : '-';
+        const bowlEcon = bowling.overs > 0 ? (bowling.runs / bowling.overs).toFixed(2) : '-';
+        const best = bowling.best.wickets > 0 ? `${bowling.best.wickets}/${bowling.best.runs}` : '-';
+        const isCurrent = player.team === localStorage.getItem('hc_team');
+        
+        const card = document.createElement('div');
+        card.className = 'stats-card';
+        if (isCurrent) card.style.border = '2px solid #ffeb3b';
+        
+        card.innerHTML = `
+          <h3>${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}.</span> ` : ''}${player.player}</h3>
+          <p><strong>Team:</strong> ${player.team || '-'}</p>
           
-          const card = document.createElement('div');
-          card.className = 'stats-card';
-          if (isCurrent) card.style.border = '2px solid #ffeb3b';
+          <div class="player-stats">
+            <h4>Batting</h4>
+            <p><span>Runs:</span> ${batting.runs}</p>
+            <p><span>Average:</span> ${batAvg}</p>
+            <p><span>Strike Rate:</span> ${batSr}</p>
+            <p><span>100s/50s:</span> ${batting.centuries || 0}/${batting.fifties || 0}</p>
+          </div>
           
-          card.innerHTML = `
-            <h3>${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}.</span> ` : ''}${player.name}</h3>
-            <p><strong>Team:</strong> ${player.team || '-'}</p>
+          <div class="player-stats">
+            <h4>Bowling</h4>
+            <p><span>Wickets:</span> ${bowling.wickets}</p>
+            <p><span>Average:</span> ${bowlAvg}</p>
+            <p><span>Economy:</span> ${bowlEcon}</p>
+            <p><span>Best:</span> ${best}</p>
+          </div>
+        `;
+        
+        allroundersGrid.appendChild(card);
+      });
+    }
+
+    // Update matches leaderboard
+    function updateMatchesLeaderboard(matches) {
+      const matchesTable = document.getElementById('matchesTable');
+      matchesTable.innerHTML = '';
+      
+      matches.forEach((match, index) => {
+        const isCurrent = match.team1 === localStorage.getItem('hc_team') || 
+                         match.team2 === localStorage.getItem('hc_team');
+        
+        const row = document.createElement('tr');
+        if (isCurrent) row.classList.add('highlight');
+        
+        row.innerHTML = `
+          <td class="rank">${index + 1}</td>
+          <td>${match.team1} vs ${match.team2}</td>
+          <td>${match.result}</td>
+          <td><button class="view-scorecard" data-id="${match.id}">View</button></td>
+          <td>${formatDate(match.date)}</td>
+        `;
+        
+        matchesTable.appendChild(row);
+      });
+      
+      // Add event listeners to view buttons
+      document.querySelectorAll('.view-scorecard').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const matchId = btn.dataset.id;
+          viewScorecard(matchId);
+        });
+      });
+    }
+
+    // View scorecard for a specific match
+    async function viewScorecard(matchId) {
+      try {
+        const matchRef = ref(db, `completedMatches/${matchId}`);
+        const matchSnap = await get(matchRef);
+        
+        if (!matchSnap.exists()) {
+          alert("Scorecard not found");
+          return;
+        }
+        
+        const match = matchSnap.val();
+        const scorecardWindow = window.open('', '_blank');
+        
+        // Generate HTML for the scorecard
+        let html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Scorecard: ${match.team1Name} vs ${match.team2Name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1, h2 { color: #333; }
+              table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+              th { background-color: #f2f2f2; }
+              .team-header { background-color: #e6f7ff; padding: 10px; margin: 10px 0; }
+              .winner { font-weight: bold; color: green; }
+            </style>
+          </head>
+          <body>
+            <h1>${match.team1Name} vs ${match.team2Name}</h1>
+            <p><strong>Date:</strong> ${formatDate(match.timestamp)}</p>
+            <p><strong>Result:</strong> ${getMatchResultText(match)}</p>
+            <p><strong>Format:</strong> ${match.format || 'Unknown'}</p>
             
-            <div class="player-stats">
-              <h4>Batting</h4>
-              <p><span>Runs:</span> ${batting.runs}</p>
-              <p><span>Average:</span> ${batAvg}</p>
-              <p><span>Strike Rate:</span> ${batSr}</p>
-              <p><span>100s/50s:</span> ${batting.centuries || 0}/${batting.fifties || 0}</p>
+            <h2>Scorecard</h2>
+        `;
+        
+        // Add first innings
+        if (match.firstInnings) {
+          html += `
+            <div class="team-header">
+              <h3>${match.firstInnings.battingTeam} - 1st Innings</h3>
+              <p>${match.firstInnings.totalRuns}/${match.firstInnings.totalWickets} in ${match.firstInnings.overs} overs</p>
             </div>
             
-            <div class="player-stats">
-              <h4>Bowling</h4>
-              <p><span>Wickets:</span> ${bowling.wickets}</p>
-              <p><span>Average:</span> ${bowlAvg}</p>
-              <p><span>Economy:</span> ${bowlEcon}</p>
-              <p><span>5W:</span> ${bowling.fiveWickets || 0}</p>
+            <h4>Batting</h4>
+            <table>
+              <tr>
+                <th>Batter</th>
+                <th>Runs</th>
+                <th>Balls</th>
+                <th>4s</th>
+                <th>6s</th>
+                <th>SR</th>
+              </tr>
+          `;
+          
+          // Add batters
+          for (const [player, stats] of Object.entries(match.firstInnings.batterStats || {})) {
+            const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '-';
+            html += `
+              <tr>
+                <td>${player}</td>
+                <td>${stats.runs}</td>
+                <td>${stats.balls}</td>
+                <td>${stats.fours || 0}</td>
+                <td>${stats.sixes || 0}</td>
+                <td>${sr}</td>
+              </tr>
+            `;
+          }
+          
+          html += `
+            </table>
+            
+            <h4>Bowling</h4>
+            <table>
+              <tr>
+                <th>Bowler</th>
+                <th>Overs</th>
+                <th>Runs</th>
+                <th>Wickets</th>
+                <th>Econ</th>
+              </tr>
+          `;
+          
+          // Add bowlers
+          for (const [player, stats] of Object.entries(match.firstInnings.bowlerStats || {})) {
+            const econ = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '-';
+            html += `
+              <tr>
+                <td>${player}</td>
+                <td>${stats.overs.toFixed(1)}</td>
+                <td>${stats.runs}</td>
+                <td>${stats.wickets}</td>
+                <td>${econ}</td>
+              </tr>
+            `;
+          }
+          
+          html += `</table>`;
+        }
+        
+        // Add second innings if exists
+        if (match.secondInnings) {
+          html += `
+            <div class="team-header">
+              <h3>${match.secondInnings.battingTeam} - 2nd Innings</h3>
+              <p>${match.secondInnings.totalRuns}/${match.secondInnings.totalWickets} in ${match.secondInnings.overs} overs</p>
             </div>
+            
+            <h4>Batting</h4>
+            <table>
+              <tr>
+                <th>Batter</th>
+                <th>Runs</th>
+                <th>Balls</th>
+                <th>4s</th>
+                <th>6s</th>
+                <th>SR</th>
+              </tr>
           `;
           
-          allroundersGrid.appendChild(card);
-        });
-      }
-    });
-    
-    // Load captains leaderboard
-    onValue(playersRef, (snap) => {
-      if (snap.exists()) {
-        const players = Object.entries(snap.val()).map(([id, player]) => ({
-          id,
-          ...player
-        }));
+          // Add batters
+          for (const [player, stats] of Object.entries(match.secondInnings.batterStats || {})) {
+            const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '-';
+            html += `
+              <tr>
+                <td>${player}</td>
+                <td>${stats.runs}</td>
+                <td>${stats.balls}</td>
+                <td>${stats.fours || 0}</td>
+                <td>${stats.sixes || 0}</td>
+                <td>${sr}</td>
+              </tr>
+            `;
+          }
+          
+          html += `
+            </table>
+            
+            <h4>Bowling</h4>
+            <table>
+              <tr>
+                <th>Bowler</th>
+                <th>Overs</th>
+                <th>Runs</th>
+                <th>Wickets</th>
+                <th>Econ</th>
+              </tr>
+          `;
+          
+          // Add bowlers
+          for (const [player, stats] of Object.entries(match.secondInnings.bowlerStats || {})) {
+            const econ = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '-';
+            html += `
+              <tr>
+                <td>${player}</td>
+                <td>${stats.overs.toFixed(1)}</td>
+                <td>${stats.runs}</td>
+                <td>${stats.wickets}</td>
+                <td>${econ}</td>
+              </tr>
+            `;
+          }
+          
+          html += `</table>`;
+        }
         
-        // Filter players who have been captains and have stats
-        const captains = players
-          .filter(p => p.captainMatches > 0)
-          .sort((a, b) => {
-            // Sort by wins, then by matches, then by runs
-            const aWinPct = (a.captainWins || 0) / (a.captainMatches || 1);
-            const bWinPct = (b.captainWins || 0) / (b.captainMatches || 1);
-            return bWinPct - aWinPct || 
-                   (b.captainMatches || 0) - (a.captainMatches || 0) ||
-                   (b.batting?.runs || 0) - (a.batting?.runs || 0);
+        // Add fall of wickets if available
+        if (match.firstInnings?.fallOfWickets) {
+          html += `
+            <h4>Fall of Wickets (1st Innings)</h4>
+            <table>
+              <tr>
+                <th>Score</th>
+                <th>Batter</th>
+                <th>Over</th>
+              </tr>
+          `;
+          
+          match.firstInnings.fallOfWickets.forEach(wicket => {
+            html += `
+              <tr>
+                <td>${wicket.score}</td>
+                <td>${wicket.batter}</td>
+                <td>${wicket.over}</td>
+              </tr>
+            `;
           });
-        
-        const captainsTable = document.getElementById('captainsTable');
-        captainsTable.innerHTML = '';
-        
-        captains.forEach((player, index) => {
-          const winPct = ((player.captainWins || 0) / (player.captainMatches || 1) * 100).toFixed(1);
-          const isCurrent = player.team === localStorage.getItem('hc_team');
           
-          const row = document.createElement('tr');
-          if (isCurrent) row.classList.add('highlight');
-          
-          row.innerHTML = `
-            <td class="rank">
-              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
-            </td>
-            <td>${player.name}</td>
-            <td>${player.team || '-'}</td>
-            <td>${player.captainMatches || 0}</td>
-            <td>${player.captainWins || 0}</td>
-            <td>${winPct}%</td>
-            <td>${player.batting?.runs || 0}</td>
-            <td>${player.bowling?.wickets || 0}</td>
+          html += `</table>`;
+        }
+        
+        if (match.secondInnings?.fallOfWickets) {
+          html += `
+            <h4>Fall of Wickets (2nd Innings)</h4>
+            <table>
+              <tr>
+                <th>Score</th>
+                <th>Batter</th>
+                <th>Over</th>
+              </tr>
           `;
           
-          captainsTable.appendChild(row);
-        });
-      }
-    });
-    
-    // Load centuries leaderboard
-    onValue(playersRef, (snap) => {
-      if (snap.exists()) {
-        const players = Object.entries(snap.val()).map(([id, player]) => ({
-          id,
-          ...player
-        }));
-        
-        // Filter players with centuries or fifties
-        const centuryMakers = players
-          .filter(p => p.batting && (p.batting.centuries > 0 || p.batting.fifties > 0))
-          .sort((a, b) => {
-            // Sort by centuries, then fifties, then runs
-            return (b.batting.centuries || 0) - (a.batting.centuries || 0) ||
-                   (b.batting.fifties || 0) - (a.batting.fifties || 0) ||
-                   (b.batting.runs || 0) - (a.batting.runs || 0);
+          match.secondInnings.fallOfWickets.forEach(wicket => {
+            html += `
+              <tr>
+                <td>${wicket.score}</td>
+                <td>${wicket.batter}</td>
+                <td>${wicket.over}</td>
+              </tr>
+            `;
           });
+          
+          html += `</table>`;
+        }
         
-        const centuriesTable = document.getElementById('centuriesTable');
-        centuriesTable.innerHTML = '';
+        // Close HTML
+        html += `</body></html>`;
         
-        centuryMakers.forEach((player, index) => {
-          const batting = player.batting || {};
-          const isCurrent = player.team === localStorage.getItem('hc_team');
-          
-          const row = document.createElement('tr');
-          if (isCurrent) row.classList.add('highlight');
-          
-          row.innerHTML = `
-            <td class="rank">
-              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
-            </td>
-            <td>${player.name}</td>
-            <td>${player.team || '-'}</td>
-            <td>${batting.centuries || 0}</td>
-            <td>${batting.fifties || 0}</td>
-            <td>${batting.highScore || '-'}</td>
-            <td>${batting.runs || 0}</td>
-          `;
-          
-          centuriesTable.appendChild(row);
-        });
+        // Write to the new window
+        scorecardWindow.document.open();
+        scorecardWindow.document.write(html);
+        scorecardWindow.document.close();
+        
+      } catch (error) {
+        console.error("Error viewing scorecard:", error);
+        alert("Failed to load scorecard");
       }
-    });
+    }
+
+    // Initialize the leaderboard
+    loadAllStats();
   </script>
 </body>
 </html>
