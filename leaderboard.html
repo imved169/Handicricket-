@@ -198,6 +198,16 @@
       .stats-grid {
         grid-template-columns: 1fr;
       }
+      
+      .tabs {
+        flex-wrap: wrap;
+      }
+      
+      .tab {
+        flex: 1 0 33%;
+        padding: 8px;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
@@ -210,6 +220,8 @@
       <div class="tab" data-tab="batters">Batters</div>
       <div class="tab" data-tab="bowlers">Bowlers</div>
       <div class="tab" data-tab="allrounders">All-Rounders</div>
+      <div class="tab" data-tab="captains">Captains</div>
+      <div class="tab" data-tab="centuries">Centuries</div>
     </div>
     
     <div class="tab-content active" id="teams-tab">
@@ -288,6 +300,55 @@
         <div class="loading-spinner"></div>
         Loading all-rounders...
       </div>
+    </div>
+    
+    <div class="tab-content" id="captains-tab">
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th class="rank">#</th>
+            <th>Captain</th>
+            <th>Team</th>
+            <th>Matches</th>
+            <th>Wins</th>
+            <th>Win %</th>
+            <th>Runs</th>
+            <th>Wickets</th>
+          </tr>
+        </thead>
+        <tbody id="captainsTable">
+          <tr>
+            <td colspan="8" style="text-align: center;">
+              <div class="loading-spinner"></div>
+              Loading captains...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="tab-content" id="centuries-tab">
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th class="rank">#</th>
+            <th>Player</th>
+            <th>Team</th>
+            <th>100s</th>
+            <th>50s</th>
+            <th>HS</th>
+            <th>Runs</th>
+          </tr>
+        </thead>
+        <tbody id="centuriesTable">
+          <tr>
+            <td colspan="7" style="text-align: center;">
+              <div class="loading-spinner"></div>
+              Loading century makers...
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     
     <button id="backBtn" class="btn btn-back">Back to Home</button>
@@ -513,6 +574,99 @@
           `;
           
           allroundersGrid.appendChild(card);
+        });
+      }
+    });
+    
+    // Load captains leaderboard
+    onValue(playersRef, (snap) => {
+      if (snap.exists()) {
+        const players = Object.entries(snap.val()).map(([id, player]) => ({
+          id,
+          ...player
+        }));
+        
+        // Filter players who have been captains and have stats
+        const captains = players
+          .filter(p => p.captainMatches > 0)
+          .sort((a, b) => {
+            // Sort by wins, then by matches, then by runs
+            const aWinPct = (a.captainWins || 0) / (a.captainMatches || 1);
+            const bWinPct = (b.captainWins || 0) / (b.captainMatches || 1);
+            return bWinPct - aWinPct || 
+                   (b.captainMatches || 0) - (a.captainMatches || 0) ||
+                   (b.batting?.runs || 0) - (a.batting?.runs || 0);
+          });
+        
+        const captainsTable = document.getElementById('captainsTable');
+        captainsTable.innerHTML = '';
+        
+        captains.forEach((player, index) => {
+          const winPct = ((player.captainWins || 0) / (player.captainMatches || 1) * 100).toFixed(1);
+          const isCurrent = player.team === localStorage.getItem('hc_team');
+          
+          const row = document.createElement('tr');
+          if (isCurrent) row.classList.add('highlight');
+          
+          row.innerHTML = `
+            <td class="rank">
+              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
+            </td>
+            <td>${player.name}</td>
+            <td>${player.team || '-'}</td>
+            <td>${player.captainMatches || 0}</td>
+            <td>${player.captainWins || 0}</td>
+            <td>${winPct}%</td>
+            <td>${player.batting?.runs || 0}</td>
+            <td>${player.bowling?.wickets || 0}</td>
+          `;
+          
+          captainsTable.appendChild(row);
+        });
+      }
+    });
+    
+    // Load centuries leaderboard
+    onValue(playersRef, (snap) => {
+      if (snap.exists()) {
+        const players = Object.entries(snap.val()).map(([id, player]) => ({
+          id,
+          ...player
+        }));
+        
+        // Filter players with centuries or fifties
+        const centuryMakers = players
+          .filter(p => p.batting && (p.batting.centuries > 0 || p.batting.fifties > 0))
+          .sort((a, b) => {
+            // Sort by centuries, then fifties, then runs
+            return (b.batting.centuries || 0) - (a.batting.centuries || 0) ||
+                   (b.batting.fifties || 0) - (a.batting.fifties || 0) ||
+                   (b.batting.runs || 0) - (a.batting.runs || 0);
+          });
+        
+        const centuriesTable = document.getElementById('centuriesTable');
+        centuriesTable.innerHTML = '';
+        
+        centuryMakers.forEach((player, index) => {
+          const batting = player.batting || {};
+          const isCurrent = player.team === localStorage.getItem('hc_team');
+          
+          const row = document.createElement('tr');
+          if (isCurrent) row.classList.add('highlight');
+          
+          row.innerHTML = `
+            <td class="rank">
+              ${index < 3 ? `<span class="medal-${['gold', 'silver', 'bronze'][index]}">${index + 1}</span>` : index + 1}
+            </td>
+            <td>${player.name}</td>
+            <td>${player.team || '-'}</td>
+            <td>${batting.centuries || 0}</td>
+            <td>${batting.fifties || 0}</td>
+            <td>${batting.highScore || '-'}</td>
+            <td>${batting.runs || 0}</td>
+          `;
+          
+          centuriesTable.appendChild(row);
         });
       }
     });
