@@ -13,17 +13,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
-// Database references
-const usersRef = ref(db, 'users');
-const playersRef = ref(db, 'players');
-const teamsRef = ref(db, 'teams');
-const matchesRef = ref(db, 'matches');
-const leaderboardRef = ref(db, 'leaderboard');
-const transferMarketRef = ref(db, 'transferMarket');
-
-export { 
-  db, ref, set, onValue, get, child, update, remove, 
-  usersRef, playersRef, teamsRef, matchesRef, leaderboardRef, transferMarketRef 
-};
+export { db, ref, set, onValue, get, child, update, remove };
