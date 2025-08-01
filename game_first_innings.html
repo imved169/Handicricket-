@@ -1466,9 +1466,7 @@
             <div>Runs: <span id="comparisonBatterRuns">0</span></div>
             <div>Balls: <span id="comparisonBatterBalls">0</span></div>
             <div>SR: <span id="comparisonBatterSR">0.00</span></div>
-            <div>Avg: <span id="comparisonBatterAvg">-</span></div>
             <div>4s/6s: <span id="comparisonBatterBoundaries">0/0</span></div>
-            <div>Boundary%: <span id="comparisonBatterBoundaryPct">0.0%</span></div>
           </div>
         </div>
         <div class="vs-circle">VS</div>
@@ -1480,8 +1478,6 @@
             <div>Wkts: <span id="comparisonBowlerWickets">0</span></div>
             <div>ER: <span id="comparisonBowlerER">0.00</span></div>
             <div>Runs: <span id="comparisonBowlerRuns">0</span></div>
-            <div>Avg: <span id="comparisonBowlerAvg">-</span></div>
-            <div>SR: <span id="comparisonBowlerSR">-</span></div>
           </div>
         </div>
       </div>
@@ -1908,19 +1904,8 @@
     function initializeBatterStats() {
       team1Players.forEach(player => {
         batterStats[player] = batterStats[player] || { 
-          runs: 0, 
-          balls: 0, 
-          fours: 0, 
-          sixes: 0,
-          dismissals: 0,
-          notOuts: 0,
-          highestScore: 0,
-          strikeRate: 0,
-          centuries: 0,
-          fifties: 0,
-          boundaryPercentage: 0,
-          dotBallPercentage: 0,
-          lastInnings: []
+          runs: 0, balls: 0, fours: 0, sixes: 0,
+          centuryNotified: false, fiftyNotified: false
         };
         batterWickets[player] = batterWickets[player] || 0;
         batterPenalties[player] = batterPenalties[player] || 0;
@@ -1929,19 +1914,8 @@
       
       team2Players.forEach(player => {
         batterStats[player] = batterStats[player] || { 
-          runs: 0, 
-          balls: 0, 
-          fours: 0, 
-          sixes: 0,
-          dismissals: 0,
-          notOuts: 0,
-          highestScore: 0,
-          strikeRate: 0,
-          centuries: 0,
-          fifties: 0,
-          boundaryPercentage: 0,
-          dotBallPercentage: 0,
-          lastInnings: []
+          runs: 0, balls: 0, fours: 0, sixes: 0,
+          centuryNotified: false, fiftyNotified: false
         };
         batterWickets[player] = batterWickets[player] || 0;
         batterPenalties[player] = batterPenalties[player] || 0;
@@ -1952,133 +1926,12 @@
     // Initialize bowler stats
     function initializeBowlerStats() {
       team1Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { 
-          wickets: 0, 
-          runs: 0, 
-          overs: 0,
-          maidens: 0,
-          economy: 0,
-          strikeRate: 0,
-          average: 0,
-          fourWickets: 0,
-          fiveWickets: 0,
-          dotBalls: 0,
-          boundaryConceded: 0
-        };
+        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0 };
       });
       
       team2Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { 
-          wickets: 0, 
-          runs: 0, 
-          overs: 0,
-          maidens: 0,
-          economy: 0,
-          strikeRate: 0,
-          average: 0,
-          fourWickets: 0,
-          fiveWickets: 0,
-          dotBalls: 0,
-          boundaryConceded: 0
-        };
+        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0 };
       });
-    }
-
-    // Update batter stats after each ball
-    function updateBatterStats(batter, runsScored, isWicket, isPlayerOut) {
-      if (!batter) return;
-      
-      const stats = batterStats[batter];
-      
-      // Update basic stats
-      stats.runs += runsScored;
-      stats.balls += 1;
-      
-      // Update boundary counts
-      if (runsScored === 4) {
-        stats.fours += 1;
-      } else if (runsScored === 6) {
-        stats.sixes += 1;
-      }
-      
-      // Update dismissal stats
-      if (isPlayerOut) {
-        stats.dismissals += 1;
-      } else if (isWicket) {
-        // Partial wicket - don't count as full dismissal
-      }
-      
-      // Update highest score
-      if (stats.runs > stats.highestScore) {
-        stats.highestScore = stats.runs;
-      }
-      
-      // Calculate strike rate
-      stats.strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : 0;
-      
-      // Update milestone counts (even if not reached yet)
-      stats.fifties = Math.floor(stats.runs / 50);
-      stats.centuries = Math.floor(stats.runs / 100);
-      
-      // Update boundary percentage
-      const boundaries = stats.fours + stats.sixes;
-      stats.boundaryPercentage = stats.balls > 0 ? (boundaries / stats.balls * 100).toFixed(2) : 0;
-      
-      // Track last 10 innings (for form calculation)
-      if (isPlayerOut || legalBalls % 6 === 0) { // At end of over or when out
-        if (stats.lastInnings.length >= 10) {
-          stats.lastInnings.shift();
-        }
-        stats.lastInnings.push({
-          runs: stats.runs,
-          balls: stats.balls,
-          out: isPlayerOut,
-          date: new Date().toISOString()
-        });
-      }
-    }
-
-    // Update bowler stats after each ball
-    function updateBowlerStats(bowler, runsConceded, isWicket, isPlayerOut) {
-      if (!bowler) return;
-      
-      const stats = bowlerStats[bowler];
-      
-      // Update basic stats
-      stats.runs += runsConceded;
-      
-      // Update wicket counts
-      if (isWicket) {
-        stats.wickets += 1;
-        
-        // Check for 4-wicket and 5-wicket hauls
-        if (stats.wickets % 4 === 0) stats.fourWickets += 1;
-        if (stats.wickets % 5 === 0) stats.fiveWickets += 1;
-      }
-      
-      // Update dot balls
-      if (runsConceded === 0) {
-        stats.dotBalls += 1;
-      }
-      
-      // Update boundaries conceded
-      if (runsConceded === 4 || runsConceded === 6) {
-        stats.boundaryConceded += 1;
-      }
-      
-      // Calculate derived stats
-      stats.average = stats.wickets > 0 ? (stats.runs / stats.wickets).toFixed(2) : 0;
-      stats.economy = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : 0;
-      stats.strikeRate = stats.wickets > 0 ? (stats.balls / stats.wickets).toFixed(2) : 0;
-      
-      // Check for maiden overs
-      if (legalBalls % 6 === 0) {
-        const ballsThisOver = legalBalls % 6;
-        const runsThisOver = runs - lastOverRuns;
-        if (runsThisOver === 0) {
-          stats.maidens += 1;
-        }
-      }
     }
 
     // Check powerplay status
@@ -2272,20 +2125,16 @@
       if (currentBatter) {
         const batter = batterStats[currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
         const sr = batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(2) : '0.00';
-        const avg = batter.dismissals > 0 ? (batter.runs / batter.dismissals).toFixed(2) : '-';
-        const boundaryPct = batter.balls > 0 ? ((batter.fours + batter.sixes) / batter.balls * 100).toFixed(1) : '0.0';
         
         document.getElementById('comparisonBatterName').textContent = currentBatter;
         document.getElementById('comparisonBatterRuns').textContent = batter.runs;
         document.getElementById('comparisonBatterBalls').textContent = batter.balls;
         document.getElementById('comparisonBatterSR').textContent = sr;
         document.getElementById('comparisonBatterBoundaries').textContent = `${batter.fours}/${batter.sixes}`;
-        document.getElementById('comparisonBatterAvg').textContent = avg;
-        document.getElementById('comparisonBatterBoundaryPct').textContent = `${boundaryPct}%`;
         
         // Highlight player if performing well
         const batterEl = document.getElementById('comparisonBatterName');
-        if (batter.runs >= 30 || parseFloat(sr) > 150) {
+        if (batter.runs >= 30 || sr > 150) {
           batterEl.classList.add('highlight');
         } else {
           batterEl.classList.remove('highlight');
@@ -2295,16 +2144,12 @@
       if (currentBowler) {
         const bowler = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
         const er = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : '0.00';
-        const avg = bowler.wickets > 0 ? (bowler.runs / bowler.wickets).toFixed(2) : '-';
-        const sr = bowler.wickets > 0 ? (bowler.balls / bowler.wickets).toFixed(2) : '-';
         
         document.getElementById('comparisonBowlerName').textContent = currentBowler;
         document.getElementById('comparisonBowlerWickets').textContent = bowler.wickets;
         document.getElementById('comparisonBowlerOvers').textContent = bowler.overs.toFixed(1);
         document.getElementById('comparisonBowlerER').textContent = er;
         document.getElementById('comparisonBowlerRuns').textContent = bowler.runs;
-        document.getElementById('comparisonBowlerAvg').textContent = avg;
-        document.getElementById('comparisonBowlerSR').textContent = sr;
         
         // Highlight bowler if performing well
         const bowlerEl = document.getElementById('comparisonBowlerName');
@@ -2660,12 +2505,17 @@
 
         // Update batter stats
         if (currentBatter && runsScored > 0) {
-          updateBatterStats(currentBatter, runsScored, isWicket, isPlayerOut);
+          batterStats[currentBatter].balls += 1;
+          if (batterCard === 4) batterStats[currentBatter].fours += 1;
+          if (batterCard === 6) batterStats[currentBatter].sixes += 1;
+          checkBatterMilestones();
         }
         
         // Update bowler stats
         if (currentBowler) {
-          updateBowlerStats(currentBowler, runsScored, isWicket, isPlayerOut);
+          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
+          if (isWicket) bowlerStats[currentBowler].wickets += 1;
+          bowlerStats[currentBowler].runs += runsScored;
         }
 
         // Record ball in ball-by-ball
@@ -2984,7 +2834,7 @@
       }
     }
 
-        // Setup player role (batting/bowling)
+    // Setup player role (batting/bowling)
     async function setupRole() {
         // Immediately clear all selection states and UI
         batterSelected = false;
@@ -3090,103 +2940,6 @@
       
       if (canPlay) {
         resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
-      }
-    }
-
-    // Update batter stats after each ball
-    function updateBatterStats(batter, runsScored, isWicket, isPlayerOut) {
-      if (!batter) return;
-      
-      const stats = batterStats[batter];
-      
-      // Update basic stats
-      stats.runs += runsScored;
-      stats.balls += 1;
-      
-      // Update boundary counts
-      if (runsScored === 4) {
-        stats.fours += 1;
-      } else if (runsScored === 6) {
-        stats.sixes += 1;
-      }
-      
-      // Update dismissal stats
-      if (isPlayerOut) {
-        stats.dismissals += 1;
-      } else if (isWicket) {
-        // Partial wicket - don't count as full dismissal
-      }
-      
-      // Update highest score
-      if (stats.runs > stats.highestScore) {
-        stats.highestScore = stats.runs;
-      }
-      
-      // Calculate strike rate
-      stats.strikeRate = stats.balls > 0 ? (stats.runs / stats.balls * 100).toFixed(2) : 0;
-      
-      // Update milestone counts (even if not reached yet)
-      stats.fifties = Math.floor(stats.runs / 50);
-      stats.centuries = Math.floor(stats.runs / 100);
-      
-      // Update boundary percentage
-      const boundaries = stats.fours + stats.sixes;
-      stats.boundaryPercentage = stats.balls > 0 ? (boundaries / stats.balls * 100).toFixed(2) : 0;
-      
-      // Track last 10 innings (for form calculation)
-      if (isPlayerOut || legalBalls % 6 === 0) { // At end of over or when out
-        if (stats.lastInnings.length >= 10) {
-          stats.lastInnings.shift();
-        }
-        stats.lastInnings.push({
-          runs: stats.runs,
-          balls: stats.balls,
-          out: isPlayerOut,
-          date: new Date().toISOString()
-        });
-      }
-    }
-
-    // Update bowler stats after each ball
-    function updateBowlerStats(bowler, runsConceded, isWicket, isPlayerOut) {
-      if (!bowler) return;
-      
-      const stats = bowlerStats[bowler];
-      
-      // Update basic stats
-      stats.runs += runsConceded;
-      
-      // Update wicket counts
-      if (isWicket) {
-        stats.wickets += 1;
-        
-        // Check for 4-wicket and 5-wicket hauls
-        if (stats.wickets % 4 === 0) stats.fourWickets += 1;
-        if (stats.wickets % 5 === 0) stats.fiveWickets += 1;
-      }
-      
-      // Update dot balls
-      if (runsConceded === 0) {
-        stats.dotBalls += 1;
-      }
-      
-      // Update boundaries conceded
-      if (runsConceded === 4 || runsConceded === 6) {
-        stats.boundaryConceded += 1;
-      }
-      
-      // Calculate derived stats
-      stats.average = stats.wickets > 0 ? (stats.runs / stats.wickets).toFixed(2) : 0;
-      stats.economy = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : 0;
-      stats.strikeRate = stats.wickets > 0 ? (stats.balls / stats.wickets).toFixed(2) : 0;
-      
-      // Check for maiden overs
-      if (legalBalls % 6 === 0) {
-        const ballsThisOver = legalBalls % 6;
-        const runsThisOver = runs - lastOverRuns;
-        if (runsThisOver === 0) {
-          stats.maidens += 1;
-        }
       }
     }
 
