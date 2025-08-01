@@ -543,13 +543,20 @@
       }
       
       // Check if room exists and join
-      update(ref(db, `rooms/${roomCode}`), {
-        player2: {
-          name: currentUser.username,
-          connected: true,
-          team: currentTeam.name,
-          teamId: currentUser.teamId
+      get(ref(db, `rooms/${roomCode}`)).then((snapshot) => {
+        if (!snapshot.exists()) {
+          alert('Room not found');
+          return;
         }
+        
+        return update(ref(db, `rooms/${roomCode}`), {
+          player2: {
+            name: currentUser.username,
+            connected: true,
+            team: currentTeam.name,
+            teamId: currentUser.teamId
+          }
+        });
       }).then(() => {
         // Redirect to toss page
         window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam.name)}`;
@@ -568,8 +575,18 @@
         return;
       }
       
-      // Redirect to game page as spectator
-      window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
+      // Check if room exists first
+      get(ref(db, `rooms/${roomCode}`)).then((snapshot) => {
+        if (!snapshot.exists()) {
+          alert('Room not found');
+          return;
+        }
+        // Redirect to game page as spectator
+        window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
+      }).catch(error => {
+        console.error("Error checking room:", error);
+        alert("Failed to check room. Please try again.");
+      });
     });
     
     // Focus on room code input when join/spectate tab is clicked
@@ -842,7 +859,7 @@
         // Add to transfer market
         const updates = {};
         playerIds.forEach(playerId => {
-          updates[`${transferMarketRef.key}/${playerId}`] = {
+          updates[`transferMarket/${playerId}`] = {
             playerId,
             listedBy: currentUser.username,
             listedAt: Date.now(),
