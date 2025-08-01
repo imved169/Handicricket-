@@ -194,6 +194,74 @@
       100% { transform: rotate(360deg); }
     }
     
+    /* Team management button */
+    .team-management-btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: linear-gradient(145deg, #795548, #5D4037);
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      margin: 5px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    
+    /* Team management modal */
+    .team-management-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 350px;
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      display: none;
+    }
+    
+    .team-management-modal h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 6px;
+    }
+    
+    .squad-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 10px 0;
+      padding-right: 5px;
+    }
+    
+    .squad-list li {
+      padding: 6px 8px;
+      margin: 4px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+      font-size: 13px;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .modal-actions button {
+      flex: 1;
+      padding: 8px;
+      margin: 0;
+      max-width: none;
+    }
+    
     @media (max-width: 600px) {
       .container {
         padding: 12px;
@@ -212,10 +280,15 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div class="container">
     <h1>🏏 Select Your Playing 11</h1>
+    
+    <button id="teamManagementBtn" class="team-management-btn">
+      <i class="fas fa-users"></i> Manage Squad
+    </button>
     
     <div class="toss-info">
       <h2 id="tossSummary">Toss Summary</h2>
@@ -250,9 +323,25 @@
     <button id="startMatchBtn" style="display: none;">Start Match</button>
   </div>
 
+  <!-- Team Management Modal -->
+  <div id="teamManagementModal" class="team-management-modal">
+    <h3>Team Management</h3>
+    <div class="squad-list" id="squadList">
+      <p style="text-align: center; color: #aaa;">Loading squad...</p>
+    </div>
+    <div class="modal-actions">
+      <button id="editSquadBtn" style="background: linear-gradient(145deg, #4CAF50, #2E7D32);">
+        <i class="fas fa-edit"></i> Edit Squad
+      </button>
+      <button id="closeTeamManagement" style="background: linear-gradient(145deg, #f44336, #d32f2f);">
+        <i class="fas fa-times"></i> Close
+      </button>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -271,7 +360,6 @@
     const roomId = params.get('room');
     const player = params.get('player');
     const teamName = decodeURIComponent(params.get('team'));
-    const teamId = params.get('teamId');
     const opponent = player === 'player1' ? 'player2' : 'player1';
 
     if (!roomId || !player) {
@@ -283,9 +371,8 @@
     const teamsRef = ref(db, `rooms/${roomId}/teams`);
     const playerRef = ref(db, `rooms/${roomId}/${player}`);
     const opponentRef = ref(db, `rooms/${roomId}/${opponent}`);
-    const playersRef = ref(db, 'players');
-    const teamsSquadRef = ref(db, 'teams');
 
+    // DOM elements
     const playerNameInput = document.getElementById('playerNameInput');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const playerList = document.getElementById('playerList');
@@ -298,17 +385,37 @@
     const yourTeamName = document.getElementById('yourTeamName');
     const tossSummary = document.getElementById('tossSummary');
     const battingTeam = document.getElementById('battingTeam');
+    const teamManagementBtn = document.getElementById('teamManagementBtn');
+    const teamManagementModal = document.getElementById('teamManagementModal');
+    const squadList = document.getElementById('squadList');
+    const editSquadBtn = document.getElementById('editSquadBtn');
+    const closeTeamManagement = document.getElementById('closeTeamManagement');
 
     let players = [];
     let opponentPlayers = [];
     let opponentTeamName = '';
     let tossWinner = '';
     let battingFirst = '';
+    const username = localStorage.getItem('hc_username');
 
     // Set player online status
     set(playerRef, true).catch(error => {
       console.error('Connection error:', error);
     });
+
+    // Load squad from database if logged in
+    if (username) {
+      get(ref(db, `users/${username}`)).then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.val();
+          if (userData.players && userData.players.length > 0) {
+            players = userData.players.slice(0, 11); // Load first 11 players by default
+            updatePlayerList();
+            submitTeamBtn.disabled = players.length < 2;
+          }
+        }
+      });
+    }
 
     // Load toss and team info
     onValue(roomRef, (snap) => {
@@ -355,8 +462,8 @@
       }
     });
 
-    // Modified add player function with validation
-    addPlayerBtn.addEventListener('click', async () => {
+    // Add player to team
+    addPlayerBtn.addEventListener('click', () => {
       const playerName = playerNameInput.value.trim();
       if (!playerName) return;
       
@@ -370,38 +477,16 @@
         return;
       }
       
-      // Check if player exists in database
-      try {
-        const playerSnap = await get(child(playersRef, playerName));
-        if (!playerSnap.exists()) {
-          alert('Player not found in database');
-          return;
-        }
-        
-        // Check if player is in team's squad
-        const teamSnap = await get(child(teamsSquadRef, teamId));
-        if (teamSnap.exists()) {
-          const team = teamSnap.val();
-          if (!team.players || !team.players.includes(playerName)) {
-            alert('Player not in your squad');
-            return;
-          }
-        }
-        
-        players.push(playerName);
-        updatePlayerList();
-        playerNameInput.value = '';
-        
-        if (players.length >= 11) {
-          playerNameInput.disabled = true;
-          addPlayerBtn.disabled = true;
-        }
-        
-        submitTeamBtn.disabled = players.length < 2;
-      } catch (error) {
-        console.error('Error validating player:', error);
-        alert('Error validating player');
+      players.push(playerName);
+      updatePlayerList();
+      playerNameInput.value = '';
+      
+      if (players.length >= 11) {
+        playerNameInput.disabled = true;
+        addPlayerBtn.disabled = true;
       }
+      
+      submitTeamBtn.disabled = players.length < 2;
     });
 
     // Remove player from team
@@ -453,7 +538,6 @@
       update(teamsRef, {
         [player]: {
           name: teamName,
-          teamId: teamId,
           players: players
         }
       }).then(() => {
@@ -491,6 +575,45 @@
       if (e.key === 'Enter') {
         addPlayerBtn.click();
       }
+    });
+
+    // Team management functionality
+    teamManagementBtn.addEventListener('click', () => {
+      if (!username) {
+        alert('Please login to manage your squad');
+        return;
+      }
+      
+      get(ref(db, `users/${username}`)).then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.val();
+          squadList.innerHTML = '';
+          
+          if (userData.players && userData.players.length > 0) {
+            userData.players.forEach(player => {
+              const li = document.createElement('li');
+              li.textContent = player;
+              li.style.padding = '6px 8px';
+              li.style.margin = '4px 0';
+              li.style.background = 'rgba(30, 136, 229, 0.2)';
+              li.style.borderRadius = '4px';
+              squadList.appendChild(li);
+            });
+          } else {
+            squadList.innerHTML = '<li style="color: #aaa; text-align: center;">No players in squad</li>';
+          }
+          
+          teamManagementModal.style.display = 'block';
+        }
+      });
+    });
+
+    closeTeamManagement.addEventListener('click', () => {
+      teamManagementModal.style.display = 'none';
+    });
+
+    editSquadBtn.addEventListener('click', () => {
+      window.location.href = `squad.html?username=${username}`;
     });
 
     // Make removePlayer function available globally
