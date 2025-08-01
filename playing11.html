@@ -126,15 +126,61 @@
       background: rgba(30, 136, 229, 0.4);
     }
     
-    .player-list li button {
+    .player-list li.captain {
+      background: rgba(255, 215, 0, 0.3);
+      border-left: 3px solid gold;
+    }
+    
+    .player-list li.vice-captain {
+      background: rgba(192, 192, 192, 0.3);
+      border-left: 3px solid silver;
+    }
+    
+    .player-actions {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .player-actions button {
       background: none;
       border: none;
-      color: #f44336;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 14px;
-      padding: 0 4px;
-      margin-left: 8px;
+      font-size: 12px;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    
+    .make-captain {
+      color: gold;
+      border: 1px solid gold;
+    }
+    
+    .make-vice {
+      color: silver;
+      border: 1px solid silver;
+    }
+    
+    .remove-player {
+      color: #f44336;
+      border: 1px solid #f44336;
+    }
+    
+    .captain-badge {
+      font-size: 10px;
+      margin-left: 5px;
+      padding: 1px 3px;
+      border-radius: 3px;
+      background: gold;
+      color: black;
+    }
+    
+    .vice-badge {
+      font-size: 10px;
+      margin-left: 5px;
+      padding: 1px 3px;
+      border-radius: 3px;
+      background: silver;
+      color: black;
     }
     
     .player-count {
@@ -279,6 +325,22 @@
         font-size: 12px;
       }
     }
+    
+    @media (max-width: 400px) {
+      .player-list li {
+        font-size: 12px;
+        padding: 4px 6px;
+      }
+      
+      .player-actions button {
+        font-size: 10px;
+        padding: 1px 3px;
+      }
+      
+      .captain-badge, .vice-badge {
+        font-size: 8px;
+      }
+    }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -303,7 +365,7 @@
           <button id="addPlayerBtn">Add</button>
         </div>
         <ul class="player-list" id="playerList"></ul>
-        <p class="player-count" id="playerCount">Players: 0/11</p>
+        <p class="player-count" id="playerCount">Players: 0/11 (Select Captain & Vice-Captain)</p>
       </div>
       
       <div class="team-box">
@@ -397,6 +459,8 @@
     let tossWinner = '';
     let battingFirst = '';
     const username = localStorage.getItem('hc_username');
+    let captain = null;
+    let viceCaptain = null;
 
     // Set player online status
     set(playerRef, true).catch(error => {
@@ -411,7 +475,7 @@
           if (userData.players && userData.players.length > 0) {
             players = userData.players.slice(0, 11); // Load first 11 players by default
             updatePlayerList();
-            submitTeamBtn.disabled = players.length < 2;
+            submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
           }
         }
       });
@@ -486,11 +550,15 @@
         addPlayerBtn.disabled = true;
       }
       
-      submitTeamBtn.disabled = players.length < 2;
+      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
     });
 
     // Remove player from team
     function removePlayer(index) {
+      const removedPlayer = players[index];
+      if (removedPlayer === captain) captain = null;
+      if (removedPlayer === viceCaptain) viceCaptain = null;
+      
       players.splice(index, 1);
       updatePlayerList();
       
@@ -499,22 +567,94 @@
         addPlayerBtn.disabled = false;
       }
       
-      submitTeamBtn.disabled = players.length < 2;
+      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+    }
+
+    // Create player list item
+    function createPlayerListItem(player, index) {
+      const li = document.createElement('li');
+      if (player === captain) li.classList.add('captain');
+      if (player === viceCaptain) li.classList.add('vice-captain');
+      
+      const playerName = document.createElement('span');
+      playerName.style.overflow = 'hidden';
+      playerName.style.textOverflow = 'ellipsis';
+      playerName.style.whiteSpace = 'nowrap';
+      playerName.style.maxWidth = '60%';
+      playerName.textContent = player;
+      
+      if (player === captain) {
+        const badge = document.createElement('span');
+        badge.classList.add('captain-badge');
+        badge.textContent = 'C';
+        playerName.appendChild(badge);
+      } else if (player === viceCaptain) {
+        const badge = document.createElement('span');
+        badge.classList.add('vice-badge');
+        badge.textContent = 'VC';
+        playerName.appendChild(badge);
+      }
+      
+      const actions = document.createElement('div');
+      actions.classList.add('player-actions');
+      
+      if (player !== captain) {
+        const captainBtn = document.createElement('button');
+        captainBtn.classList.add('make-captain');
+        captainBtn.textContent = 'C';
+        captainBtn.title = 'Make captain';
+        captainBtn.addEventListener('click', () => setCaptain(player));
+        actions.appendChild(captainBtn);
+      }
+      
+      if (player !== viceCaptain) {
+        const viceBtn = document.createElement('button');
+        viceBtn.classList.add('make-vice');
+        viceBtn.textContent = 'VC';
+        viceBtn.title = 'Make vice-captain';
+        viceBtn.addEventListener('click', () => setViceCaptain(player));
+        actions.appendChild(viceBtn);
+      }
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.classList.add('remove-player');
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove player';
+      removeBtn.addEventListener('click', () => removePlayer(index));
+      actions.appendChild(removeBtn);
+      
+      li.appendChild(playerName);
+      li.appendChild(actions);
+      return li;
     }
 
     // Update player list UI
     function updatePlayerList() {
       playerList.innerHTML = '';
       players.forEach((player, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">${player}</span>
-          <button onclick="removePlayer(${index})">×</button>
-        `;
-        playerList.appendChild(li);
+        playerList.appendChild(createPlayerListItem(player, index));
       });
       
-      playerCount.textContent = `Players: ${players.length}/11`;
+      const countText = `Players: ${players.length}/11` + 
+        (captain ? ` | Captain: ${captain}` : '') + 
+        (viceCaptain ? ` | VC: ${viceCaptain}` : '');
+      playerCount.textContent = countText;
+      
+      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+    }
+
+    // Set captain
+    function setCaptain(player) {
+      captain = player;
+      if (viceCaptain === player) viceCaptain = null;
+      updatePlayerList();
+    }
+
+    // Set vice-captain
+    function setViceCaptain(player) {
+      viceCaptain = player;
+      if (captain === player) captain = null;
+      updatePlayerList();
     }
 
     // Update opponent player list UI
@@ -535,10 +675,17 @@
         return;
       }
       
+      if (!captain || !viceCaptain) {
+        alert('Please select both captain and vice-captain');
+        return;
+      }
+      
       update(teamsRef, {
         [player]: {
           name: teamName,
-          players: players
+          players: players,
+          captain: captain,
+          viceCaptain: viceCaptain
         }
       }).then(() => {
         submitTeamBtn.style.display = 'none';
@@ -616,8 +763,10 @@
       window.location.href = `squad.html?username=${username}`;
     });
 
-    // Make removePlayer function available globally
+    // Make functions available globally
     window.removePlayer = removePlayer;
+    window.setCaptain = setCaptain;
+    window.setViceCaptain = setViceCaptain;
   </script>
 </body>
 </html>
