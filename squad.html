@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - Manage Squad</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      color: #ffeb3b;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-bottom: 20px;
+    }
+    
+    .user-info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .user-info p {
+      margin: 5px 0;
+    }
+    
+    .user-team {
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .squad-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 20px 0;
+      justify-content: center;
+    }
+    
+    .squad-box {
+      flex: 1;
+      min-width: 300px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .squad-box h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 8px;
+    }
+    
+    .player-input {
+      display: flex;
+      margin: 10px 0;
+    }
+    
+    .player-input input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 5px 0 0 5px;
+      border: none;
+      background: rgba(255,255,255,0.9);
+      font-size: 14px;
+    }
+    
+    .player-input button {
+      padding: 10px 15px;
+      border-radius: 0 5px 5px 0;
+      border: none;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .player-input button:hover {
+      background: #388E3C;
+    }
+    
+    .player-list {
+      list-style: none;
+      padding: 0;
+      margin: 15px 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .player-list li {
+      padding: 8px 10px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    
+    .player-list li:hover {
+      background: rgba(30, 136, 229, 0.4);
+    }
+    
+    .player-list li button {
+      background: none;
+      border: none;
+      color: #f44336;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      padding: 0 6px;
+    }
+    
+    .player-count {
+      font-size: 14px;
+      color: #aaa;
+      margin-top: 10px;
+    }
+    
+    .btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 10px 5px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-save {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .btn-back {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    .btn-release {
+      background: linear-gradient(145deg, #f44336, #d32f2f);
+    }
+    
+    .search-box {
+      margin: 15px 0;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #1e88e5;
+      border-radius: 8px;
+      background: rgba(30, 136, 229, 0.1);
+      color: white;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid #1e88e5;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    
+    .error-message {
+      color: #f44336;
+      margin: 10px 0;
+    }
+    
+    .success-message {
+      color: #4CAF50;
+      margin: 10px 0;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .squad-container {
+        flex-direction: column;
+      }
+      
+      .squad-box {
+        min-width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 Manage Squad</h1>
+    
+    <div class="user-info">
+      <p>Team: <span id="teamDisplay" class="user-team"></span></p>
+      <p>Players: <span id="playerCount">0/30</span></p>
+    </div>
+    
+    <div class="squad-container">
+      <div class="squad-box">
+        <h2>Your Squad</h2>
+        
+        <div class="player-input">
+          <input type="text" id="playerNameInput" placeholder="Enter player name">
+          <button id="addPlayerBtn">Add</button>
+        </div>
+        
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search players...">
+        </div>
+        
+        <ul class="player-list" id="playerList"></ul>
+        
+        <p class="error-message" id="errorMessage"></p>
+        <p class="success-message" id="successMessage"></p>
+        
+        <button id="saveSquadBtn" class="btn btn-save">Save Squad</button>
+        <button id="backBtn" class="btn btn-back">Back to Home</button>
+      </div>
+      
+      <div class="squad-box">
+        <h2>Player Database</h2>
+        <div class="loading-spinner" id="dbLoading"></div>
+        <ul class="player-list" id="dbPlayerList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, update, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get('username');
+    
+    if (!username) {
+      window.location.href = 'index.html';
+    }
+    
+    // DOM elements
+    const teamDisplay = document.getElementById('teamDisplay');
+    const playerCount = document.getElementById('playerCount');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const searchInput = document.getElementById('searchInput');
+    const playerList = document.getElementById('playerList');
+    const dbPlayerList = document.getElementById('dbPlayerList');
+    const dbLoading = document.getElementById('dbLoading');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+    const saveSquadBtn = document.getElementById('saveSquadBtn');
+    const backBtn = document.getElementById('backBtn');
+    
+    let players = [];
+    let allPlayers = [];
+    let currentTeam = localStorage.getItem('hc_team');
+    
+    // Set team name
+    teamDisplay.textContent = currentTeam;
+    
+    // Load user squad
+    const userRef = ref(db, `users/${username}`);
+    onValue(userRef, (snap) => {
+      if (snap.exists()) {
+        const userData = snap.val();
+        players = userData.players || [];
+        updatePlayerList();
+      }
+    });
+    
+    // Load all players from database
+    const playersRef = ref(db, 'players');
+    onValue(playersRef, (snap) => {
+      dbLoading.style.display = 'none';
+      if (snap.exists()) {
+        allPlayers = Object.entries(snap.val()).map(([id, player]) => ({
+          id,
+          ...player
+        }));
+        updateDBPlayerList();
+      }
+    });
+    
+    // Add player to squad
+    addPlayerBtn.addEventListener('click', async () => {
+      const playerName = playerNameInput.value.trim();
+      if (!playerName) {
+        showError('Please enter a player name');
+        return;
+      }
+      
+      if (players.length >= 30) {
+        showError('Maximum 30 players allowed in squad');
+        return;
+      }
+      
+      if (players.includes(playerName)) {
+        showError('Player already in your squad');
+        return;
+      }
+      
+      // Check if player exists in database
+      const playerRef = ref(db, `players/${playerName.toLowerCase()}`);
+      const playerSnap = await get(playerRef);
+      
+      if (playerSnap.exists()) {
+        const playerData = playerSnap.val();
+        if (playerData.team && playerData.team !== currentTeam) {
+          showError(`This player is already part of ${playerData.team}`);
+          return;
+        }
+      }
+      
+      players.push(playerName);
+      updatePlayerList();
+      playerNameInput.value = '';
+      clearMessages();
+      
+      if (players.length >= 30) {
+        playerNameInput.disabled = true;
+        addPlayerBtn.disabled = true;
+      }
+    });
+    
+    // Remove player from squad
+    function removePlayer(index) {
+      players.splice(index, 1);
+      updatePlayerList();
+      
+      if (players.length < 30) {
+        playerNameInput.disabled = false;
+        addPlayerBtn.disabled = false;
+      }
+      
+      clearMessages();
+    }
+    
+    // Update player list UI
+    function updatePlayerList() {
+      playerList.innerHTML = '';
+      const searchTerm = searchInput.value.toLowerCase();
+      
+      players
+        .filter(player => player.toLowerCase().includes(searchTerm))
+        .forEach((player, index) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span>${player}</span>
+            <button onclick="removePlayer(${index})">×</button>
+          `;
+          playerList.appendChild(li);
+        });
+      
+      playerCount.textContent = `Players: ${players.length}/30`;
+    }
+    
+    // Update database player list
+    function updateDBPlayerList() {
+      dbPlayerList.innerHTML = '';
+      const searchTerm = searchInput.value.toLowerCase();
+      
+      allPlayers
+        .filter(player => 
+          player.name.toLowerCase().includes(searchTerm) &&
+          (!player.team || player.team === currentTeam)
+        )
+        .forEach(player => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span>${player.name} ${player.team ? `(${player.team})` : ''}</span>
+            ${!player.team ? `<button class="btn btn-release" onclick="claimPlayer('${player.id}')">Claim</button>` : ''}
+          `;
+          dbPlayerList.appendChild(li);
+        });
+    }
+    
+    // Claim player from database
+    window.claimPlayer = async function(playerId) {
+      if (players.length >= 30) {
+        showError('Maximum 30 players allowed in squad');
+        return;
+      }
+      
+      const playerRef = ref(db, `players/${playerId}`);
+      const playerSnap = await get(playerRef);
+      
+      if (!playerSnap.exists()) {
+        showError('Player not found');
+        return;
+      }
+      
+      const playerData = playerSnap.val();
+      if (playerData.team && playerData.team !== currentTeam) {
+        showError(`This player is already part of ${playerData.team}`);
+        return;
+      }
+      
+      if (players.includes(playerData.name)) {
+        showError('Player already in your squad');
+        return;
+      }
+      
+      // Add to squad
+      players.push(playerData.name);
+      updatePlayerList();
+      clearMessages();
+      
+      // Update player team in database
+      await update(playerRef, {
+        team: currentTeam
+      });
+    }
+    
+    // Save squad
+    saveSquadBtn.addEventListener('click', async () => {
+      if (players.length < 11) {
+        showError('Minimum 11 players required in squad');
+        return;
+      }
+      
+      try {
+        // Update user squad
+        await update(userRef, {
+          players: players
+        });
+        
+        // Update player database
+        const updates = {};
+        players.forEach(player => {
+          const playerKey = player.toLowerCase().replace(/\s+/g, '_');
+          updates[`players/${playerKey}/name`] = player;
+          updates[`players/${playerKey}/team`] = currentTeam;
+        });
+        
+        await update(ref(db), updates);
+        
+        showSuccess('Squad saved successfully!');
+      } catch (error) {
+        console.error('Error saving squad:', error);
+        showError('Failed to save squad. Please try again.');
+      }
+    });
+    
+    // Search functionality
+    searchInput.addEventListener('input', () => {
+      updatePlayerList();
+      updateDBPlayerList();
+    });
+    
+    // Back button
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+    
+    // Helper functions
+    function showError(message) {
+      errorMessage.textContent = message;
+      successMessage.textContent = '';
+    }
+    
+    function showSuccess(message) {
+      successMessage.textContent = message;
+      errorMessage.textContent = '';
+    }
+    
+    function clearMessages() {
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+    }
+    
+    // Make removePlayer function available globally
+    window.removePlayer = removePlayer;
+  </script>
+</body>
+</html>
