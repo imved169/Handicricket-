@@ -633,7 +633,7 @@
       margin: 6px 0;
       padding-right: 4px;
     }
-
+    
     .player-item, .batter-item {
       padding: 6px;
       margin: 3px 0;
@@ -1481,7 +1481,7 @@
         <div class="score-details">
           <div>Overs: <strong id="overs">0.0</strong></div>
           <div>Run Rate: <strong id="runRate">0.00</strong></div>
-          <div id="targetNeeded" style="display: none;">Need <span id="runsNeeded">0</span> in <span id="ballsLeft">0</span></div>
+          <div id="targetDetails" style="display: none;">Target: <strong id="targetDisplay">0</strong> (<span id="runsNeeded">0</span> needed in <span id="ballsRemaining">0</span> balls)</div>
         </div>
       </div>
     </div>
@@ -1901,7 +1901,8 @@
     let inningsCount = { player1: 0, player2: 0 };
     let followOnAvailable = false;
     let matchSaved = false;
-    let matchResult = null;
+    let team1Name = "Team 1";
+    let team2Name = "Team 2";
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -1943,8 +1944,11 @@
     const summaryOvers = document.getElementById("summaryOvers");
     const summaryRunRate = document.getElementById("summaryRunRate");
     const summaryHighlight = document.getElementById("summaryHighlight");
+    const targetDetails = document.getElementById("targetDetails");
     const targetDisplay = document.getElementById("targetDisplay");
     const targetValue = document.getElementById("targetValue");
+    const runsNeeded = document.getElementById("runsNeeded");
+    const ballsRemaining = document.getElementById("ballsRemaining");
     const matchGraphics = document.getElementById("matchGraphics");
     const miniScorecard = document.getElementById("miniScorecard");
     const miniScore = document.getElementById("miniScore");
@@ -1963,9 +1967,6 @@
     const bowlersStatsBody = document.getElementById("bowlersStatsBody");
     const prevStatsBtn = document.getElementById("prevStatsBtn");
     const nextStatsBtn = document.getElementById("nextStatsBtn");
-    const targetNeeded = document.getElementById("targetNeeded");
-    const runsNeeded = document.getElementById("runsNeeded");
-    const ballsLeft = document.getElementById("ballsLeft");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2014,17 +2015,19 @@
 
         // Load Team 1
         if (teams.player1?.players) {
-          team1NameEl.textContent = teams.player1.name || "Team A";
-          team1NameDisplay.textContent = teams.player1.name || "Team A";
-          battingTeamName.textContent = teams.player1.name || "Team A";
+          team1Name = teams.player1.name || "Team 1";
+          team1NameEl.textContent = team1Name;
+          team1NameDisplay.textContent = team1Name;
+          battingTeamName.textContent = team1Name;
           team1Players = teams.player1.players;
           team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
         }
 
         // Load Team 2
         if (teams.player2?.players) {
-          team2NameEl.textContent = teams.player2.name || "Team B";
-          team2NameDisplay.textContent = teams.player2.name || "Team B";
+          team2Name = teams.player2.name || "Team 2";
+          team2NameEl.textContent = team2Name;
+          team2NameDisplay.textContent = team2Name;
           team2Players = teams.player2.players;
           team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
         }
@@ -2158,21 +2161,22 @@
       // Update mini scorecard
       miniScore.textContent = `${runs}/${wicketsDisplay}`;
       miniOvers.textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
-
-      // Update target needed in second innings
+      
+      // Update target details if in second innings
       if (secondInningsStarted) {
-        targetNeeded.style.display = 'block';
-        const needed = target - runs - 1;
         const remainingBalls = currentFormat.totalOvers * 6 - legalBalls;
-        runsNeeded.textContent = needed;
-        ballsLeft.textContent = remainingBalls;
+        const runsNeededValue = target - runs - 1;
+        runsNeeded.textContent = runsNeededValue > 0 ? runsNeededValue : 0;
+        ballsRemaining.textContent = remainingBalls > 0 ? remainingBalls : 0;
+        targetDetails.style.display = 'block';
       } else {
-        targetNeeded.style.display = 'none';
+        targetDetails.style.display = 'none';
       }
     }
 
     // Update player stats display
     function updatePlayerStats() {
+      // Update run rate
       const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
       const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
       document.getElementById('runRate').textContent = rr;
@@ -2208,9 +2212,12 @@
             } else if (ballData.runs > 0) {
               ballEl.className += ' run';
               ballEl.textContent = ballData.runs;
-            } else if (ballData.penalty) {
+            } else if (ballData.isNoBall) {
               ballEl.className += ' noball';
               ballEl.textContent = 'NB';
+            } else if (ballData.isFreeHit) {
+              ballEl.className += ' run';
+              ballEl.textContent = ballData.runs > 0 ? ballData.runs : 'FH';
             } else {
               ballEl.className += ' dot';
               ballEl.textContent = '•';
@@ -2239,12 +2246,6 @@
       
       tickerPartnership.textContent = partnershipRuns;
       tickerPartnershipBalls.textContent = partnershipBalls;
-      
-      // Add contextual commentary for partnerships
-      if (partnershipRuns >= 50 && partnershipRuns % 10 === 0) {
-        const randomComment = commentaryPhrases.partnership[Math.floor(Math.random() * commentaryPhrases.partnership.length)];
-        showNotification(`Partnership now ${partnershipRuns} runs from ${partnershipBalls} balls - ${randomComment}`, 'info');
-      }
     }
 
     // Update last 5 overs stats
@@ -2263,13 +2264,6 @@
       }
       
       tickerLast5.textContent = `${last5Runs}/${last5Wickets}`;
-      
-      // Add expert analysis
-      if (legalBalls % 30 === 0 && legalBalls > 0) { // Every 5 overs
-        const rrLast5 = (last5Runs / 5).toFixed(1);
-        const randomComment = commentaryPhrases.runRate[Math.floor(Math.random() * commentaryPhrases.runRate.length)];
-        showNotification(`Last 5 overs: ${last5Runs} runs, ${last5Wickets} wickets (RR: ${rrLast5}) - ${randomComment}`, 'info');
-      }
     }
 
     // Update current time
@@ -2471,10 +2465,6 @@
       // Additional effects for sixes
       if (isSix) {
         createBallTrail();
-        setTimeout(() => {
-          const randomComment = commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)];
-          showNotification(`SIX! ${randomComment}`, 'info');
-        }, 300);
       }
     }
 
@@ -2516,6 +2506,8 @@
         let runsScored = 0;
         let boundary = false;
         let isSix = false;
+        let isNoBall = false;
+        let isFreeHit = false;
 
         // Track zeros for both players
         if (batterCard === 0) zerosThisOver[battingPlayer]++;
@@ -2537,10 +2529,10 @@
           outcome = "NO BALL! +1 run (Free Hit next ball)";
           runs += 1;
           freeHitNextBall = true;
+          isNoBall = true;
           isLegalBall = false;
           
-          const randomComment = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-          showNotification(randomComment, 'error');
+          showNotification("No ball! Free hit coming up", 'error');
           addToTimeline("NB", 'error');
           createUmpireSignal("👆");
         } 
@@ -2549,9 +2541,9 @@
           if (batterCard === bowlerCard && batterCard > 0) {
             outcome = "Wicket on Free Hit (not out)";
             isWicket = false;
+            isFreeHit = true;
             
-            const randomComment = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
-            showNotification(`${randomComment} - ${currentBatter} survives`, 'info');
+            showNotification("Free hit - batter survives!", 'info');
             createUmpireSignal("👈");
           } else {
             runsScored = batterCard;
@@ -2560,9 +2552,9 @@
             outcome = `${batterCard} Run(s)! (Free Hit)`;
             if (batterCard === 4 || batterCard === 6) boundary = true;
             if (batterCard === 6) isSix = true;
+            isFreeHit = true;
             
-            const randomComment = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
-            showNotification(`${currentBatter} scores ${batterCard} on free hit - ${randomComment}`, 'info');
+            showNotification(`${batterCard} runs on free hit!`, 'info');
             addToTimeline(`${batterCard} FH`, 'info');
             if (batterCard === 4) createUmpireSignal("👈");
             if (batterCard === 6) createUmpireSignal("↖️");
@@ -2592,8 +2584,7 @@
                 bowler: currentBowler
               });
               
-              const randomComment = commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)];
-              showNotification(`WICKET! ${randomComment} - ${currentBowler} gets ${currentBatter} out!`, 'wicket');
+              showNotification(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
               addToTimeline(`W ${currentBatter}`, 'wicket');
               createWicketAnimation();
               createUmpireSignal("☝️");
@@ -2601,8 +2592,7 @@
               const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
               outcome = `WICKET! (${remain} left for this batter)`;
               
-              const randomComment = commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)];
-              showNotification(`${randomComment} - ${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
+              showNotification(`${currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
               addToTimeline(`W ${actualWicketValue}`, 'wicket');
             }
           } else {
@@ -2620,8 +2610,7 @@
             batterPenalties[currentBatter] = (batterPenalties[currentBatter] || 0) + penaltyRuns;
             outcome = "4th 0 in over! -5 runs";
             
-            const randomComment = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
-            showNotification(`4th dot ball in over! Penalty of 5 runs - ${randomComment}`, 'error');
+            showNotification(`4th dot ball in over! Penalty of 5 runs`, 'error');
             addToTimeline("-5", 'error');
             
             checkBatterMilestones(true);
@@ -2638,8 +2627,7 @@
             }
             if (bowlerCard === 6) isSix = true;
             
-            const randomComment = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
-            showNotification(`${currentBatter} plays defensive, ${bowlerCard} runs conceded - ${randomComment}`, 'info');
+            showNotification(`${currentBatter} plays defensive, ${bowlerCard} runs conceded`, 'info');
             addToTimeline(`${bowlerCard}`, 'info');
           }
           isLegalBall = true;
@@ -2650,19 +2638,19 @@
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
+            isNoBall = true;
+            isLegalBall = false;
             
-            const randomComment = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-            showNotification(`4th dot ball from bowler! ${randomComment}`, 'error');
+            showNotification(`4th dot ball from bowler! No ball`, 'error');
             addToTimeline("NB", 'error');
             createUmpireSignal("👆");
           } else {
             outcome = "DOT BALL!";
             
-            const randomComment = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
-            showNotification(`${currentBowler} bowls a dot ball to ${currentBatter} - ${randomComment}`, 'info');
+            showNotification(`${currentBowler} bowls a dot ball to ${currentBatter}`, 'info');
             addToTimeline("•", 'info');
+            isLegalBall = true;
           }
-          isLegalBall = true;
         }
         // 6. Normal runs
         else {
@@ -2673,20 +2661,7 @@
           if (batterCard === 4 || batterCard === 6) boundary = true;
           if (batterCard === 6) isSix = true;
           
-          let randomComment = '';
-          if (batterCard === 1) {
-            randomComment = commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)];
-          } else if (batterCard === 2) {
-            randomComment = commentaryPhrases.double[Math.floor(Math.random() * commentaryPhrases.double.length)];
-          } else if (batterCard === 3) {
-            randomComment = commentaryPhrases.triple[Math.floor(Math.random() * commentaryPhrases.triple.length)];
-          } else if (batterCard === 4) {
-            randomComment = commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)];
-          } else if (batterCard === 6) {
-            randomComment = commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)];
-          }
-          
-          showNotification(`${batterCard} runs! ${randomComment}`, 'info');
+          showNotification(`${batterCard} runs!`, 'info');
           addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
           
           if (boundary) {
@@ -2699,7 +2674,7 @@
         }
 
         // Update batter stats
-        if (currentBatter && isLegalBall) {
+        if (currentBatter && (runsScored > 0 || isWicket || isNoBall || isFreeHit)) {
           batterStats[currentBatter].balls += 1;
           if (batterCard === 4) batterStats[currentBatter].fours += 1;
           if (batterCard === 6) batterStats[currentBatter].sixes += 1;
@@ -2707,19 +2682,20 @@
         }
         
         // Update bowler stats
-        if (currentBowler && isLegalBall) {
+        if (currentBowler && (isLegalBall || isFreeHit)) {
           bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
           if (isWicket) bowlerStats[currentBowler].wickets += 1;
           bowlerStats[currentBowler].runs += runsScored;
           
-          // Update bowler overs (only count legal deliveries)
-          const ballsBowled = (bowlerOvers[currentBowler] || 0) * 6;
-          bowlerOvers[currentBowler] = (ballsBowled + 1) / 6;
-          bowlerStats[currentBowler].overs = bowlerOvers[currentBowler];
-          
-          // Check for maiden over (no runs conceded in completed over)
-          if (legalBalls % 6 === 0 && runs - lastOverRuns === 0) {
-            bowlerStats[currentBowler].maidens += 1;
+          // Update bowler overs (count legal deliveries and free hits)
+          if (isLegalBall || isFreeHit) {
+            const ballsBowled = (bowlerOvers[currentBowler] || 0) * 6;
+            bowlerOvers[currentBowler] = (ballsBowled + 1) / 6;
+            
+            // Check for maiden over (no runs conceded in completed over)
+            if (legalBalls % 6 === 0 && runs - lastOverRuns === 0) {
+              bowlerStats[currentBowler].maidens += 1;
+            }
           }
         }
 
@@ -2731,7 +2707,9 @@
           bowler: currentBowler,
           timestamp: Date.now(),
           outcome: outcome,
-          penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0
+          penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0,
+          isNoBall: isNoBall,
+          isFreeHit: isFreeHit
         };
 
         // Record last wicket score for partnership
@@ -2739,12 +2717,12 @@
           lastWicketScore = runs;
         }
 
-        // Handle legal balls
-        if (isLegalBall) {
+        // Handle legal balls (including free hits)
+        if (isLegalBall || isFreeHit) {
           legalBalls++;
           updateOverSummary();
           
-          if (currentBowler) {
+          if (currentBowler && (isLegalBall || isFreeHit)) {
             if (legalBalls % 6 === 0) {
               zerosThisOver = { player1: 0, player2: 0 };
             }
@@ -2824,7 +2802,7 @@
             if (isPlayerOut && player === battingPlayer) {
               batterSelected = false;
               await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
+            } else if ((isLegalBall || isFreeHit) && legalBalls % 6 === 0) {
               bowlerSelected = false;
               if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
                 await showBowlerSelection();
@@ -2867,8 +2845,7 @@
           
           // Only notify if this is a new achievement
           if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
-            const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns}) - ${randomComment}`, 'batting');
+            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns})`, 'batting');
             batter[`milestone${milestone}Notified`] = true;
             
             if (milestone >= 100) {
@@ -2887,8 +2864,7 @@
 
       // Special handling for 50 and 100
       if (netRuns >= 50 && !batter.fiftyNotified) {
-        const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns}) - ${randomComment}`, 'batting');
+        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns})`, 'batting');
         batter.fiftyNotified = true;
         createConfetti();
         createUmpireSignal("5️⃣0️⃣");
@@ -2899,8 +2875,7 @@
       }
 
       if (netRuns >= 100 && !batter.centuryNotified) {
-        const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns}) - ${randomComment}`, 'batting');
+        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns})`, 'batting');
         batter.centuryNotified = true;
         createConfetti();
         createUmpireSignal("💯");
@@ -2932,61 +2907,61 @@
     }
 
     // Show batter selection modal with fractional wickets
-async function showBatterSelection() {
-    disableButtons();
+    async function showBatterSelection() {
+      disableButtons();
 
-    // Reset modal state first
-    resetSelectionModal();
+      // Reset modal state first
+      resetSelectionModal();
 
-    try {
-        resultEl.innerText = "Loading batters...";
-        
-        const currentPlayers = player === "player1" ? team1Players : team2Players;
-        const availableBatters = currentPlayers.filter(p => {
-            const wicketsUsed = Math.min(1.0, batterWickets[p] || 0);
-            return wicketsUsed < 1.0;
-        });
+      try {
+          resultEl.innerText = "Loading batters...";
+          
+          const currentPlayers = player === "player1" ? team1Players : team2Players;
+          const availableBatters = currentPlayers.filter(p => {
+              const wicketsUsed = Math.min(1.0, batterWickets[p] || 0);
+              return wicketsUsed < 1.0;
+          });
 
-        if (availableBatters.length === 0) {
-            showNotification("All batters are out!", 'error');
-            enableButtons();
-            return;
-        }
+          if (availableBatters.length === 0) {
+              showNotification("All batters are out!", 'error');
+              enableButtons();
+              return;
+          }
 
-        selectionTitle.textContent = "Select Next Batter";
-        selectionList.innerHTML = "";
-        
-        availableBatters.forEach(player => {
-            const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
-            const wicketsUsed = Math.min(1.0, batterWickets[player] || 0).toFixed(1);
-            
-            const batterEl = document.createElement("div");
-            batterEl.className = "batter-item";
-            batterEl.dataset.name = player;
-            batterEl.innerHTML = `
-                <div>${player}</div>
-                <div>${stats.runs} runs (${wicketsUsed} wickets used)</div>
-            `;
-            
-            batterEl.addEventListener("click", function() {
-                document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
-                this.classList.add("selected");
-            });
-            
-            selectionList.appendChild(batterEl);
-        });
+          selectionTitle.textContent = "Select Next Batter";
+          selectionList.innerHTML = "";
+          
+          availableBatters.forEach(player => {
+              const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+              const wicketsUsed = Math.min(1.0, batterWickets[player] || 0).toFixed(1);
+              
+              const batterEl = document.createElement("div");
+              batterEl.className = "batter-item";
+              batterEl.dataset.name = player;
+              batterEl.innerHTML = `
+                  <div>${player}</div>
+                  <div>${stats.runs} runs (${wicketsUsed} wickets used)</div>
+              `;
+              
+              batterEl.addEventListener("click", function() {
+                  document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
+                  this.classList.add("selected");
+              });
+              
+              selectionList.appendChild(batterEl);
+          });
 
-        // Show modal with transition
-        selectionModal.style.display = "block";
-        resultEl.innerText = "Select your next batter...";
-    } catch (error) {
-        console.error("Batter selection error:", error);
-        showNotification("Error loading batters", 'error');
-        enableButtons();
+          // Show modal with transition
+          selectionModal.style.display = "block";
+          resultEl.innerText = "Select your next batter...";
+      } catch (error) {
+          console.error("Batter selection error:", error);
+          showNotification("Error loading batters", 'error');
+          enableButtons();
+      }
     }
-}
 
-// Show bowler selection modal
+    // Show bowler selection modal
 async function showBowlerSelection() {
     disableButtons();
 
@@ -3004,7 +2979,7 @@ async function showBowlerSelection() {
             return;
         }
         
-        const maxOversPerBowler = currentFormat.name === "Test" ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
+        const maxOversPerBowler = currentFormat.name === "Test Match" ? Infinity : Math.ceil(currentFormat.totalOvers / 5);
         const availableBowlers = currentPlayers.filter(p => (bowlerOvers[p] || 0) < maxOversPerBowler);
         
         if (availableBowlers.length === 0) {
@@ -3018,14 +2993,15 @@ async function showBowlerSelection() {
         
         availableBowlers.forEach(player => {
             const oversBowled = bowlerOvers[player] || 0;
-            const stats = bowlerStats[player] || { wickets: 0, runs: 0 };
+            const stats = bowlerStats[player] || { wickets: 0, runs: 0, maidens: 0 };
+            const er = oversBowled > 0 ? (stats.runs / oversBowled).toFixed(2) : '0.00';
             
             const playerEl = document.createElement("div");
             playerEl.className = "player-item";
             playerEl.dataset.name = player;
             playerEl.innerHTML = `
                 <div>${player}</div>
-                <div>${oversBowled.toFixed(1)} overs, ${stats.wickets} wickets, ER: ${(stats.runs/(oversBowled || 1)).toFixed(2)}</div>
+                <div>${oversBowled.toFixed(1)} overs, ${stats.wickets} wickets, ER: ${er}, Maidens: ${stats.maidens}</div>
             `;
             
             playerEl.addEventListener("click", function() {
@@ -3144,12 +3120,12 @@ function disableButtons() {
 // Enable all card buttons
 function enableButtons() {
     if (isResetting || isSpectator) return;
-    
+      
     const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
     buttons.forEach(btn => {
         btn.disabled = !canPlay;
     });
-    
+      
     if (canPlay) {
         resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
     }
@@ -3191,6 +3167,7 @@ function updateStatsTables() {
             <td>${stats.wickets}</td>
             <td>${stats.runs}</td>
             <td>${er}</td>
+            <td>${stats.maidens}</td>
         `;
         bowlersStatsBody.appendChild(row);
     });
@@ -3327,7 +3304,7 @@ async function startSecondInnings() {
 // Handle match end
 async function endMatch(chasingTeamWon) {
     disableButtons();
-    
+      
     // Correct winner determination
     const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
     const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
@@ -3337,7 +3314,7 @@ async function endMatch(chasingTeamWon) {
     const winningMargin = chasingTeamWon 
         ? `${currentFormat.totalWickets - wickets} wickets` 
         : `${target - runs - 1} runs`;
-    
+      
     resultEl.innerHTML = `<strong>${winnerName} won by ${winningMargin}</strong>`;
 
     // Determine player of the match
@@ -3379,6 +3356,7 @@ async function endMatch(chasingTeamWon) {
             combinedBowlerStats[player].wickets += bowlerStats[player].wickets;
             combinedBowlerStats[player].runs += bowlerStats[player].runs;
             combinedBowlerStats[player].overs += bowlerStats[player].overs;
+            combinedBowlerStats[player].maidens += bowlerStats[player].maidens;
         } else {
             combinedBowlerStats[player] = { ...bowlerStats[player] };
         }
@@ -3517,6 +3495,7 @@ async function endMatch(chasingTeamWon) {
         try {
             await set(ref(db, `matchHistory/${room}`), matchResult);
             showNotification("Match data saved successfully!", 'info');
+            matchSaved = true;
         } catch (error) {
             console.error("Error saving match:", error);
             showNotification("Failed to save match data", 'error');
@@ -3531,7 +3510,7 @@ async function endMatch(chasingTeamWon) {
 // Update spectator data with match details
 function updateSpectatorData() {
     const currentOver = Math.floor(legalBalls / 6);
-    
+      
     // Update live state
     set(liveStateRef, {
         runs: runs,
@@ -3569,7 +3548,10 @@ async function saveGameState() {
             firstInningsCompleted: firstInningsCompleted,
             secondInningsStarted: secondInningsStarted,
             target: target,
-            chasingTeam: chasingTeam
+            chasingTeam: chasingTeam,
+            ballByBall: ballByBall,
+            overSummaries: overSummaries,
+            fallOfWickets: fallOfWickets
         };
         
         await set(ref(db, `savedGames/${room}`), gameState);
@@ -3995,12 +3977,12 @@ function setupSpectatorMode() {
     document.getElementById("cardButtons").style.display = "none";
     document.getElementById("topControls").style.display = "none";
     document.getElementById("connectionStatus").textContent = "Spectating match";
-    
+      
     // Set up all Firebase listeners
     setupFirebaseListeners();
     setupTeamsModal();
     setupStatsSlider();
-    
+      
     // Listen for live state changes
     onValue(liveStateRef, (snap) => {
         if (snap.exists()) {
@@ -4023,7 +4005,7 @@ function setupSpectatorMode() {
             freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
         }
     });
-    
+      
     loadingSpinner.style.display = "none";
     resultEl.innerText = "Watching match live...";
 }
@@ -4191,15 +4173,15 @@ function generateCommentary(batterCard, bowlerCard, outcome) {
 function showPlayerStats(inningsData, isFirstInnings = true) {
     const statsContainer = document.createElement('div');
     statsContainer.className = 'stats-container';
-    
+      
     // Batters stats
     const battersSection = document.createElement('div');
     battersSection.className = 'stats-section';
     battersSection.innerHTML = '<h4>Batting Stats</h4>';
-    
+      
     const battersList = document.createElement('div');
     battersList.className = 'stats-list';
-    
+      
     for (const player in inningsData.batterStats) {
         const stats = inningsData.batterStats[player];
         if (stats.balls > 0) { // Only show batters who faced at least one ball
@@ -4213,18 +4195,18 @@ function showPlayerStats(inningsData, isFirstInnings = true) {
             battersList.appendChild(batterItem);
         }
     }
-    
+      
     battersSection.appendChild(battersList);
     statsContainer.appendChild(battersSection);
-    
+      
     // Bowlers stats
     const bowlersSection = document.createElement('div');
     bowlersSection.className = 'stats-section';
     bowlersSection.innerHTML = '<h4>Bowling Stats</h4>';
-    
+      
     const bowlersList = document.createElement('div');
     bowlersList.className = 'stats-list';
-    
+      
     for (const player in inningsData.bowlerStats) {
         const stats = inningsData.bowlerStats[player];
         if (stats.overs > 0) { // Only show bowlers who bowled at least one ball
@@ -4233,19 +4215,19 @@ function showPlayerStats(inningsData, isFirstInnings = true) {
             const er = (stats.runs / stats.overs).toFixed(2);
             bowlerItem.innerHTML = `
                 <strong>${player}</strong>: ${stats.overs.toFixed(1)}-${stats.runs}-${stats.wickets} 
-                ER: ${er}
+                ER: ${er}, Maidens: ${stats.maidens}
             `;
             bowlersList.appendChild(bowlerItem);
         }
     }
-    
+      
     bowlersSection.appendChild(bowlersList);
     statsContainer.appendChild(bowlersSection);
-    
+      
     // Add to summary popup
     const summaryContent = document.querySelector('.summary-content');
     summaryContent.appendChild(statsContainer);
-    
+      
     // Add to Firebase
     const statsRef = ref(db, `rooms/${room}/${isFirstInnings ? 'firstInningsStats' : 'secondInningsStats'}`);
     set(statsRef, {
@@ -4294,15 +4276,15 @@ function showResetConfirmation(requestedBy) {
             <button class="reset-decline">Decline</button>
         </div>
     `;
-    
+      
     document.body.appendChild(notification);
-    
+      
     // Handle accept
     notification.querySelector('.reset-accept').addEventListener('click', async () => {
         await acceptReset();
         notification.remove();
     });
-    
+      
     // Handle decline
     notification.querySelector('.reset-decline').addEventListener('click', async () => {
         await declineReset();
