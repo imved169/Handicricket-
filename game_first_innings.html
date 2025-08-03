@@ -574,6 +574,7 @@
       align-items: center;
       justify-content: center;
       background: rgba(0,0,0,0.5);
+      border-radius: 6px;
       border-left: 3px solid #1e88e5;
     }
     
@@ -1234,16 +1235,9 @@
     .award-badge {
       background: rgba(255,215,0,0.2);
       border: 1px solid gold;
-      padding: 8px 12px;
+      padding: 4px 8px;
       border-radius: 12px;
-      font-size: 12px;
-      text-align: left;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    
-    .award-badge strong {
-      color: #ffeb3b;
+      font-size: 11px;
     }
     
     /* Stats charts */
@@ -1955,8 +1949,6 @@
     let pom = null; // Player of the Match
     let pomStats = null;
     let pomReason = "";
-    let winner = null;
-    let winningMargin = "";
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -2352,7 +2344,7 @@
       }
       
       if (currentBowler) {
-        const bowler = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0, maidens: 0 };
+        const bowler = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
         const er = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : '0.00';
         
         document.getElementById('comparisonBowlerName').textContent = currentBowler;
@@ -2740,16 +2732,14 @@
         
         // Update bowler stats
         if (currentBowler && (isLegalBall || isFreeHit)) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0, maidens: 0 };
+          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0 };
           if (isWicket) bowlerStats[currentBowler].wickets += 1;
           bowlerStats[currentBowler].runs += runsScored;
           
           // Update bowler overs (count legal deliveries and free hits)
           if (isLegalBall || isFreeHit) {
-            const ballsBowled = Math.floor(bowlerStats[currentBowler].overs) * 6 + 
-                               (bowlerStats[currentBowler].overs % 1 * 10);
-            const newBalls = ballsBowled + 1;
-            bowlerStats[currentBowler].overs = Math.floor(newBalls / 6) + (newBalls % 6) / 10;
+            const ballsBowled = (bowlerOvers[currentBowler] || 0) * 6;
+            bowlerOvers[currentBowler] = (ballsBowled + 1) / 6;
             
             // Check for maiden over (no runs conceded in completed over)
             if (legalBalls % 6 === 0 && runs - lastOverRuns === 0) {
@@ -2993,15 +2983,13 @@
           availableBatters.forEach(player => {
               const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
               const wicketsUsed = Math.min(1.0, batterWickets[player] || 0).toFixed(1);
-              const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '0.00';
               
               const batterEl = document.createElement("div");
               batterEl.className = "batter-item";
               batterEl.dataset.name = player;
               batterEl.innerHTML = `
-                  <div><strong>${player}</strong></div>
+                  <div>${player}</div>
                   <div>${stats.runs} runs (${wicketsUsed} wickets used)</div>
-                  <div>SR: ${sr}, 4s/6s: ${stats.fours}/${stats.sixes}</div>
               `;
               
               batterEl.addEventListener("click", function() {
@@ -3061,9 +3049,8 @@
                 playerEl.className = "player-item";
                 playerEl.dataset.name = player;
                 playerEl.innerHTML = `
-                    <div><strong>${player}</strong></div>
-                    <div>${oversBowled.toFixed(1)} overs, ${stats.wickets} wickets</div>
-                    <div>ER: ${er}, Maidens: ${stats.maidens}</div>
+                    <div>${player}</div>
+                    <div>${oversBowled.toFixed(1)} overs, ${stats.wickets} wickets, ER: ${er}, Maidens: ${stats.maidens}</div>
                 `;
                 
                 playerEl.addEventListener("click", function() {
@@ -3135,7 +3122,7 @@
             try {
                 const selected = document.querySelector(".batter-item.selected, .player-item.selected");
                 if (!selected) {
-                    showNotification("Please select a player", 'error");
+                    showNotification("Please select a player", 'error');
                     return;
                 }
 
@@ -3157,7 +3144,7 @@
                 updateButtonStates();
             } catch (error) {
                 console.error("Error confirming selection:", error);
-                showNotification("Failed to confirm selection", 'error");
+                showNotification("Failed to confirm selection", 'error');
             } finally {
                 isConfirmingSelection = false;
             }
@@ -3325,18 +3312,6 @@
             
             // Update second innings stats
             updateSecondInningsStats();
-
-            // Add match result to summary
-            const winnerName = winner === "player1" ? team1Name : team2Name;
-            const resultRow = document.createElement('div');
-            resultRow.className = 'summary-row';
-            resultRow.innerHTML = `
-                <span class="summary-label">Match Result:</span>
-                <span class="summary-value" style="color: #4CAF50; font-weight: bold;">
-                    ${winnerName} won by ${winningMargin}
-                </span>
-            `;
-            summaryContent.insertBefore(resultRow, summaryHighlight.nextSibling);
         } else {
             document.getElementById('summaryTitle').textContent = "First Innings Summary";
             document.getElementById('startSecondInningsBtn').style.display = 'block';
@@ -3600,47 +3575,34 @@
         // Update awards container
         awardsContainer.innerHTML = '';
         
-        // Batting awards - show team name
+        // Batting awards
         if (bestBatsman) {
-            const batsmanTeam = team1Players.includes(bestBatsman) ? team1Name : team2Name;
             const award = document.createElement('div');
             award.className = 'award-badge';
-            award.innerHTML = `🏆 Top Scorer: <strong>${bestBatsman}</strong> (${batsmanTeam}) - ${bestBatsmanStats.runs} runs`;
+            award.textContent = `🏆 Top Scorer: ${bestBatsman} (${bestBatsmanStats.runs} runs)`;
             awardsContainer.appendChild(award);
         }
         
-        // Bowling awards - show team name and detailed stats
+        // Bowling awards
         if (bestBowler) {
-            const bowlerTeam = team1Players.includes(bestBowler) ? team1Name : team2Name;
             const award = document.createElement('div');
             award.className = 'award-badge';
-            award.innerHTML = `🎯 Best Bowler: <strong>${bestBowler}</strong> (${bowlerTeam}) - ${bestBowlerStats.wickets} wkts, ER: ${bestBowlerStats.er}`;
+            award.textContent = `🎯 Best Bowler: ${bestBowler} (${bestBowlerStats.wickets} wkts, ER: ${bestBowlerStats.er})`;
             awardsContainer.appendChild(award);
         }
         
-        // Player of the match - show more details
+        // Player of the match
         if (pom) {
-            const pomTeam = team1Players.includes(pom) ? team1Name : team2Name;
-            const isBatsman = pom === bestBatsman;
+            pomDisplay.style.display = 'block';
+            pomValue.textContent = `${pom} (${pomReason})`;
+            
             const award = document.createElement('div');
             award.className = 'award-badge';
             award.style.background = 'rgba(255,215,0,0.3)';
             award.style.border = '2px solid gold';
-            award.innerHTML = `👑 Player of the Match: <strong>${pom}</strong> (${pomTeam})<br>${pomReason}`;
+            award.textContent = `👑 Player of the Match: ${pom}`;
             awardsContainer.appendChild(award);
-            
-            pomDisplay.style.display = 'block';
-            pomValue.innerHTML = `<strong>${pom}</strong> (${pomTeam})<br>${pomReason}`;
         }
-
-        // Add match result to awards
-        const winnerName = winner === "player1" ? team1Name : team2Name;
-        const resultAward = document.createElement('div');
-        resultAward.className = 'award-badge';
-        resultAward.style.background = 'rgba(76,175,80,0.3)';
-        resultAward.style.border = '2px solid #4CAF50';
-        resultAward.innerHTML = `🏆 Match Winner: <strong>${winnerName}</strong> by ${winningMargin}`;
-        awardsContainer.appendChild(resultAward);
     }
 
     // Update spectator data with match details
@@ -4449,7 +4411,7 @@
             clearCardSelection();
         } catch (error) {
             console.error("Error accepting reset:", error);
-            showNotification("Failed to reset plays", 'error");
+            showNotification("Failed to reset plays", 'error');
         }
     }
 
@@ -4457,10 +4419,10 @@
     async function declineReset() {
         try {
             await set(resetRequestRef, null);
-            showNotification("Reset request declined", 'info");
+            showNotification("Reset request declined", 'info');
         } catch (error) {
             console.error("Error declining reset:", error);
-            showNotification("Failed to decline reset", 'error");
+            showNotification("Failed to decline reset", 'error');
         }
     }
 
@@ -4549,25 +4511,6 @@
         background: rgba(30, 136, 229, 0.1);
         border-radius: 4px;
         font-size: 13px;
-      }
-      .award-badge {
-        background: rgba(255,215,0,0.2);
-        border: 1px solid gold;
-        padding: 8px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        margin: 5px 0;
-        text-align: left;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      .award-badge strong {
-        color: #ffeb3b;
-      }
-      .summary-value.highlight {
-        color: #4CAF50;
-        font-weight: bold;
-        animation: pulse 2s infinite;
       }
     `;
     document.head.appendChild(style);
