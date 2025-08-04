@@ -246,7 +246,7 @@
       color: #aaa;
     }
 
-    /* Timeline Styles */
+    /* Timeline Styles - Updated to match reference image */
     .timeline-container {
       background: rgba(13, 42, 82, 0.7);
       border-radius: 8px;
@@ -262,45 +262,57 @@
 
     .timeline {
       display: flex;
-      overflow-x: auto;
-      gap: 6px;
+      flex-direction: column;
+      gap: 4px;
       padding-bottom: 4px;
     }
 
     .timeline-item {
-      min-width: 70px;
-      padding: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
       border-radius: 4px;
       background: rgba(30, 136, 229, 0.2);
       font-size: 0.7rem;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
+      border-left: 3px solid #1e88e5;
     }
 
     .timeline-item.wicket {
       background: rgba(244, 67, 54, 0.2);
-      border-left: 2px solid #F44336;
+      border-left: 3px solid #F44336;
     }
 
     .timeline-item.boundary {
       background: rgba(255, 193, 7, 0.2);
-      border-left: 2px solid #FFC107;
+      border-left: 3px solid #FFC107;
     }
 
     .timeline-item.milestone {
       background: rgba(76, 175, 80, 0.2);
-      border-left: 2px solid #4CAF50;
+      border-left: 3px solid #4CAF50;
     }
 
     .timeline-over {
       font-weight: bold;
-      margin-bottom: 2px;
+      min-width: 40px;
+      text-align: left;
     }
 
     .timeline-event {
+      flex-grow: 1;
+      text-align: left;
+      padding: 0 8px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .timeline-bowler {
+      min-width: 60px;
+      text-align: right;
+      font-style: italic;
+      color: #aaa;
     }
 
     /* Player Comparison Styles - Enhanced */
@@ -633,7 +645,7 @@
       margin: 6px 0;
       padding-right: 4px;
     }
-    
+
     .player-item, .batter-item {
       padding: 6px;
       margin: 3px 0;
@@ -1510,7 +1522,7 @@
       <div class="over-number">Over <span id="currentOverNumber">1</span></div>
     </div>
     
-    <!-- Match Timeline -->
+    <!-- Match Timeline - Updated to match reference image -->
     <div class="timeline-container">
       <h4>Match Timeline</h4>
       <div class="timeline" id="matchTimeline">
@@ -2313,8 +2325,11 @@
         const runsNeeded = target - runs - 1;
         const requiredRR = remainingBalls > 0 ? (runsNeeded / (remainingBalls / 6)).toFixed(2) : '0.00';
         tickerRequiredRate.textContent = requiredRR;
+        document.getElementById('runsNeeded').textContent = 
+          `Need ${runsNeeded} in ${remainingBalls} balls`;
       } else {
         tickerRequiredRate.textContent = '0.00';
+        document.getElementById('runsNeeded').textContent = '';
       }
     }
 
@@ -2448,21 +2463,13 @@
 
     // Update all displays
     function updateAllDisplays() {
-  updateScoreboard();
-  updatePlayerStats();
-  updateOverProgress();
-  updatePartnership();
-  updateLast5Overs();
-  updateCurrentTime();
-  updatePlayerComparison();
-  
-  // Add this for runs needed display (only during chase)
-  if (secondInningsStarted) {
-    const runsNeeded = target - runs - 1;
-    const ballsRemaining = currentFormat.totalOvers * 6 - legalBalls;
-    document.getElementById('runsNeeded').textContent = 
-      `Need ${runsNeeded} in ${ballsRemaining} balls`;
-  }
+      updateScoreboard();
+      updatePlayerStats();
+      updateOverProgress();
+      updatePartnership();
+      updateLast5Overs();
+      updateCurrentTime();
+      updatePlayerComparison();
     }
 
     // Update over summary
@@ -2516,6 +2523,7 @@
       timelineItem.innerHTML = `
         <div class="timeline-over">${currentOver}.${currentBall}</div>
         <div class="timeline-event">${event}</div>
+        ${currentBowler ? `<div class="timeline-bowler">${currentBowler}</div>` : ''}
       `;
       
       timeline.insertBefore(timelineItem, timeline.firstChild);
@@ -2668,32 +2676,32 @@
         checkDeadOver();
 
         // 1. Check for no ball (both 0)
-if (batterCard === 0 && bowlerCard === 0) {
-  outcome = "NO BALL! +1 run (Free Hit next ball)";
-  runs += 1;
-  freeHitNextBall = true;
-  isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
-  
-  commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-  showNotification(commentaryText, 'error');
-  addToTimeline("NB", 'error');
-  createUmpireSignal("👆");
-  
-  // Record the no ball in ball-by-ball but don't increment legalBalls
-  ballByBall[legalBalls] = {
-    runs: 1,
-    wicket: false,
-    batter: currentBatter,
-    bowler: currentBowler,
-    timestamp: Date.now(),
-    outcome: outcome,
-    penalty: 0,
-    commentary: commentaryText,
-    isNoBall: true
-  };
-  
-  return; 
-}
+        if (batterCard === 0 && bowlerCard === 0) {
+          outcome = "NO BALL! +1 run (Free Hit next ball)";
+          runs += 1;
+          freeHitNextBall = true;
+          isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
+          
+          commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
+          showNotification(commentaryText, 'error');
+          addToTimeline("NB", 'error');
+          createUmpireSignal("👆");
+          
+          // Record the no ball in ball-by-ball but don't increment legalBalls
+          ballByBall[legalBalls] = {
+            runs: 1,
+            wicket: false,
+            batter: currentBatter,
+            bowler: currentBowler,
+            timestamp: Date.now(),
+            outcome: outcome,
+            penalty: 0,
+            commentary: commentaryText,
+            isNoBall: true
+          };
+          
+          return; 
+        }
         // 2. Handle free hit balls
         else if (freeHit) {
           if (batterCard === bowlerCard && batterCard > 0) {
@@ -2739,7 +2747,8 @@ if (batterCard === 0 && bowlerCard === 0) {
                 score: runs,
                 over: `${Math.floor(legalBalls / 6)}.${(legalBalls % 6) + 1}`,
                 batter: currentBatter,
-                bowler: currentBowler
+                bowler: currentBowler,
+                ballNumber: (legalBalls % 6) + 1 // Track ball number when wicket fell
               });
               
               commentaryText = commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)];
@@ -2780,7 +2789,13 @@ if (batterCard === 0 && bowlerCard === 0) {
             runs += bowlerCard;
             batterStats[currentBatter].runs += runsScored;
             outcome = `Batter played 0. Runs = ${bowlerCard}`;
-            if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
+            if (bowlerCard === 4 || bowlerCard === 6) {
+              boundary = true;
+              // Add boundary to batter's stats even though they played 0
+              if (bowlerCard === 4) batterStats[currentBatter].fours += 1;
+              if (bowlerCard === 6) batterStats[currentBatter].sixes += 1;
+              createBoundaryEffect(bowlerCard === 6);
+            }
             if (bowlerCard === 6) isSix = true;
             
             commentaryText = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
@@ -2860,197 +2875,238 @@ if (batterCard === 0 && bowlerCard === 0) {
           // Update overs count (0.1 per ball)
           bowlerStats[currentBowler].overs = Math.floor(bowlerStats[currentBowler].balls / 6) + 
                                             (bowlerStats[currentBowler].balls % 6) / 10;
-        }
 
-        // Record ball in ball-by-ball
-        ballByBall[legalBalls] = {
-          runs: runsScored,
-          wicket: isWicket || isPlayerOut,
-          batter: currentBatter,
-          bowler: currentBowler,
-          timestamp: Date.now(),
-          outcome: outcome,
-          penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0,
-          commentary: commentaryText
-        };
-
-        // Record last wicket score for partnership
-        if (isWicket) {
-          lastWicketScore = runs;
-        }
-
-        // Handle legal balls
-        if (isLegalBall) {
-          legalBalls++;
-          updateOverSummary();
-          
-          if (currentBowler) {
-            bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
-            if (legalBalls % 6 === 0) {
-              bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
-              zerosThisOver = { player1: 0, player2: 0 };
-            }
+          // Check bowler milestones
+          if (bowlerStats[currentBowler].wickets === 3) {
+            showNotification(`HAT-TRICK! ${currentBowler} takes 3 wickets!`, 'info');
+            createConfetti();
+          } else if (bowlerStats[currentBowler].wickets === 5) {
+            showNotification(`FIFER! ${currentBowler} takes 5 wickets!`, 'info');
+            createConfetti();
+          } else if (bowlerStats[currentBowler].wickets === 10) {
+            showNotification(`TEN-WICKET HAUL! ${currentBowler} takes 10 wickets in the match!`, 'info');
+            createConfetti();
           }
         }
 
-        // Update all displays
-        updateAllDisplays();
-        
-        // Update UI animations
-        resultEl.innerText = `${outcome}\n${commentaryText}`;
-        if (boundary) {
-          resultEl.classList.add("boundary-animation");
-          document.getElementById('runs').classList.add("boundary-flash");
-        }
-        if (isWicket) {
-          resultEl.classList.add("wicket-animation");
-          document.getElementById('wickets').classList.add("score-change");
-          document.querySelector('.scorebox-main').classList.add("wicket-flash");
-        }
-        if (runsScored > 0) {
-          document.getElementById('runs').classList.add("score-change");
-        }
-        
-        // Remove animation classes after they complete
-        setTimeout(() => {
-          resultEl.classList.remove("boundary-animation", "wicket-animation");
-          document.getElementById('runs').classList.remove("score-change", "boundary-flash");
-          document.getElementById('wickets').classList.remove("score-change");
-          document.querySelector('.scorebox-main').classList.remove("wicket-flash");
-        }, 2000);
+            // Record last wicket score for partnership
+    if (isWicket) {
+      lastWicketScore = runs;
+      
+      // Track ball number when batter gets out
+      const currentOver = Math.floor(legalBalls / 6);
+      const ballNumber = (legalBalls % 6) + 1;
+      batterStats[currentBatter].dismissalBall = `${currentOver}.${ballNumber}`;
+      
+      // Check for bowler milestones
+      checkBowlerMilestones();
+    }
 
-        // Check for innings end conditions
-        if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
-          if (secondInningsStarted) {
-            await endMatch(false); // Second innings ended without reaching target
+    // Handle legal balls
+    if (isLegalBall) {
+      legalBalls++;
+      updateOverSummary();
+      
+      if (currentBowler) {
+        bowlerOvers[currentBowler] = (bowlerOvers[currentBowler] || 0) + (1/6);
+        if (legalBalls % 6 === 0) {
+          bowlerOvers[currentBowler] = Math.round(bowlerOvers[currentBowler] * 10) / 10;
+          zerosThisOver = { player1: 0, player2: 0 };
+        }
+      }
+    }
+
+    // Update all displays
+    updateAllDisplays();
+    
+    // Update UI animations
+    resultEl.innerText = `${outcome}\n${commentaryText}`;
+    if (boundary) {
+      resultEl.classList.add("boundary-animation");
+      document.getElementById('runs').classList.add("boundary-flash");
+    }
+    if (isWicket) {
+      resultEl.classList.add("wicket-animation");
+      document.getElementById('wickets').classList.add("score-change");
+      document.querySelector('.scorebox-main').classList.add("wicket-flash");
+      createWicketAnimation();
+    }
+    if (runsScored > 0) {
+      document.getElementById('runs').classList.add("score-change");
+    }
+    
+    // Remove animation classes after they complete
+    setTimeout(() => {
+      resultEl.classList.remove("boundary-animation", "wicket-animation");
+      document.getElementById('runs').classList.remove("score-change", "boundary-flash");
+      document.getElementById('wickets').classList.remove("score-change");
+      document.querySelector('.scorebox-main').classList.remove("wicket-flash");
+    }, 2000);
+
+    // Check for innings end conditions
+    if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
+      if (secondInningsStarted) {
+        await endMatch(false); // Second innings ended without reaching target
+      } else {
+        endInning(); // First innings ended
+      }
+      return;
+    }
+
+    // Check for second innings win conditions
+    if (secondInningsStarted) {
+      // Check if chasing team has won
+      if (runs >= target) {
+        await endMatch(true);
+        return;
+      }
+      
+      // Check if chasing team has been bowled out
+      if (wickets >= currentFormat.totalWickets) {
+        await endMatch(false);
+        return;
+      }
+      
+      // Check if overs completed without reaching target
+      if (legalBalls >= currentFormat.totalOvers * 6) {
+        await endMatch(false);
+        return;
+      }
+    }
+
+    // Prepare for next ball
+    setTimeout(async () => {
+      try {
+        await set(playsRef, {});
+        enableButtons();
+        clearCardSelection();
+        
+        if (isPlayerOut && player === battingPlayer) {
+          batterSelected = false;
+          await showBatterSelection();
+        } else if (isLegalBall && legalBalls % 6 === 0) {
+          bowlerSelected = false;
+          if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
+            await showBowlerSelection();
           } else {
-            endInning(); // First innings ended
+            resultEl.innerText = "Waiting for opponent to select bowler...";
           }
-          return;
+        } else {
+          updateButtonStates();
         }
-
-        // Check for second innings win conditions
-        if (secondInningsStarted) {
-          // Check if chasing team has won
-          if (runs >= target) {
-            await endMatch(true);
-            return;
-          }
-          
-          // Check if chasing team has been bowled out
-          if (wickets >= currentFormat.totalWickets) {
-            await endMatch(false);
-            return;
-          }
-          
-          // Check if overs completed without reaching target
-          if (legalBalls >= currentFormat.totalOvers * 6) {
-            await endMatch(false);
-            return;
-          }
-        }
-
-        // Prepare for next ball
-        setTimeout(async () => {
-          try {
-            await set(playsRef, {});
-            enableButtons();
-            clearCardSelection();
-            
-            if (isPlayerOut && player === battingPlayer) {
-              batterSelected = false;
-              await showBatterSelection();
-            } else if (isLegalBall && legalBalls % 6 === 0) {
-              bowlerSelected = false;
-              if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
-                await showBowlerSelection();
-              } else {
-                resultEl.innerText = "Waiting for opponent to select bowler...";
-              }
-            } else {
-              updateButtonStates();
-            }
-          } catch (error) {
-            console.error("Error in post-ball processing:", error);
-            resultEl.innerText = "Error processing next ball state";
-            enableButtons();
-            clearCardSelection();
-          }
-        }, 1500);
       } catch (error) {
-        console.error("Error processing ball outcome:", error);
-        resultEl.innerText = "Error processing ball outcome";
+        console.error("Error in post-ball processing:", error);
+        resultEl.innerText = "Error processing next ball state";
         enableButtons();
         clearCardSelection();
       }
-    }
+    }, 1500);
+  } catch (error) {
+    console.error("Error processing ball outcome:", error);
+    resultEl.innerText = "Error processing ball outcome";
+    enableButtons();
+    clearCardSelection();
+  }
+}
 
-    // Accurate batter milestone checking accounting for penalties
-    function checkBatterMilestones(isPenalty = false) {
-      if (!currentBatter) return;
+// Check bowler milestones
+function checkBowlerMilestones() {
+  if (!currentBowler) return;
+  
+  const bowler = bowlerStats[currentBowler] || { wickets: 0 };
+  const wickets = bowler.wickets;
+  
+  // Check for hat-trick (3 wickets in a row)
+  const last3Balls = Object.values(ballByBall).slice(-3);
+  const last3Wickets = last3Balls.filter(ball => ball.wicket && ball.bowler === currentBowler).length;
+  
+  if (last3Wickets >= 3 && !bowler.hatTrickNotified) {
+    showNotification(`🎩 HAT-TRICK! ${currentBowler} takes 3 wickets in a row!`, 'info');
+    bowler.hatTrickNotified = true;
+    createConfetti();
+  }
+  
+  // Check for 5-wicket haul
+  if (wickets >= 5 && !bowler.fiferNotified) {
+    showNotification(`5️⃣ FIFER! ${currentBowler} takes 5 wickets in the innings!`, 'info');
+    bowler.fiferNotified = true;
+    createConfetti();
+  }
+  
+  // Check for 10-wicket haul (in test matches)
+  if (currentFormat.name === "Test" && wickets >= 10 && !bowler.tenWicketNotified) {
+    showNotification(`🔟 TEN-WICKET HAUL! ${currentBowler} takes 10 wickets in the match!`, 'info');
+    bowler.tenWicketNotified = true;
+    createConfetti();
+  }
+}
 
-      const batter = batterStats[currentBatter];
-      const netRuns = batter.runs - (batterPenalties[currentBatter] || 0);
+// Accurate batter milestone checking accounting for penalties
+function checkBatterMilestones(isPenalty = false) {
+  if (!currentBatter) return;
+
+  const batter = batterStats[currentBatter];
+  const netRuns = batter.runs - (batterPenalties[currentBatter] || 0);
+  
+  // Check milestones in descending order
+  const milestones = [50, 100, 150, 200, 250, 300, 350, 400];
+  for (let i = milestones.length - 1; i >= 0; i--) {
+    const milestone = milestones[i];
+    
+    // Check if crossed milestone (either direction)
+    if ((!isPenalty && netRuns >= milestone && lastBatterRuns[currentBatter] < milestone) ||
+        (isPenalty && netRuns < milestone && lastBatterRuns[currentBatter] >= milestone)) {
       
-      // Check milestones in descending order
-      const milestones = [50, 100, 150, 200, 250, 300, 350, 400];
-      for (let i = milestones.length - 1; i >= 0; i--) {
-        const milestone = milestones[i];
+      // Only notify if this is a new achievement
+      if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
+        const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
+        showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns}) - ${randomComment}`, 'batting');
+        batter[`milestone${milestone}Notified`] = true;
         
-        // Check if crossed milestone (either direction)
-        if ((!isPenalty && netRuns >= milestone && lastBatterRuns[currentBatter] < milestone) ||
-            (isPenalty && netRuns < milestone && lastBatterRuns[currentBatter] >= milestone)) {
-          
-          // Only notify if this is a new achievement
-          if (netRuns >= milestone && !batter[`milestone${milestone}Notified`]) {
-            const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-            showNotification(`${currentBatter} reaches ${milestone} runs! (Net: ${netRuns}) - ${randomComment}`, 'batting');
-            batter[`milestone${milestone}Notified`] = true;
-            
-            if (milestone >= 100) {
-              createConfetti();
-              createUmpireSignal("💯");
-            }
-          }
-          // Handle losing a milestone due to penalty
-          else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
-            showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
-            batter[`milestone${milestone}Notified`] = false;
-          }
-          break;
+        if (milestone >= 100) {
+          createConfetti();
+          createUmpireSignal("💯");
         }
       }
-      
-      // Special handling for 50 and 100
-      if (netRuns >= 50 && !batter.fiftyNotified) {
-        const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-        showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns}) - ${randomComment}`, 'batting');
-        batter.fiftyNotified = true;
-        createConfetti();
-        createUmpireSignal("5️⃣0️⃣");
+      // Handle losing a milestone due to penalty
+      else if (isPenalty && netRuns < milestone && batter[`milestone${milestone}Notified`]) {
+        showNotification(`${currentBatter} falls below ${milestone} runs after penalty (Net: ${netRuns})`, 'error');
+        batter[`milestone${milestone}Notified`] = false;
       }
-      else if (netRuns < 50 && batter.fiftyNotified) {
-        showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
-        batter.fiftyNotified = false;
-      }
-      
-      if (netRuns >= 100 && !batter.centuryNotified) {
-        const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
-        showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns}) - ${randomComment}`, 'batting');
-        batter.centuryNotified = true;
-        createConfetti();
-        createUmpireSignal("💯");
-      }
-      else if (netRuns < 100 && batter.centuryNotified) {
-        showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
-        batter.centuryNotified = false;
-      }
-
-      // Update last run count
-      lastBatterRuns[currentBatter] = netRuns;
+      break;
     }
+  }
+  
+  // Special handling for 50 and 100
+  if (netRuns >= 50 && !batter.fiftyNotified) {
+    const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
+    showNotification(`${currentBatter} scores a half-century! (Net: ${netRuns}) - ${randomComment}`, 'batting');
+    batter.fiftyNotified = true;
+    createConfetti();
+    createUmpireSignal("5️⃣0️⃣");
+  }
+  else if (netRuns < 50 && batter.fiftyNotified) {
+    showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
+    batter.fiftyNotified = false;
+  }
+  
+  if (netRuns >= 100 && !batter.centuryNotified) {
+    const randomComment = commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)];
+    showNotification(`${currentBatter} scores a century! 💯 (Net: ${netRuns}) - ${randomComment}`, 'batting');
+    batter.centuryNotified = true;
+    createConfetti();
+    createUmpireSignal("💯");
+  }
+  else if (netRuns < 100 && batter.centuryNotified) {
+    showNotification(`${currentBatter} loses century after penalty (Net: ${netRuns})`, 'error');
+    batter.centuryNotified = false;
+  }
 
-    // Create confetti effect
+  // Update last run count
+  lastBatterRuns[currentBatter] = netRuns;
+}
+
+// Create confetti effect
 function createConfetti() {
   const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff'];
   for (let i = 0; i < 150; i++) {
@@ -3641,6 +3697,9 @@ async function saveMatchData() {
     
     showNotification("Match data saved successfully!", 'info');
     resultEl.innerText = "Match data saved";
+    
+    // Redirect to summary page
+    window.location.href = `summary.html?room=${room}`;
   } catch (error) {
     console.error("Error saving match data:", error);
     showNotification("Failed to save match data", 'error');
@@ -4548,6 +4607,6 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
-    </script>
+      </script>
 </body>
 </html>
