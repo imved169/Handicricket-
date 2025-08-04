@@ -2659,17 +2659,32 @@
         checkDeadOver();
 
         // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false;
-          
-          commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-          showNotification(commentaryText, 'error');
-          addToTimeline("NB", 'error');
-          createUmpireSignal("👆");
-        } 
+if (batterCard === 0 && bowlerCard === 0) {
+  outcome = "NO BALL! +1 run (Free Hit next ball)";
+  runs += 1;
+  freeHitNextBall = true;
+  isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
+  
+  commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
+  showNotification(commentaryText, 'error');
+  addToTimeline("NB", 'error');
+  createUmpireSignal("👆");
+  
+  // Record the no ball in ball-by-ball but don't increment legalBalls
+  ballByBall[legalBalls] = {
+    runs: 1,
+    wicket: false,
+    batter: currentBatter,
+    bowler: currentBowler,
+    timestamp: Date.now(),
+    outcome: outcome,
+    penalty: 0,
+    commentary: commentaryText,
+    isNoBall: true
+  };
+  
+  return; 
+}
         // 2. Handle free hit balls
         else if (freeHit) {
           if (batterCard === bowlerCard && batterCard > 0) {
