@@ -1,13 +1,13 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HandiCricket - First Innings</title>
+  <title>HandiCricket - Match</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
+  <style>
+    /* Base Styles */
     body { 
-      background: #061e3e url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect width="100%" height="100%" fill="%23061e3e"/><circle cx="50%" cy="30%" r="5%" fill="%23000" opacity="0.1"/><circle cx="30%" cy="70%" r="7%" fill="%23000" opacity="0.1"/><circle cx="70%" cy="50%" r="4%" fill="%23000" opacity="0.1"/></svg>') no-repeat center center fixed;
+      background: #061e3e url('https://example.com/stadium-bg.jpg') no-repeat center center fixed;
       background-size: cover;
       color: white; 
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -18,17 +18,65 @@
       position: relative;
     }
     
-    body::before {
+    /* Crowd Animation */
+    body::after {
       content: '';
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
+      right: 0;
+      bottom: 0;
+      background: url('https://example.com/crowd-silhouette.png') repeat-x bottom;
+      background-size: contain;
+      opacity: 0.3;
       z-index: -1;
+      animation: crowdMove 30s linear infinite;
     }
     
+    @keyframes crowdMove {
+      0% { background-position: 0 bottom; }
+      100% { background-position: -1000px bottom; }
+    }
+    
+    /* Pitch Visualization */
+    .pitch {
+      position: fixed;
+      bottom: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 400px;
+      height: 200px;
+      background: #4CAF50;
+      border: 2px solid #fff;
+      z-index: -1;
+      opacity: 0.7;
+    }
+    
+    .pitch::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 2px;
+      background: white;
+    }
+    
+    .pitch::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+    }
+    
+    /* Header Styles */
     h1 { 
       margin: 8px 0 12px;
       color: #ffeb3b;
@@ -36,16 +84,17 @@
       font-size: 1.5rem;
     }
     
+    /* Main Container */
     .container {
       max-width: 100%;
       width: 100%;
       margin: 0 auto;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.7);
       border-radius: 10px;
       padding: 8px;
       box-sizing: border-box;
-      position: relative;
-      backdrop-filter: blur(2px);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.1);
     }
     
     /* Enhanced Scoreboard */
@@ -56,7 +105,7 @@
       padding: 6px;
       background: rgba(13, 42, 82, 0.8);
       border-radius: 8px;
-      transition: all 0.3s ease;
+      transition: all 0.3s;
     }
 
     .team-score {
@@ -68,7 +117,6 @@
       font-size: 1.8rem;
       font-weight: bold;
       color: #ffeb3b;
-      text-shadow: 0 0 8px rgba(255, 235, 59, 0.3);
     }
 
     .score-details {
@@ -76,6 +124,19 @@
       font-size: 0.85rem;
     }
 
+    /* Mini Scorecard (Fixed Position) */
+    .mini-scorecard {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      z-index: 100;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    
     /* Match Info Bar */
     .match-info-bar {
       display: flex;
@@ -87,7 +148,6 @@
       margin: 4px 0 8px 0;
       font-size: 0.75rem;
       gap: 6px;
-      flex-wrap: wrap;
     }
 
     .match-info-item {
@@ -100,20 +160,6 @@
     .divider {
       color: #666;
       flex-shrink: 0;
-    }
-
-    /* Live Ticker */
-    .live-ticker {
-      background: rgba(0, 0, 0, 0.5);
-      padding: 4px;
-      margin: 6px 0;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    
-    .live-ticker marquee {
-      font-size: 0.75rem;
-      color: #ffeb3b;
     }
 
     /* Over Progress */
@@ -189,7 +235,9 @@
       border-radius: 8px;
       margin: 8px 0;
       overflow: hidden;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      max-height: 200px;
+      display: flex;
+      flex-direction: column;
     }
 
     .commentary-header {
@@ -199,11 +247,19 @@
       padding: 6px 8px;
       background: rgba(30, 136, 229, 0.3);
       border-bottom: 1px solid rgba(255,255,255,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     .commentary-header h4 {
       margin: 0;
       font-size: 0.85rem;
+    }
+
+    .commentary-controls {
+      display: flex;
+      gap: 4px;
     }
 
     .commentary-controls button {
@@ -213,31 +269,19 @@
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 0.65rem;
-      margin-left: 4px;
       cursor: pointer;
       transition: all 0.2s;
     }
-
+    
     .commentary-controls button:hover {
       background: rgba(255,255,255,0.2);
     }
 
     .commentary-box {
-      max-height: 120px;
+      flex: 1;
       overflow-y: auto;
       padding: 6px;
       font-size: 0.8rem;
-      scrollbar-width: thin;
-      scrollbar-color: #1e88e5 rgba(255,255,255,0.1);
-    }
-
-    .commentary-box::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .commentary-box::-webkit-scrollbar-thumb {
-      background-color: #1e88e5;
-      border-radius: 3px;
     }
 
     .commentary-item {
@@ -258,18 +302,8 @@
       color: #FFC107;
     }
 
-    .commentary-item.six {
-      color: #FF9800;
-      font-weight: bold;
-    }
-
     .commentary-item.milestone {
       color: #4CAF50;
-      font-weight: bold;
-    }
-
-    .commentary-item.powerplay {
-      color: #9C27B0;
     }
 
     .commentary-time {
@@ -284,7 +318,6 @@
       border-radius: 8px;
       margin: 8px 0;
       padding: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
     .timeline-container h4 {
@@ -298,7 +331,7 @@
       gap: 6px;
       padding-bottom: 4px;
       scrollbar-width: thin;
-      scrollbar-color: #1e88e5 rgba(255,255,255,0.1);
+      scrollbar-color: #1e88e5 transparent;
     }
 
     .timeline::-webkit-scrollbar {
@@ -330,11 +363,6 @@
       border-left: 2px solid #FFC107;
     }
 
-    .timeline-item.six {
-      background: rgba(255, 152, 0, 0.2);
-      border-left: 2px solid #FF9800;
-    }
-
     .timeline-item.milestone {
       background: rgba(76, 175, 80, 0.2);
       border-left: 2px solid #4CAF50;
@@ -357,7 +385,6 @@
       border-radius: 8px;
       margin: 8px 0;
       padding: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
     .comparison-container h4 {
@@ -377,7 +404,11 @@
       padding: 6px;
       border-radius: 6px;
       text-align: center;
-      transition: all 0.3s;
+      transition: transform 0.3s;
+    }
+    
+    .player-comparison:hover {
+      transform: translateY(-3px);
     }
 
     .batter-comparison {
@@ -401,7 +432,6 @@
       font-weight: bold;
       margin: 4px 0;
       font-size: 0.85rem;
-      transition: all 0.3s;
     }
 
     .comparison-stats {
@@ -428,7 +458,7 @@
       justify-content: center;
       font-weight: bold;
       font-size: 0.65rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      flex-shrink: 0;
     }
 
     /* Animations */
@@ -454,33 +484,26 @@
       from { opacity: 0; transform: translateY(5px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    @keyframes screenShake {
-      0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-      20%, 40%, 60%, 80% { transform: translateX(5px); }
-    }
-
+    
     @keyframes ballTrail {
       0% { transform: translateX(0) translateY(0); opacity: 1; }
       100% { transform: translateX(100px) translateY(-50px); opacity: 0; }
     }
-
+    
     @keyframes stumpFall {
-      0% { transform: rotate(0); }
-      100% { transform: rotate(-90deg); }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(70deg); }
     }
-
-    @keyframes highlightPlayer {
-      0% { color: inherit; text-shadow: none; }
-      50% { color: #FFC107; text-shadow: 0 0 8px rgba(255, 193, 7, 0.7); }
-      100% { color: inherit; text-shadow: none; }
+    
+    @keyframes ripple {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(3); opacity: 0; }
     }
-
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
     }
 
     .score-change {
@@ -494,31 +517,37 @@
     .boundary-flash {
       animation: boundary 1s ease-in-out;
     }
-
-    .screen-shake {
-      animation: screenShake 0.5s ease-in-out;
+    
+    .boundary-effect {
+      animation: shake 0.5s ease-in-out, ripple 1s ease-out;
     }
-
-    .highlight-player {
-      animation: highlightPlayer 1.5s ease-in-out;
+    
+    .stump-fall {
+      animation: stumpFall 0.5s ease-out forwards;
     }
-
-    .pulse-effect {
-      animation: pulse 2s infinite;
+    
+    .ball-trail {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: white;
+      border-radius: 50%;
+      animation: ballTrail 0.5s linear forwards;
+      z-index: 10;
     }
 
     /* Card Buttons */
     .card-btns { 
       margin: 10px auto;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
       gap: 6px;
       position: relative;
-      max-width: 300px;
     }
     
     .card-btns button { 
-      width: 100%;
+      width: 50px;
       height: 50px;
       font-size: 18px;
       border-radius: 8px;
@@ -528,9 +557,26 @@
       cursor: pointer;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
       transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-btns button::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      border-radius: 100%;
+      transform: scale(1, 1) translate(-50%, -50%);
+      transform-origin: 50% 50%;
+    }
+    
+    .card-btns button:focus:not(:active)::after {
+      animation: ripple 1s ease-out;
     }
     
     .card-btns button:hover {
@@ -579,15 +625,13 @@
     .free-hit-indicator {
       background: #4CAF50;
       color: white;
+      animation: pulse 2s infinite;
     }
     
     .powerplay-indicator {
       background: #ffeb3b;
       color: #000;
-    }
-    
-    .powerplay-indicator.active {
-      animation: pulse 1.5s infinite;
+      animation: pulse 2s infinite;
     }
     
     .dead-over {
@@ -595,6 +639,12 @@
       color: white;
     }
     
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
     /* Result Display */
     #result {
       font-size: 15px;
@@ -731,6 +781,15 @@
       background: #7b1fa2;
     }
     
+    #saveMatchDataBtn {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    #saveMatchDataBtn:hover {
+      background: #388E3C;
+    }
+
     /* Teams Modal */
     .teams-modal {
       position: fixed;
@@ -821,6 +880,11 @@
       font-size: 16px;
       cursor: pointer;
       z-index: 1001;
+      transition: all 0.2s;
+    }
+    
+    .close-teams:hover {
+      transform: scale(1.1);
     }
 
     .teams-nav {
@@ -838,6 +902,11 @@
       color: white;
       cursor: pointer;
       font-weight: bold;
+      transition: all 0.2s;
+    }
+    
+    .team-nav-btn:hover {
+      background: #1565c0;
     }
 
     .team-nav-btn:disabled {
@@ -857,10 +926,12 @@
       border-radius: 50%;
       background: #555;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
     .team-nav-dot.active {
       background: #1e88e5;
+      transform: scale(1.2);
     }
 
     .show-teams-btn {
@@ -910,27 +981,6 @@
       margin: 0 4px;
     }
 
-    /* Compact Top Controls */
-    #topControls {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      margin: 8px 0;
-      flex-wrap: wrap;
-    }
-
-    #topControls button {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
     /* Over Summary */
     .over-summary-container {
       margin: 8px 0;
@@ -971,6 +1021,8 @@
       font-size: 15px;
       z-index: 1001;
       animation: fadeInOut 3s forwards;
+      max-width: 80%;
+      text-align: center;
     }
     
     @keyframes fadeInOut {
@@ -1159,86 +1211,92 @@
       background: #388E3C;
       transform: scale(1.05);
     }
-
-    /* Toast Notification */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 14px;
-      z-index: 1001;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
     
-    .toast.show {
-      opacity: 1;
-    }
-    
-    .toast.success {
-      border-left: 4px solid #4CAF50;
-    }
-    
-    .toast.error {
-      border-left: 4px solid #F44336;
-    }
-    
-    /* Stadium Effects */
-    .stadium-effects {
+    /* Stats Modal */
+    .stats-modal {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      pointer-events: none;
-      z-index: -1;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     
-    .crowd {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 30%;
-      background: linear-gradient(transparent, rgba(0,0,0,0.3));
+    .stats-container {
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      background: rgba(13, 42, 82, 0.9);
+      border-radius: 12px;
+      padding: 16px;
+      overflow-y: auto;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
     }
     
-    .pitch {
-      position: absolute;
-      bottom: 30%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80%;
-      height: 40%;
-      background: linear-gradient(to bottom, #1a5e20, #2e7d32);
-      border-radius: 50% 50% 0 0;
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
     }
     
-    /* Ball Trail Effect */
-    .ball-trail {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      background-color: white;
+    .stats-header h3 {
+      margin: 0;
+      color: #ffeb3b;
+    }
+    
+    .close-stats {
+      background: #f44336;
+      color: white;
+      border: none;
       border-radius: 50%;
-      z-index: 100;
-      opacity: 0;
+      width: 30px;
+      height: 30px;
+      font-size: 16px;
+      cursor: pointer;
     }
     
-    /* Stump Fall Effect */
-    .stump {
-      position: absolute;
-      width: 5px;
-      height: 30px;
-      background: linear-gradient(to bottom, #8B4513, #A0522D);
-      bottom: 30%;
-      z-index: 100;
-      transform-origin: bottom center;
-      opacity: 0;
+    .stats-section {
+      margin-bottom: 16px;
+    }
+    
+    .stats-section h4 {
+      margin: 0 0 8px 0;
+      color: #1e88e5;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 4px;
+    }
+    
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    .stats-table th {
+      text-align: left;
+      padding: 4px;
+      background: rgba(30, 136, 229, 0.3);
+    }
+    
+    .stats-table td {
+      padding: 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .stats-table tr:nth-child(even) {
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .stats-table tr:hover {
+      background: rgba(30, 136, 229, 0.2);
     }
     
     /* Responsive Styles */
@@ -1262,6 +1320,11 @@
       
       .team-slide {
         min-width: 100%;
+      }
+      
+      .mini-scorecard {
+        font-size: 0.7rem;
+        padding: 4px;
       }
     }
     
@@ -1321,17 +1384,23 @@
       .score-large {
         font-size: 1.5rem;
       }
+      
+      .mini-scorecard {
+        display: none; /* Hide on very small screens */
+      }
     }
-</style>
-  
+  </style>
 </head>
 <body>
+  <div class="pitch"></div>
+  
+  <div class="mini-scorecard">
+    <div id="miniScore">0/0 (0.0)</div>
+    <div id="miniBatter">-</div>
+    <div id="miniBowler">-</div>
+  </div>
+  
   <div class="container">
-    <!-- Live Ticker -->
-    <div class="live-ticker">
-      <marquee id="liveTickerText">Match starting soon...</marquee>
-    </div>
-    
     <div class="team-names-compact">
       <div class="team-name-line">
         <span class="team-label">Batting:</span>
@@ -1454,11 +1523,13 @@
     </div>
 
     <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
+    <button class="show-teams-btn" id="showStatsBtn" style="background: linear-gradient(135deg, #4CAF50, #388E3C);">Show Match Stats</button>
 
     <div id="topControls">
-      <button id="saveBtn"><i class="fas fa-save"></i> Save & Exit</button>
-      <button id="exitBtn"><i class="fas fa-door-open"></i> Exit Without Saving</button>
-      <button id="resetPlaysBtn"><i class="fas fa-sync-alt"></i> Reset Plays</button>
+      <button id="saveBtn">💾 Save & Exit</button>
+      <button id="exitBtn">🚪 Exit Without Saving</button>
+      <button id="resetPlaysBtn">🔄 Reset Plays</button>
+      <button id="saveMatchDataBtn">📊 Save Match Data</button>
     </div>
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -1467,21 +1538,14 @@
     <div id="loading-spinner" class="loading-spinner"></div>
   </div>
   
-  <!-- Stadium Effects -->
-  <div class="stadium-effects">
-    <div class="crowd"></div>
-    <div class="pitch"></div>
-  </div>
-  
-  <!-- Toast Notification -->
-  <div id="toast" class="toast"></div>
-  
+  <!-- Selection Modals -->
   <div id="selectionModal" class="selection-modal">
     <h3 id="selectionTitle">Select Next Batter</h3>
     <div id="selectionList" class="selection-list"></div>
     <button id="confirmSelection">Confirm Selection</button>
   </div>
 
+  <!-- Teams Modal -->
   <div id="teamsModal" class="teams-modal">
     <button class="close-teams" id="closeTeamsBtn">×</button>
     <div class="teams-container" id="teamsSlider">
@@ -1504,7 +1568,73 @@
     </div>
   </div>
 
-  <!-- Modified Innings Summary Popup -->
+  <!-- Stats Modal -->
+  <div id="statsModal" class="stats-modal">
+    <div class="stats-container">
+      <div class="stats-header">
+        <h3>Match Statistics</h3>
+        <button class="close-stats" id="closeStatsBtn">×</button>
+      </div>
+      
+      <div class="stats-section">
+        <h4>Batting Stats</h4>
+        <table class="stats-table" id="battingStatsTable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Runs</th>
+              <th>Balls</th>
+              <th>SR</th>
+              <th>4s/6s</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div class="stats-section">
+        <h4>Bowling Stats</h4>
+        <table class="stats-table" id="bowlingStatsTable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Overs</th>
+              <th>Runs</th>
+              <th>Wkts</th>
+              <th>ER</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div class="stats-section">
+        <h4>Match Summary</h4>
+        <table class="stats-table" id="matchSummaryTable">
+          <tbody>
+            <tr>
+              <td>Total Runs</td>
+              <td id="statsTotalRuns">0</td>
+            </tr>
+            <tr>
+              <td>Total Wickets</td>
+              <td id="statsTotalWickets">0</td>
+            </tr>
+            <tr>
+              <td>Overs</td>
+              <td id="statsOvers">0.0</td>
+            </tr>
+            <tr>
+              <td>Run Rate</td>
+              <td id="statsRunRate">0.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Innings Summary Popup -->
   <div id="summaryPopup" class="summary-popup">
     <h3 id="summaryTitle">First Innings Summary</h3>
     <div class="summary-content">
@@ -1525,7 +1655,6 @@
         <span class="summary-value" id="summaryRunRate">0.00</span>
       </div>
       <div class="summary-highlight" id="summaryHighlight"></div>
-      <!-- Add target display for second innings -->
       <div class="summary-row" id="targetDisplay" style="display: none;">
         <span class="summary-label">Target:</span>
         <span class="summary-value" id="targetValue">0</span>
@@ -1615,13 +1744,14 @@
     const firstInningsRef = ref(db, `rooms/${room}/firstInnings`);
     const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
     const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
+    const savedMatchesRef = ref(db, `savedMatches/${room}`);
     
     // Format rules
     const formatRules = {
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1630,7 +1760,7 @@
       "10": { 
         name: "10 Overs", 
         totalOvers: 10, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1639,7 +1769,7 @@
       "20": { 
         name: "T20", 
         totalOvers: 20, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -1648,7 +1778,7 @@
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
-        totalWickets: 10,  // Changed from 11 to 10 for consistency
+        totalWickets: 10,
         powerplayOvers: [1,10, 21,30, 41,42], 
         powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
@@ -1723,12 +1853,14 @@
     const saveBtn = document.getElementById("saveBtn");
     const exitBtn = document.getElementById("exitBtn");
     const resetPlaysBtn = document.getElementById("resetPlaysBtn");
+    const saveMatchDataBtn = document.getElementById("saveMatchDataBtn");
     const connectionStatus = document.getElementById("connectionStatus");
     const loadingSpinner = document.getElementById("loading-spinner");
     const powerplayIndicator = document.getElementById("powerplayIndicator");
     const deadOverIndicator = document.getElementById("deadOverIndicator");
     const freeHitIndicator = document.getElementById("freeHitIndicator");
     const showTeamsBtn = document.getElementById("showTeamsBtn");
+    const showStatsBtn = document.getElementById("showStatsBtn");
     const teamsModal = document.getElementById("teamsModal");
     const closeTeamsBtn = document.getElementById("closeTeamsBtn");
     const teamsSlider = document.getElementById("teamsSlider");
@@ -1751,8 +1883,13 @@
     const summaryHighlight = document.getElementById("summaryHighlight");
     const targetDisplay = document.getElementById("targetDisplay");
     const targetValue = document.getElementById("targetValue");
-    const liveTickerText = document.getElementById("liveTickerText");
-    const toast = document.getElementById("toast");
+    const statsModal = document.getElementById("statsModal");
+    const closeStatsBtn = document.getElementById("closeStatsBtn");
+    const battingStatsTable = document.getElementById("battingStatsTable").querySelector('tbody');
+    const bowlingStatsTable = document.getElementById("bowlingStatsTable").querySelector('tbody');
+    const miniScore = document.getElementById("miniScore");
+    const miniBatter = document.getElementById("miniBatter");
+    const miniBowler = document.getElementById("miniBowler");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -1778,17 +1915,6 @@
         }
       }
       throw lastError;
-    }
-
-    // Show toast notification
-    function showToast(message, type = '') {
-      toast.textContent = message;
-      toast.className = `toast ${type}`;
-      toast.classList.add('show');
-      
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 3000);
     }
 
     // Enhanced loadPlaying11 function with validation
@@ -1893,11 +2019,6 @@
 
       // Update UI
       powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
-      if (isPowerplay) {
-        powerplayIndicator.classList.add('active');
-      } else {
-        powerplayIndicator.classList.remove('active');
-      }
     }
 
     // Check dead over status
@@ -1955,6 +2076,11 @@
       document.getElementById("wickets").textContent = wicketsDisplay;
       document.getElementById("overs").textContent = 
         `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      // Update mini scorecard
+      miniScore.textContent = `${runs}/${wicketsDisplay} (${Math.floor(legalBalls/6)}.${legalBalls%6})`;
+      miniBatter.textContent = currentBatter || '-';
+      miniBowler.textContent = currentBowler || '-';
     }
 
     // Update player stats display
@@ -2115,8 +2241,27 @@
         commentaryBox.removeChild(commentaryBox.lastChild);
       }
       
-      // Update live ticker
-      liveTickerText.textContent = message;
+      // Create ball trail animation for boundaries
+      if (type === 'boundary') {
+        createBallTrail();
+      }
+    }
+
+    // Create ball trail animation
+    function createBallTrail() {
+      const trail = document.createElement('div');
+      trail.className = 'ball-trail';
+      document.body.appendChild(trail);
+      
+      // Position randomly near the center
+      const startX = window.innerWidth / 2 + (Math.random() * 100 - 50);
+      const startY = window.innerHeight / 2 + (Math.random() * 100 - 50);
+      
+      trail.style.left = `${startX}px`;
+      trail.style.top = `${startY}px`;
+      
+      // Remove after animation
+      setTimeout(() => trail.remove(), 500);
     }
 
     // Add to timeline with proper over numbering (0.1 to 0.6, then 1.1 to 1.6, etc.)
@@ -2138,42 +2283,6 @@
       if (timeline.children.length > 20) {
         timeline.removeChild(timeline.lastChild);
       }
-    }
-
-    // Create ball trail animation
-    function createBallTrail() {
-      const trail = document.createElement('div');
-      trail.className = 'ball-trail';
-      document.body.appendChild(trail);
-      
-      // Position near batter
-      trail.style.left = '50%';
-      trail.style.bottom = '30%';
-      trail.style.opacity = '1';
-      
-      // Animate
-      setTimeout(() => {
-        trail.style.animation = 'ballTrail 0.5s forwards';
-        setTimeout(() => trail.remove(), 500);
-      }, 50);
-    }
-
-    // Create stump fall animation
-    function createStumpFall() {
-      const stump = document.createElement('div');
-      stump.className = 'stump';
-      document.body.appendChild(stump);
-      
-      // Position near batter
-      stump.style.left = '50%';
-      stump.style.bottom = '30%';
-      stump.style.opacity = '1';
-      
-      // Animate
-      setTimeout(() => {
-        stump.style.animation = 'stumpFall 0.3s forwards';
-        setTimeout(() => stump.remove(), 300);
-      }, 50);
     }
 
     // Process the outcome of a ball with fractional wickets
@@ -2268,7 +2377,9 @@
               });
               addCommentary(`WICKET! ${currentBowler} gets ${currentBatter} out!`, 'wicket');
               addToTimeline(`W ${currentBatter}`, 'wicket');
-              createStumpFall();
+              
+              // Create wicket animation
+              createWicketAnimation();
             } else {
               const remain = (1.0 - batterWickets[currentBatter]).toFixed(2).replace(/\.00$/, '');
               outcome = `WICKET! (${remain} left for this batter)`;
@@ -2333,10 +2444,6 @@
           addCommentary(`${boundaryType}! ${currentBatter} hits ${batterCard} runs off ${currentBowler}`, boundary ? 'boundary' : '');
           addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
           isLegalBall = true;
-          
-          if (batterCard === 6) {
-            createBallTrail();
-          }
         }
 
         // Update batter stats
@@ -2392,9 +2499,7 @@
         if (boundary) {
           resultEl.classList.add("boundary-animation");
           document.getElementById('runs').classList.add("boundary-flash");
-          if (isSix) {
-            document.querySelector('.scorebox-main').classList.add("screen-shake");
-          }
+          document.querySelector('.scorebox-main').classList.add("boundary-effect");
         }
         if (isWicket) {
           resultEl.classList.add("wicket-animation");
@@ -2410,7 +2515,7 @@
           resultEl.classList.remove("boundary-animation", "wicket-animation");
           document.getElementById('runs').classList.remove("score-change", "boundary-flash");
           document.getElementById('wickets').classList.remove("score-change");
-          document.querySelector('.scorebox-main').classList.remove("wicket-flash", "screen-shake");
+          document.querySelector('.scorebox-main').classList.remove("wicket-flash", "boundary-effect");
         }, 2000);
 
         // Check for innings end conditions
@@ -2479,6 +2584,25 @@
       }
     }
 
+    // Create wicket animation (falling stumps)
+    function createWicketAnimation() {
+      const stumps = document.createElement('div');
+      stumps.className = 'stump-fall';
+      stumps.innerHTML = '🏏';
+      stumps.style.position = 'fixed';
+      stumps.style.top = '50%';
+      stumps.style.left = '50%';
+      stumps.style.transform = 'translate(-50%, -50%)';
+      stumps.style.fontSize = '50px';
+      stumps.style.zIndex = '1000';
+      
+      document.body.appendChild(stumps);
+      
+      setTimeout(() => {
+        stumps.remove();
+      }, 1000);
+    }
+
     // Accurate batter milestone checking accounting for penalties
     function checkBatterMilestones(isPenalty = false) {
       if (!currentBatter) return;
@@ -2522,10 +2646,6 @@
         addCommentary(`${currentBatter} scores a half-century!`, 'milestone');
         addToTimeline("50", 'milestone');
         batter.fiftyNotified = true;
-        document.getElementById('comparisonBatterName').classList.add('highlight-player');
-        setTimeout(() => {
-          document.getElementById('comparisonBatterName').classList.remove('highlight-player');
-        }, 1500);
       }
       else if (netRuns < 50 && batter.fiftyNotified) {
         showNotification(`${currentBatter} loses half-century after penalty (Net: ${netRuns})`, 'error');
@@ -2538,10 +2658,6 @@
         addCommentary(`${currentBatter} scores a century! 💯`, 'milestone');
         addToTimeline("100", 'milestone');
         batter.centuryNotified = true;
-        document.getElementById('comparisonBatterName').classList.add('highlight-player');
-        setTimeout(() => {
-          document.getElementById('comparisonBatterName').classList.remove('highlight-player');
-        }, 1500);
         createConfetti();
       }
       else if (netRuns < 100 && batter.centuryNotified) {
@@ -2849,6 +2965,9 @@
       firstInningsCompleted = true;
       await set(firstInningsCompletedRef, true);
       await set(firstInningsRef, firstInningsData); // Save first innings data
+      
+      // Update stats modal
+      updateStatsModal();
     }
 
     // Show summary popup
@@ -2987,6 +3106,9 @@
         },
         timestamp: Date.now()
       });
+      
+      // Update stats modal with complete match data
+      updateStatsModal();
     }
 
     // Update spectator data with match details
@@ -3031,14 +3153,109 @@
         
         await set(ref(db, `savedGames/${room}`), gameState);
         resultEl.innerText = "Game saved successfully!";
-        showToast("Game saved successfully!", "success");
         setTimeout(() => window.location.href = "index.html", 2000);
       } catch (error) {
         console.error("Error saving game:", error);
         resultEl.innerText = "Error saving game. Please try again.";
-        showToast("Error saving game", "error");
         enableButtons();
       }
+    }
+
+    // Save complete match data with all stats
+    async function saveMatchData() {
+      try {
+        resultEl.innerText = "Saving match data...";
+        disableButtons();
+        
+        const matchData = {
+          room: room,
+          team1: {
+            name: team1NameDisplay.textContent,
+            players: team1Players
+          },
+          team2: {
+            name: team2NameDisplay.textContent,
+            players: team2Players
+          },
+          tossWinner: tossWinner,
+          battingFirst: battingFirst,
+          format: currentFormat.name,
+          firstInnings: firstInningsData,
+          secondInnings: {
+            totalRuns: runs,
+            totalWickets: wickets,
+            balls: legalBalls,
+            batterStats: batterStats,
+            bowlerStats: bowlerStats,
+            ballByBall: ballByBall,
+            fallOfWickets: fallOfWickets,
+            overSummaries: overSummaries
+          },
+          timestamp: Date.now()
+        };
+        
+        // Save to a separate "savedMatches" node
+        await set(savedMatchesRef, matchData);
+        resultEl.innerText = "Match data saved successfully!";
+        showNotification("Complete match data saved to database", 'info');
+        enableButtons();
+      } catch (error) {
+        console.error("Error saving match data:", error);
+        resultEl.innerText = "Error saving match data. Please try again.";
+        showNotification("Failed to save match data", 'error');
+        enableButtons();
+      }
+    }
+
+    // Update stats modal with current data
+    function updateStatsModal() {
+      // Clear existing data
+      battingStatsTable.innerHTML = '';
+      bowlingStatsTable.innerHTML = '';
+      
+      // Update batting stats
+      const allBatters = [...team1Players, ...team2Players];
+      allBatters.forEach(player => {
+        if (batterStats[player]) {
+          const stats = batterStats[player];
+          const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '0.00';
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${player}</td>
+            <td>${stats.runs}</td>
+            <td>${stats.balls}</td>
+            <td>${sr}</td>
+            <td>${stats.fours}/${stats.sixes}</td>
+          `;
+          battingStatsTable.appendChild(row);
+        }
+      });
+      
+      // Update bowling stats
+      allBatters.forEach(player => {
+        if (bowlerStats[player]) {
+          const stats = bowlerStats[player];
+          const er = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '0.00';
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${player}</td>
+            <td>${stats.overs.toFixed(1)}</td>
+            <td>${stats.runs}</td>
+            <td>${stats.wickets}</td>
+            <td>${er}</td>
+          `;
+          bowlingStatsTable.appendChild(row);
+        }
+      });
+      
+      // Update match summary
+      document.getElementById('statsTotalRuns').textContent = runs;
+      document.getElementById('statsTotalWickets').textContent = wickets;
+      document.getElementById('statsOvers').textContent = `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+      
+      const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
+      const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
+      document.getElementById('statsRunRate').textContent = rr;
     }
 
     // Reset game state
@@ -3364,6 +3581,7 @@
         setupCardButtons();
         setupFirebaseListeners();
         setupTeamsModal();
+        setupStatsModal();
         
         // Set up control buttons
         saveBtn.addEventListener("click", saveGameState);
@@ -3379,6 +3597,9 @@
             await requestReset();
           }
         });
+        
+        // Setup save match data button
+        saveMatchDataBtn.addEventListener("click", saveMatchData);
 
         // Setup commentary controls
         pauseCommentaryBtn.addEventListener('click', function() {
@@ -3392,15 +3613,6 @@
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
-
-        // Handle tab visibility changes
-        document.addEventListener('visibilitychange', function() {
-          if (document.hidden) {
-            // Tab is hidden - pause commentary
-            commentaryPaused = true;
-            pauseCommentaryBtn.textContent = 'Resume';
-          }
-        });
 
         // Initial UI update
         updateAllDisplays();
@@ -3427,6 +3639,7 @@
       // Set up all Firebase listeners
       setupFirebaseListeners();
       setupTeamsModal();
+      setupStatsModal();
       
       loadingSpinner.style.display = "none";
       resultEl.innerText = "Watching match live...";
@@ -3526,6 +3739,22 @@
           }
         }
       }
+    }
+
+    // Setup stats modal
+    function setupStatsModal() {
+      const statsModal = document.getElementById('statsModal');
+      const showStatsBtn = document.getElementById('showStatsBtn');
+      const closeStatsBtn = document.getElementById('closeStatsBtn');
+
+      showStatsBtn.addEventListener('click', () => {
+        updateStatsModal();
+        statsModal.style.display = 'flex';
+      });
+
+      closeStatsBtn.addEventListener('click', () => {
+        statsModal.style.display = 'none';
+      });
     }
 
     // Request reset and notify opponent
