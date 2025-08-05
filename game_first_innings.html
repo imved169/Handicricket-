@@ -3983,52 +3983,58 @@
 
     // Enhanced resetPlays function with notification system
     async function resetPlays() {
-      if (resetCount >= MAX_RESETS || isSpectator) {
-        showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
-        return;
-      }
+  console.log("resetPlays called"); // Debug
+  if (resetCount >= MAX_RESETS || isSpectator) {
+    console.log("Reset blocked - max reached or spectator"); // Debug
+    showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
+    return;
+  }
 
-      try {
-        isResetting = true;
-        disableButtons();
-        resetCount++;
-        
-        // Reset both players' selections in Firebase
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
+  try {
+    console.log("Starting reset process"); // Debug
+    isResetting = true;
+    disableButtons();
+    resetCount++;
+    
+    console.log("Updating Firebase"); // Debug
+    await update(ref(db, `rooms/${room}`), {
+      'currentPlays/player1': null,
+      'currentPlays/player2': null
+    });
 
-        // Clear local selections
-        clearCardSelection();
-        
-        // Clear reset request
-        await set(resetRequestRef, null);
-        
-        showNotification("Plays have been reset", 'info');
-        
-        // Re-enable buttons based on current game state
-        if (isBatting) {
-          if (!batterSelected) {
-            await showBatterSelection();
-          } else {
-            enableButtons();
-          }
-        } else {
-          if (!bowlerSelected) {
-            await showBowlerSelection();
-          } else {
-            enableButtons();
-          }
-        }
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Failed to reset plays", 'error');
+    console.log("Clearing local state"); // Debug
+    clearCardSelection();
+    
+    console.log("Clearing reset request"); // Debug
+    await set(resetRequestRef, null);
+    
+    showNotification("Plays have been reset", 'info');
+    
+    console.log("Re-enabling buttons"); // Debug
+    if (isBatting) {
+      if (!batterSelected) {
+        console.log("Showing batter selection"); // Debug
+        await showBatterSelection();
+      } else {
         enableButtons();
-      } finally {
-        isResetting = false;
+      }
+    } else {
+      if (!bowlerSelected) {
+        console.log("Showing bowler selection"); // Debug
+        await showBowlerSelection();
+      } else {
+        enableButtons();
       }
     }
+  } catch (error) {
+    console.error("Error resetting plays:", error);
+    showNotification("Failed to reset plays", 'error');
+    enableButtons();
+  } finally {
+    isResetting = false;
+    console.log("Reset process completed"); // Debug
+  }
+}
 
     // Setup connection monitoring
     function setupConnectionMonitoring() {
