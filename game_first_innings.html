@@ -2931,17 +2931,24 @@
           createUmpireSignal("👆");
           
           // Record the no ball in ball-by-ball but don't increment legalBalls
-          ballByBall[legalBalls] = {
-            runs: 1,
-            wicket: false,
-            batter: currentBatter,
-            bowler: currentBowler,
-            timestamp: Date.now(),
-            outcome: outcome,
-            penalty: 0,
-            commentary: commentaryText,
-            isNoBall: true
-          };
+          // In the no ball handling section:
+ballByBall[legalBalls] = {
+  runs: 1,
+  wicket: false,
+  batter: currentBatter,
+  bowler: currentBowler,
+  timestamp: Date.now(),
+  outcome: outcome,
+  penalty: 0,
+  commentary: commentaryText,
+  isNoBall: true
+};
+
+// Immediately re-enable buttons after no ball
+setTimeout(() => {
+  enableButtons();
+  clearCardSelection();
+}, 500);
           
           return; 
         }
@@ -3547,17 +3554,25 @@
 
     // Enable all card buttons
     function enableButtons() {
-      if (isResetting || isSpectator) return;
-      
-      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
-      buttons.forEach(btn => {
-        btn.disabled = !canPlay;
-      });
-      
-      if (canPlay) {
-        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
-      }
+  if (isResetting || isSpectator) return;
+  
+  const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+  buttons.forEach(btn => {
+    btn.disabled = !canPlay;
+  });
+  
+  if (canPlay) {
+    resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
+  }
     }
+     
+     function clearCardSelection() {
+  buttons.forEach(btn => {
+    btn.classList.remove("selected");
+  });
+  selectedCardValue = null;
+  isProcessingSelection = false;
+     }
 
     // Update batter and bowler stats tables
     function updateStatsTables() {
@@ -3982,7 +3997,7 @@
     }
 
     // Enhanced resetPlays function with notification system
-    async function resetPlays() {
+async function resetPlays() {
   if (resetCount >= MAX_RESETS || isSpectator) {
     showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
     return;
@@ -4028,7 +4043,7 @@
   } finally {
     isResetting = false;
   }
-    }
+  }
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
