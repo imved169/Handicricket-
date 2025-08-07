@@ -2919,32 +2919,41 @@
         checkDeadOver();
 
         // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
-          
-          commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-          showNotification(commentaryText, 'error');
-          addToTimeline("NB", 'error');
-          createUmpireSignal("👆");
-          
-          // Record the no ball in ball-by-ball but don't increment legalBalls
-          ballByBall[legalBalls] = {
-            runs: 1,
-            wicket: false,
-            batter: currentBatter,
-            bowler: currentBowler,
-            timestamp: Date.now(),
-            outcome: outcome,
-            penalty: 0,
-            commentary: commentaryText,
-            isNoBall: true
-          };
-          
-          return; 
-        }
+if (batterCard === 0 && bowlerCard === 0) {
+  outcome = "NO BALL! +1 run (Free Hit next ball)";
+  runs += 1;
+  freeHitNextBall = true;
+  isLegalBall = false;
+  
+  commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
+  showNotification(commentaryText, 'error');
+  addToTimeline("NB", 'error');
+  createUmpireSignal("👆");
+  
+  // Record the no ball in ball-by-ball but don't increment legalBalls
+  ballByBall[legalBalls] = {
+    runs: 1,
+    wicket: false,
+    batter: currentBatter,
+    bowler: currentBowler,
+    timestamp: Date.now(),
+    outcome: outcome,
+    penalty: 0,
+    commentary: commentaryText,
+    isNoBall: true
+  };
+  
+  // Update displays and prepare for next ball
+  updateAllDisplays();
+  setTimeout(async () => {
+    await set(playsRef, {});
+    enableButtons();
+    clearCardSelection();
+    updateButtonStates();
+  }, 1500);
+  
+  return;
+           }
         // 2. Handle free hit balls
         else if (freeHit) {
           if (batterCard === bowlerCard && batterCard > 0) {
@@ -3983,51 +3992,45 @@
 
     // Enhanced resetPlays function with notification system
     async function resetPlays() {
-      if (resetCount >= MAX_RESETS || isSpectator) {
-        showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
-        return;
-      }
+  if (isResetting || isSpectator) return;
 
-      try {
-        isResetting = true;
-        disableButtons();
-        resetCount++;
-        
-        // Reset both players' selections in Firebase
-        await update(ref(db, `rooms/${room}`), {
-          'currentPlays/player1': null,
-          'currentPlays/player2': null
-        });
+  try {
+    isResetting = true;
+    disableButtons();
+    
+    // Reset both players' selections in Firebase
+    await update(ref(db, `rooms/${room}`), {
+      'currentPlays/player1': null,
+      'currentPlays/player2': null,
+      'resetRequest': null // Clear any reset request
+    });
 
-        // Clear local selections
-        clearCardSelection();
-        
-        // Clear reset request
-        await set(resetRequestRef, null);
-        
-        showNotification("Plays have been reset", 'info');
-        
-        // Re-enable buttons based on current game state
-        if (isBatting) {
-          if (!batterSelected) {
-            await showBatterSelection();
-          } else {
-            enableButtons();
-          }
-        } else {
-          if (!bowlerSelected) {
-            await showBowlerSelection();
-          } else {
-            enableButtons();
-          }
-        }
-      } catch (error) {
-        console.error("Error resetting plays:", error);
-        showNotification("Failed to reset plays", 'error');
+    // Clear local selections
+    clearCardSelection();
+    
+    showNotification("Plays have been reset", 'info');
+    
+    // Re-enable buttons based on current game state
+    if (isBatting) {
+      if (!batterSelected) {
+        await showBatterSelection();
+      } else {
         enableButtons();
-      } finally {
-        isResetting = false;
       }
+    } else {
+      if (!bowlerSelected) {
+        await showBowlerSelection();
+      } else {
+        enableButtons();
+      }
+    }
+  } catch (error) {
+    console.error("Error resetting plays:", error);
+    showNotification("Failed to reset plays", 'error');
+    enableButtons();
+  } finally {
+    isResetting = false;
+  }
     }
 
     // Setup connection monitoring
@@ -4349,11 +4352,10 @@
           }
         });
         
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
+        // In initGame(), add this to the control buttons setup:
+resetPlaysBtn.addEventListener("click", async () => {
+  await resetPlays();
+});
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
