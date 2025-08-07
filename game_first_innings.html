@@ -866,6 +866,17 @@
       font-size: 12px;
     }
 
+    /* Spectator Mode */
+    .spectator-mode {
+      background: #9c27b0;
+      padding: 3px 6px;
+      border-radius: 15px;
+      margin-bottom: 6px;
+      display: inline-block;
+      font-size: 11px;
+      animation: pulse 2s infinite;
+    }
+
     /* Milestone Notifications */
     .milestone-notification {
       position: fixed;
@@ -1982,6 +1993,7 @@
     const batterRef = ref(db, `rooms/${room}/currentBatter`);
     const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
     const teamsRef = ref(db, `rooms/${room}/teams`);
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
     const reactionsRef = ref(db, `rooms/${room}/reactions`);
     const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
     const liveStateRef = ref(db, `rooms/${room}/liveState`);
@@ -1998,7 +2010,7 @@
       "5": { 
         name: "5 Overs", 
         totalOvers: 5, 
-        totalWickets: 11,
+        totalWickets: 10,
         powerplayOvers: 2, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -2007,7 +2019,7 @@
       "10": { 
         name: "10 Overs", 
         totalOvers: 10, 
-        totalWickets: 11,
+        totalWickets: 10,
         powerplayOvers: 3, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -2016,7 +2028,7 @@
       "20": { 
         name: "T20", 
         totalOvers: 20, 
-        totalWickets: 11,
+        totalWickets: 10,
         powerplayOvers: 6, 
         powerplayWicketValue: 0.5,
         regularWicketValue: 1.0,
@@ -2025,7 +2037,7 @@
       "50": { 
         name: "ODI", 
         totalOvers: 50, 
-        totalWickets: 11,
+        totalWickets: 10,
         powerplayOvers: [1,10, 21,30, 41,42], 
         powerplayWicketValue: 0.25,
         regularWicketValue: 0.5,
@@ -2075,6 +2087,7 @@
     let selectedCardValue = null;
     let isProcessingSelection = false;
     let overSummaries = [];
+    let isSpectator = false;
     let firstInningsCompleted = false;
     let firstInningsData = null;
     let target = 0;
@@ -2682,6 +2695,9 @@
         const summary = `Over ${currentOver}: ${runsThisOver} runs, ${wicketsThisOver} wickets`;
         overSummaries.push(summary);
         
+        // Update Firebase for spectators
+        set(ref(db, `${overSummariesRef.path}/over${currentOver}`), summary);
+        
         // Update UI
         const summaryItem = document.createElement("div");
         summaryItem.className = "over-summary-item";
@@ -2838,7 +2854,7 @@
         stats.hatTrick = true;
         const milestone = document.createElement('div');
         milestone.className = 'bowler-milestone';
-        milestone.textContent = `🎉 THREE-WICKET-HAUL! ${bowler} takes 3 wickets!`;
+        milestone.textContent = `🎉 HAT-TRICK! ${bowler} takes 3 wickets!`;
         document.body.appendChild(milestone);
         setTimeout(() => milestone.remove(), 3000);
       }
@@ -2917,7 +2933,7 @@ if (batterCard === 0 && bowlerCard === 0) {
   commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
   showNotification(commentaryText, 'error');
   addToTimeline("NB", 'error');
-  createUmpireSignal("🙅");
+  createUmpireSignal("👆");
   
   // Record the no ball in ball-by-ball but don't increment legalBalls
   ballByBall[legalBalls] = {
@@ -2951,7 +2967,7 @@ if (batterCard === 0 && bowlerCard === 0) {
             
             commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
             showNotification(`${commentaryText} - ${currentBatter} survives`, 'info');
-            createUmpireSignal("🙋");
+            createUmpireSignal("👈");
           } else {
             runsScored = batterCard;
             runs += batterCard;
@@ -2963,8 +2979,8 @@ if (batterCard === 0 && bowlerCard === 0) {
             commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
             showNotification(`${currentBatter} scores ${batterCard} on free hit - ${commentaryText}`, 'info');
             addToTimeline(`${batterCard} FH`, 'info');
-            if (batterCard === 4) createUmpireSignal("🫳");
-            if (batterCard === 6) createUmpireSignal("🙌");
+            if (batterCard === 4) createUmpireSignal("👈");
+            if (batterCard === 6) createUmpireSignal("↖️");
           }
           freeHit = false;
           updateFreeHitDisplay();
@@ -3041,12 +3057,12 @@ if (batterCard === 0 && bowlerCard === 0) {
             if (bowlerCard === 4) {
               batterStats[currentBatter].fours += 1;
               boundary = true;
-              createUmpireSignal("🫳");
+              createUmpireSignal("👈");
             } else if (bowlerCard === 6) {
               batterStats[currentBatter].sixes += 1;
               boundary = true;
               isSix = true;
-              createUmpireSignal("↖🙌");
+              createUmpireSignal("↖️");
             }
             
             commentaryText = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
@@ -3065,7 +3081,7 @@ if (batterCard === 0 && bowlerCard === 0) {
             commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
             showNotification(`4th dot ball from bowler! ${commentaryText}`, 'error');
             addToTimeline("NB", 'error');
-            createUmpireSignal("🙅");
+            createUmpireSignal("👆");
           } else {
             outcome = "DOT BALL!";
             
@@ -3101,8 +3117,8 @@ if (batterCard === 0 && bowlerCard === 0) {
           
           if (boundary) {
             createBoundaryEffect(isSix);
-            if (batterCard === 4) createUmpireSignal("🫳");
-            if (batterCard === 6) createUmpireSignal("🙌");
+            if (batterCard === 4) createUmpireSignal("👈");
+            if (batterCard === 6) createUmpireSignal("↖️");
           }
           
           isLegalBall = true;
@@ -3475,10 +3491,11 @@ if (batterCard === 0 && bowlerCard === 0) {
         
         // Show appropriate selection UI
         if (isBatting) {
-  await showBatterSelection(); // Always show selection if batting
-} else {
-  await showBowlerSelection(); // Always show selection if bowling
+            if (!isSpectator) await showBatterSelection();
+        } else {
+            if (!isSpectator) await showBowlerSelection();
         }
+    }
 
     // Function to reset the selection modal
     function resetSelectionModal() {
@@ -3492,6 +3509,7 @@ if (batterCard === 0 && bowlerCard === 0) {
     // Modified setupSelectionModal function
     function setupSelectionModal() {
       confirmSelection.addEventListener("click", async () => {
+        if (isConfirmingSelection || isSpectator) return; // Prevent double clicks
         isConfirmingSelection = true;
         
         try {
@@ -3530,7 +3548,7 @@ if (batterCard === 0 && bowlerCard === 0) {
     function updateButtonStates() {
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
-        btn.disabled = !canPlay;
+        btn.disabled = !canPlay || isSpectator;
       });
     }
 
@@ -3543,6 +3561,7 @@ if (batterCard === 0 && bowlerCard === 0) {
 
     // Enable all card buttons
     function enableButtons() {
+      if (isResetting || isSpectator) return;
       
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
@@ -3912,6 +3931,24 @@ if (batterCard === 0 && bowlerCard === 0) {
       }
     }
 
+    // Update spectator data with match details
+    function updateSpectatorData() {
+      const currentOver = Math.floor(legalBalls / 6);
+      
+      // Update live state
+      set(liveStateRef, {
+        runs: runs,
+        wickets: Math.floor(wickets),
+        legalBalls: legalBalls,
+        currentBatter: currentBatter,
+        currentBowler: currentBowler,
+        isPowerplay: isPowerplay,
+        isDeadOver: isDeadOver,
+        freeHit: freeHit,
+        timestamp: Date.now()
+      });
+    }
+
     // Save game state
     async function saveGameState() {
       try {
@@ -3960,7 +3997,7 @@ if (batterCard === 0 && bowlerCard === 0) {
 
     // Enhanced resetPlays function with notification system
     async function resetPlays() {
-  if (isResetting) return;
+  if (isResetting || isSpectator) return;
 
   try {
     isResetting = true;
@@ -4030,7 +4067,7 @@ if (batterCard === 0 && bowlerCard === 0) {
         if (!snap.exists()) {
           currentBatter = null;
           batterSelected = false;
-          if (isBatting && !isResetting) {
+          if (isBatting && !isResetting && !isSpectator) {
             showBatterSelection();
           }
         } else if (snap.val()) {
@@ -4046,7 +4083,7 @@ if (batterCard === 0 && bowlerCard === 0) {
         if (!snap.exists()) {
           currentBowler = null;
           bowlerSelected = false;
-          if (!isBatting && !isResetting) {
+          if (!isBatting && !isResetting && !isSpectator) {
             showBowlerSelection();
           }
         } else if (snap.val()) {
@@ -4064,12 +4101,18 @@ if (batterCard === 0 && bowlerCard === 0) {
         }
       });
 
-
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          // Update spectator count display if needed
+        }
+      });
+      
       // Listen for reset requests
       onValue(resetRequestRef, (snap) => {
         if (snap.exists() && snap.val()) {
           const request = snap.val();
-          if (request.requested && request.by !== player) {
+          if (request.requested && request.by !== player && !isSpectator) {
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
@@ -4208,6 +4251,13 @@ if (batterCard === 0 && bowlerCard === 0) {
           throw new Error("Missing room parameter in URL");
         }
 
+        // Check if spectator mode
+        isSpectator = player === "spectator";
+        if (isSpectator) {
+          setupSpectatorMode();
+          return;
+        }
+
         // 2. Set player online status with timeout
         console.log("Setting player online status...");
         await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
@@ -4312,6 +4362,45 @@ if (batterCard === 0 && bowlerCard === 0) {
         resultEl.className = "error";
         loadingSpinner.style.display = "none";
       }
+    }
+
+    // Setup spectator mode
+    function setupSpectatorMode() {
+      roleText.innerHTML = '<div class="spectator-mode">Spectator Mode</div>';
+      document.getElementById("cardButtons").style.display = "none";
+      document.getElementById("topControls").style.display = "none";
+      document.getElementById("connectionStatus").textContent = "Spectating match";
+      
+      // Set up all Firebase listeners
+      setupFirebaseListeners();
+      setupTeamsModal();
+      setupStatsSlider();
+      
+      // Listen for live state changes
+      onValue(liveStateRef, (snap) => {
+        if (snap.exists()) {
+          const state = snap.val();
+          runs = state.runs;
+          wickets = state.wickets;
+          legalBalls = state.legalBalls;
+          currentBatter = state.currentBatter;
+          currentBowler = state.currentBowler;
+          isPowerplay = state.isPowerplay;
+          isDeadOver = state.isDeadOver;
+          freeHit = state.freeHit;
+          
+          // Update UI
+          updateAllDisplays();
+          
+          // Update indicators
+          powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
+          deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
+          freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
+        }
+      });
+      
+      loadingSpinner.style.display = "none";
+      resultEl.innerText = "Watching match live...";
     }
 
     // Setup teams modal with slider functionality
@@ -4649,6 +4738,7 @@ if (batterCard === 0 && bowlerCard === 0) {
     function setupCardButtons() {
       buttons.forEach(btn => {
         btn.addEventListener("click", async function() {
+          if (btn.disabled || isProcessingSelection || isSpectator) return;
           
           const cardValue = parseInt(btn.dataset.value);
           selectedCardValue = cardValue;
