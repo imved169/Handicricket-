@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - Auction Room</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      color: #ffeb3b;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-bottom: 20px;
+    }
+    
+    .user-info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .user-info p {
+      margin: 5px 0;
+    }
+    
+    .user-team {
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .auction-container {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .player-pool {
+      flex: 1;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .player-pool h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 8px;
+    }
+    
+    .team-list {
+      width: 300px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .team-list h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 8px;
+    }
+    
+    .player-card {
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .player-card:hover {
+      background: rgba(30, 136, 229, 0.4);
+    }
+    
+    .player-card h3 {
+      margin: 0 0 5px 0;
+      color: #ffeb3b;
+    }
+    
+    .player-card p {
+      margin: 3px 0;
+      font-size: 14px;
+    }
+    
+    .player-role {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+    
+    .role-batter {
+      background: #4CAF50;
+    }
+    
+    .role-bowler {
+      background: #F44336;
+    }
+    
+    .role-allrounder {
+      background: #FF9800;
+    }
+    
+    .role-wk {
+      background: #9C27B0;
+    }
+    
+    .current-player {
+      background: rgba(255, 235, 59, 0.3);
+      border: 2px solid #ffeb3b;
+    }
+    
+    .bid-controls {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .bid-info {
+      margin-bottom: 15px;
+    }
+    
+    .bid-info h2 {
+      margin: 0 0 10px 0;
+      color: #ffeb3b;
+    }
+    
+    .bid-amount {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .bid-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-bid {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .btn-pass {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    .btn-sold {
+      background: linear-gradient(145deg, #FF5722, #E64A19);
+    }
+    
+    .btn-back {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+      margin-top: 20px;
+    }
+    
+    .team-budget {
+      font-weight: bold;
+      color: #ffeb3b;
+      margin-bottom: 10px;
+    }
+    
+    .team-players {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .team-players li {
+      padding: 8px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+    }
+    
+    .admin-controls {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      display: none;
+    }
+    
+    .input-group {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+    }
+    
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #1e88e5;
+      border-radius: 5px;
+      background: rgba(30, 136, 229, 0.1);
+      color: white;
+    }
+    
+    .btn-add-player {
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+    }
+    
+    .btn-start-auction {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid #1e88e5;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .auction-container {
+        flex-direction: column;
+      }
+      
+      .team-list {
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 HandiCricket Auction</h1>
+    
+    <div class="user-info">
+      <p>Team: <span id="teamDisplay" class="user-team"></span></p>
+      <p>Budget: <span id="budgetDisplay" class="user-team">₹150.00 Cr</span></p>
+      <p>Players: <span id="playerCount">0/25</span></p>
+    </div>
+    
+    <div id="joinRoomSection">
+      <div class="input-group">
+        <label for="auctionRoomCode">Enter Auction Room Code</label>
+        <input type="text" id="auctionRoomCode" placeholder="6-digit code provided by admin">
+      </div>
+      <button id="joinAuctionBtn" class="btn btn-bid">Join Auction</button>
+    </div>
+    
+    <div id="auctionRoom" style="display: none;">
+      <div class="auction-container">
+        <div class="player-pool">
+          <h2>Player Pool</h2>
+          <div id="playerPoolList"></div>
+        </div>
+        
+        <div class="bid-controls">
+          <div class="bid-info">
+            <h2>Current Player</h2>
+            <div id="currentPlayerCard" class="player-card">
+              <p>No player selected</p>
+            </div>
+            <p>Current Bid: <span id="currentBid" class="bid-amount">₹0.50 Cr</span></p>
+            <p>Bid By: <span id="bidByTeam">-</span></p>
+          </div>
+          
+          <div class="bid-buttons">
+            <button id="placeBidBtn" class="btn btn-bid">Bid (+0.25 Cr)</button>
+            <button id="passBtn" class="btn btn-pass">Pass</button>
+            <button id="soldBtn" class="btn btn-sold" style="display: none;">Sold!</button>
+          </div>
+        </div>
+        
+        <div class="team-list">
+          <h2>Your Team</h2>
+          <p class="team-budget">Remaining: <span id="remainingBudget">₹150.00 Cr</span></p>
+          <ul class="team-players" id="myTeamPlayers"></ul>
+        </div>
+      </div>
+      
+      <div id="adminControls" class="admin-controls">
+        <h2>Admin Controls</h2>
+        <div class="input-group">
+          <label for="playerName">Player Name</label>
+          <input type="text" id="playerName" placeholder="Enter player name">
+        </div>
+        <div class="input-group">
+          <label for="playerRole">Player Role</label>
+          <select id="playerRole">
+            <option value="batter">Batter</option>
+            <option value="bowler">Bowler (Pacer)</option>
+            <option value="spinner">Bowler (Spinner)</option>
+            <option value="allrounder">All-Rounder</option>
+            <option value="wk">Wicket-Keeper</option>
+          </select>
+        </div>
+        <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
+        <button id="startAuctionBtn" class="btn btn-start-auction">Start Auction</button>
+      </div>
+      
+      <button id="backBtn" class="btn btn-back">Back to Home</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // DOM elements
+    const teamDisplay = document.getElementById('teamDisplay');
+    const budgetDisplay = document.getElementById('budgetDisplay');
+    const playerCount = document.getElementById('playerCount');
+    const joinRoomSection = document.getElementById('joinRoomSection');
+    const auctionRoom = document.getElementById('auctionRoom');
+    const auctionRoomCodeInput = document.getElementById('auctionRoomCode');
+    const joinAuctionBtn = document.getElementById('joinAuctionBtn');
+    const playerPoolList = document.getElementById('playerPoolList');
+    const currentPlayerCard = document.getElementById('currentPlayerCard');
+    const currentBid = document.getElementById('currentBid');
+    const bidByTeam = document.getElementById('bidByTeam');
+    const placeBidBtn = document.getElementById('placeBidBtn');
+    const passBtn = document.getElementById('passBtn');
+    const soldBtn = document.getElementById('soldBtn');
+    const remainingBudget = document.getElementById('remainingBudget');
+    const myTeamPlayers = document.getElementById('myTeamPlayers');
+    const adminControls = document.getElementById('adminControls');
+    const playerNameInput = document.getElementById('playerName');
+    const playerRoleSelect = document.getElementById('playerRole');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const startAuctionBtn = document.getElementById('startAuctionBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    // Game state
+    let currentUser = localStorage.getItem('hc_username');
+    let currentTeam = localStorage.getItem('hc_team');
+    let isAdmin = currentUser === 'imved169';
+    let auctionRoomCode = '';
+    let myTeam = [];
+    let myBudget = 150; // in Crores
+    let currentPlayer = null;
+    let currentPlayerBid = 0.5; // starting bid in Crores
+    let currentBidder = null;
+    let playersPool = [];
+    let retainedPlayers = [];
+    let rtmCards = 0;
+
+    // Initialize
+    if (!currentUser || !currentTeam) {
+      alert('Please login first');
+      window.location.href = 'index.html';
+    }
+
+    teamDisplay.textContent = currentTeam;
+    updateBudgetDisplay();
+
+    // Show admin controls if admin
+    if (isAdmin) {
+      adminControls.style.display = 'block';
+      joinRoomSection.style.display = 'none';
+      auctionRoom.style.display = 'block';
+    }
+
+    // Join auction room
+    joinAuctionBtn.addEventListener('click', async () => {
+      auctionRoomCode = auctionRoomCodeInput.value.trim();
+      
+      if (!auctionRoomCode || auctionRoomCode.length !== 6) {
+        alert('Please enter a valid 6-digit room code');
+        return;
+      }
+      
+      // Check if room exists
+      const roomRef = ref(db, `auctions/${auctionRoomCode}`);
+      const roomSnap = await get(roomRef);
+      
+      if (!roomSnap.exists()) {
+        alert('Auction room not found. Please check the code.');
+        return;
+      }
+      
+      // Join room
+      joinRoomSection.style.display = 'none';
+      auctionRoom.style.display = 'block';
+      
+      // Load room data
+      loadAuctionRoom();
+    });
+
+    // Load auction room data
+    function loadAuctionRoom() {
+      const roomRef = ref(db, `auctions/${auctionRoomCode}`);
+      
+      onValue(roomRef, (snap) => {
+        if (snap.exists()) {
+          const roomData = snap.val();
+          
+          // Update players pool
+          playersPool = roomData.playersPool || [];
+          updatePlayerPool();
+          
+          // Update current player
+          if (roomData.currentPlayer) {
+            currentPlayer = roomData.currentPlayer;
+            currentPlayerBid = roomData.currentBid || 0.5;
+            currentBidder = roomData.currentBidder || null;
+            updateCurrentPlayer();
+          }
+          
+          // Update my team if exists
+          if (roomData.teams && roomData.teams[currentTeam]) {
+            myTeam = roomData.teams[currentTeam].players || [];
+            myBudget = roomData.teams[currentTeam].budget || 150;
+            rtmCards = roomData.teams[currentTeam].rtmCards || 0;
+            updateMyTeam();
+            updateBudgetDisplay();
+          }
+        }
+      });
+    }
+
+    // Update player pool display
+    function updatePlayerPool() {
+      playerPoolList.innerHTML = '';
+      
+      // Group players by role
+      const playersByRole = {
+        batter: [],
+        bowler: [],
+        spinner: [],
+        allrounder: [],
+        wk: []
+      };
+      
+      playersPool.forEach(player => {
+        if (!player.sold) {
+          playersByRole[player.role].push(player);
+        }
+      });
+      
+      // Display players by role
+      for (const [role, players] of Object.entries(playersByRole)) {
+        if (players.length > 0) {
+          const roleHeader = document.createElement('h3');
+          roleHeader.textContent = getRoleDisplayName(role);
+          roleHeader.style.color = getRoleColor(role);
+          playerPoolList.appendChild(roleHeader);
+          
+          players.forEach(player => {
+            const playerCard = document.createElement('div');
+            playerCard.className = 'player-card';
+            if (currentPlayer && currentPlayer.id === player.id) {
+              playerCard.classList.add('current-player');
+            }
+            playerCard.innerHTML = `
+              <h3>${player.name}</h3>
+              <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
+              <p>Base Price: ₹0.50 Cr</p>
+              ${player.stats ? `<p>${player.stats}</p>` : ''}
+            `;
+            
+            if (isAdmin) {
+              playerCard.addEventListener('click', () => {
+                setCurrentPlayer(player);
+              });
+            }
+            
+            playerPoolList.appendChild(playerCard);
+          });
+        }
+      }
+    }
+
+    // Update current player display
+    function updateCurrentPlayer() {
+      if (!currentPlayer) {
+        currentPlayerCard.innerHTML = '<p>No player selected</p>';
+        currentBid.textContent = '₹0.50 Cr';
+        bidByTeam.textContent = '-';
+        placeBidBtn.style.display = 'block';
+        passBtn.style.display = 'block';
+        soldBtn.style.display = 'none';
+        return;
+      }
+      
+      currentPlayerCard.innerHTML = `
+        <h3>${currentPlayer.name}</h3>
+        <span class="player-role role-${currentPlayer.role}">${getRoleDisplayName(currentPlayer.role)}</span>
+        <p>Base Price: ₹0.50 Cr</p>
+        ${currentPlayer.stats ? `<p>${currentPlayer.stats}</p>` : ''}
+      `;
+      
+      currentBid.textContent = `₹${currentPlayerBid.toFixed(2)} Cr`;
+      bidByTeam.textContent = currentBidder || '-';
+      
+      // Disable bid button if I'm the current bidder or if I'm out of budget
+      if (currentBidder === currentTeam || (myBudget - currentPlayerBid - 0.25) < 0) {
+        placeBidBtn.disabled = true;
+      } else {
+        placeBidBtn.disabled = false;
+      }
+    }
+
+    // Update my team display
+    function updateMyTeam() {
+      myTeamPlayers.innerHTML = '';
+      
+      if (myTeam.length === 0) {
+        myTeamPlayers.innerHTML = '<li>No players yet</li>';
+        return;
+      }
+      
+      myTeam.forEach(player => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${player.name} <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
+          <span style="float: right;">₹${player.price.toFixed(2)} Cr</span>
+        `;
+        myTeamPlayers.appendChild(li);
+      });
+    }
+
+    // Update budget display
+    function updateBudgetDisplay() {
+      budgetDisplay.textContent = `₹${myBudget.toFixed(2)} Cr`;
+      remainingBudget.textContent = `₹${myBudget.toFixed(2)} Cr`;
+    }
+
+    // Place bid
+    placeBidBtn.addEventListener('click', () => {
+      if (!currentPlayer) return;
+      
+      const newBid = currentPlayerBid + 0.25;
+      
+      if (newBid > myBudget) {
+        alert('Not enough budget!');
+        return;
+      }
+      
+      // Update in Firebase
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        currentBid: newBid,
+        currentBidder: currentTeam
+      });
+    });
+
+    // Pass
+    passBtn.addEventListener('click', () => {
+      if (!currentPlayer) return;
+      
+      // Just wait for others to bid or admin to mark as sold
+    });
+
+    // Admin: Add player to pool
+    addPlayerBtn.addEventListener('click', async () => {
+      const playerName = playerNameInput.value.trim();
+      const playerRole = playerRoleSelect.value;
+      
+      if (!playerName) {
+        alert('Please enter player name');
+        return;
+      }
+      
+      // Create player object
+      const newPlayer = {
+        id: Date.now().toString(),
+        name: playerName,
+        role: playerRole,
+        basePrice: 0.5,
+        sold: false
+      };
+      
+      // Add to pool in Firebase
+      const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      const roomSnap = await get(roomRef);
+      
+      let updatedPool = [];
+      if (roomSnap.exists()) {
+        updatedPool = roomSnap.val();
+      }
+      
+      updatedPool.push(newPlayer);
+      
+      await set(roomRef, updatedPool);
+      
+      playerNameInput.value = '';
+      alert('Player added to pool!');
+    });
+
+    // Admin: Set current player
+    function setCurrentPlayer(player) {
+      currentPlayer = player;
+      currentPlayerBid = 0.5;
+      currentBidder = null;
+      
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        currentPlayer: player,
+        currentBid: 0.5,
+        currentBidder: null
+      });
+    }
+
+    // Admin: Start auction
+    startAuctionBtn.addEventListener('click', async () => {
+      // Initialize teams if not already
+      const teamsRef = ref(db, `auctions/${auctionRoomCode}/teams`);
+      const teamsSnap = await get(teamsRef);
+      
+      if (!teamsSnap.exists()) {
+        // Get all users from database
+        const usersRef = ref(db, 'users');
+        const usersSnap = await get(usersRef);
+        
+        if (usersSnap.exists()) {
+          const users = usersSnap.val();
+          const teamsData = {};
+          
+          for (const [username, user] of Object.entries(users)) {
+            teamsData[user.team] = {
+              budget: 150,
+              players: [],
+              rtmCards: 0
+            };
+          }
+          
+          await set(teamsRef, teamsData);
+        }
+      }
+      
+      alert('Auction started!');
+    });
+
+    // Admin: Mark player as sold
+    soldBtn.addEventListener('click', () => {
+      if (!currentPlayer || !currentBidder) return;
+      
+      // Update player as sold
+      const roomRef = ref(db, `auctions/${auctionRoomCode}`);
+      const updates = {};
+      
+      // Add player to winning team
+      updates[`teams/${currentBidder}/players`] = [...myTeam, {
+        ...currentPlayer,
+        price: currentPlayerBid
+      }];
+      updates[`teams/${currentBidder}/budget`] = myBudget - currentPlayerBid;
+      
+      // Mark player as sold in pool
+      const playerIndex = playersPool.findIndex(p => p.id === currentPlayer.id);
+      if (playerIndex !== -1) {
+        updates[`playersPool/${playerIndex}/sold`] = true;
+      }
+      
+      // Reset current player
+      updates['currentPlayer'] = null;
+      updates['currentBid'] = 0.5;
+      updates['currentBidder'] = null;
+      
+      update(roomRef, updates);
+    });
+
+    // Back button
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+
+    // Helper functions
+    function getRoleDisplayName(role) {
+      const roleNames = {
+        batter: 'Batter',
+        bowler: 'Pacer',
+        spinner: 'Spinner',
+        allrounder: 'All-Rounder',
+        wk: 'Wicket-Keeper'
+      };
+      return roleNames[role] || role;
+    }
+
+    function getRoleColor(role) {
+      const roleColors = {
+        batter: '#4CAF50',
+        bowler: '#F44336',
+        spinner: '#F44336',
+        allrounder: '#FF9800',
+        wk: '#9C27B0'
+      };
+      return roleColors[role] || '#FFFFFF';
+    }
+
+    // Initialize admin room if admin
+    if (isAdmin) {
+      auctionRoomCode = generateRoomCode();
+      set(ref(db, `auctions/${auctionRoomCode}`), {
+        createdBy: currentUser,
+        createdAt: Date.now(),
+        playersPool: [],
+        teams: {},
+        status: 'waiting'
+      });
+      
+      alert(`Your auction room code is: ${auctionRoomCode}\nShare this with other teams to join.`);
+    }
+
+    function generateRoomCode() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+  </script>
+</body>
+</html>
