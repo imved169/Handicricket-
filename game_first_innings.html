@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -650,6 +650,11 @@
     #resetPlaysBtn:hover {
       background: #7b1fa2;
     }
+
+    #resetPlaysBtn {
+  position: relative;
+  z-index: 100; /* Higher than modals */
+    }
     
     /* Teams Modal */
     .teams-modal {
@@ -859,6 +864,17 @@
       margin: 3px 0;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       font-size: 12px;
+    }
+
+    /* Spectator Mode */
+    .spectator-mode {
+      background: #9c27b0;
+      padding: 3px 6px;
+      border-radius: 15px;
+      margin-bottom: 6px;
+      display: inline-block;
+      font-size: 11px;
+      animation: pulse 2s infinite;
     }
 
     /* Milestone Notifications */
@@ -1977,6 +1993,7 @@
     const batterRef = ref(db, `rooms/${room}/currentBatter`);
     const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
     const teamsRef = ref(db, `rooms/${room}/teams`);
+    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
     const reactionsRef = ref(db, `rooms/${room}/reactions`);
     const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
     const liveStateRef = ref(db, `rooms/${room}/liveState`);
@@ -2070,6 +2087,7 @@
     let selectedCardValue = null;
     let isProcessingSelection = false;
     let overSummaries = [];
+    let isSpectator = false;
     let firstInningsCompleted = false;
     let firstInningsData = null;
     let target = 0;
@@ -2098,7 +2116,7 @@
         "Dances down the track and smashes it for four"
       ],
       six: [
-        "That's gone all the way! What a hit!",
+        "That's gone all the way! What a hit! Massive!",
         "Maximum! Clears the ropes with ease - incredible power!",
         "Launched into the stands! Six runs - that's huge!",
         "Monstrous hit! That's out of the ground - wow!",
@@ -2906,209 +2924,41 @@
         checkDeadOver();
 
         // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
-          
-          commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-          showNotification(commentaryText, 'error');
-          addToTimeline("NB", 'error');
-          createUmpireSignal("👆");
-          
-          // Record the no ball in ball-by-ball but don't increment legalBalls
-          // In the no ball handling section:
-ballByBall[legalBalls] = {
-  runs: 1,
-  wicket: false,
-  batter: currentBatter,
-  bowler: currentBowler,
-  timestamp: Date.now(),
-  outcome: outcome,
-  penalty: 0,
-  commentary: commentaryText,
-  isNoBall: true
-};
-
-// Immediately re-enable buttons after no ball
-setTimeout(() => {
-  enableButtons();
-  clearCardSelection();
-}, 500);
-          
-          return; 
-        }
-        // 2. Handle free hit balls
-        else if (freeHit) {
-          if (batterCard === bowlerCard && batterCard > 0) {
-            outcome = "Wicket on Free Hit (not out)";
-            isWicket = false;
-            
-            commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
-            showNotification(`${commentaryText} - ${currentBatter} survives`, 'info');
-            createUmpireSignal("👈");
-          } else {
-            runsScored = batterCard;
-            runs += batterCard;
-            batterStats[currentBatter].runs += runsScored;
-            outcome = `${batterCard} Run(s)! (Free Hit)`;
-            if (batterCard === 4 || batterCard === 6) boundary = true;
-            if (batterCard === 6) isSix = true;
-            
-            commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
-            showNotification(`${currentBatter} scores ${batterCard} on free hit - ${commentaryText}`, 'info');
-            addToTimeline(`${batterCard} FH`, 'info');
-            if (batterCard === 4) createUmpireSignal("👈");
-            if (batterCard === 6) createUmpireSignal("↖️");
-          }
-          freeHit = false;
-          updateFreeHitDisplay();
-          isLegalBall = true;
-        }
-        // 3. Handle wickets (same number > 0)
-        else if (batterCard === bowlerCard && batterCard > 0) {
-          const wicketValue = getWicketValue();
-          const currentWickets = batterWickets[currentBatter] || 0;
-
-          if (currentWickets < 1.0) {
-            const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
-            batterWickets[currentBatter] = currentWickets + actualWicketValue;
-            wickets += actualWicketValue;
-            isWicket = true;
-
-            if (batterWickets[currentBatter] >= 1.0) {
-              isPlayerOut = true;
-              outcome = "WICKET! (Out)";
-              fallOfWickets.push({
-                score: runs,
-                over: `${Math.floor(legalBalls / 6)}.${(legalBalls % 6) + 1}`,
-                batter: currentBatter,
-                bowler: currentBowler
-              });
-              
-              // Record out details in batter stats
-              batterStats[currentBatter].outBall = legalBalls;
-              batterStats[currentBatter].outOver = `${Math.floor(legalBalls / 6)}.${(legalBalls % 6) + 1}`;
-              
-              commentaryText = commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)];
-              showNotification(`WICKET! ${commentaryText} - ${currentBowler} gets ${currentBatter} out!`, 'wicket');
-              addToTimeline(`W ${currentBatter}`, 'wicket');
-              createWicketAnimation();
-              createUmpireSignal("☝️");
-              
-                  // Check bowler milestones
-    function checkBowlerMilestones(bowler) {
-      const stats = bowlerStats[bowler] || { wickets: 0 };
-      
-      // Hat-trick (3 wickets in 3 balls)
-      if (stats.wickets === 3 && !stats.hatTrick) {
-        stats.hatTrick = true;
-        const milestone = document.createElement('div');
-        milestone.className = 'bowler-milestone';
-        milestone.textContent = `🎉 HAT-TRICK! ${bowler} takes 3 wickets!`;
-        document.body.appendChild(milestone);
-        setTimeout(() => milestone.remove(), 3000);
-      }
-      
-      // Fifer (5 wickets)
-      if (stats.wickets >= 5 && !stats.fifer) {
-        stats.fifer = true;
-        const milestone = document.createElement('div');
-        milestone.className = 'bowler-milestone';
-        milestone.textContent = `🎉 FIFER! ${bowler} takes 5 wickets!`;
-        document.body.appendChild(milestone);
-        setTimeout(() => milestone.remove(), 3000);
-      }
-      
-      // 10 wickets in match
-      if (stats.wickets >= 10 && !stats.tenWickets) {
-        stats.tenWickets = true;
-        const milestone = document.createElement('div');
-        milestone.className = 'bowler-milestone';
-        milestone.textContent = `🎉 MATCH HERO! ${bowler} takes 10 wickets!`;
-        document.body.appendChild(milestone);
-        setTimeout(() => milestone.remove(), 3000);
-      }
-    }
-
-    // Process the outcome of a ball with fractional wickets
-    async function handleResult() {
-      try {
-        // Clear selection state
-        selectedCardValue = null;
-        isProcessingSelection = false;
-        
-        const playsSnap = await get(playsRef);
-        if (!playsSnap.exists()) return;
-        
-        const plays = playsSnap.val();
-        if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
-
-        const card1 = plays.player1;
-        const card2 = plays.player2;
-        const battingPlayer = battingFirst;
-        const batterCard = battingPlayer === "player1" ? card1 : card2;
-        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
-
-        let outcome = "";
-        let isLegalBall = false;
-        let isWicket = false;
-        let isPlayerOut = false;
-        let runsScored = 0;
-        let boundary = false;
-        let isSix = false;
-        let commentaryText = "";
-
-        // Track zeros for both players
-        if (batterCard === 0) zerosThisOver[battingPlayer]++;
-        if (bowlerCard === 0) zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"]++;
-
-        // Handle free hit for next ball
-        if (freeHitNextBall) {
-          freeHit = true;
-          freeHitNextBall = false;
-          updateFreeHitDisplay();
-        }
-
-        // Check powerplay and dead over status
-        checkPowerplay();
-        checkDeadOver();
-
-        // 1. Check for no ball (both 0)
-        if (batterCard === 0 && bowlerCard === 0) {
-          outcome = "NO BALL! +1 run (Free Hit next ball)";
-          runs += 1;
-          freeHitNextBall = true;
-          isLegalBall = false; // This is the key change - no balls don't count as legal deliveries
-          
-          commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
-          showNotification(commentaryText, 'error');
-          addToTimeline("NB", 'error');
-          createUmpireSignal("👆");
-          
-          // Record the no ball in ball-by-ball but don't increment legalBalls
-          // In the no ball handling section:
-ballByBall[legalBalls] = {
-  runs: 1,
-  wicket: false,
-  batter: currentBatter,
-  bowler: currentBowler,
-  timestamp: Date.now(),
-  outcome: outcome,
-  penalty: 0,
-  commentary: commentaryText,
-  isNoBall: true
-};
-
-// Immediately re-enable buttons after no ball
-setTimeout(() => {
-  enableButtons();
-  clearCardSelection();
-}, 500);
-          
-          return; 
-        }
+if (batterCard === 0 && bowlerCard === 0) {
+  outcome = "NO BALL! +1 run (Free Hit next ball)";
+  runs += 1;
+  freeHitNextBall = true;
+  isLegalBall = false;
+  
+  commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
+  showNotification(commentaryText, 'error');
+  addToTimeline("NB", 'error');
+  createUmpireSignal("👆");
+  
+  // Record the no ball in ball-by-ball but don't increment legalBalls
+  ballByBall[legalBalls] = {
+    runs: 1,
+    wicket: false,
+    batter: currentBatter,
+    bowler: currentBowler,
+    timestamp: Date.now(),
+    outcome: outcome,
+    penalty: 0,
+    commentary: commentaryText,
+    isNoBall: true
+  };
+  
+  // Update displays and prepare for next ball
+  updateAllDisplays();
+  setTimeout(async () => {
+    await set(playsRef, {});
+    enableButtons();
+    clearCardSelection();
+    updateButtonStates();
+  }, 1500);
+  
+  return;
+           }
         // 2. Handle free hit balls
         else if (freeHit) {
           if (batterCard === bowlerCard && batterCard > 0) {
@@ -3641,9 +3491,9 @@ setTimeout(() => {
         
         // Show appropriate selection UI
         if (isBatting) {
-            await showBatterSelection();
+            if (!isSpectator) await showBatterSelection();
         } else {
-            await showBowlerSelection();
+            if (!isSpectator) await showBowlerSelection();
         }
     }
 
@@ -3659,7 +3509,7 @@ setTimeout(() => {
     // Modified setupSelectionModal function
     function setupSelectionModal() {
       confirmSelection.addEventListener("click", async () => {
-        if (isConfirmingSelection) return; // Prevent double clicks
+        if (isConfirmingSelection || isSpectator) return; // Prevent double clicks
         isConfirmingSelection = true;
         
         try {
@@ -3698,7 +3548,7 @@ setTimeout(() => {
     function updateButtonStates() {
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
-        btn.disabled = !canPlay;
+        btn.disabled = !canPlay || isSpectator;
       });
     }
 
@@ -3711,25 +3561,17 @@ setTimeout(() => {
 
     // Enable all card buttons
     function enableButtons() {
-  if (isResetting) return;
-  
-  const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
-  buttons.forEach(btn => {
-    btn.disabled = !canPlay;
-  });
-  
-  if (canPlay) {
-    resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
-  }
+      if (isResetting || isSpectator) return;
+      
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
+      });
+      
+      if (canPlay) {
+        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
+      }
     }
-     
-     function clearCardSelection() {
-  buttons.forEach(btn => {
-    btn.classList.remove("selected");
-  });
-  selectedCardValue = null;
-  isProcessingSelection = false;
-     }
 
     // Update batter and bowler stats tables
     function updateStatsTables() {
@@ -4089,6 +3931,24 @@ setTimeout(() => {
       }
     }
 
+    // Update spectator data with match details
+    function updateSpectatorData() {
+      const currentOver = Math.floor(legalBalls / 6);
+      
+      // Update live state
+      set(liveStateRef, {
+        runs: runs,
+        wickets: Math.floor(wickets),
+        legalBalls: legalBalls,
+        currentBatter: currentBatter,
+        currentBowler: currentBowler,
+        isPowerplay: isPowerplay,
+        isDeadOver: isDeadOver,
+        freeHit: freeHit,
+        timestamp: Date.now()
+      });
+    }
+
     // Save game state
     async function saveGameState() {
       try {
@@ -4136,53 +3996,37 @@ setTimeout(() => {
     }
 
     // Enhanced resetPlays function with notification system
-async function resetPlays() {
-  if (resetCount >= MAX_RESETS) {
-    showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
-    return;
-  }
+    async function resetPlays() {
+  if (isResetting || isSpectator) return;
 
   try {
     isResetting = true;
     disableButtons();
-    resetCount++;
     
-    // Reset both players' selections in Firebase
+    // Directly reset plays without confirmation
     await update(ref(db, `rooms/${room}`), {
       'currentPlays/player1': null,
       'currentPlays/player2': null
     });
 
-    // Clear local selections
     clearCardSelection();
+    showNotification("Plays reset", 'info');
     
-    // Clear reset request
-    await set(resetRequestRef, null);
-    
-    showNotification("Plays have been reset", 'info');
-    
-    // Re-enable buttons based on current game state
-    if (isBatting) {
-      if (!batterSelected) {
-        await showBatterSelection();
-      } else {
-        enableButtons();
-      }
+    // Re-enable based on game state
+    if (isBatting && !batterSelected) {
+      await showBatterSelection();
+    } else if (!isBatting && !bowlerSelected) {
+      await showBowlerSelection();
     } else {
-      if (!bowlerSelected) {
-        await showBowlerSelection();
-      } else {
-        enableButtons();
-      }
+      enableButtons();
     }
   } catch (error) {
-    console.error("Error resetting plays:", error);
-    showNotification("Failed to reset plays", 'error');
-    enableButtons();
+    console.error("Reset error:", error);
+    throw error;
   } finally {
     isResetting = false;
   }
-  }
+    }
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
@@ -4223,7 +4067,7 @@ async function resetPlays() {
         if (!snap.exists()) {
           currentBatter = null;
           batterSelected = false;
-          if (isBatting && !isResetting) {
+          if (isBatting && !isResetting && !isSpectator) {
             showBatterSelection();
           }
         } else if (snap.val()) {
@@ -4239,7 +4083,7 @@ async function resetPlays() {
         if (!snap.exists()) {
           currentBowler = null;
           bowlerSelected = false;
-          if (!isBatting && !isResetting) {
+          if (!isBatting && !isResetting && !isSpectator) {
             showBowlerSelection();
           }
         } else if (snap.val()) {
@@ -4256,12 +4100,19 @@ async function resetPlays() {
           handleResult();
         }
       });
+
+      // Listen for spectator count
+      onValue(spectatorsRef, (snap) => {
+        if (snap.exists()) {
+          // Update spectator count display if needed
+        }
+      });
       
       // Listen for reset requests
       onValue(resetRequestRef, (snap) => {
         if (snap.exists() && snap.val()) {
           const request = snap.val();
-          if (request.requested && request.by !== player) {
+          if (request.requested && request.by !== player && !isSpectator) {
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
@@ -4400,6 +4251,13 @@ async function resetPlays() {
           throw new Error("Missing room parameter in URL");
         }
 
+        // Check if spectator mode
+        isSpectator = player === "spectator";
+        if (isSpectator) {
+          setupSpectatorMode();
+          return;
+        }
+
         // 2. Set player online status with timeout
         console.log("Setting player online status...");
         await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
@@ -4487,12 +4345,6 @@ async function resetPlays() {
             window.location.href = "index.html";
           }
         });
-        
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
@@ -4510,6 +4362,45 @@ async function resetPlays() {
         resultEl.className = "error";
         loadingSpinner.style.display = "none";
       }
+    }
+
+    // Setup spectator mode
+    function setupSpectatorMode() {
+      roleText.innerHTML = '<div class="spectator-mode">Spectator Mode</div>';
+      document.getElementById("cardButtons").style.display = "none";
+      document.getElementById("topControls").style.display = "none";
+      document.getElementById("connectionStatus").textContent = "Spectating match";
+      
+      // Set up all Firebase listeners
+      setupFirebaseListeners();
+      setupTeamsModal();
+      setupStatsSlider();
+      
+      // Listen for live state changes
+      onValue(liveStateRef, (snap) => {
+        if (snap.exists()) {
+          const state = snap.val();
+          runs = state.runs;
+          wickets = state.wickets;
+          legalBalls = state.legalBalls;
+          currentBatter = state.currentBatter;
+          currentBowler = state.currentBowler;
+          isPowerplay = state.isPowerplay;
+          isDeadOver = state.isDeadOver;
+          freeHit = state.freeHit;
+          
+          // Update UI
+          updateAllDisplays();
+          
+          // Update indicators
+          powerplayIndicator.style.display = isPowerplay ? "inline-block" : "none";
+          deadOverIndicator.style.display = isDeadOver ? "inline-block" : "none";
+          freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
+        }
+      });
+      
+      loadingSpinner.style.display = "none";
+      resultEl.innerText = "Watching match live...";
     }
 
     // Setup teams modal with slider functionality
@@ -4847,7 +4738,7 @@ async function resetPlays() {
     function setupCardButtons() {
       buttons.forEach(btn => {
         btn.addEventListener("click", async function() {
-          if (btn.disabled || isProcessingSelection) return;
+          if (btn.disabled || isProcessingSelection || isSpectator) return;
           
           const cardValue = parseInt(btn.dataset.value);
           selectedCardValue = cardValue;
@@ -4919,4 +4810,4 @@ async function resetPlays() {
     document.head.appendChild(style);
   </script>
 </body>
-</html>
+</html> 
