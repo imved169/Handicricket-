@@ -2931,24 +2931,17 @@
           createUmpireSignal("👆");
           
           // Record the no ball in ball-by-ball but don't increment legalBalls
-          // In the no ball handling section:
-ballByBall[legalBalls] = {
-  runs: 1,
-  wicket: false,
-  batter: currentBatter,
-  bowler: currentBowler,
-  timestamp: Date.now(),
-  outcome: outcome,
-  penalty: 0,
-  commentary: commentaryText,
-  isNoBall: true
-};
-
-// Immediately re-enable buttons after no ball
-setTimeout(() => {
-  enableButtons();
-  clearCardSelection();
-}, 500);
+          ballByBall[legalBalls] = {
+            runs: 1,
+            wicket: false,
+            batter: currentBatter,
+            bowler: currentBowler,
+            timestamp: Date.now(),
+            outcome: outcome,
+            penalty: 0,
+            commentary: commentaryText,
+            isNoBall: true
+          };
           
           return; 
         }
@@ -3554,25 +3547,17 @@ setTimeout(() => {
 
     // Enable all card buttons
     function enableButtons() {
-  if (isResetting || isSpectator) return;
-  
-  const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
-  buttons.forEach(btn => {
-    btn.disabled = !canPlay;
-  });
-  
-  if (canPlay) {
-    resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
-  }
+      if (isResetting || isSpectator) return;
+      
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
+      });
+      
+      if (canPlay) {
+        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
+      }
     }
-     
-     function clearCardSelection() {
-  buttons.forEach(btn => {
-    btn.classList.remove("selected");
-  });
-  selectedCardValue = null;
-  isProcessingSelection = false;
-     }
 
     // Update batter and bowler stats tables
     function updateStatsTables() {
@@ -3997,53 +3982,54 @@ setTimeout(() => {
     }
 
     // Enhanced resetPlays function with notification system
-async function resetPlays() {
-  if (resetCount >= MAX_RESETS || isSpectator) {
-    showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
-    return;
-  }
-
-  try {
-    isResetting = true;
-    disableButtons();
-    resetCount++;
-    
-    // Reset both players' selections in Firebase
-    await update(ref(db, `rooms/${room}`), {
-      'currentPlays/player1': null,
-      'currentPlays/player2': null
-    });
-
-    // Clear local selections
-    clearCardSelection();
-    
-    // Clear reset request
-    await set(resetRequestRef, null);
-    
-    showNotification("Plays have been reset", 'info');
-    
-    // Re-enable buttons based on current game state
-    if (isBatting) {
-      if (!batterSelected) {
-        await showBatterSelection();
-      } else {
-        enableButtons();
+    async function resetPlays() {
+      if (resetCount >= MAX_RESETS || isSpectator) {
+        showNotification(`Maximum resets (${MAX_RESETS}) reached for this innings`, 'error');
+        return;
       }
-    } else {
-      if (!bowlerSelected) {
-        await showBowlerSelection();
-      } else {
+
+      try {
+        isResetting = true;
+        disableButtons();
+        resetCount++;
+        
+        // Reset both players' selections in Firebase
+        await update(ref(db, `rooms/${room}`), {
+          'currentPlays/player1': null,
+          'currentPlays/player2': null
+        });
+
+        // Clear local selections
+        clearCardSelection();
+        
+        // Clear reset request
+        await set(resetRequestRef, null);
+        
+        showNotification("Plays have been reset", 'info');
+        
+        // Re-enable buttons based on current game state
+        if (isBatting) {
+          if (!batterSelected) {
+            await showBatterSelection();
+          } else {
+            enableButtons();
+          }
+        } else {
+          if (!bowlerSelected) {
+            await showBowlerSelection();
+          } else {
+            enableButtons();
+          }
+        }
+      } catch (error) {
+        console.error("Error resetting plays:", error);
+        showNotification("Failed to reset plays", 'error');
         enableButtons();
+      } finally {
+        isResetting = false;
       }
     }
-  } catch (error) {
-    console.error("Error resetting plays:", error);
-    showNotification("Failed to reset plays", 'error');
-    enableButtons();
-  } finally {
-    isResetting = false;
-  }
-  }
+
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
