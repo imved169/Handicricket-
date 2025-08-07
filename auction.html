@@ -267,6 +267,22 @@
       margin: 20px auto;
     }
     
+    .room-code-display {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      font-size: 18px;
+      display: none;
+    }
+    
+    .room-code {
+      font-weight: bold;
+      color: #ffeb3b;
+      font-size: 24px;
+      letter-spacing: 3px;
+    }
+    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -301,6 +317,29 @@
       <button id="joinAuctionBtn" class="btn btn-bid">Join Auction</button>
     </div>
     
+    <div id="adminSetupSection" style="display: none;">
+      <h2>Admin Setup</h2>
+      <div class="input-group">
+        <label for="playerName">Player Name</label>
+        <input type="text" id="playerName" placeholder="Enter player name">
+      </div>
+      <div class="input-group">
+        <label for="playerRole">Player Role</label>
+        <select id="playerRole">
+          <option value="batter">Batter</option>
+          <option value="bowler">Bowler (Pacer)</option>
+          <option value="spinner">Bowler (Spinner)</option>
+          <option value="allrounder">All-Rounder</option>
+          <option value="wk">Wicket-Keeper</option>
+        </select>
+      </div>
+      <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
+      <button id="startAuctionBtn" class="btn btn-start-auction">Start Auction</button>
+      <div class="room-code-display" id="roomCodeDisplay">
+        Share this code with other teams: <span class="room-code" id="roomCodeSpan"></span>
+      </div>
+    </div>
+    
     <div id="auctionRoom" style="display: none;">
       <div class="auction-container">
         <div class="player-pool">
@@ -332,26 +371,6 @@
         </div>
       </div>
       
-      <div id="adminControls" class="admin-controls">
-        <h2>Admin Controls</h2>
-        <div class="input-group">
-          <label for="playerName">Player Name</label>
-          <input type="text" id="playerName" placeholder="Enter player name">
-        </div>
-        <div class="input-group">
-          <label for="playerRole">Player Role</label>
-          <select id="playerRole">
-            <option value="batter">Batter</option>
-            <option value="bowler">Bowler (Pacer)</option>
-            <option value="spinner">Bowler (Spinner)</option>
-            <option value="allrounder">All-Rounder</option>
-            <option value="wk">Wicket-Keeper</option>
-          </select>
-        </div>
-        <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
-        <button id="startAuctionBtn" class="btn btn-start-auction">Start Auction</button>
-      </div>
-      
       <button id="backBtn" class="btn btn-back">Back to Home</button>
     </div>
   </div>
@@ -378,6 +397,7 @@
     const budgetDisplay = document.getElementById('budgetDisplay');
     const playerCount = document.getElementById('playerCount');
     const joinRoomSection = document.getElementById('joinRoomSection');
+    const adminSetupSection = document.getElementById('adminSetupSection');
     const auctionRoom = document.getElementById('auctionRoom');
     const auctionRoomCodeInput = document.getElementById('auctionRoomCode');
     const joinAuctionBtn = document.getElementById('joinAuctionBtn');
@@ -390,12 +410,13 @@
     const soldBtn = document.getElementById('soldBtn');
     const remainingBudget = document.getElementById('remainingBudget');
     const myTeamPlayers = document.getElementById('myTeamPlayers');
-    const adminControls = document.getElementById('adminControls');
     const playerNameInput = document.getElementById('playerName');
     const playerRoleSelect = document.getElementById('playerRole');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const startAuctionBtn = document.getElementById('startAuctionBtn');
     const backBtn = document.getElementById('backBtn');
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const roomCodeSpan = document.getElementById('roomCodeSpan');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
@@ -420,11 +441,28 @@
     teamDisplay.textContent = currentTeam;
     updateBudgetDisplay();
 
-    // Show admin controls if admin
+    // Show appropriate section based on user role
     if (isAdmin) {
-      adminControls.style.display = 'block';
       joinRoomSection.style.display = 'none';
-      auctionRoom.style.display = 'block';
+      adminSetupSection.style.display = 'block';
+      
+      // Generate room code for admin
+      auctionRoomCode = generateRoomCode();
+      roomCodeSpan.textContent = auctionRoomCode;
+      roomCodeDisplay.style.display = 'block';
+      
+      // Initialize auction room
+      set(ref(db, `auctions/${auctionRoomCode}`), {
+        createdBy: currentUser,
+        createdAt: Date.now(),
+        playersPool: [],
+        teams: {},
+        status: 'setup'
+      });
+    } else {
+      // Regular user - show join room section
+      joinRoomSection.style.display = 'block';
+      adminSetupSection.style.display = 'none';
     }
 
     // Join auction room
@@ -445,9 +483,27 @@
         return;
       }
       
+      const roomData = roomSnap.val();
+      
+      if (roomData.status === 'setup') {
+        alert('Auction has not started yet. Please wait for admin to start.');
+        return;
+      }
+      
       // Join room
       joinRoomSection.style.display = 'none';
       auctionRoom.style.display = 'block';
+      
+      // Add team to auction if not already added
+      if (!roomData.teams || !roomData.teams[currentTeam]) {
+        await update(ref(db, `auctions/${auctionRoomCode}/teams`), {
+          [currentTeam]: {
+            budget: 150,
+            players: [],
+            rtmCards: 0
+          }
+        });
+      }
       
       // Load room data
       loadAuctionRoom();
@@ -590,6 +646,7 @@
     function updateBudgetDisplay() {
       budgetDisplay.textContent = `₹${myBudget.toFixed(2)} Cr`;
       remainingBudget.textContent = `₹${myBudget.toFixed(2)} Cr`;
+      playerCount.textContent = `${myTeam.length}/25`;
     }
 
     // Place bid
@@ -668,32 +725,40 @@
 
     // Admin: Start auction
     startAuctionBtn.addEventListener('click', async () => {
-      // Initialize teams if not already
-      const teamsRef = ref(db, `auctions/${auctionRoomCode}/teams`);
-      const teamsSnap = await get(teamsRef);
-      
-      if (!teamsSnap.exists()) {
-        // Get all users from database
-        const usersRef = ref(db, 'users');
-        const usersSnap = await get(usersRef);
-        
-        if (usersSnap.exists()) {
-          const users = usersSnap.val();
-          const teamsData = {};
-          
-          for (const [username, user] of Object.entries(users)) {
-            teamsData[user.team] = {
-              budget: 150,
-              players: [],
-              rtmCards: 0
-            };
-          }
-          
-          await set(teamsRef, teamsData);
-        }
+      // Check if there are players in the pool
+      if (playersPool.length === 0) {
+        alert('Please add players to the pool first');
+        return;
       }
       
-      alert('Auction started!');
+      // Initialize teams with all registered users
+      const usersRef = ref(db, 'users');
+      const usersSnap = await get(usersRef);
+      
+      if (usersSnap.exists()) {
+        const users = usersSnap.val();
+        const teamsData = {};
+        
+        for (const [username, user] of Object.entries(users)) {
+          teamsData[user.team] = {
+            budget: 150,
+            players: [],
+            rtmCards: 0
+          };
+        }
+        
+        // Update room status and teams
+        await update(ref(db, `auctions/${auctionRoomCode}`), {
+          teams: teamsData,
+          status: 'active'
+        });
+      }
+      
+      // Hide setup section and show auction room
+      adminSetupSection.style.display = 'none';
+      auctionRoom.style.display = 'block';
+      
+      alert('Auction started! All teams can now join and bid.');
     });
 
     // Admin: Mark player as sold
@@ -751,20 +816,6 @@
         wk: '#9C27B0'
       };
       return roleColors[role] || '#FFFFFF';
-    }
-
-    // Initialize admin room if admin
-    if (isAdmin) {
-      auctionRoomCode = generateRoomCode();
-      set(ref(db, `auctions/${auctionRoomCode}`), {
-        createdBy: currentUser,
-        createdAt: Date.now(),
-        playersPool: [],
-        teams: {},
-        status: 'waiting'
-      });
-      
-      alert(`Your auction room code is: ${auctionRoomCode}\nShare this with other teams to join.`);
     }
 
     function generateRoomCode() {
