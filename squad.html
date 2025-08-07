@@ -308,17 +308,81 @@
     let players = [];
     let allPlayers = [];
     let currentTeam = localStorage.getItem('hc_team');
+    let retainedPlayers = [];
+    let retentionCaptain = null;
     
     // Set team name
     teamDisplay.textContent = currentTeam;
     
-    // Load user squad
+    // Load user squad including retained players and auction purchases
     const userRef = ref(db, `users/${username}`);
     onValue(userRef, (snap) => {
       if (snap.exists()) {
         const userData = snap.val();
-        players = userData.players || [];
+        
+        // Start with retained players
+        players = userData.retainedPlayers || [];
+        retentionCaptain = userData.retentionCaptain || null;
+        
+        // Add auction purchases
+        if (userData.auctionPurchases) {
+          players = players.concat(userData.auctionPurchases.map(p => p.name));
+        }
+        
+        // Add any manually added players
+        if (userData.players) {
+          const manualPlayers = userData.players.filter(p => 
+            !players.includes(p) && 
+            (!userData.retainedPlayers || !userData.retainedPlayers.includes(p)) &&
+            (!userData.auctionPurchases || !userData.auctionPurchases.some(ap => ap.name === p))
+          );
+          players = players.concat(manualPlayers);
+        }
+        
         updatePlayerList();
+        
+        // Show captain badge if we have one
+        if (retentionCaptain) {
+          const captainElement = document.createElement('div');
+          captainElement.style.margin = '10px 0';
+          captainElement.style.padding = '8px';
+          captainElement.style.background = 'rgba(255, 215, 0, 0.2)';
+          captainElement.style.borderRadius = '5px';
+          captainElement.innerHTML = `<strong>Retained Captain:</strong> ${retentionCaptain} (₹4 Cr)`;
+          playerList.parentNode.insertBefore(captainElement, playerList);
+        }
+        
+        // Show retained players section
+        if (userData.retainedPlayers && userData.retainedPlayers.length > 0) {
+          const retainedElement = document.createElement('div');
+          retainedElement.style.margin = '10px 0';
+          retainedElement.style.padding = '8px';
+          retainedElement.style.background = 'rgba(76, 175, 80, 0.2)';
+          retainedElement.style.borderRadius = '5px';
+          
+          let retainedText = `<strong>Retained Players (${userData.retainedPlayers.length}):</strong> `;
+          retainedText += userData.retainedPlayers
+            .filter(p => p !== retentionCaptain)
+            .join(', ');
+          
+          retainedElement.innerHTML = retainedText;
+          playerList.parentNode.insertBefore(retainedElement, playerList);
+        }
+        
+        // Show auction purchases if any
+        if (userData.auctionPurchases && userData.auctionPurchases.length > 0) {
+          const auctionElement = document.createElement('div');
+          auctionElement.style.margin = '10px 0';
+          auctionElement.style.padding = '8px';
+          auctionElement.style.background = 'rgba(30, 136, 229, 0.2)';
+          auctionElement.style.borderRadius = '5px';
+          
+          let auctionText = `<strong>Auction Purchases (${userData.auctionPurchases.length}):</strong> `;
+          auctionText += userData.auctionPurchases.map(p => `${p.name} (₹${p.price} Cr)`).join(', ');
+          
+          auctionElement.innerHTML = auctionText;
+          playerList.parentNode.insertBefore(auctionElement, playerList);
+        }
       }
     });
     
@@ -473,20 +537,32 @@
       }
       
       try {
+        // Get current user data to preserve retained players and auction purchases
+        const userSnap = await get(userRef);
+        const userData = userSnap.exists() ? userSnap.val() : {};
+        
+        // Prepare updates
+        const updates = {
+          players: players,
+          // Preserve existing retained players and captain if they exist
+          retainedPlayers: userData.retainedPlayers || [],
+          retentionCaptain: userData.retentionCaptain || null,
+          // Preserve auction purchases if they exist
+          auctionPurchases: userData.auctionPurchases || []
+        };
+        
         // Update user squad
-        await update(userRef, {
-          players: players
-        });
+        await update(userRef, updates);
         
         // Update player database
-        const updates = {};
+        const playerUpdates = {};
         players.forEach(player => {
           const playerKey = player.toLowerCase().replace(/\s+/g, '_');
-          updates[`players/${playerKey}/name`] = player;
-          updates[`players/${playerKey}/team`] = currentTeam;
+          playerUpdates[`players/${playerKey}/name`] = player;
+          playerUpdates[`players/${playerKey}/team`] = currentTeam;
         });
         
-        await update(ref(db), updates);
+        await update(ref(db), playerUpdates);
         
         showSuccess('Squad saved successfully!');
       } catch (error) {
