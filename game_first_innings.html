@@ -650,6 +650,11 @@
     #resetPlaysBtn:hover {
       background: #7b1fa2;
     }
+
+    #resetPlaysBtn {
+  position: relative;
+  z-index: 100; /* Higher than modals */
+    }
     
     /* Teams Modal */
     .teams-modal {
@@ -3998,41 +4003,30 @@ if (batterCard === 0 && bowlerCard === 0) {
     isResetting = true;
     disableButtons();
     
-    // Reset both players' selections in Firebase
+    // Directly reset plays without confirmation
     await update(ref(db, `rooms/${room}`), {
       'currentPlays/player1': null,
-      'currentPlays/player2': null,
-      'resetRequest': null // Clear any reset request
+      'currentPlays/player2': null
     });
 
-    // Clear local selections
     clearCardSelection();
+    showNotification("Plays reset", 'info');
     
-    showNotification("Plays have been reset", 'info');
-    
-    // Re-enable buttons based on current game state
-    if (isBatting) {
-      if (!batterSelected) {
-        await showBatterSelection();
-      } else {
-        enableButtons();
-      }
+    // Re-enable based on game state
+    if (isBatting && !batterSelected) {
+      await showBatterSelection();
+    } else if (!isBatting && !bowlerSelected) {
+      await showBowlerSelection();
     } else {
-      if (!bowlerSelected) {
-        await showBowlerSelection();
-      } else {
-        enableButtons();
-      }
+      enableButtons();
     }
   } catch (error) {
-    console.error("Error resetting plays:", error);
-    showNotification("Failed to reset plays", 'error');
-    enableButtons();
+    console.error("Reset error:", error);
+    throw error;
   } finally {
     isResetting = false;
   }
     }
-
     // Setup connection monitoring
     function setupConnectionMonitoring() {
       // Monitor opponent connection
@@ -4351,11 +4345,6 @@ if (batterCard === 0 && bowlerCard === 0) {
             window.location.href = "index.html";
           }
         });
-        
-        // In initGame(), add this to the control buttons setup:
-resetPlaysBtn.addEventListener("click", async () => {
-  await resetPlays();
-});
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
