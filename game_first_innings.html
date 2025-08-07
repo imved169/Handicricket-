@@ -3900,139 +3900,197 @@
 
     // Initialize the game
     async function initGame() {
+  try {
+    console.log("Starting game initialization...");
+    resultEl.innerText = "Initializing game...";
+    loadingSpinner.style.display = "block";
+
+    // 1. Verify URL parameters first
+    console.log("Checking URL parameters...");
+    if (!room) {
+      throw new Error("Missing room parameter in URL");
+    }
+
+    // Show mini scorecard
+    miniScorecard.style.display = 'block';
+
+    // Check if spectator mode
+    isSpectator = player === "spectator";
+    if (isSpectator) {
+      setupSpectatorMode();
+      return;
+    }
+
+    // 2. Initialize Firebase (with error handling)
+    try {
+      console.log("Initializing Firebase...");
+      app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      console.log("Firebase initialized successfully");
+    } catch (firebaseError) {
+      console.error("Firebase initialization error:", firebaseError);
+      throw new Error("Failed to connect to game server. Please check your internet connection.");
+    }
+
+    // 3. Set player online status with timeout
+    console.log("Setting player online status...");
+    try {
+      await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
+    } catch (error) {
+      console.error("Error setting player status:", error);
+      throw new Error("Connection to game server timed out. Please refresh.");
+    }
+
+    // 4. Load room data with retries
+    console.log("Loading room data...");
+    let roomSnap;
+    try {
+      roomSnap = await getWithRetries(roomRef, 3, 1000);
+      if (!roomSnap.exists()) {
+        throw new Error(`Room ${room} not found in database`);
+      }
+    } catch (error) {
+      console.error("Error loading room data:", error);
+      throw new Error("Could not find the game room. Please check the room ID.");
+    }
+
+    const roomData = roomSnap.val();
+    console.log("Room data loaded:", roomData);
+
+    // 5. Verify game setup is complete
+    console.log("Verifying game setup...");
+    if (!roomData.toss?.winner && !roomData.tossWinner) {
+      throw new Error("Toss not completed - game not ready");
+    }
+    
+    if (!roomData.teams?.player1 || !roomData.teams?.player2) {
+      throw new Error("Teams not set up - game not ready");
+    }
+
+    // Get toss and batting first info
+    tossWinner = roomData.toss?.winner || roomData.tossWinner;
+    battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
+    
+    // Update team names display
+    team1NameDisplay.textContent = roomData.teams.player1.name || "Team 1";
+    team2NameDisplay.textContent = roomData.teams.player2.name || "Team 2";
+    battingTeamName.textContent = battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+
+    // Mark game as started if not already
+    if (!roomData.gameStarted) {
       try {
-        console.log("Starting game initialization...");
-        resultEl.innerText = "Initializing game...";
-        loadingSpinner.style.display = "block";
-
-        // Show mini scorecard
-        miniScorecard.style.display = 'block';
-
-        // 1. Verify URL parameters first
-        console.log("Checking URL parameters...");
-        if (!room) {
-          throw new Error("Missing room parameter in URL");
-        }
-
-        // Check if spectator mode
-        isSpectator = player === "spectator";
-        if (isSpectator) {
-          setupSpectatorMode();
-          return;
-        }
-
-        // 2. Set player online status with timeout
-        console.log("Setting player online status...");
-        await setWithTimeout(playerRef, true, 5000, "Setting online status timed out");
-
-        // 3. Load room data with retries
-        console.log("Loading room data...");
-        const roomSnap = await getWithRetries(roomRef, 3, 1000);
-        
-        if (!roomSnap.exists()) {
-          throw new Error(`Room ${room} not found in database`);
-        }
-
-        const roomData = roomSnap.val();
-        console.log("Room data loaded:", roomData);
-
-        // 4. Verify game setup is complete
-        console.log("Verifying game setup...");
-        if (!roomData.toss?.winner && !roomData.tossWinner) {
-          throw new Error("Toss not completed");
-        }
-        
-        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
-          throw new Error("Teams not set up");
-        }
-
-        // Get toss and batting first info
-        tossWinner = roomData.toss?.winner || roomData.tossWinner;
-        battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
-        
-        // Update team names display
-        team1NameDisplay.textContent = roomData.teams.player1.name || "Team 1";
-        team2NameDisplay.textContent = roomData.teams.player2.name || "Team 2";
-        battingTeamName.textContent = battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
-
-        // Mark game as started if not already
-        if (!roomData.gameStarted) {
-          await update(roomRef, {
-            gameStarted: true
-          });
-        }
-
-        // Load teams with retry logic
-        console.log("Loading teams...");
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const teamsLoaded = await loadPlaying11();
-            if (teamsLoaded) break;
-          } catch (error) {
-            console.error(`Team load attempt ${retries + 1} failed:`, error);
-            retries++;
-            if (retries >= maxRetries) {
-              throw new Error("Failed to load teams after multiple attempts");
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
-        // Set game format
-        const format = roomData.player1?.format || "5";
-        currentFormat = formatRules[format];
-        
-        formatDisplay.innerText = `${currentFormat.name}`;
-        
-        // Initialize stats
-        initializeBatterStats();
-        initializeBowlerStats();
-
-        // Set up game components
-        setupConnectionMonitoring();
-        await setupRole();
-        setupSelectionModal();
-        setupCardButtons();
-        setupFirebaseListeners();
-        setupTeamsModal();
-        setupStatsSlider();
-        
-        // Set up control buttons
-        saveBtn.addEventListener("click", saveGameState);
-        exitBtn.addEventListener("click", async () => {
-          if (confirm("Exit without saving?")) {
-            await resetGame();
-            window.location.href = "index.html";
-          }
+        await update(roomRef, {
+          gameStarted: true
         });
-        
-        resetPlaysBtn.addEventListener("click", async () => {
-          if (confirm("Request to reset the current plays? This will notify your opponent.")) {
-            await requestReset();
-          }
-        });
-
-        // Setup second innings button
-        startSecondInningsBtn.addEventListener('click', startSecondInnings);
-
-        // Initial UI update
-        updateAllDisplays();
-        resultEl.innerText = "Game ready!";
-        loadingSpinner.style.display = "none";
       } catch (error) {
-        console.error("Initialization failed:", error);
-        resultEl.innerHTML = `Initialization failed: ${error.message}<br>
-                          <button onclick="initGame()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            Retry Initialization
-                          </button>`;
-        resultEl.className = "error";
-        loadingSpinner.style.display = "none";
+        console.error("Error marking game as started:", error);
+        // Continue anyway - this isn't critical
       }
     }
 
+    // Load teams with retry logic
+    console.log("Loading teams...");
+    let retries = 0;
+    const maxRetries = 3;
+    let teamsLoaded = false;
+    
+    while (retries < maxRetries && !teamsLoaded) {
+      try {
+        teamsLoaded = await loadPlaying11();
+        retries++;
+        if (!teamsLoaded && retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        console.error(`Team load attempt ${retries + 1} failed:`, error);
+        retries++;
+        if (retries >= maxRetries) {
+          throw new Error("Failed to load teams after multiple attempts");
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    // Set game format
+    const format = roomData.player1?.format || "5";
+    currentFormat = formatRules[format];
+    
+    formatDisplay.innerText = `${currentFormat.name}`;
+    
+    // Initialize stats
+    initializeBatterStats();
+    initializeBowlerStats();
+
+    // Set up game components
+    setupConnectionMonitoring();
+    await setupRole();
+    setupSelectionModal();
+    setupCardButtons();
+    setupFirebaseListeners();
+    setupTeamsModal();
+    setupStatsSlider();
+    
+    // Set up control buttons
+    saveBtn.addEventListener("click", saveGameState);
+    exitBtn.addEventListener("click", async () => {
+      if (confirm("Exit without saving?")) {
+        await resetGame();
+        window.location.href = "index.html";
+      }
+    });
+    
+    resetPlaysBtn.addEventListener("click", async () => {
+      if (confirm("Request to reset the current plays? This will notify your opponent.")) {
+        await requestReset();
+      }
+    });
+
+    // Setup second innings button
+    startSecondInningsBtn.addEventListener('click', startSecondInnings);
+
+    // Initial UI update
+    updateAllDisplays();
+    resultEl.innerText = "Game ready!";
+    loadingSpinner.style.display = "none";
+
+  } catch (error) {
+    console.error("Initialization failed:", error);
+    loadingSpinner.style.display = "none";
+    
+    // Show user-friendly error message
+    resultEl.innerHTML = `
+      <div class="error">
+        ${error.message}<br><br>
+        <button onclick="location.reload()" style="
+          padding: 8px 16px;
+          background: #1e88e5;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-top: 10px;
+        ">
+          Refresh Page
+        </button>
+        <button onclick="window.location.href='index.html'" style="
+          padding: 8px 16px;
+          background: #f44336;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-top: 10px;
+          margin-left: 10px;
+        ">
+          Return to Lobby
+        </button>
+      </div>
+    `;
+  }
+    }
+
+
+      
     // Setup spectator mode
     function setupSpectatorMode() {
       roleText.innerHTML = '<div class="spectator-mode">Spectator Mode</div>';
