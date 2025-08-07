@@ -2682,9 +2682,6 @@
         const summary = `Over ${currentOver}: ${runsThisOver} runs, ${wicketsThisOver} wickets`;
         overSummaries.push(summary);
         
-        // Update Firebase for spectators
-        set(ref(db, `${overSummariesRef.path}/over${currentOver}`), summary);
-        
         // Update UI
         const summaryItem = document.createElement("div");
         summaryItem.className = "over-summary-item";
@@ -2841,7 +2838,7 @@
         stats.hatTrick = true;
         const milestone = document.createElement('div');
         milestone.className = 'bowler-milestone';
-        milestone.textContent = `🎉 HAT-TRICK! ${bowler} takes 3 wickets!`;
+        milestone.textContent = `🎉 THREE-WICKET-HAUL! ${bowler} takes 3 wickets!`;
         document.body.appendChild(milestone);
         setTimeout(() => milestone.remove(), 3000);
       }
@@ -2920,7 +2917,7 @@ if (batterCard === 0 && bowlerCard === 0) {
   commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
   showNotification(commentaryText, 'error');
   addToTimeline("NB", 'error');
-  createUmpireSignal("👆");
+  createUmpireSignal("🙅");
   
   // Record the no ball in ball-by-ball but don't increment legalBalls
   ballByBall[legalBalls] = {
@@ -3068,7 +3065,7 @@ if (batterCard === 0 && bowlerCard === 0) {
             commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
             showNotification(`4th dot ball from bowler! ${commentaryText}`, 'error');
             addToTimeline("NB", 'error');
-            createUmpireSignal("🙅‍♀️");
+            createUmpireSignal("🙅");
           } else {
             outcome = "DOT BALL!";
             
@@ -3478,11 +3475,10 @@ if (batterCard === 0 && bowlerCard === 0) {
         
         // Show appropriate selection UI
         if (isBatting) {
-            if (!isSpectator) await showBatterSelection();
-        } else {
-            if (!isSpectator) await showBowlerSelection();
+  await showBatterSelection(); // Always show selection if batting
+} else {
+  await showBowlerSelection(); // Always show selection if bowling
         }
-    }
 
     // Function to reset the selection modal
     function resetSelectionModal() {
@@ -3534,7 +3530,7 @@ if (batterCard === 0 && bowlerCard === 0) {
     function updateButtonStates() {
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
-        btn.disabled = !canPlay || isSpectator;
+        btn.disabled = !canPlay;
       });
     }
 
@@ -3964,7 +3960,7 @@ if (batterCard === 0 && bowlerCard === 0) {
 
     // Enhanced resetPlays function with notification system
     async function resetPlays() {
-  if (isResetting || isSpectator) return;
+  if (isResetting) return;
 
   try {
     isResetting = true;
@@ -4034,7 +4030,7 @@ if (batterCard === 0 && bowlerCard === 0) {
         if (!snap.exists()) {
           currentBatter = null;
           batterSelected = false;
-          if (isBatting && !isResetting && !isSpectator) {
+          if (isBatting && !isResetting) {
             showBatterSelection();
           }
         } else if (snap.val()) {
@@ -4050,7 +4046,7 @@ if (batterCard === 0 && bowlerCard === 0) {
         if (!snap.exists()) {
           currentBowler = null;
           bowlerSelected = false;
-          if (!isBatting && !isResetting && !isSpectator) {
+          if (!isBatting && !isResetting) {
             showBowlerSelection();
           }
         } else if (snap.val()) {
@@ -4073,7 +4069,7 @@ if (batterCard === 0 && bowlerCard === 0) {
       onValue(resetRequestRef, (snap) => {
         if (snap.exists() && snap.val()) {
           const request = snap.val();
-          if (request.requested && request.by !== player && !isSpectator) {
+          if (request.requested && request.by !== player) {
             // Show reset confirmation to the other player
             showResetConfirmation(request.by);
           }
