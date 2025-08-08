@@ -593,6 +593,92 @@
       color: var(--accent);
     }
     
+    /* New styles for additional match info */
+    .match-extra-info {
+      display: flex;
+      justify-content: space-between;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    
+    .match-timeline {
+      background: rgba(13, 42, 82, 0.7);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .timeline-item {
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .timeline-item:last-child {
+      border-bottom: none;
+    }
+    
+    .partnership-info {
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    
+    .recent-overs {
+      background: rgba(76, 175, 80, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    
+    .player-role-indicator {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-size: 10px;
+      background: var(--accent);
+      color: #000;
+      padding: 2px 5px;
+      border-radius: 10px;
+    }
+    
+    .player-card {
+      position: relative;
+    }
+    
+    .battle-stats {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+    
+    .battle-stat {
+      flex: 1;
+      text-align: center;
+      padding: 5px;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+      margin: 0 3px;
+    }
+    
+    .battle-stat-title {
+      font-size: 12px;
+      color: #aaa;
+    }
+    
+    .battle-stat-value {
+      font-weight: bold;
+    }
+    
+    .opponent-status {
+      text-align: right;
+      font-size: 12px;
+      color: #4CAF50;
+      margin-top: 5px;
+    }
+    
     @media (max-width: 600px) {
       .card-btn {
         width: 40px;
@@ -618,6 +704,15 @@
       .action-btn {
         padding: 6px 12px;
         font-size: 12px;
+      }
+      
+      .battle-stats {
+        flex-wrap: wrap;
+      }
+      
+      .battle-stat {
+        flex: 0 0 calc(50% - 6px);
+        margin-bottom: 5px;
       }
     }
   </style>
@@ -647,19 +742,39 @@
       </div>
     </div>
     
+    <div class="match-extra-info">
+      <div id="matchTime"></div>
+      <div id="playerRoleIndicator"></div>
+    </div>
+    
     <div class="over-progress">
       <div class="balls-container" id="ballsContainer"></div>
       <div class="over-number" id="overNumber">Over 0</div>
     </div>
     
-    <div class="match-details">
-      <div id="matchFormat"></div>
-      <div id="currentTime"></div>
+    <div class="match-timeline">
+      <div class="timeline-item" id="currentBattle">
+        <strong>Current Battle:</strong> <span id="battleInfo">Select players to start</span>
+      </div>
+      <div class="timeline-item" id="lastEvent">
+        <strong>Last Event:</strong> <span id="lastEventInfo">-</span>
+      </div>
+    </div>
+    
+    <div class="partnership-info">
+      <div><strong>PARTNERSHIP</strong></div>
+      <div><span id="partnershipRuns">0</span> runs (<span id="partnershipBalls">0</span> balls)</div>
+    </div>
+    
+    <div class="recent-overs">
+      <div><strong>LAST 5 OVERS</strong></div>
+      <div><span id="recentRuns">0</span> / <span id="recentWickets">0</span> (RR: <span id="recentRR">0.00</span>)</div>
     </div>
     
     <div class="player-battle">
       <div class="player-card">
-        <div class="player-name" id="batterName"></div>
+        <div class="player-role-indicator" id="batterRoleIndicator">BAT</div>
+        <div class="player-name" id="batterName">-</div>
         <div class="player-stats">
           <span class="player-runs" id="batterRuns">0</span>
           <span class="player-balls" id="batterBalls">(0)</span>
@@ -672,7 +787,8 @@
       </div>
       
       <div class="player-card">
-        <div class="player-name" id="bowlerName"></div>
+        <div class="player-role-indicator" id="bowlerRoleIndicator">BOWL</div>
+        <div class="player-name" id="bowlerName">-</div>
         <div class="player-stats">
           <span id="bowlerOvers">0.0</span>
           <span id="bowlerFigures">0/0</span>
@@ -682,7 +798,34 @@
       </div>
     </div>
     
+    <div class="battle-stats">
+      <div class="battle-stat">
+        <div class="battle-stat-title">Runs</div>
+        <div class="battle-stat-value" id="battleRuns">0</div>
+      </div>
+      <div class="battle-stat">
+        <div class="battle-stat-title">Balls</div>
+        <div class="battle-stat-value" id="battleBalls">0</div>
+      </div>
+      <div class="battle-stat">
+        <div class="battle-stat-title">4s</div>
+        <div class="battle-stat-value" id="battleFours">0</div>
+      </div>
+      <div class="battle-stat">
+        <div class="battle-stat-title">6s</div>
+        <div class="battle-stat-value" id="battleSixes">0</div>
+      </div>
+      <div class="battle-stat">
+        <div class="battle-stat-title">Extras</div>
+        <div class="battle-stat-value" id="battleExtras">0</div>
+      </div>
+    </div>
+    
     <div class="game-controls">
+      <div class="status-indicators" id="statusIndicators"></div>
+      
+      <div class="result-display" id="resultDisplay"></div>
+      
       <div class="card-buttons" id="cardButtons">
         <button class="card-btn" data-value="0">0</button>
         <button class="card-btn" data-value="1">1</button>
@@ -692,10 +835,6 @@
         <button class="card-btn" data-value="5">5</button>
         <button class="card-btn" data-value="6">6</button>
       </div>
-      
-      <div class="result-display" id="resultDisplay"></div>
-      
-      <div class="status-indicators" id="statusIndicators"></div>
       
       <div class="action-buttons">
         <button class="action-btn" id="nextBatterBtn" style="display: none;">Next Batter</button>
@@ -712,13 +851,15 @@
       <div>Required: <span id="requiredRuns">0</span> runs in <span id="remainingBalls">0</span> balls</div>
       <div>Req. RR: <span id="requiredRR">0.00</span></div>
     </div>
+    
+    <div class="opponent-status" id="opponentStatus">Opponent: Online</div>
   </div>
   
   <!-- Modals -->
   <div class="modal" id="batterModal">
     <div class="modal-content">
       <button class="close-btn" id="closeBatterModal">&times;</button>
-      <h3 class="modal-title">Select Next Batter</h3>
+      <h3 class="modal-title">Select Batter</h3>
       <ul class="player-list" id="batterList"></ul>
     </div>
   </div>
@@ -726,7 +867,7 @@
   <div class="modal" id="bowlerModal">
     <div class="modal-content">
       <button class="close-btn" id="closeBowlerModal">&times;</button>
-      <h3 class="modal-title">Select Next Bowler</h3>
+      <h3 class="modal-title">Select Bowler</h3>
       <ul class="player-list" id="bowlerList"></ul>
     </div>
   </div>
@@ -855,6 +996,25 @@
     const remainingBallsEl = document.getElementById('remainingBalls');
     const requiredRREl = document.getElementById('requiredRR');
     
+    // New DOM elements for additional info
+    const playerRoleIndicatorEl = document.getElementById('playerRoleIndicator');
+    const matchTimeEl = document.getElementById('matchTime');
+    const battleInfoEl = document.getElementById('battleInfo');
+    const lastEventInfoEl = document.getElementById('lastEventInfo');
+    const partnershipRunsEl = document.getElementById('partnershipRuns');
+    const partnershipBallsEl = document.getElementById('partnershipBalls');
+    const recentRunsEl = document.getElementById('recentRuns');
+    const recentWicketsEl = document.getElementById('recentWickets');
+    const recentRREl = document.getElementById('recentRR');
+    const batterRoleIndicatorEl = document.getElementById('batterRoleIndicator');
+    const bowlerRoleIndicatorEl = document.getElementById('bowlerRoleIndicator');
+    const battleRunsEl = document.getElementById('battleRuns');
+    const battleBallsEl = document.getElementById('battleBalls');
+    const battleFoursEl = document.getElementById('battleFours');
+    const battleSixesEl = document.getElementById('battleSixes');
+    const battleExtrasEl = document.getElementById('battleExtras');
+    const opponentStatusEl = document.getElementById('opponentStatus');
+    
     // Modal elements
     const batterModal = document.getElementById('batterModal');
     const bowlerModal = document.getElementById('bowlerModal');
@@ -918,7 +1078,16 @@
       playerOfMatch: null,
       matchResult: null,
       winner: null,
-      winningMargin: null
+      winningMargin: null,
+      partnershipRuns: 0,
+      partnershipBalls: 0,
+      recentOvers: [],
+      battleRuns: 0,
+      battleBalls: 0,
+      battleFours: 0,
+      battleSixes: 0,
+      battleExtras: 0,
+      lastEvent: null
     };
 
     // Initialize game
@@ -974,6 +1143,14 @@
             gameState.isBatting = (playerRole === 'player1' && gameState.toss.battingFirst === 'player1') || 
                                  (playerRole === 'player2' && gameState.toss.battingFirst === 'player2');
             gameState.isBowling = !gameState.isBatting;
+            
+            // Update role indicator
+            playerRoleIndicatorEl.textContent = gameState.isBatting ? 'You are Batting' : 'You are Bowling';
+          }
+          
+          // Show player selection modals if needed
+          if (!isSpectator && gameState.gameStarted) {
+            checkPlayerSelection();
           }
         }
       });
@@ -1006,6 +1183,15 @@
           gameState.matchResult = game.matchResult || null;
           gameState.winner = game.winner || null;
           gameState.winningMargin = game.winningMargin || null;
+          gameState.partnershipRuns = game.partnershipRuns || 0;
+          gameState.partnershipBalls = game.partnershipBalls || 0;
+          gameState.recentOvers = game.recentOvers || [];
+          gameState.battleRuns = game.battleRuns || 0;
+          gameState.battleBalls = game.battleBalls || 0;
+          gameState.battleFours = game.battleFours || 0;
+          gameState.battleSixes = game.battleSixes || 0;
+          gameState.battleExtras = game.battleExtras || 0;
+          gameState.lastEvent = game.lastEvent || null;
           
           // Update UI
           updateScoreboard();
@@ -1013,6 +1199,7 @@
           updateStatusIndicator();
           updatePlayerInfo();
           updateCommentary();
+          updateAdditionalInfo();
           
           // Check if we need to select players
           if (!isSpectator) {
@@ -1031,8 +1218,11 @@
       if (!isSpectator) {
         onValue(opponentRef, (snap) => {
           if (!snap.exists() || !snap.val()?.connected) {
-            alert('Opponent disconnected');
-            window.location.href = 'index.html';
+            opponentStatusEl.textContent = 'Opponent: Offline';
+            opponentStatusEl.style.color = '#f44336';
+          } else {
+            opponentStatusEl.textContent = 'Opponent: Online';
+            opponentStatusEl.style.color = '#4CAF50';
           }
         });
       }
@@ -1042,12 +1232,20 @@
       
       // Set up action buttons
       setupActionButtons();
+      
+      // Show player selection modals if needed
+      setTimeout(() => {
+        if (!isSpectator && gameState.gameStarted) {
+          checkPlayerSelection();
+        }
+      }, 1000);
     }
     
     // Update current time
     function updateTime() {
       const now = new Date();
       currentTimeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      matchTimeEl.textContent = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
     }
     
     // Get format name
@@ -1092,6 +1290,44 @@
       
       // Update innings title
       inningsTitleEl.textContent = gameState.innings === 1 ? 'First Innings' : 'Second Innings';
+    }
+    
+    // Update additional match info
+    function updateAdditionalInfo() {
+      // Update partnership info
+      partnershipRunsEl.textContent = gameState.partnershipRuns;
+      partnershipBallsEl.textContent = gameState.partnershipBalls;
+      
+      // Update recent overs
+      const recentRuns = gameState.recentOvers.reduce((sum, over) => sum + over.runs, 0);
+      const recentWickets = gameState.recentOvers.reduce((sum, over) => sum + over.wickets, 0);
+      const recentRR = gameState.recentOvers.length > 0 ? 
+        (recentRuns / gameState.recentOvers.length).toFixed(2) : '0.00';
+      
+      recentRunsEl.textContent = recentRuns;
+      recentWicketsEl.textContent = recentWickets;
+      recentRREl.textContent = recentRR;
+      
+      // Update battle stats
+      battleRunsEl.textContent = gameState.battleRuns;
+      battleBallsEl.textContent = gameState.battleBalls;
+      battleFoursEl.textContent = gameState.battleFours;
+      battleSixesEl.textContent = gameState.battleSixes;
+      battleExtrasEl.textContent = gameState.battleExtras;
+      
+      // Update current battle info
+      if (gameState.currentBatter && gameState.currentBowler) {
+        battleInfoEl.textContent = `${gameState.currentBatter} vs ${gameState.currentBowler}`;
+      } else {
+        battleInfoEl.textContent = 'Select players to start';
+      }
+      
+      // Update last event
+      if (gameState.lastEvent) {
+        lastEventInfoEl.textContent = gameState.lastEvent;
+      } else {
+        lastEventInfoEl.textContent = '-';
+      }
     }
     
     // Get total balls based on format
@@ -1220,11 +1456,13 @@
         // Need to select batter
         if (gameState.isBatting) {
           nextBatterBtn.style.display = 'block';
+          showBatterModal();
         }
       } else if (!gameState.currentBowler && gameState.bowlers.length < 11) {
         // Need to select bowler
         if (gameState.isBowling) {
           nextBowlerBtn.style.display = 'block';
+          showBowlerModal();
         }
       }
     }
@@ -1266,7 +1504,12 @@
       
       update(gameRef, {
         currentBatter: batter,
-        batters: [...gameState.batters, newBatter]
+        batters: [...gameState.batters, newBatter],
+        lastEvent: `${batter} comes in to bat`,
+        commentary: [...gameState.commentary, {
+          text: `${batter} comes in to bat`,
+          time: new Date().toLocaleTimeString()
+        }]
       });
     }
     
@@ -1308,7 +1551,12 @@
       
       update(gameRef, {
         currentBowler: bowler,
-        bowlers: [...gameState.bowlers, newBowler]
+        bowlers: [...gameState.bowlers, newBowler],
+        lastEvent: `${bowler} comes in to bowl`,
+        commentary: [...gameState.commentary, {
+          text: `${bowler} comes in to bowl`,
+          time: new Date().toLocaleTimeString()
+        }]
       });
     }
     
@@ -1605,7 +1853,16 @@
         deadOver: false,
         freeHit: false,
         target: target,
-        commentary: []
+        commentary: [],
+        partnershipRuns: 0,
+        partnershipBalls: 0,
+        recentOvers: [],
+        battleRuns: 0,
+        battleBalls: 0,
+        battleFours: 0,
+        battleSixes: 0,
+        battleExtras: 0,
+        lastEvent: null
       });
       
       statsModal.classList.remove('active');
