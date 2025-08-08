@@ -1483,6 +1483,22 @@
   text-align: center;
   font-weight: bold;
 }
+
+.control-btn {
+  padding: 8px 12px;
+  margin: 5px;
+  border-radius: 6px;
+  background: #607D8B;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.control-btn:hover {
+  background: #455A64;
+}
+
 </style>
 </head>
 <body>
@@ -1612,6 +1628,11 @@
     </div>
 
     <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
+    <!-- Add after existing buttons -->
+<div id="matchControls">
+  <button id="timeoutBtn" class="control-btn">⏱️ Timeout</button>
+  <button id="inningsBreakBtn" class="control-btn">🍵 Innings Break</button>
+</div>
 
     <div id="topControls">
       <button id="saveBtn">💾 Save & Exit</button>
@@ -3740,6 +3761,8 @@ async function endMatch(chasingTeamWon) {
 
 // Save match data function
 async function saveMatchData() {
+// Replace saveMatchData function with:
+async function saveMatchData() {
   try {
     resultEl.innerText = "Saving match data...";
     
@@ -3752,19 +3775,32 @@ async function saveMatchData() {
         batterStats: batterStats,
         bowlerStats: bowlerStats,
         fallOfWickets: fallOfWickets,
-        overSummaries: overSummaries
+        overSummaries: overSummaries,
+        ballByBall: ballByBall
       },
       winner: chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1"),
       winningMargin: chasingTeamWon 
         ? `${currentFormat.totalWickets - wickets} wickets` 
         : `${target - runs - 1} runs`,
       playerOfTheMatch: pom,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      team1: {
+        name: team1NameDisplay.textContent,
+        players: team1Players,
+        captain: team1Captain,
+        viceCaptain: team1ViceCaptain
+      },
+      team2: {
+        name: team2NameDisplay.textContent,
+        players: team2Players,
+        captain: team2Captain,
+        viceCaptain: team2ViceCaptain
+      },
+      format: currentFormat.name,
+      matchDuration: Date.now() - matchStartTime
     };
     
-    // Save to Firebase
     await set(ref(db, `savedMatches/${room}`), matchData);
-    
     showNotification("Match data saved successfully!", 'info');
     resultEl.innerText = "Match data saved";
   } catch (error) {
@@ -4228,6 +4264,14 @@ async function initGame() {
     resultEl.className = "error";
     loadingSpinner.style.display = "none";
   }
+
+  // Add to initGame after other event listeners
+document.getElementById('timeoutBtn').addEventListener('click', callTimeout);
+document.getElementById('inningsBreakBtn').addEventListener('click', () => {
+  if (confirm("Start 3-minute innings break?")) {
+    startInningsBreak();
+  }
+});
 }
 
 // Setup spectator mode
