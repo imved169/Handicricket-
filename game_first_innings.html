@@ -1440,6 +1440,49 @@
         font-size: 0.7rem;
       }
     }
+  /* Captain/Vice-Captain Highlighting */
+.captain {
+  font-weight: bold;
+  color: #ffeb3b;
+  border-left: 3px solid gold !important;
+}
+
+.vice-captain {
+  font-weight: bold;
+  color: #1e88e5;
+  border-left: 3px solid #1e88e5 !important;
+}
+
+.comparison-name.captain {
+  animation: highlightPlayer 2s infinite, captainPulse 3s infinite;
+}
+
+@keyframes captainPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Timeout/Innings Break Notifications */
+.timeout-notification {
+  background: #FF9800;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  text-align: center;
+  font-weight: bold;
+}
+
+.innings-break-notification {
+  background: #9C27B0;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  text-align: center;
+  font-weight: bold;
+}
 </style>
 </head>
 <body>
@@ -2084,21 +2127,34 @@
         team1PlayersEl.innerHTML = '';
         team2PlayersEl.innerHTML = '';
 
-        // Load Team 1
-        if (teams.player1?.players) {
-          team1NameEl.textContent = teams.player1.name || "Team A";
-          team1NameDisplay.textContent = teams.player1.name || "Team A";
-          battingTeamName.textContent = teams.player1.name || "Team A";
-          team1Players = teams.player1.players;
-          team1PlayersEl.innerHTML = team1Players.map(p => `<li>${p}</li>`).join('');
-        }
-
-        // Load Team 2
-        if (teams.player2?.players) {
-          team2NameEl.textContent = teams.player2.name || "Team B";
-          team2NameDisplay.textContent = teams.player2.name || "Team B";
-          team2Players = teams.player2.players;
-          team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+        // Load team 1
+if (teams.player1?.players) {
+  team1NameEl.textContent = teams.player1.name || "Team A";
+  team1NameDisplay.textContent = teams.player1.name || "Team A";
+  battingTeamName.textContent = teams.player1.name || "Team A";
+  team1Players = teams.player1.players;
+  
+  team1PlayersEl.innerHTML = team1Players.map(p => {
+    const isCaptain = p === teams.player1.captain;
+    const isViceCaptain = p === teams.player1.viceCaptain;
+    return `<li class="${isCaptain ? 'captain' : ''} ${isViceCaptain ? 'vice-captain' : ''}">
+      ${p}${isCaptain ? ' (C)' : ''}${isViceCaptain ? ' (VC)' : ''}
+    </li>`;
+  }).join('');
+}
+        // Load team 2
+if (teams.player2?.players) {
+  team2NameEl.textContent = teams.player2.name || "Team B";
+  team2NameDisplay.textContent = teams.player2.name || "Team B";
+  team2Players = teams.player2.players;
+  
+  team2PlayersEl.innerHTML = team2Players.map(p => {
+    const isCaptain = p === teams.player2.captain;
+    const isViceCaptain = p === teams.player2.viceCaptain;
+    return `<li class="${isCaptain ? 'captain' : ''} ${isViceCaptain ? 'vice-captain' : ''}">
+      ${p}${isCaptain ? ' (C)' : ''}${isViceCaptain ? ' (VC)' : ''}
+    </li>`;
+  }).join('');
         }
 
         // Validate we have players
@@ -2137,16 +2193,102 @@
       });
     }
 
-    // Initialize bowler stats
-    function initializeBowlerStats() {
-      team1Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
-      });
-      
-      team2Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
-      });
+    // Initialize bowler stats with milestone tracking
+function initializeBowlerStats() {
+  team1Players.forEach(player => {
+    bowlerStats[player] = bowlerStats[player] || { 
+      wickets: 0, 
+      runs: 0, 
+      overs: 0, 
+      balls: 0,
+      threeWicketsNotified: false,
+      fiveWicketsNotified: false,
+      tenWicketsNotified: false,
+      maidenNotified: false,
+      hatTrickNotified: false
+    };
+  });
+  
+  team2Players.forEach(player => {
+    bowlerStats[player] = bowlerStats[player] || { 
+      wickets: 0, 
+      runs: 0, 
+      overs: 0, 
+      balls: 0,
+      threeWicketsNotified: false,
+      fiveWicketsNotified: false,
+      tenWicketsNotified: false,
+      maidenNotified: false,
+      hatTrickNotified: false
+    };
+  });
+}
+
+// Check bowler milestones
+function checkBowlerMilestones() {
+  if (!currentBowler) return;
+
+  const bowler = bowlerStats[currentBowler];
+  
+  // 3-wicket haul
+  if (bowler.wickets >= 3 && !bowler.threeWicketsNotified) {
+    showNotification(`${currentBowler} takes 3 wickets! A fine bowling spell`, 'info');
+    bowler.threeWicketsNotified = true;
+    createConfetti();
+    createUmpireSignal("3️⃣");
+  }
+  
+  // 5-wicket haul
+  if (bowler.wickets >= 5 && !bowler.fiveWicketsNotified) {
+    showNotification(`${currentBowler} takes 5 wickets! A fifer!`, 'info');
+    bowler.fiveWicketsNotified = true;
+    createConfetti();
+    createUmpireSignal("5️⃣");
+  }
+  
+  // 10-wicket match
+  if (bowler.wickets >= 10 && !bowler.tenWicketsNotified) {
+    showNotification(`${currentBowler} takes 10 wickets in the match! Incredible!`, 'info');
+    bowler.tenWicketsNotified = true;
+    createConfetti();
+    createUmpireSignal("🔟");
+  }
+  
+  // Maiden over
+  if (legalBalls % 6 === 0) {
+    let runsThisOver = 0;
+    for (let i = legalBalls - 6; i < legalBalls; i++) {
+      if (ballByBall[i]) {
+        runsThisOver += ballByBall[i].runs;
+      }
     }
+    
+    if (runsThisOver === 0 && !bowler.maidenNotified) {
+      showNotification(`${currentBowler} bowls a maiden over! Excellent control`, 'info');
+      bowler.maidenNotified = true;
+      createUmpireSignal("🅾️");
+    }
+  }
+  
+  // Hat-trick
+  if (bowler.wickets >= 3) {
+    let consecutiveWickets = 0;
+    for (let i = legalBalls - 1; i >= 0; i--) {
+      if (ballByBall[i]?.wicket && ballByBall[i].bowler === currentBowler) {
+        consecutiveWickets++;
+        if (consecutiveWickets === 3 && !bowler.hatTrickNotified) {
+          showNotification(`${currentBowler} takes a HAT-TRICK! Amazing bowling!`, 'info');
+          bowler.hatTrickNotified = true;
+          createConfetti();
+          createUmpireSignal("🎩");
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+  }
+}
 
     // Check powerplay status
     function checkPowerplay() {
@@ -2594,6 +2736,7 @@
         if (batterCard === 0 && bowlerCard === 0) {
           outcome = "NO BALL! +1 run (Free Hit next ball)";
           runs += 1;
+          bowlerStats[currentBowler].runs +=1;
           freeHitNextBall = true;
           isLegalBall = false;
           
@@ -2741,11 +2884,20 @@
           showNotification(`${batterCard} runs! ${commentaryText}`, 'info');
           addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
           
-          if (boundary) {
-            createBoundaryEffect(isSix);
-            if (batterCard === 4) createUmpireSignal("👈");
-            if (batterCard === 6) createUmpireSignal("↖️");
-          }
+          // Boundary effects (replace existing boundary section)
+if (boundary) {
+  createBoundaryEffect(isSix);
+  if (batterCard === 4) createUmpireSignal("👈");
+  if (batterCard === 6) createUmpireSignal("↖️");
+  
+  // Track boundary when batter plays 0
+  if (batterCard === 0 && (bowlerCard === 4 || bowlerCard === 6)) {
+    batterStats[currentBatter].balls += 1;
+    if (bowlerCard === 4) batterStats[currentBatter].fours += 1;
+    if (bowlerCard === 6) batterStats[currentBatter].sixes += 1;
+    addToTimeline(`${bowlerCard} (Bowler)`, 'boundary');
+  }
+    }
           
           isLegalBall = true;
         }
@@ -3286,6 +3438,72 @@ async function endInning() {
   await set(firstInningsRef, firstInningsData); // Save first innings data
 }
 
+    // Timeout management
+async function callTimeout() {
+  if (confirm("Call a 2-minute timeout? Both teams will be notified.")) {
+    try {
+      await set(ref(db, `rooms/${room}/timeout`), {
+        calledBy: player,
+        timestamp: Date.now(),
+        duration: 120000
+      });
+      showNotification("Timeout called for 2 minutes", 'info');
+      disableButtons();
+    } catch (error) {
+      console.error("Error calling timeout:", error);
+      showNotification("Failed to call timeout", 'error');
+    }
+  }
+}
+
+// Innings break management
+async function startInningsBreak(duration = 180000) {
+  const breakEnd = Date.now() + duration;
+  
+  await set(ref(db, `rooms/${room}/inningsBreak`), {
+    endTime: breakEnd
+  });
+  
+  const countdown = setInterval(() => {
+    const remaining = Math.max(0, breakEnd - Date.now());
+    if (remaining <= 0) {
+      clearInterval(countdown);
+      resultEl.innerText = "Innings break over, ready to continue";
+      set(ref(db, `rooms/${room}/inningsBreak`), null);
+    } else {
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      resultEl.innerText = `Innings break: ${mins}m ${secs}s remaining`;
+    }
+  }, 1000);
+}
+
+// Add these listeners with other Firebase listeners
+onValue(ref(db, `rooms/${room}/timeout`), (snap) => {
+  if (snap.exists()) {
+    const timeout = snap.val();
+    showNotification(`${timeout.calledBy === player ? 'You' : 'Opponent'} called a timeout`, 'info');
+    disableButtons();
+    setTimeout(() => {
+      set(ref(db, `rooms/${room}/timeout`), null);
+      enableButtons();
+      showNotification("Timeout over", 'info');
+    }, timeout.duration);
+  }
+});
+
+onValue(ref(db, `rooms/${room}/inningsBreak`), (snap) => {
+  if (snap.exists()) {
+    const breakData = snap.val();
+    const remaining = breakData.endTime - Date.now();
+    if (remaining > 0) {
+      disableButtons();
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      resultEl.innerText = `Innings break: ${mins}m ${secs}s remaining`;
+    }
+  }
+});
 // Show summary popup
 function showSummaryPopup() {
   summaryPopup.style.display = 'block';
