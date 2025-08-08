@@ -1632,7 +1632,6 @@
     <!-- Add after existing buttons -->
 <div id="matchControls">
   <button id="timeoutBtn" class="control-btn">⏱️ Timeout</button>
-  <button id="inningsBreakBtn" class="control-btn">🍵 Innings Break</button>
 </div>
     
 
@@ -3553,7 +3552,48 @@ function showSummaryPopup() {
 }
 
 // Start second innings
+<!-- In the JavaScript section, replace the startSecondInnings function with this: -->
 async function startSecondInnings() {
+  try {
+    // Hide summary popup first
+    summaryPopup.style.display = 'none';
+    
+    // Show break notification
+    resultEl.innerText = "Starting second innings after break...";
+    showNotification("2-minute innings break started", 'info');
+    
+    // Start the break (2 minutes)
+    const breakDuration = 120000; // 2 minutes in ms
+    const breakEnd = Date.now() + breakDuration;
+    
+    await set(ref(db, `rooms/${room}/inningsBreak`), {
+      endTime: breakEnd,
+      type: "secondInnings"
+    });
+    
+    // Show countdown
+    const countdown = setInterval(() => {
+      const remaining = Math.max(0, breakEnd - Date.now());
+      if (remaining <= 0) {
+        clearInterval(countdown);
+        actuallyStartSecondInnings(); // Start the actual innings after break
+      } else {
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        resultEl.innerText = `Innings break: ${mins}m ${secs}s remaining`;
+      }
+    }, 1000);
+    
+  } catch (error) {
+    console.error("Error starting second innings break:", error);
+    showNotification("Failed to start innings break", 'error');
+    // Try to start anyway
+    actuallyStartSecondInnings();
+  }
+}
+
+// Separate function for actual innings start after break
+async function actuallyStartSecondInnings() {
   try {
     // Reset game state for second innings
     runs = 0;
@@ -3586,8 +3626,8 @@ async function startSecondInnings() {
     targetDisplay.style.display = 'block';
     targetValue.textContent = target;
     
-    // Hide summary popup
-    summaryPopup.style.display = 'none';
+    // Clear any break state
+    await set(ref(db, `rooms/${room}/inningsBreak`), null;
     
     // Mark second innings as started
     secondInningsStarted = true;
@@ -3598,10 +3638,31 @@ async function startSecondInnings() {
     
     showNotification("Second innings started! Target: " + target, 'info');
   } catch (error) {
-    console.error("Error starting second innings:", error);
-    showNotification("Failed to start second innings", 'error');
+    console.error("Error in actual second innings start:", error);
+    showNotification("Failed to properly start second innings", 'error');
   }
 }
+
+// Update the innings break listener to handle second innings case:
+onValue(ref(db, `rooms/${room}/inningsBreak`), (snap) => {
+  if (snap.exists()) {
+    const breakData = snap.val();
+    const remaining = breakData.endTime - Date.now();
+    
+    if (remaining > 0) {
+      disableButtons();
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      
+      // Special handling for second innings break
+      if (breakData.type === "secondInnings") {
+        resultEl.innerText = `Innings break before second innings: ${mins}m ${secs}s remaining`;
+      } else {
+        resultEl.innerText = `Innings break: ${mins}m ${secs}s remaining`;
+      }
+    }
+  }
+});
 
 // Handle match end
 async function endMatch(chasingTeamWon) {
