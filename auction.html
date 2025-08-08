@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HandiCricket - Auction Room</title>
+  <title>HandiCricket - IPL 2025 Auction</title>
   <style>
     body {
       background: linear-gradient(135deg, #061e3e, #0a2a4a);
@@ -283,6 +283,81 @@
       letter-spacing: 3px;
     }
     
+    /* New retention section styles */
+    .retention-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      display: none;
+    }
+    
+    .retention-section h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 2px solid #1e88e5;
+      padding-bottom: 8px;
+    }
+    
+    .retention-players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .retention-player {
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      width: calc(33% - 10px);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .retention-player:hover {
+      background: rgba(30, 136, 229, 0.4);
+    }
+    
+    .retention-player.selected {
+      background: rgba(76, 175, 80, 0.3);
+      border: 1px solid #4CAF50;
+    }
+    
+    .retention-player.captain {
+      background: rgba(255, 235, 59, 0.3);
+      border: 1px solid #ffeb3b;
+    }
+    
+    .retention-controls {
+      margin-top: 15px;
+    }
+    
+    .rtm-indicator {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #9C27B0;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    
+    .btn-rtm {
+      background: linear-gradient(145deg, #9C27B0, #7B1FA2);
+    }
+    
+    .btn-final-bid {
+      background: linear-gradient(145deg, #FF5722, #E64A19);
+    }
+    
+    .retention-summary {
+      margin-top: 20px;
+      padding: 10px;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 8px;
+    }
+    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -296,19 +371,45 @@
       .team-list {
         width: auto;
       }
+      
+      .retention-player {
+        width: calc(50% - 10px);
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🏏 HandiCricket Auction</h1>
+    <h1>🏏 HandiCricket - IPL 2025 Auction</h1>
     
     <div class="user-info">
       <p>Team: <span id="teamDisplay" class="user-team"></span></p>
-      <p>Budget: <span id="budgetDisplay" class="user-team">₹150.00 Cr</span></p>
+      <p>Budget: <span id="budgetDisplay" class="user-team">₹120.00 Cr</span></p>
       <p>Players: <span id="playerCount">0/25</span></p>
+      <p>RTM Cards: <span id="rtmCardsDisplay">0</span></p>
     </div>
     
+    <!-- Retention Section -->
+    <div id="retentionSection" class="retention-section">
+      <h2>Player Retention</h2>
+      <p>Select up to 6 players to retain from your previous squad. Captain will cost ₹4 Cr, others ₹2 Cr each.</p>
+      
+      <div class="retention-players" id="retentionPlayersList"></div>
+      
+      <div class="retention-controls">
+        <button id="markCaptainBtn" class="btn" disabled>Mark as Captain (₹4 Cr)</button>
+        <button id="submitRetentionBtn" class="btn btn-bid">Submit Retention</button>
+      </div>
+      
+      <div class="retention-summary">
+        <p>Selected: <span id="retentionCount">0</span>/6 players</p>
+        <p>Total Retention Cost: ₹<span id="retentionCost">0</span> Cr</p>
+        <p>Remaining Budget: ₹<span id="remainingAfterRetention">120</span> Cr</p>
+        <p>RTM Cards Earned: <span id="rtmEarned">0</span></p>
+      </div>
+    </div>
+    
+    <!-- Join Room Section -->
     <div id="joinRoomSection">
       <div class="input-group">
         <label for="auctionRoomCode">Enter Auction Room Code</label>
@@ -317,6 +418,7 @@
       <button id="joinAuctionBtn" class="btn btn-bid">Join Auction</button>
     </div>
     
+    <!-- Admin Setup Section -->
     <div id="adminSetupSection" style="display: none;">
       <h2>Admin Setup</h2>
       <div class="input-group">
@@ -340,6 +442,7 @@
       </div>
     </div>
     
+    <!-- Auction Room Section -->
     <div id="auctionRoom" style="display: none;">
       <div class="auction-container">
         <div class="player-pool">
@@ -360,13 +463,15 @@
           <div class="bid-buttons">
             <button id="placeBidBtn" class="btn btn-bid">Bid (+0.25 Cr)</button>
             <button id="passBtn" class="btn btn-pass">Pass</button>
+            <button id="rtmBtn" class="btn btn-rtm" style="display: none;">Use RTM Card</button>
+            <button id="finalBidBtn" class="btn btn-final-bid" style="display: none;">Final Bid</button>
             <button id="soldBtn" class="btn btn-sold" style="display: none;">Sold!</button>
           </div>
         </div>
         
         <div class="team-list">
           <h2>Your Team</h2>
-          <p class="team-budget">Remaining: <span id="remainingBudget">₹150.00 Cr</span></p>
+          <p class="team-budget">Remaining: <span id="remainingBudget">₹120.00 Cr</span></p>
           <ul class="team-players" id="myTeamPlayers"></ul>
         </div>
       </div>
@@ -396,7 +501,16 @@
     const teamDisplay = document.getElementById('teamDisplay');
     const budgetDisplay = document.getElementById('budgetDisplay');
     const playerCount = document.getElementById('playerCount');
+    const rtmCardsDisplay = document.getElementById('rtmCardsDisplay');
     const joinRoomSection = document.getElementById('joinRoomSection');
+    const retentionSection = document.getElementById('retentionSection');
+    const retentionPlayersList = document.getElementById('retentionPlayersList');
+    const markCaptainBtn = document.getElementById('markCaptainBtn');
+    const submitRetentionBtn = document.getElementById('submitRetentionBtn');
+    const retentionCount = document.getElementById('retentionCount');
+    const retentionCost = document.getElementById('retentionCost');
+    const remainingAfterRetention = document.getElementById('remainingAfterRetention');
+    const rtmEarned = document.getElementById('rtmEarned');
     const adminSetupSection = document.getElementById('adminSetupSection');
     const auctionRoom = document.getElementById('auctionRoom');
     const auctionRoomCodeInput = document.getElementById('auctionRoomCode');
@@ -407,6 +521,8 @@
     const bidByTeam = document.getElementById('bidByTeam');
     const placeBidBtn = document.getElementById('placeBidBtn');
     const passBtn = document.getElementById('passBtn');
+    const rtmBtn = document.getElementById('rtmBtn');
+    const finalBidBtn = document.getElementById('finalBidBtn');
     const soldBtn = document.getElementById('soldBtn');
     const remainingBudget = document.getElementById('remainingBudget');
     const myTeamPlayers = document.getElementById('myTeamPlayers');
@@ -424,13 +540,18 @@
     let isAdmin = currentUser === 'imved169';
     let auctionRoomCode = '';
     let myTeam = [];
-    let myBudget = 150; // in Crores
+    let myBudget = 120; // Starting budget of 120 Cr
     let currentPlayer = null;
-    let currentPlayerBid = 0.5; // starting bid in Crores
+    let currentPlayerBid = 0.5;
     let currentBidder = null;
     let playersPool = [];
     let retainedPlayers = [];
     let rtmCards = 0;
+    let previousSquad = [];
+    let selectedRetentions = [];
+    let retentionCaptain = null;
+    let rtmActive = false;
+    let finalBidActive = false;
 
     // Initialize
     if (!currentUser || !currentTeam) {
@@ -440,6 +561,165 @@
 
     teamDisplay.textContent = currentTeam;
     updateBudgetDisplay();
+
+    // Load previous squad for retention
+    loadPreviousSquad();
+
+    function loadPreviousSquad() {
+      const userRef = ref(db, `users/${currentUser}`);
+      get(userRef).then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.val();
+          previousSquad = userData.players || [];
+          
+          if (previousSquad.length > 0) {
+            showRetentionSection();
+            populateRetentionPlayers();
+          } else {
+            // No previous squad, skip retention
+            joinRoomSection.style.display = 'block';
+          }
+        } else {
+          // No previous squad, skip retention
+          joinRoomSection.style.display = 'block';
+        }
+      });
+    }
+
+    function showRetentionSection() {
+      retentionSection.style.display = 'block';
+      joinRoomSection.style.display = 'none';
+    }
+
+    function populateRetentionPlayers() {
+      retentionPlayersList.innerHTML = '';
+      
+      previousSquad.forEach(player => {
+        const playerCard = document.createElement('div');
+        playerCard.className = 'retention-player';
+        playerCard.dataset.player = player;
+        playerCard.textContent = player;
+        
+        playerCard.addEventListener('click', () => {
+          togglePlayerRetention(player, playerCard);
+        });
+        
+        retentionPlayersList.appendChild(playerCard);
+      });
+    }
+
+    function togglePlayerRetention(player, card) {
+      const index = selectedRetentions.indexOf(player);
+      
+      if (index === -1) {
+        if (selectedRetentions.length < 6) {
+          selectedRetentions.push(player);
+          card.classList.add('selected');
+          
+          if (selectedRetentions.length === 1) {
+            // First selected player is automatically captain
+            retentionCaptain = player;
+            card.classList.add('captain');
+            markCaptainBtn.disabled = true;
+          } else {
+            markCaptainBtn.disabled = false;
+          }
+        }
+      } else {
+        selectedRetentions.splice(index, 1);
+        card.classList.remove('selected');
+        
+        if (player === retentionCaptain) {
+          card.classList.remove('captain');
+          retentionCaptain = selectedRetentions.length > 0 ? selectedRetentions[0] : null;
+          
+          // Update captain class for the first player if any
+          if (selectedRetentions.length > 0) {
+            const firstPlayerCard = document.querySelector(`.retention-player[data-player="${selectedRetentions[0]}"]`);
+            if (firstPlayerCard) {
+              firstPlayerCard.classList.add('captain');
+            }
+          }
+        }
+        
+        markCaptainBtn.disabled = selectedRetentions.length <= 1;
+      }
+      
+      updateRetentionSummary();
+    }
+
+    function updateRetentionSummary() {
+      retentionCount.textContent = selectedRetentions.length;
+      
+      // Calculate retention cost (captain 4Cr, others 2Cr)
+      const captainCost = retentionCaptain ? 4 : 0;
+      const otherPlayersCost = Math.max(0, selectedRetentions.length - 1) * 2;
+      const totalRetentionCost = captainCost + otherPlayersCost;
+      
+      retentionCost.textContent = totalRetentionCost;
+      remainingAfterRetention.textContent = (120 - totalRetentionCost).toFixed(2);
+      
+      // Calculate RTM cards (6 - retained players)
+      const rtmCardsEarned = Math.max(0, 6 - selectedRetentions.length);
+      rtmEarned.textContent = rtmCardsEarned;
+      
+      // Enable/disable submit button based on selections
+      submitRetentionBtn.disabled = selectedRetentions.length === 0;
+    }
+
+    // Mark a different player as captain
+    markCaptainBtn.addEventListener('click', () => {
+      const selectedPlayerCards = document.querySelectorAll('.retention-player.selected');
+      const selectedPlayers = Array.from(selectedPlayerCards).map(card => card.dataset.player);
+      
+      // Show dialog to select captain
+      const captainName = prompt(`Select captain from:\n${selectedPlayers.join('\n')}`);
+      
+      if (captainName && selectedPlayers.includes(captainName)) {
+        // Remove captain class from previous captain
+        if (retentionCaptain) {
+          const prevCaptainCard = document.querySelector(`.retention-player[data-player="${retentionCaptain}"]`);
+          if (prevCaptainCard) prevCaptainCard.classList.remove('captain');
+        }
+        
+        // Set new captain
+        retentionCaptain = captainName;
+        const newCaptainCard = document.querySelector(`.retention-player[data-player="${captainName}"]`);
+        if (newCaptainCard) newCaptainCard.classList.add('captain');
+        
+        updateRetentionSummary();
+      }
+    });
+
+    // Submit retention selections
+    submitRetentionBtn.addEventListener('click', async () => {
+      const captainCost = retentionCaptain ? 4 : 0;
+      const otherPlayersCost = Math.max(0, selectedRetentions.length - 1) * 2;
+      const totalRetentionCost = captainCost + otherPlayersCost;
+      
+      // Calculate remaining budget and RTM cards
+      myBudget = 120 - totalRetentionCost;
+      rtmCards = Math.max(0, 6 - selectedRetentions.length);
+      
+      // Update UI
+      updateBudgetDisplay();
+      rtmCardsDisplay.textContent = rtmCards;
+      
+      // Save retained players to database
+      const userRef = ref(db, `users/${currentUser}`);
+      await update(userRef, {
+        retainedPlayers: selectedRetentions,
+        retentionCaptain: retentionCaptain,
+        auctionBudget: myBudget,
+        rtmCards: rtmCards
+      });
+      
+      // Hide retention section and show join room
+      retentionSection.style.display = 'none';
+      joinRoomSection.style.display = 'block';
+      
+      alert(`Retention successful! ${selectedRetentions.length} players retained (${retentionCaptain} as captain). You have ₹${myBudget} Cr remaining and ${rtmCards} RTM cards.`);
+    });
 
     // Show appropriate section based on user role
     if (isAdmin) {
@@ -459,10 +739,6 @@
         teams: {},
         status: 'setup'
       });
-    } else {
-      // Regular user - show join room section
-      joinRoomSection.style.display = 'block';
-      adminSetupSection.style.display = 'none';
     }
 
     // Join auction room
@@ -498,9 +774,9 @@
       if (!roomData.teams || !roomData.teams[currentTeam]) {
         await update(ref(db, `auctions/${auctionRoomCode}/teams`), {
           [currentTeam]: {
-            budget: 150,
+            budget: myBudget,
             players: [],
-            rtmCards: 0
+            rtmCards: rtmCards
           }
         });
       }
@@ -532,10 +808,52 @@
           // Update my team if exists
           if (roomData.teams && roomData.teams[currentTeam]) {
             myTeam = roomData.teams[currentTeam].players || [];
-            myBudget = roomData.teams[currentTeam].budget || 150;
-            rtmCards = roomData.teams[currentTeam].rtmCards || 0;
+            myBudget = roomData.teams[currentTeam].budget || myBudget;
+            rtmCards = roomData.teams[currentTeam].rtmCards || rtmCards;
             updateMyTeam();
             updateBudgetDisplay();
+          }
+          
+          // Handle RTM status
+          if (roomData.rtmActive && roomData.rtmTeam !== currentTeam) {
+            // Another team is using RTM
+            if (currentBidder === currentTeam) {
+              // I'm the current bidder - can make final bid
+              finalBidActive = true;
+              finalBidBtn.style.display = 'block';
+              alert(`${roomData.rtmTeam} is using RTM on ${roomData.rtmPlayer}. You can make one final bid.`);
+            }
+          }
+          
+          if (roomData.finalBid) {
+            // Final bid made, RTM team must match
+            if (roomData.rtmTeam === currentTeam) {
+              const confirmMatch = confirm(`Final bid is ₹${roomData.currentBid} Cr. Match this bid to retain ${roomData.rtmPlayer}?`);
+              
+              if (confirmMatch) {
+                // Match the bid
+                update(ref(db, `auctions/${auctionRoomCode}`), {
+                  currentBidder: currentTeam,
+                  rtmActive: false,
+                  finalBid: false,
+                  rtmTeam: null,
+                  rtmPlayer: null
+                });
+                
+                // Mark player as sold to my team
+                soldBtn.click();
+                rtmCards--;
+                rtmCardsDisplay.textContent = rtmCards;
+              } else {
+                // Decline to match - player goes to original bidder
+                update(ref(db, `auctions/${auctionRoomCode}`), {
+                  rtmActive: false,
+                  finalBid: false,
+                  rtmTeam: null,
+                  rtmPlayer: null
+                });
+              }
+            }
           }
         }
       });
@@ -601,6 +919,8 @@
         bidByTeam.textContent = '-';
         placeBidBtn.style.display = 'block';
         passBtn.style.display = 'block';
+        rtmBtn.style.display = 'none';
+        finalBidBtn.style.display = 'none';
         soldBtn.style.display = 'none';
         return;
       }
@@ -620,6 +940,18 @@
         placeBidBtn.disabled = true;
       } else {
         placeBidBtn.disabled = false;
+      }
+      
+      // Check if player is from my previous squad (for RTM)
+      const isFromMySquad = previousSquad.includes(currentPlayer.name) && 
+                           !selectedRetentions.includes(currentPlayer.name);
+      
+      // Show RTM button if eligible
+      rtmBtn.style.display = isFromMySquad && rtmCards > 0 && !rtmActive ? 'block' : 'none';
+      
+      // Show sold button for admin
+      if (isAdmin) {
+        soldBtn.style.display = currentBidder ? 'block' : 'none';
       }
     }
 
@@ -647,6 +979,7 @@
       budgetDisplay.textContent = `₹${myBudget.toFixed(2)} Cr`;
       remainingBudget.textContent = `₹${myBudget.toFixed(2)} Cr`;
       playerCount.textContent = `${myTeam.length}/25`;
+      rtmCardsDisplay.textContent = rtmCards;
     }
 
     // Place bid
@@ -672,6 +1005,39 @@
       if (!currentPlayer) return;
       
       // Just wait for others to bid or admin to mark as sold
+    });
+
+    // RTM button handler
+    rtmBtn.addEventListener('click', () => {
+      if (!currentPlayer || rtmCards <= 0) return;
+      
+      rtmActive = true;
+      rtmBtn.style.display = 'none';
+      
+      // Notify all users that RTM is being used
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        rtmActive: true,
+        rtmTeam: currentTeam,
+        rtmPlayer: currentPlayer.id
+      });
+      
+      alert(`Using RTM card on ${currentPlayer.name}. Original bidder gets one final chance to bid.`);
+    });
+    
+    // Final bid button handler (for original bidder)
+    finalBidBtn.addEventListener('click', () => {
+      if (!currentPlayer || !finalBidActive) return;
+      
+      const newBid = currentPlayerBid + 0.25;
+      
+      // Update bid in Firebase
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        currentBid: newBid,
+        currentBidder: currentTeam,
+        finalBid: true
+      });
+      
+      finalBidBtn.style.display = 'none';
     });
 
     // Admin: Add player to pool
@@ -719,7 +1085,11 @@
       update(ref(db, `auctions/${auctionRoomCode}`), {
         currentPlayer: player,
         currentBid: 0.5,
-        currentBidder: null
+        currentBidder: null,
+        rtmActive: false,
+        finalBid: false,
+        rtmTeam: null,
+        rtmPlayer: null
       });
     }
 
@@ -741,9 +1111,13 @@
         
         for (const [username, user] of Object.entries(users)) {
           teamsData[user.team] = {
-            budget: 150,
-            players: [],
-            rtmCards: 0
+            budget: user.auctionBudget || 120,
+            players: user.retainedPlayers ? user.retainedPlayers.map(name => ({
+              name: name,
+              role: 'unknown',
+              price: name === user.retentionCaptain ? 4 : 2
+            })) : [],
+            rtmCards: user.rtmCards || 0
           };
         }
         
@@ -782,10 +1156,24 @@
         updates[`playersPool/${playerIndex}/sold`] = true;
       }
       
-      // Reset current player
+      // Reset current player and RTM flags
       updates['currentPlayer'] = null;
       updates['currentBid'] = 0.5;
       updates['currentBidder'] = null;
+      updates['rtmActive'] = false;
+      updates['finalBid'] = false;
+      updates['rtmTeam'] = null;
+      updates['rtmPlayer'] = null;
+      
+      // Update RTM cards if used
+      if (rtmActive && currentBidder === currentTeam) {
+        updates[`teams/${currentTeam}/rtmCards`] = rtmCards - 1;
+        rtmCards--;
+        rtmCardsDisplay.textContent = rtmCards;
+      }
+      
+      rtmActive = false;
+      finalBidActive = false;
       
       update(roomRef, updates);
     });
