@@ -702,14 +702,7 @@
     #resetPlaysBtn:hover {
       background: #7b1fa2;
     }
-
-    #timeoutBtn { 
-  background: #607d8b;
-  color: white;
-}
-#timeoutBtn:hover {
-  background: #455a64;
-}
+    
     /* Teams Modal */
     .teams-modal {
       position: fixed;
@@ -1581,7 +1574,6 @@
       <button id="saveBtn">💾 Save & Exit</button>
       <button id="exitBtn">🚪 Exit Without Saving</button>
       <button id="resetPlaysBtn">🔄 Reset Plays</button>
-      <button id="timeoutBtn">⏱ Timeout (30s)</button>
     </div>
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -3250,7 +3242,6 @@ function updateStatsTables() {
 
 // End current inning
 async function endInning() {
-async function endInning() {
   disableButtons();
 
   // Save first innings data
@@ -3273,38 +3264,26 @@ async function endInning() {
   target = runs + 1;
   chasingTeam = battingFirst === "player1" ? "player2" : "player1";
 
-  // Show innings break countdown
-  const breakTime = 90; // 1 minute 30 seconds
-  let remaining = breakTime;
-  
-  summaryPopup.style.display = 'block';
-  summaryTitle.textContent = "Innings Break";
-  summaryContent.innerHTML = `
-    <div class="summary-highlight">First Innings Complete!</div>
-    <div class="summary-countdown">${formatTime(remaining)}</div>
-    <div>Target: ${target} runs</div>
-  `;
-  
-  const breakInterval = setInterval(() => {
-    remaining--;
-    summaryCountdown.textContent = formatTime(remaining);
-    
-    if (remaining <= 0) {
-      clearInterval(breakInterval);
-      startSecondInnings();
-    }
-  }, 1000);
+  // Update stats tables
+  updateStatsTables();
 
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  }
+  // Update UI
+  targetDisplay.style.display = 'block';
+  targetValue.textContent = target;
+  document.getElementById('summaryTitle').textContent = "First Innings Summary";
+  document.getElementById('startSecondInningsBtn').textContent = "🏏 Start Second Innings";
+  document.getElementById('startSecondInningsBtn').style.display = 'block';
+  
+  // Show summary popup
+  showSummaryPopup();
 
+  resultEl.innerText = `First innings ended! Target is ${target}`;
+  showNotification("First innings completed! Target set.", 'info');
+  
   // Mark first innings as completed
   firstInningsCompleted = true;
   await set(firstInningsCompletedRef, true);
-  await set(firstInningsRef, firstInningsData);
+  await set(firstInningsRef, firstInningsData); // Save first innings data
 }
 
 // Show summary popup
@@ -4014,52 +3993,6 @@ async function initGame() {
         await requestReset();
       }
     });
-
-    // Timeout functionality
-const timeoutBtn = document.getElementById('timeoutBtn');
-let timeoutActive = false;
-let timeoutSeconds = 30;
-let timeoutInterval;
-
-timeoutBtn.addEventListener('click', async () => {
-  if (timeoutActive) return;
-  
-  timeoutActive = true;
-  timeoutBtn.disabled = true;
-  
-  // Show timeout notification
-  showNotification(`Timeout called! Play will resume in ${timeoutSeconds} seconds`, 'info');
-  
-  // Start countdown
-  timeoutInterval = setInterval(() => {
-    timeoutSeconds--;
-    timeoutBtn.textContent = `⏱ Timeout (${timeoutSeconds}s)`;
-    
-    if (timeoutSeconds <= 0) {
-      clearInterval(timeoutInterval);
-      timeoutActive = false;
-      timeoutBtn.disabled = false;
-      timeoutBtn.textContent = '⏱ Timeout (30s)';
-      timeoutSeconds = 30;
-      showNotification("Timeout over! Play resumes", 'info');
-    }
-  }, 1000);
-  
-  // Disable buttons during timeout
-  disableButtons();
-  
-  // Re-enable after timeout
-  setTimeout(() => {
-    if (timeoutActive) {
-      clearInterval(timeoutInterval);
-      timeoutActive = false;
-      timeoutBtn.disabled = false;
-      timeoutBtn.textContent = '⏱ Timeout (30s)';
-      timeoutSeconds = 30;
-    }
-    enableButtons();
-  }, timeoutSeconds * 1000);
-});
 
     // Setup second innings button
     startSecondInningsBtn.addEventListener('click', startSecondInnings);
