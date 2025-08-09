@@ -3250,6 +3250,7 @@ function updateStatsTables() {
 
 // End current inning
 async function endInning() {
+async function endInning() {
   disableButtons();
 
   // Save first innings data
@@ -3272,26 +3273,38 @@ async function endInning() {
   target = runs + 1;
   chasingTeam = battingFirst === "player1" ? "player2" : "player1";
 
-  // Update stats tables
-  updateStatsTables();
-
-  // Update UI
-  targetDisplay.style.display = 'block';
-  targetValue.textContent = target;
-  document.getElementById('summaryTitle').textContent = "First Innings Summary";
-  document.getElementById('startSecondInningsBtn').textContent = "🏏 Start Second Innings";
-  document.getElementById('startSecondInningsBtn').style.display = 'block';
+  // Show innings break countdown
+  const breakTime = 90; // 1 minute 30 seconds
+  let remaining = breakTime;
   
-  // Show summary popup
-  showSummaryPopup();
-
-  resultEl.innerText = `First innings ended! Target is ${target}`;
-  showNotification("First innings completed! Target set.", 'info');
+  summaryPopup.style.display = 'block';
+  summaryTitle.textContent = "Innings Break";
+  summaryContent.innerHTML = `
+    <div class="summary-highlight">First Innings Complete!</div>
+    <div class="summary-countdown">${formatTime(remaining)}</div>
+    <div>Target: ${target} runs</div>
+  `;
   
+  const breakInterval = setInterval(() => {
+    remaining--;
+    summaryCountdown.textContent = formatTime(remaining);
+    
+    if (remaining <= 0) {
+      clearInterval(breakInterval);
+      startSecondInnings();
+    }
+  }, 1000);
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
   // Mark first innings as completed
   firstInningsCompleted = true;
   await set(firstInningsCompletedRef, true);
-  await set(firstInningsRef, firstInningsData); // Save first innings data
+  await set(firstInningsRef, firstInningsData);
 }
 
 // Show summary popup
