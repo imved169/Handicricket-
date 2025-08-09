@@ -702,7 +702,14 @@
     #resetPlaysBtn:hover {
       background: #7b1fa2;
     }
-    
+
+    #timeoutBtn { 
+  background: #607d8b;
+  color: white;
+}
+#timeoutBtn:hover {
+  background: #455a64;
+}
     /* Teams Modal */
     .teams-modal {
       position: fixed;
@@ -1574,6 +1581,7 @@
       <button id="saveBtn">💾 Save & Exit</button>
       <button id="exitBtn">🚪 Exit Without Saving</button>
       <button id="resetPlaysBtn">🔄 Reset Plays</button>
+      <button id="timeoutBtn">⏱ Timeout (30s)</button>
     </div>
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -3993,6 +4001,52 @@ async function initGame() {
         await requestReset();
       }
     });
+
+    // Timeout functionality
+const timeoutBtn = document.getElementById('timeoutBtn');
+let timeoutActive = false;
+let timeoutSeconds = 30;
+let timeoutInterval;
+
+timeoutBtn.addEventListener('click', async () => {
+  if (timeoutActive) return;
+  
+  timeoutActive = true;
+  timeoutBtn.disabled = true;
+  
+  // Show timeout notification
+  showNotification(`Timeout called! Play will resume in ${timeoutSeconds} seconds`, 'info');
+  
+  // Start countdown
+  timeoutInterval = setInterval(() => {
+    timeoutSeconds--;
+    timeoutBtn.textContent = `⏱ Timeout (${timeoutSeconds}s)`;
+    
+    if (timeoutSeconds <= 0) {
+      clearInterval(timeoutInterval);
+      timeoutActive = false;
+      timeoutBtn.disabled = false;
+      timeoutBtn.textContent = '⏱ Timeout (30s)';
+      timeoutSeconds = 30;
+      showNotification("Timeout over! Play resumes", 'info');
+    }
+  }, 1000);
+  
+  // Disable buttons during timeout
+  disableButtons();
+  
+  // Re-enable after timeout
+  setTimeout(() => {
+    if (timeoutActive) {
+      clearInterval(timeoutInterval);
+      timeoutActive = false;
+      timeoutBtn.disabled = false;
+      timeoutBtn.textContent = '⏱ Timeout (30s)';
+      timeoutSeconds = 30;
+    }
+    enableButtons();
+  }, timeoutSeconds * 1000);
+});
 
     // Setup second innings button
     startSecondInningsBtn.addEventListener('click', startSecondInnings);
