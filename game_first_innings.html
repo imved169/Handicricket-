@@ -1704,7 +1704,7 @@
     <button id="startSecondInningsBtn">🏏 Start Second Innings</button>
   </div>
 
-      <script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, get, update, push, remove, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
@@ -1786,6 +1786,8 @@
     const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
     const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
     const commentaryRef = ref(db, `rooms/${room}/commentary`);
+    const timeoutRef = ref(db, `rooms/${room}/timeout`);
+    const inningsBreakRef = ref(db, `rooms/${room}/inningsBreak`);
     
     // Format rules
     const formatRules = {
@@ -1882,6 +1884,12 @@
     let last5Balls = 0;
     let lastBoundaryTime = 0;
     let commentary = [];
+    let isTimeoutActive = false;
+    let timeoutDuration = 60; // 60 seconds timeout
+    let inningsBreakDuration = 90; // 90 seconds break
+    let isInningsBreak = false;
+    let timeoutInterval = null;
+    let inningsBreakInterval = null;
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -1943,6 +1951,9 @@
     const bowlersStatsBody = document.getElementById("bowlersStatsBody");
     const prevStatsBtn = document.getElementById("prevStatsBtn");
     const nextStatsBtn = document.getElementById("nextStatsBtn");
+    const timeoutBtn = document.getElementById("timeoutBtn");
+    const timeoutDisplay = document.getElementById("timeoutDisplay");
+    const inningsBreakDisplay = document.getElementById("inningsBreakDisplay");
 
     // Helper function with timeout
     async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
@@ -2023,8 +2034,8 @@
     function initializeBatterStats() {
       team1Players.forEach(player => {
         batterStats[player] = batterStats[player] || { 
-          runs: 0, balls: 0, fours: 0, sixes: 0,
-          centuryNotified: false, fiftyNotified: false
+          runs: 0, balls: 0, fours: 0, sixes: 0, dotBalls: 0,
+          centuryNotified: false, fiftyNotified: false, dismissalBall: null
         };
         batterWickets[player] = batterWickets[player] || 0;
         batterPenalties[player] = batterPenalties[player] || 0;
@@ -2033,8 +2044,8 @@
       
       team2Players.forEach(player => {
         batterStats[player] = batterStats[player] || { 
-          runs: 0, balls: 0, fours: 0, sixes: 0,
-          centuryNotified: false, fiftyNotified: false
+          runs: 0, balls: 0, fours: 0, sixes: 0, dotBalls: 0,
+          centuryNotified: false, fiftyNotified: false, dismissalBall: null
         };
         batterWickets[player] = batterWickets[player] || 0;
         batterPenalties[player] = batterPenalties[player] || 0;
@@ -2045,11 +2056,15 @@
     // Initialize bowler stats
     function initializeBowlerStats() {
       team1Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
+        bowlerStats[player] = bowlerStats[player] || { 
+          wickets: 0, runs: 0, overs: 0, balls: 0, noBalls: 0, wides: 0 
+        };
       });
       
       team2Players.forEach(player => {
-        bowlerStats[player] = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
+        bowlerStats[player] = bowlerStats[player] || { 
+          wickets: 0, runs: 0, overs: 0, balls: 0, noBalls: 0, wides: 0 
+        };
       });
     }
 
@@ -2479,6 +2494,7 @@
         let boundary = false;
         let isSix = false;
         let commentaryText = "";
+        let isNoBall = false;
 
         // Track zeros for both players
         if (batterCard === 0) zerosThisOver[battingPlayer]++;
@@ -2501,6 +2517,12 @@
           runs += 1;
           freeHitNextBall = true;
           isLegalBall = false;
+          isNoBall = true;
+          
+          // Update bowler stats
+          if (currentBowler) {
+            bowlerStats[currentBowler].noBalls = (bowlerStats[currentBowler].noBalls || 0) + 1;
+          }
           
           commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
           showNotification(commentaryText, 'error');
@@ -2513,6 +2535,11 @@
             outcome = "Wicket on Free Hit (not out)";
             isWicket = false;
             
+            // Still count as a ball for bowler
+            if (currentBowler) {
+              bowlerStats[currentBowler].balls += 1;
+            }
+            
             commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
             showNotification(`${commentaryText} - ${currentBatter} survives`, 'info');
             createUmpireSignal("👈");
@@ -2523,6 +2550,12 @@
             outcome = `${batterCard} Run(s)! (Free Hit)`;
             if (batterCard === 4 || batterCard === 6) boundary = true;
             if (batterCard === 6) isSix = true;
+            
+            // Update bowler stats (counts as a ball)
+            if (currentBowler) {
+              bowlerStats[currentBowler].balls += 1;
+              bowlerStats[currentBowler].runs += runsScored;
+            }
             
             commentaryText = commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)];
             showNotification(`${currentBatter} scores ${batterCard} on free hit - ${commentaryText}`, 'info');
@@ -2555,6 +2588,9 @@
                 bowler: currentBowler
               });
               
+              // Record dismissal ball in batter stats
+              batterStats[currentBatter].dismissalBall = legalBalls;
+              
               commentaryText = commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)];
               showNotification(`WICKET! ${commentaryText} - ${currentBowler} gets ${currentBatter} out!`, 'wicket');
               addToTimeline(`W ${currentBatter}`, 'wicket');
@@ -2573,10 +2609,19 @@
             showNotification(`${currentBatter} is already out!`, 'error');
           }
           
+          // Update bowler stats
+          if (currentBowler && isWicket) {
+            bowlerStats[currentBowler].wickets += 1;
+            bowlerStats[currentBowler].balls += 1;
+          }
+          
           isLegalBall = true;
         }
         // 4. Handle batter playing 0 with penalty
         else if (batterCard === 0 && bowlerCard > 0) {
+          // Count as dot ball for batter
+          batterStats[currentBatter].dotBalls = (batterStats[currentBatter].dotBalls || 0) + 1;
+          
           if (zerosThisOver[battingPlayer] > 3) {
             const penaltyRuns = 5;
             runs -= penaltyRuns;
@@ -2596,10 +2641,21 @@
             if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
             if (bowlerCard === 6) isSix = true;
             
+            // Count boundary against bowler if they bowled a 4 or 6
+            if (currentBowler && (bowlerCard === 4 || bowlerCard === 6)) {
+              bowlerStats[currentBowler].runs += bowlerCard;
+            }
+            
             commentaryText = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
             showNotification(`${currentBatter} plays defensive, ${bowlerCard} runs conceded - ${commentaryText}`, 'info');
             addToTimeline(`${bowlerCard}`, 'info');
           }
+          
+          // Update bowler stats
+          if (currentBowler) {
+            bowlerStats[currentBowler].balls += 1;
+          }
+          
           isLegalBall = true;
         }
         // 5. Handle bowler playing 0
@@ -2608,6 +2664,12 @@
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
+            isNoBall = true;
+            
+            // Update bowler stats
+            if (currentBowler) {
+              bowlerStats[currentBowler].noBalls = (bowlerStats[currentBowler].noBalls || 0) + 1;
+            }
             
             commentaryText = commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)];
             showNotification(`4th dot ball from bowler! ${commentaryText}`, 'error');
@@ -2616,10 +2678,19 @@
           } else {
             outcome = "DOT BALL!";
             
+            // Count as dot ball for batter
+            batterStats[currentBatter].dotBalls = (batterStats[currentBatter].dotBalls || 0) + 1;
+            
             commentaryText = commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)];
             showNotification(`${currentBowler} bowls a dot ball to ${currentBatter} - ${commentaryText}`, 'info');
             addToTimeline("•", 'info');
           }
+          
+          // Update bowler stats
+          if (currentBowler) {
+            bowlerStats[currentBowler].balls += 1;
+          }
+          
           isLegalBall = true;
         }
         // 6. Normal runs
@@ -2652,27 +2723,27 @@
             if (batterCard === 6) createUmpireSignal("↖️");
           }
           
+          // Update bowler stats
+          if (currentBowler) {
+            bowlerStats[currentBowler].balls += 1;
+            bowlerStats[currentBowler].runs += batterCard;
+          }
+          
           isLegalBall = true;
         }
 
-        // Update batter stats
-        if (currentBatter && runsScored > 0) {
+        // Update batter stats (except for no balls)
+        if (currentBatter && !isNoBall) {
           batterStats[currentBatter].balls += 1;
           if (batterCard === 4) batterStats[currentBatter].fours += 1;
           if (batterCard === 6) batterStats[currentBatter].sixes += 1;
           checkBatterMilestones();
         }
         
-        // Update bowler stats
-        if (currentBowler) {
-          bowlerStats[currentBowler] = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
-          if (isWicket) bowlerStats[currentBowler].wickets += 1;
-          bowlerStats[currentBowler].runs += runsScored;
-          bowlerStats[currentBowler].balls += 1;
-          
-          // Update overs count (0.1 per ball)
+        // Update bowler overs count (0.1 per ball, except no balls)
+        if (currentBowler && isLegalBall) {
           bowlerStats[currentBowler].overs = Math.floor(bowlerStats[currentBowler].balls / 6) + 
-                                            (bowlerStats[currentBowler].balls % 6) / 10;
+                                          (bowlerStats[currentBowler].balls % 6) / 10;
         }
 
         // Record ball in ball-by-ball
@@ -2684,7 +2755,9 @@
           timestamp: Date.now(),
           outcome: outcome,
           penalty: (batterCard === 0 && bowlerCard > 0 && zerosThisOver[battingPlayer] > 3) ? 5 : 0,
-          commentary: commentaryText
+          commentary: commentaryText,
+          isNoBall: isNoBall,
+          isFreeHit: freeHit
         };
 
         // Record last wicket score for partnership
@@ -2692,7 +2765,7 @@
           lastWicketScore = runs;
         }
 
-        // Handle legal balls
+        // Handle legal balls (no balls don't count)
         if (isLegalBall) {
           legalBalls++;
           updateOverSummary();
@@ -2737,7 +2810,7 @@
           if (secondInningsStarted) {
             await endMatch(false); // Second innings ended without reaching target
           } else {
-            endInning(); // First innings ended
+            await endInning(); // First innings ended
           }
           return;
         }
@@ -3079,8 +3152,11 @@
     function updateButtonStates() {
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
-        btn.disabled = !canPlay || isSpectator;
+        btn.disabled = !canPlay || isSpectator || isTimeoutActive || isInningsBreak;
       });
+      
+      // Disable timeout during innings break
+      timeoutBtn.disabled = isSpectator || isInningsBreak;
     }
 
     // Disable all card buttons
@@ -3092,7 +3168,7 @@
 
     // Enable all card buttons
     function enableButtons() {
-      if (isResetting || isSpectator) return;
+      if (isResetting || isSpectator || isTimeoutActive || isInningsBreak) return;
       
       const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
       buttons.forEach(btn => {
@@ -3111,7 +3187,7 @@
       const battingTeam = battingFirst === "player1" ? team1Players : team2Players;
       
       battingTeam.forEach(player => {
-        const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+        const stats = batterStats[player] || { runs: 0, balls: 0, fours: 0, sixes: 0, dotBalls: 0 };
         const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(2) : '0.00';
         
         const row = document.createElement('tr');
@@ -3121,6 +3197,8 @@
           <td>${stats.balls}</td>
           <td>${sr}</td>
           <td>${stats.fours}/${stats.sixes}</td>
+          <td>${stats.dotBalls}</td>
+          <td>${stats.dismissalBall ? `${Math.floor(stats.dismissalBall/6)}.${stats.dismissalBall%6+1}` : '-'}</td>
         `;
         battersStatsBody.appendChild(row);
       });
@@ -3130,7 +3208,7 @@
       const bowlingTeam = battingFirst === "player1" ? team2Players : team1Players;
       
       bowlingTeam.forEach(player => {
-        const stats = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0 };
+        const stats = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, noBalls: 0, wides: 0 };
         const er = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '0.00';
         
         const row = document.createElement('tr');
@@ -3140,6 +3218,7 @@
           <td>${stats.wickets}</td>
           <td>${stats.runs}</td>
           <td>${er}</td>
+          <td>${stats.noBalls}/${stats.wides}</td>
         `;
         bowlersStatsBody.appendChild(row);
       });
@@ -3189,6 +3268,56 @@
       firstInningsCompleted = true;
       await set(firstInningsCompletedRef, true);
       await set(firstInningsRef, firstInningsData); // Save first innings data
+      
+      // Start innings break
+      startInningsBreak();
+    }
+
+    // Start innings break with countdown
+    async function startInningsBreak() {
+      isInningsBreak = true;
+      let remainingTime = inningsBreakDuration;
+      
+      // Show break display
+      inningsBreakDisplay.style.display = 'block';
+      
+      // Update countdown
+      const updateBreakDisplay = () => {
+        const minutes = Math.floor(remainingTime / 60);
+        const seconds = remainingTime % 60;
+        inningsBreakDisplay.textContent = `Innings Break: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      };
+      
+      updateBreakDisplay();
+      
+      // Start countdown
+      inningsBreakInterval = setInterval(() => {
+        remainingTime--;
+        updateBreakDisplay();
+        
+        if (remainingTime <= 0) {
+          clearInterval(inningsBreakInterval);
+          endInningsBreak();
+        }
+      }, 1000);
+      
+      // Save break state to Firebase
+      await set(inningsBreakRef, {
+        active: true,
+        endTime: Date.now() + (inningsBreakDuration * 1000)
+      });
+    }
+
+    // End innings break
+    async function endInningsBreak() {
+      isInningsBreak = false;
+      inningsBreakDisplay.style.display = 'none';
+      
+      // Clear Firebase state
+      await set(inningsBreakRef, null);
+      
+      // Enable controls
+      updateButtonStates();
     }
 
     // Show summary popup
@@ -3454,6 +3583,11 @@
         
         showNotification("Match data saved successfully!", 'info');
         resultEl.innerText = "Match data saved";
+        
+        // Redirect to summary page after short delay
+        setTimeout(() => {
+          window.location.href = `match_summary.html?room=${room}`;
+        }, 1500);
       } catch (error) {
         console.error("Error saving match data:", error);
         showNotification("Failed to save match data", 'error');
@@ -3572,6 +3706,64 @@
       } finally {
         isResetting = false;
       }
+    }
+
+    // Setup timeout functionality
+    async function startTimeout() {
+      if (isTimeoutActive || isSpectator) return;
+      
+      try {
+        isTimeoutActive = true;
+        disableButtons();
+        
+        // Set timeout in Firebase
+        await set(timeoutRef, {
+          active: true,
+          endTime: Date.now() + (timeoutDuration * 1000)
+        });
+        
+        // Start countdown
+        let remainingTime = timeoutDuration;
+        updateTimeoutDisplay(remainingTime);
+        
+        timeoutInterval = setInterval(() => {
+          remainingTime--;
+          updateTimeoutDisplay(remainingTime);
+          
+          if (remainingTime <= 0) {
+            endTimeout();
+          }
+        }, 1000);
+        
+        showNotification("Timeout started - both players paused", 'info');
+      } catch (error) {
+        console.error("Error starting timeout:", error);
+        isTimeoutActive = false;
+        enableButtons();
+        showNotification("Failed to start timeout", 'error');
+      }
+    }
+
+    // Update timeout display
+    function updateTimeoutDisplay(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      timeoutDisplay.textContent = `Timeout: ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      timeoutDisplay.style.display = 'block';
+    }
+
+    // End timeout
+    async function endTimeout() {
+      clearInterval(timeoutInterval);
+      isTimeoutActive = false;
+      timeoutDisplay.style.display = 'none';
+      
+      // Clear Firebase timeout
+      await set(timeoutRef, null);
+      
+      // Re-enable buttons
+      enableButtons();
+      showNotification("Timeout ended - game resumed", 'info');
     }
 
     // Setup connection monitoring
@@ -3732,6 +3924,71 @@
               });
             }
           });
+        }
+      });
+
+      // Listen for timeout state
+      onValue(timeoutRef, (snap) => {
+        if (snap.exists() && snap.val().active) {
+          const timeout = snap.val();
+          const remainingTime = Math.max(0, Math.floor((timeout.endTime - Date.now()) / 1000));
+          
+          if (remainingTime > 0) {
+            isTimeoutActive = true;
+            updateTimeoutDisplay(remainingTime);
+            disableButtons();
+            
+            // Start local countdown if not already running
+            if (!timeoutInterval) {
+              let timeLeft = remainingTime;
+              timeoutInterval = setInterval(() => {
+                timeLeft--;
+                updateTimeoutDisplay(timeLeft);
+                
+                if (timeLeft <= 0) {
+                  endTimeout();
+                }
+              }, 1000);
+            }
+          } else {
+            endTimeout();
+          }
+        } else {
+          endTimeout();
+        }
+      });
+
+      // Listen for innings break
+      onValue(inningsBreakRef, (snap) => {
+        if (snap.exists() && snap.val().active) {
+          const breakData = snap.val();
+          const remainingTime = Math.max(0, Math.floor((breakData.endTime - Date.now()) / 1000));
+          
+          if (remainingTime > 0) {
+            isInningsBreak = true;
+            inningsBreakDisplay.style.display = 'block';
+            inningsBreakDisplay.textContent = `Innings Break: ${Math.floor(remainingTime / 60)}:${remainingTime % 60 < 10 ? '0' : ''}${remainingTime % 60}`;
+            disableButtons();
+            
+            // Start local countdown if not already running
+            if (!inningsBreakInterval) {
+              let timeLeft = remainingTime;
+              inningsBreakInterval = setInterval(() => {
+                timeLeft--;
+                inningsBreakDisplay.textContent = `Innings Break: ${Math.floor(timeLeft / 60)}:${timeLeft % 60 < 10 ? '0' : ''}${timeLeft % 60}`;
+                
+                if (timeLeft <= 0) {
+                  clearInterval(inningsBreakInterval);
+                  inningsBreakInterval = null;
+                  endInningsBreak();
+                }
+              }, 1000);
+            }
+          } else {
+            endInningsBreak();
+          }
+        } else {
+          endInningsBreak();
         }
       });
     }
@@ -3898,6 +4155,9 @@
             await requestReset();
           }
         });
+
+        // Setup timeout button
+        timeoutBtn.addEventListener('click', startTimeout);
 
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
@@ -4136,7 +4396,7 @@
           const sr = (stats.runs / stats.balls * 100).toFixed(2);
           batterItem.innerHTML = `
             <strong>${player}</strong>: ${stats.runs} (${stats.balls}) 
-            SR: ${sr}, 4s: ${stats.fours}, 6s: ${stats.sixes}
+            SR: ${sr}, 4s: ${stats.fours}, 6s: ${stats.sixes}, Dot Balls: ${stats.dotBalls || 0}
           `;
           battersList.appendChild(batterItem);
         }
@@ -4161,7 +4421,7 @@
           const er = (stats.runs / stats.overs).toFixed(2);
           bowlerItem.innerHTML = `
             <strong>${player}</strong>: ${stats.overs.toFixed(1)}-${stats.runs}-${stats.wickets} 
-            ER: ${er}
+            ER: ${er}, No Balls: ${stats.noBalls || 0}
           `;
           bowlersList.appendChild(bowlerItem);
         }
@@ -4358,6 +4618,32 @@
         background: rgba(30, 136, 229, 0.1);
         border-radius: 4px;
         font-size: 13px;
+      }
+      .timeout-display {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+        font-size: 24px;
+        text-align: center;
+      }
+      .innings-break-display {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+        font-size: 24px;
+        text-align: center;
       }
     `;
     document.head.appendChild(style);
