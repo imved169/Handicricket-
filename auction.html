@@ -358,6 +358,26 @@
       border-radius: 8px;
     }
     
+    /* Bulk add section */
+    .bulk-add-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .bulk-textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border: 1px solid #1e88e5;
+      border-radius: 5px;
+      background: rgba(30, 136, 229, 0.1);
+      color: white;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -436,6 +456,14 @@
         </select>
       </div>
       <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
+      
+      <!-- Bulk Add Section -->
+      <div class="bulk-add-section">
+        <h3>Bulk Add Players</h3>
+        <textarea id="bulkPlayersText" class="bulk-textarea" placeholder="Enter player names, one per line. Format: Player Name,Role (e.g. Virat Kohli,Batter)"></textarea>
+        <button id="bulkAddBtn" class="btn btn-add-player">Add All Players</button>
+      </div>
+      
       <button id="startAuctionBtn" class="btn btn-start-auction">Start Auction</button>
       <div class="room-code-display" id="roomCodeDisplay">
         Share this code with other teams: <span class="room-code" id="roomCodeSpan"></span>
@@ -533,6 +561,8 @@
     const backBtn = document.getElementById('backBtn');
     const roomCodeDisplay = document.getElementById('roomCodeDisplay');
     const roomCodeSpan = document.getElementById('roomCodeSpan');
+    const bulkPlayersText = document.getElementById('bulkPlayersText');
+    const bulkAddBtn = document.getElementById('bulkAddBtn');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
@@ -738,6 +768,17 @@
         playersPool: [],
         teams: {},
         status: 'setup'
+      });
+      
+      // Listen for changes to players pool
+      const playersPoolRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      onValue(playersPoolRef, (snap) => {
+        if (snap.exists()) {
+          playersPool = snap.val();
+          updatePlayerPool();
+        } else {
+          playersPool = [];
+        }
       });
     }
 
@@ -1074,6 +1115,52 @@
       
       playerNameInput.value = '';
       alert('Player added to pool!');
+    });
+
+    // Admin: Bulk add players
+    bulkAddBtn.addEventListener('click', async () => {
+      const bulkText = bulkPlayersText.value.trim();
+      if (!bulkText) {
+        alert('Please enter player data');
+        return;
+      }
+      
+      const lines = bulkText.split('\n');
+      const newPlayers = [];
+      
+      for (const line of lines) {
+        const [name, role] = line.split(',').map(s => s.trim());
+        if (name && role) {
+          newPlayers.push({
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            name: name,
+            role: role.toLowerCase(),
+            basePrice: 0.5,
+            sold: false
+          });
+        }
+      }
+      
+      if (newPlayers.length === 0) {
+        alert('No valid players found. Format: "Player Name,Role"');
+        return;
+      }
+      
+      // Add to pool in Firebase
+      const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      const roomSnap = await get(roomRef);
+      
+      let updatedPool = [];
+      if (roomSnap.exists()) {
+        updatedPool = roomSnap.val();
+      }
+      
+      updatedPool = [...updatedPool, ...newPlayers];
+      
+      await set(roomRef, updatedPool);
+      
+      bulkPlayersText.value = '';
+      alert(`Added ${newPlayers.length} players to pool!`);
     });
 
     // Admin: Set current player
