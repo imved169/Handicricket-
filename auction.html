@@ -412,8 +412,8 @@
     <!-- Join Room Section -->
     <div id="joinRoomSection">
       <div class="input-group">
-  <label for="playerName">Player Names (comma or newline separated)</label>
-  <input type="text" id="playerName" placeholder="Enter player names, separated by commas">
+        <label for="auctionRoomCode">Enter Auction Room Code</label>
+        <input type="text" id="auctionRoomCode" placeholder="6-digit code provided by admin">
       </div>
       <button id="joinAuctionBtn" class="btn btn-bid">Join Auction</button>
     </div>
@@ -786,17 +786,16 @@
     });
 
     // Load auction room data
-function loadAuctionRoom() {
-  const roomRef = ref(db, `auctions/${auctionRoomCode}`);
-  
-  onValue(roomRef, (snap) => {
-    if (snap.exists()) {
-      const roomData = snap.val();
+    function loadAuctionRoom() {
+      const roomRef = ref(db, `auctions/${auctionRoomCode}`);
       
-      // Update players pool
-      playersPool = roomData.playersPool || [];
-      updatePlayerPool();
-    
+      onValue(roomRef, (snap) => {
+        if (snap.exists()) {
+          const roomData = snap.val();
+          
+          // Update players pool
+          playersPool = roomData.playersPool || [];
+          updatePlayerPool();
           
           // Update current player
           if (roomData.currentPlayer) {
@@ -1042,89 +1041,40 @@ function loadAuctionRoom() {
     });
 
     // Admin: Add player to pool
-addPlayerBtn.addEventListener('click', async () => {
-  const playerName = playerNameInput.value.trim();
-  const playerRole = playerRoleSelect.value;
-  
-  if (!playerName) {
-    alert('Please enter player name');
-    return;
-  }
-
-  // Add bulk players button (add this HTML button in the admin section)
-const bulkAddBtn = document.createElement('button');
-bulkAddBtn.textContent = 'Bulk Add Players';
-bulkAddBtn.className = 'btn btn-add-player';
-bulkAddBtn.style.marginTop = '10px';
-adminSetupSection.insertBefore(bulkAddBtn, startAuctionBtn);
-
-bulkAddBtn.addEventListener('click', async () => {
-  const playerNames = prompt('Enter player names separated by commas:');
-  if (!playerNames) return;
-  
-  const namesArray = playerNames.split(',').map(name => name.trim()).filter(name => name);
-  if (namesArray.length === 0) {
-    alert('No valid player names entered');
-    return;
-  }
-  
-  // Get current pool
-  const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-  const roomSnap = await get(roomRef);
-  
-  let updatedPool = [];
-  if (roomSnap.exists()) {
-    updatedPool = roomSnap.val();
-  }
-  
-  // Add new players
-  for (const name of namesArray) {
-    const newPlayer = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      name: name,
-      role: 'batter', // Default role, can be changed later
-      basePrice: 0.5,
-      sold: false
-    };
-    updatedPool.push(newPlayer);
-  }
-  
-  await set(roomRef, updatedPool);
-  
-  // Update local playersPool array
-  playersPool = updatedPool;
-  
-  alert(`Added ${namesArray.length} players to the pool!`);
-});
-  
-  // Create player object
-  const newPlayer = {
-    id: Date.now().toString(),
-    name: playerName,
-    role: playerRole,
-    basePrice: 0.5,
-    sold: false
-  };
-  
-  // Add to pool in Firebase
-  const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-  const roomSnap = await get(roomRef);
-  
-  let updatedPool = [];
-  if (roomSnap.exists()) {
-    updatedPool = roomSnap.val();
-  }
-  
-  updatedPool.push(newPlayer);
-  
-  await set(roomRef, updatedPool);
-  
-  // Update local playersPool array
-  playersPool = updatedPool;
-  
-  playerNameInput.value = '';
-  alert('Player added to pool!');
-});
+    addPlayerBtn.addEventListener('click', async () => {
+      const playerName = playerNameInput.value.trim();
+      const playerRole = playerRoleSelect.value;
+      
+      if (!playerName) {
+        alert('Please enter player name');
+        return;
+      }
+      
+      // Create player object
+      const newPlayer = {
+        id: Date.now().toString(),
+        name: playerName,
+        role: playerRole,
+        basePrice: 0.5,
+        sold: false
+      };
+      
+      // Add to pool in Firebase
+      const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      const roomSnap = await get(roomRef);
+      
+      let updatedPool = [];
+      if (roomSnap.exists()) {
+        updatedPool = roomSnap.val();
+      }
+      
+      updatedPool.push(newPlayer);
+      
+      await set(roomRef, updatedPool);
+      
+      playerNameInput.value = '';
+      alert('Player added to pool!');
+    });
 
     // Admin: Set current player
     function setCurrentPlayer(player) {
@@ -1144,52 +1094,46 @@ bulkAddBtn.addEventListener('click', async () => {
     }
 
     // Admin: Start auction
-startAuctionBtn.addEventListener('click', async () => {
-  // Get the latest players pool from Firebase
-  const poolRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-  const poolSnap = await get(poolRef);
-  
-  if (!poolSnap.exists() || poolSnap.val().length === 0) {
-    alert('Please add players to the pool first');
-    return;
-  }
-  
-  // Update local playersPool array
-  playersPool = poolSnap.val();
-  
-  // Initialize teams with all registered users
-  const usersRef = ref(db, 'users');
-  const usersSnap = await get(usersRef);
-  
-  if (usersSnap.exists()) {
-    const users = usersSnap.val();
-    const teamsData = {};
-    
-    for (const [username, user] of Object.entries(users)) {
-      teamsData[user.team] = {
-        budget: user.auctionBudget || 120,
-        players: user.retainedPlayers ? user.retainedPlayers.map(name => ({
-          name: name,
-          role: 'unknown',
-          price: name === user.retentionCaptain ? 4 : 2
-        })) : [],
-        rtmCards: user.rtmCards || 0
-      };
-    }
-    
-    // Update room status and teams
-    await update(ref(db, `auctions/${auctionRoomCode}`), {
-      teams: teamsData,
-      status: 'active'
+    startAuctionBtn.addEventListener('click', async () => {
+      // Check if there are players in the pool
+      if (playersPool.length === 0) {
+        alert('Please add players to the pool first');
+        return;
+      }
+      
+      // Initialize teams with all registered users
+      const usersRef = ref(db, 'users');
+      const usersSnap = await get(usersRef);
+      
+      if (usersSnap.exists()) {
+        const users = usersSnap.val();
+        const teamsData = {};
+        
+        for (const [username, user] of Object.entries(users)) {
+          teamsData[user.team] = {
+            budget: user.auctionBudget || 120,
+            players: user.retainedPlayers ? user.retainedPlayers.map(name => ({
+              name: name,
+              role: 'unknown',
+              price: name === user.retentionCaptain ? 4 : 2
+            })) : [],
+            rtmCards: user.rtmCards || 0
+          };
+        }
+        
+        // Update room status and teams
+        await update(ref(db, `auctions/${auctionRoomCode}`), {
+          teams: teamsData,
+          status: 'active'
+        });
+      }
+      
+      // Hide setup section and show auction room
+      adminSetupSection.style.display = 'none';
+      auctionRoom.style.display = 'block';
+      
+      alert('Auction started! All teams can now join and bid.');
     });
-  }
-  
-  // Hide setup section and show auction room
-  adminSetupSection.style.display = 'none';
-  auctionRoom.style.display = 'block';
-  
-  alert('Auction started! All teams can now join and bid.');
-});
 
     // Admin: Mark player as sold
     soldBtn.addEventListener('click', () => {
