@@ -1439,66 +1439,96 @@
     });
 
     // Admin: Bulk add players
-    bulkAddBtn.addEventListener('click', async () => {
-      const bulkText = bulkPlayersText.value.trim();
-      if (!bulkText) {
-        showToast('Please enter player data');
-        return;
-      }
-      
-      const basePrice = parseFloat(bulkBasePrice.value) || 0.5;
-      const lines = bulkText.split('\n');
-      const newPlayers = [];
-      const duplicates = [];
-      
-      for (const line of lines) {
-        const [name, role] = line.split(',').map(s => s.trim());
-        if (name && role) {
-          // Check if player already exists
-          if (playersPool.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-            duplicates.push(name);
-            continue;
-          }
-          
-          newPlayers.push({
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-            name: name,
-            role: role.toLowerCase(),
-            basePrice: basePrice,
-            sold: false
-          });
-        }
-      }
-      
-      if (newPlayers.length === 0) {
-        showToast('No valid players found. Format: "Player Name,Role"');
-        return;
-      }
-      
-      // Add to pool in Firebase
-      const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-      const roomSnap = await get(roomRef);
-      
-      let updatedPool = [];
-      if (roomSnap.exists()) {
-        updatedPool = roomSnap.val();
-      }
-      
-      updatedPool = [...updatedPool, ...newPlayers];
-      
-      await set(roomRef, updatedPool);
-      
-      // Manually update the local playersPool and refresh the display
-      playersPool = updatedPool;
-      updatePlayerPool();
-      
-      bulkPlayersText.value = '';
-      let message = `Added ${newPlayers.length} players to pool!`;
-      if (duplicates.length > 0) {
-        message += ` Skipped ${duplicates.length} duplicates: ${duplicates.join(', ')}`;
-      }
-      showToast(message);
+    // Admin: Bulk add players
+bulkAddBtn.addEventListener('click', async () => {
+  const bulkText = bulkPlayersText.value.trim();
+  if (!bulkText) {
+    showToast('Please enter player data');
+    return;
+  }
+  
+  const basePrice = parseFloat(bulkBasePrice.value) || 0.5;
+  const lines = bulkText.split('\n');
+  const newPlayers = [];
+  const duplicates = [];
+  const invalidEntries = [];
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue; // Skip empty lines
+    
+    // Split on comma, but handle cases where player name might contain commas
+    const lastCommaIndex = trimmedLine.lastIndexOf(',');
+    if (lastCommaIndex === -1) {
+      invalidEntries.push(trimmedLine);
+      continue;
+    }
+    
+    const name = trimmedLine.substring(0, lastCommaIndex).trim();
+    const role = trimmedLine.substring(lastCommaIndex + 1).trim().toLowerCase();
+    
+    if (!name || !role) {
+      invalidEntries.push(trimmedLine);
+      continue;
+    }
+    
+    // Validate role
+    const validRoles = ['batter', 'bowler', 'spinner', 'allrounder', 'wk'];
+    if (!validRoles.includes(role)) {
+      invalidEntries.push(trimmedLine);
+      continue;
+    }
+    
+    // Check if player already exists
+    if (playersPool.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      duplicates.push(name);
+      continue;
+    }
+    
+    newPlayers.push({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      name: name,
+      role: role,
+      basePrice: basePrice,
+      sold: false
     });
+  }
+  
+  if (newPlayers.length === 0 && invalidEntries.length === 0) {
+    showToast('No valid players found. Format: "Player Name,Role"');
+    return;
+  }
+  
+  // Add to pool in Firebase
+  const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+  const roomSnap = await get(roomRef);
+  
+  let updatedPool = [];
+  if (roomSnap.exists()) {
+    updatedPool = roomSnap.val();
+  }
+  
+  updatedPool = [...updatedPool, ...newPlayers];
+  
+  await set(roomRef, updatedPool);
+  
+  // Manually update the local playersPool and refresh the display
+  playersPool = updatedPool;
+  updatePlayerPool();
+  
+  bulkPlayersText.value = '';
+  
+  // Prepare feedback message
+  let message = `Added ${newPlayers.length} players to pool!`;
+  if (duplicates.length > 0) {
+    message += ` Skipped ${duplicates.length} duplicates.`;
+  }
+  if (invalidEntries.length > 0) {
+    message += ` ${invalidEntries.length} invalid entries ignored.`;
+  }
+  
+  showToast(message);
+});
 
     // Admin: Set current player
     function setCurrentPlayer(player) {
