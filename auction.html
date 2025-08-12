@@ -125,6 +125,10 @@
       background: #F44336;
     }
     
+    .role-spinner {
+      background: #E91E63;
+    }
+    
     .role-allrounder {
       background: #FF9800;
     }
@@ -283,7 +287,7 @@
       letter-spacing: 3px;
     }
     
-    /* New retention section styles */
+    /* Retention section styles */
     .retention-section {
       margin: 20px 0;
       padding: 15px;
@@ -423,6 +427,28 @@
     .queue-controls {
       margin-top: 10px;
     }
+
+    /* Admin player selection */
+    .selection-mode {
+      background: rgba(255, 235, 59, 0.2);
+      border: 1px solid #ffeb3b;
+    }
+
+    .selection-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    /* Player stats input */
+    .stats-input {
+      margin-top: 10px;
+    }
+
+    .stats-input input {
+      width: 60px;
+      margin-right: 5px;
+    }
     
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -505,6 +531,12 @@
           <option value="wk">Wicket-Keeper</option>
         </select>
       </div>
+      <div class="input-group stats-input">
+        <label>Player Stats (optional)</label>
+        <input type="text" id="playerBatting" placeholder="Batting" title="Batting rating (1-10)">
+        <input type="text" id="playerBowling" placeholder="Bowling" title="Bowling rating (1-10)">
+        <input type="text" id="playerFielding" placeholder="Fielding" title="Fielding rating (1-10)">
+      </div>
       <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
       
       <!-- Bulk Add Section -->
@@ -521,6 +553,7 @@
         <div class="queue-controls">
           <button id="startSelectedAuctionBtn" class="btn btn-start-auction">Start Auction with Selected Players</button>
           <button id="clearQueueBtn" class="btn btn-pass">Clear Queue</button>
+          <button id="selectFromPoolBtn" class="btn btn-bid">Select Players from Pool</button>
         </div>
       </div>
       
@@ -616,6 +649,9 @@
     const myTeamPlayers = document.getElementById('myTeamPlayers');
     const playerNameInput = document.getElementById('playerName');
     const playerRoleSelect = document.getElementById('playerRole');
+    const playerBattingInput = document.getElementById('playerBatting');
+    const playerBowlingInput = document.getElementById('playerBowling');
+    const playerFieldingInput = document.getElementById('playerFielding');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const startAuctionBtn = document.getElementById('startAuctionBtn');
     const backBtn = document.getElementById('backBtn');
@@ -627,6 +663,7 @@
     const auctionQueueList = document.getElementById('auctionQueueList');
     const startSelectedAuctionBtn = document.getElementById('startSelectedAuctionBtn');
     const clearQueueBtn = document.getElementById('clearQueueBtn');
+    const selectFromPoolBtn = document.getElementById('selectFromPoolBtn');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
@@ -648,6 +685,7 @@
     let finalBidActive = false;
     let autoAuctionInterval = null;
     let auctionQueue = [];
+    let selectionMode = false;
 
     // Initialize
     if (!currentUser || !currentTeam) {
@@ -735,18 +773,6 @@
           updateAuctionQueueDisplay();
         } else {
           auctionQueue = [];
-        }
-      });
-      
-      // Listen for team joins to auto-start auction
-      const teamsRef = ref(db, `auctions/${auctionRoomCode}/teams`);
-      onValue(teamsRef, (snap) => {
-        if (snap.exists()) {
-          const teams = snap.val();
-          if (Object.keys(teams).length >= 2 && playersPool.length > 0) {
-            // Auto-start auction when 2+ teams join and players exist
-            startAuction();
-          }
         }
       });
       
@@ -1117,22 +1143,47 @@
             if (auctionQueue.includes(player.id)) {
               playerCard.classList.add('selected-for-auction');
             }
+            
+            // Build stats string if available
+            let statsStr = '';
+            if (player.batting || player.bowling || player.fielding) {
+              statsStr = `<p>Bat: ${player.batting || '-'} | Bowl: ${player.bowling || '-'} | Field: ${player.fielding || '-'}</p>`;
+            }
+            
             playerCard.innerHTML = `
               <h3>${player.name}</h3>
               <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
               <p>Base Price: ₹0.50 Cr</p>
-              ${player.stats ? `<p>${player.stats}</p>` : ''}
+              ${statsStr}
             `;
             
             if (isAdmin) {
               playerCard.addEventListener('click', () => {
-                togglePlayerForAuction(player, playerCard);
+                if (selectionMode) {
+                  togglePlayerForAuction(player, playerCard);
+                } else {
+                  // In admin view, clicking shows player details
+                  if (currentPlayer && currentPlayer.id === player.id) {
+                    // Already selected, deselect
+                    setCurrentPlayer(null);
+                  } else {
+                    // Select this player
+                    setCurrentPlayer(player);
+                  }
+                }
               });
             }
             
             playerPoolList.appendChild(playerCard);
           });
         }
+      }
+      
+      // Update selection mode UI
+      if (selectionMode) {
+        playerPoolList.classList.add('selection-mode');
+      } else {
+        playerPoolList.classList.remove('selection-mode');
       }
     }
 
@@ -1172,11 +1223,17 @@
         return;
       }
       
+      // Build stats string if available
+      let statsStr = '';
+      if (currentPlayer.batting || currentPlayer.bowling || currentPlayer.fielding) {
+        statsStr = `<p>Bat: ${currentPlayer.batting || '-'} | Bowl: ${currentPlayer.bowling || '-'} | Field: ${currentPlayer.fielding || '-'}</p>`;
+      }
+      
       currentPlayerCard.innerHTML = `
         <h3>${currentPlayer.name}</h3>
         <span class="player-role role-${currentPlayer.role}">${getRoleDisplayName(currentPlayer.role)}</span>
         <p>Base Price: ₹0.50 Cr</p>
-        ${currentPlayer.stats ? `<p>${currentPlayer.stats}</p>` : ''}
+        ${statsStr}
       `;
       
       currentBid.textContent = `₹${currentPlayerBid.toFixed(2)} Cr`;
@@ -1304,7 +1361,7 @@
         return;
       }
       
-      // Create player object
+      // Create player object with optional stats
       const newPlayer = {
         id: Date.now().toString(),
         name: playerName,
@@ -1312,6 +1369,11 @@
         basePrice: 0.5,
         sold: false
       };
+      
+      // Add stats if provided
+      if (playerBattingInput.value.trim()) newPlayer.batting = playerBattingInput.value.trim();
+      if (playerBowlingInput.value.trim()) newPlayer.bowling = playerBowlingInput.value.trim();
+      if (playerFieldingInput.value.trim()) newPlayer.fielding = playerFieldingInput.value.trim();
       
       // Add to pool in Firebase
       const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
@@ -1326,7 +1388,12 @@
       
       await set(roomRef, updatedPool);
       
+      // Clear inputs
       playerNameInput.value = '';
+      playerBattingInput.value = '';
+      playerBowlingInput.value = '';
+      playerFieldingInput.value = '';
+      
       alert('Player added to pool!');
     });
 
@@ -1414,6 +1481,13 @@
       update(ref(db, `auctions/${auctionRoomCode}`), {
         auctionQueue: []
       });
+    });
+
+    // Admin: Toggle selection mode
+    selectFromPoolBtn.addEventListener('click', () => {
+      selectionMode = !selectionMode;
+      selectFromPoolBtn.textContent = selectionMode ? 'Cancel Selection' : 'Select Players from Pool';
+      updatePlayerPool();
     });
 
     // Admin: Start auction
@@ -1585,7 +1659,7 @@
       const roleColors = {
         batter: '#4CAF50',
         bowler: '#F44336',
-        spinner: '#F44336',
+        spinner: '#E91E63',
         allrounder: '#FF9800',
         wk: '#9C27B0'
       };
