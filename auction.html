@@ -283,7 +283,7 @@
       letter-spacing: 3px;
     }
     
-    /* Retention section styles */
+    /* New retention section styles */
     .retention-section {
       margin: 20px 0;
       padding: 15px;
@@ -424,50 +424,37 @@
       margin-top: 10px;
     }
 
-    /* Search and filter controls */
-    .search-filter {
-      margin-bottom: 15px;
-      display: flex;
-      gap: 10px;
-    }
-
-    .search-filter input {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid #1e88e5;
-      border-radius: 5px;
-      background: rgba(30, 136, 229, 0.1);
-      color: white;
-    }
-
-    .search-filter select {
-      padding: 8px;
-      border: 1px solid #1e88e5;
-      border-radius: 5px;
-      background: rgba(30, 136, 229, 0.1);
-      color: white;
-    }
-
     /* Toast notification */
     .toast {
       position: fixed;
       bottom: 20px;
-      right: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.8);
       color: white;
-      padding: 15px;
-      border-radius: 5px;
+      padding: 12px 24px;
+      border-radius: 8px;
       z-index: 1000;
-      display: none;
+      opacity: 0;
+      transition: opacity 0.3s;
     }
 
-    /* Stats display */
-    .stats-display {
-      margin-top: 15px;
-      padding: 10px;
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 5px;
-      font-size: 14px;
+    .toast.show {
+      opacity: 1;
+    }
+
+    /* Search box */
+    .search-box {
+      margin: 15px 0;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 8px 15px;
+      border: 1px solid #1e88e5;
+      border-radius: 20px;
+      background: rgba(30, 136, 229, 0.1);
+      color: white;
     }
     
     @keyframes spin {
@@ -489,10 +476,6 @@
       }
 
       .admin-selection-controls {
-        flex-direction: column;
-      }
-
-      .search-filter {
         flex-direction: column;
       }
     }
@@ -555,22 +538,28 @@
           <option value="wk">Wicket-Keeper</option>
         </select>
       </div>
-      <div class="input-group">
-        <label for="playerStats">Player Stats (Optional)</label>
-        <input type="text" id="playerStats" placeholder="e.g. 1500 runs, 45 avg">
-      </div>
       <button id="addPlayerBtn" class="btn btn-add-player">Add Player to Pool</button>
       
       <!-- Bulk Add Section -->
       <div class="bulk-add-section">
         <h3>Bulk Add Players</h3>
-        <textarea id="bulkPlayersText" class="bulk-textarea" placeholder="Enter player names, one per line. Format: Player Name,Role,Stats (e.g. Virat Kohli,Batter,1500 runs, 45 avg)"></textarea>
+        <div class="input-group">
+          <label for="bulkPlayersText">Enter players (one per line) in format: Player Name,Role</label>
+          <textarea id="bulkPlayersText" class="bulk-textarea" placeholder="Virat Kohli,Batter&#10;Jasprit Bumrah,Bowler&#10;Ravindra Jadeja,Allrounder&#10;MS Dhoni,Wicket-Keeper"></textarea>
+        </div>
+        <div class="input-group">
+          <label for="bulkBasePrice">Base Price for all players (in Cr)</label>
+          <input type="number" id="bulkBasePrice" min="0.5" step="0.25" value="0.5">
+        </div>
         <button id="bulkAddBtn" class="btn btn-add-player">Add All Players</button>
       </div>
       
       <!-- Player Selection for Auction -->
       <div class="auction-queue" id="auctionQueueSection">
         <h3>Auction Queue</h3>
+        <div class="search-box">
+          <input type="text" id="playerSearch" placeholder="Search players...">
+        </div>
         <ul class="auction-queue-list" id="auctionQueueList"></ul>
         <div class="queue-controls">
           <button id="startSelectedAuctionBtn" class="btn btn-start-auction">Start Auction with Selected Players</button>
@@ -589,19 +578,10 @@
       <div class="auction-container">
         <div class="player-pool">
           <h2>Player Pool</h2>
-          <div class="search-filter">
-            <input type="text" id="playerSearch" placeholder="Search players...">
-            <select id="roleFilter">
-              <option value="">All Roles</option>
-              <option value="batter">Batter</option>
-              <option value="bowler">Pacer</option>
-              <option value="spinner">Spinner</option>
-              <option value="allrounder">All-Rounder</option>
-              <option value="wk">Wicket-Keeper</option>
-            </select>
+          <div class="search-box">
+            <input type="text" id="auctionPlayerSearch" placeholder="Search players...">
           </div>
           <div id="playerPoolList"></div>
-          <div class="stats-display" id="poolStats"></div>
         </div>
         
         <div class="bid-controls">
@@ -626,7 +606,6 @@
         <div class="team-list">
           <h2>Your Team</h2>
           <p class="team-budget">Remaining: <span id="remainingBudget">₹120.00 Cr</span></p>
-          <div class="stats-display" id="teamStats"></div>
           <ul class="team-players" id="myTeamPlayers"></ul>
         </div>
       </div>
@@ -636,7 +615,7 @@
   </div>
 
   <!-- Toast Notification -->
-  <div class="toast" id="toast"></div>
+  <div id="toast" class="toast"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -686,7 +665,6 @@
     const myTeamPlayers = document.getElementById('myTeamPlayers');
     const playerNameInput = document.getElementById('playerName');
     const playerRoleSelect = document.getElementById('playerRole');
-    const playerStatsInput = document.getElementById('playerStats');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const startAuctionBtn = document.getElementById('startAuctionBtn');
     const backBtn = document.getElementById('backBtn');
@@ -694,15 +672,14 @@
     const roomCodeSpan = document.getElementById('roomCodeSpan');
     const bulkPlayersText = document.getElementById('bulkPlayersText');
     const bulkAddBtn = document.getElementById('bulkAddBtn');
+    const bulkBasePrice = document.getElementById('bulkBasePrice');
     const auctionQueueSection = document.getElementById('auctionQueueSection');
     const auctionQueueList = document.getElementById('auctionQueueList');
     const startSelectedAuctionBtn = document.getElementById('startSelectedAuctionBtn');
     const clearQueueBtn = document.getElementById('clearQueueBtn');
     const playerSearch = document.getElementById('playerSearch');
-    const roleFilter = document.getElementById('roleFilter');
+    const auctionPlayerSearch = document.getElementById('auctionPlayerSearch');
     const toast = document.getElementById('toast');
-    const poolStats = document.getElementById('poolStats');
-    const teamStats = document.getElementById('teamStats');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
@@ -747,9 +724,14 @@
       loadPreviousSquad();
     }
 
-    // Event listeners for search and filter
-    playerSearch.addEventListener('input', updatePlayerPool);
-    roleFilter.addEventListener('change', updatePlayerPool);
+    // Show toast notification
+    function showToast(message, duration = 3000) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
 
     function loadPreviousSquad() {
       const userRef = ref(db, `users/${currentUser}`);
@@ -834,6 +816,38 @@
       if (isAdmin) {
         auctionQueueSection.style.display = 'block';
       }
+
+      // Setup search functionality
+      playerSearch.addEventListener('input', filterPlayersForSelection);
+      auctionPlayerSearch.addEventListener('input', filterPlayersForAuction);
+    }
+
+    function filterPlayersForSelection() {
+      const searchTerm = playerSearch.value.toLowerCase();
+      const playerCards = document.querySelectorAll('.player-card');
+      
+      playerCards.forEach(card => {
+        const playerName = card.querySelector('h3').textContent.toLowerCase();
+        if (playerName.includes(searchTerm)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function filterPlayersForAuction() {
+      const searchTerm = auctionPlayerSearch.value.toLowerCase();
+      const playerCards = document.querySelectorAll('#playerPoolList .player-card');
+      
+      playerCards.forEach(card => {
+        const playerName = card.querySelector('h3').textContent.toLowerCase();
+        if (playerName.includes(searchTerm)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
     }
 
     function updateAuctionQueueDisplay() {
@@ -869,7 +883,6 @@
       update(ref(db, `auctions/${auctionRoomCode}`), {
         auctionQueue: updatedQueue
       });
-      showToast('Player removed from queue');
     }
 
     function showRetentionSection() {
@@ -1119,7 +1132,6 @@
                 markPlayerAsSold();
                 rtmCards--;
                 rtmCardsDisplay.textContent = rtmCards;
-                showToast(`Successfully retained ${currentPlayer.name} for ₹${currentPlayerBid} Cr`);
               } else {
                 // Decline to match - player goes to original bidder
                 update(ref(db, `auctions/${auctionRoomCode}`), {
@@ -1128,7 +1140,6 @@
                   rtmTeam: null,
                   rtmPlayer: null
                 });
-                showToast(`Declined to retain ${currentPlayer.name}`);
               }
             }
           }
@@ -1159,31 +1170,14 @@
           // Auto-mark player as sold
           if (currentPlayer && currentBidder) {
             markPlayerAsSold();
-            showToast(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentPlayerBid} Cr (auto)`);
           }
         }
       }, 1000);
     }
 
-    // Update player pool display with search and filter
+    // Update player pool display
     function updatePlayerPool() {
       playerPoolList.innerHTML = '';
-      
-      const searchTerm = playerSearch.value.toLowerCase();
-      const roleFilterValue = roleFilter.value;
-      
-      // Filter players
-      let filteredPlayers = playersPool.filter(p => !p.sold);
-      
-      if (searchTerm) {
-        filteredPlayers = filteredPlayers.filter(p => 
-          p.name.toLowerCase().includes(searchTerm)
-        );
-      }
-      
-      if (roleFilterValue) {
-        filteredPlayers = filteredPlayers.filter(p => p.role === roleFilterValue);
-      }
       
       // Group players by role
       const playersByRole = {
@@ -1194,8 +1188,10 @@
         wk: []
       };
       
-      filteredPlayers.forEach(player => {
-        playersByRole[player.role].push(player);
+      playersPool.forEach(player => {
+        if (!player.sold) {
+          playersByRole[player.role].push(player);
+        }
       });
       
       // Display players by role
@@ -1218,7 +1214,7 @@
             playerCard.innerHTML = `
               <h3>${player.name}</h3>
               <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
-              <p>Base Price: ₹0.50 Cr</p>
+              <p>Base Price: ₹${player.basePrice || '0.50'} Cr</p>
               ${player.stats ? `<p>${player.stats}</p>` : ''}
             `;
             
@@ -1232,30 +1228,6 @@
           });
         }
       }
-      
-      // Update pool stats
-      updatePoolStats();
-    }
-
-    function updatePoolStats() {
-      const unsoldPlayers = playersPool.filter(p => !p.sold);
-      const roleCounts = {
-        batter: 0,
-        bowler: 0,
-        spinner: 0,
-        allrounder: 0,
-        wk: 0
-      };
-      
-      unsoldPlayers.forEach(p => {
-        roleCounts[p.role]++;
-      });
-      
-      poolStats.innerHTML = `
-        <p>Total Players: ${unsoldPlayers.length}</p>
-        <p>Batters: ${roleCounts.batter} | Pacers: ${roleCounts.bowler} | Spinners: ${roleCounts.spinner}</p>
-        <p>All-Rounders: ${roleCounts.allrounder} | Wicket-Keepers: ${roleCounts.wk}</p>
-      `;
     }
 
     // Toggle player selection for auction queue
@@ -1299,7 +1271,7 @@
       currentPlayerCard.innerHTML = `
         <h3>${currentPlayer.name}</h3>
         <span class="player-role role-${currentPlayer.role}">${getRoleDisplayName(currentPlayer.role)}</span>
-        <p>Base Price: ₹0.50 Cr</p>
+        <p>Base Price: ₹${currentPlayer.basePrice || '0.50'} Cr</p>
         ${currentPlayer.stats ? `<p>${currentPlayer.stats}</p>` : ''}
       `;
       
@@ -1343,33 +1315,6 @@
         `;
         myTeamPlayers.appendChild(li);
       });
-      
-      // Update team stats
-      updateTeamStats();
-    }
-
-    function updateTeamStats() {
-      const roleCounts = {
-        batter: 0,
-        bowler: 0,
-        spinner: 0,
-        allrounder: 0,
-        wk: 0
-      };
-      
-      let totalSpent = 0;
-      
-      myTeam.forEach(p => {
-        roleCounts[p.role]++;
-        totalSpent += p.price;
-      });
-      
-      teamStats.innerHTML = `
-        <p>Total Players: ${myTeam.length}/25</p>
-        <p>Total Spent: ₹${totalSpent.toFixed(2)} Cr</p>
-        <p>Batters: ${roleCounts.batter} | Pacers: ${roleCounts.bowler} | Spinners: ${roleCounts.spinner}</p>
-        <p>All-Rounders: ${roleCounts.allrounder} | Wicket-Keepers: ${roleCounts.wk}</p>
-      `;
     }
 
     // Update budget display
@@ -1451,7 +1396,6 @@
     addPlayerBtn.addEventListener('click', async () => {
       const playerName = playerNameInput.value.trim();
       const playerRole = playerRoleSelect.value;
-      const playerStats = playerStatsInput.value.trim();
       
       if (!playerName) {
         showToast('Please enter player name');
@@ -1459,9 +1403,8 @@
       }
       
       // Check for duplicate player
-      const existingPlayer = playersPool.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-      if (existingPlayer) {
-        showToast('Player already exists in pool');
+      if (playersPool.some(p => p.name.toLowerCase() === playerName.toLowerCase())) {
+        showToast('Player already exists in pool!');
         return;
       }
       
@@ -1470,7 +1413,6 @@
         id: Date.now().toString(),
         name: playerName,
         role: playerRole,
-        stats: playerStats,
         basePrice: 0.5,
         sold: false
       };
@@ -1492,18 +1434,8 @@
       playersPool = updatedPool;
       updatePlayerPool();
       
-      // Scroll to the newly added player
-      setTimeout(() => {
-        const playerCards = document.querySelectorAll('.player-card');
-        const lastCard = playerCards[playerCards.length - 1];
-        if (lastCard) {
-          lastCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 100);
-      
       playerNameInput.value = '';
-      playerStatsInput.value = '';
-      showToast(`${playerName} added to player pool`);
+      showToast(`${playerName} added to player pool!`);
     });
 
     // Admin: Bulk add players
@@ -1514,33 +1446,32 @@
         return;
       }
       
+      const basePrice = parseFloat(bulkBasePrice.value) || 0.5;
       const lines = bulkText.split('\n');
       const newPlayers = [];
+      const duplicates = [];
       
       for (const line of lines) {
-        const parts = line.split(',').map(s => s.trim());
-        const name = parts[0];
-        const role = parts[1] || 'batter';
-        const stats = parts[2] || '';
-        
+        const [name, role] = line.split(',').map(s => s.trim());
         if (name && role) {
-          // Check for duplicate
-          const existingPlayer = playersPool.find(p => p.name.toLowerCase() === name.toLowerCase());
-          if (!existingPlayer) {
-            newPlayers.push({
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-              name: name,
-              role: role.toLowerCase(),
-              stats: stats,
-              basePrice: 0.5,
-              sold: false
-            });
+          // Check if player already exists
+          if (playersPool.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+            duplicates.push(name);
+            continue;
           }
+          
+          newPlayers.push({
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            name: name,
+            role: role.toLowerCase(),
+            basePrice: basePrice,
+            sold: false
+          });
         }
       }
       
       if (newPlayers.length === 0) {
-        showToast('No valid new players found. Format: "Player Name,Role,Stats"');
+        showToast('No valid players found. Format: "Player Name,Role"');
         return;
       }
       
@@ -1562,18 +1493,22 @@
       updatePlayerPool();
       
       bulkPlayersText.value = '';
-      showToast(`Added ${newPlayers.length} new players to pool!`);
+      let message = `Added ${newPlayers.length} players to pool!`;
+      if (duplicates.length > 0) {
+        message += ` Skipped ${duplicates.length} duplicates: ${duplicates.join(', ')}`;
+      }
+      showToast(message);
     });
 
     // Admin: Set current player
     function setCurrentPlayer(player) {
       currentPlayer = player;
-      currentPlayerBid = 0.5;
+      currentPlayerBid = player.basePrice || 0.5;
       currentBidder = null;
       
       update(ref(db, `auctions/${auctionRoomCode}`), {
         currentPlayer: player,
-        currentBid: 0.5,
+        currentBid: player.basePrice || 0.5,
         currentBidder: null,
         rtmActive: false,
         finalBid: false,
@@ -1737,6 +1672,8 @@
       finalBidActive = false;
       
       update(roomRef, updates).then(() => {
+        showToast(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentPlayerBid.toFixed(2)} Cr`);
+        
         // Auto-select next player
         if (isAdmin) {
           setTimeout(() => {
@@ -1754,24 +1691,12 @@
         clearInterval(autoAuctionInterval);
         autoAuctionInterval = null;
       }
-      
-      showToast(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentPlayerBid.toFixed(2)} Cr`);
     }
 
     // Back button
     backBtn.addEventListener('click', () => {
       window.location.href = 'index.html';
     });
-
-    // Show toast notification
-    function showToast(message, duration = 3000) {
-      toast.textContent = message;
-      toast.style.display = 'block';
-      
-      setTimeout(() => {
-        toast.style.display = 'none';
-      }, duration);
-    }
 
     // Helper functions
     function getRoleDisplayName(role) {
