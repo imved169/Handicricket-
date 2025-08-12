@@ -430,7 +430,7 @@
     </div>
     
     <!-- Join Room Section -->
-    <div id="joinRoomSection">
+    <div id="joinRoomSection" style="display: none;">
       <div class="input-group">
         <label for="auctionRoomCode">Enter Auction Room Code</label>
         <input type="text" id="auctionRoomCode" placeholder="6-digit code provided by admin">
@@ -592,8 +592,18 @@
     teamDisplay.textContent = currentTeam;
     updateBudgetDisplay();
 
-    // Load previous squad for retention
-    loadPreviousSquad();
+    // Check if we have a room code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCodeFromURL = urlParams.get('room');
+    
+    if (roomCodeFromURL) {
+      // If room code is in URL, join directly
+      auctionRoomCode = roomCodeFromURL;
+      joinAuctionRoom();
+    } else {
+      // Otherwise proceed with normal flow
+      loadPreviousSquad();
+    }
 
     function loadPreviousSquad() {
       const userRef = ref(db, `users/${currentUser}`);
@@ -607,13 +617,50 @@
             populateRetentionPlayers();
           } else {
             // No previous squad, skip retention
-            joinRoomSection.style.display = 'block';
+            if (isAdmin) {
+              showAdminSetup();
+            } else {
+              joinRoomSection.style.display = 'block';
+            }
           }
         } else {
           // No previous squad, skip retention
-          joinRoomSection.style.display = 'block';
+          if (isAdmin) {
+            showAdminSetup();
+          } else {
+            joinRoomSection.style.display = 'block';
+          }
         }
       });
+    }
+
+    function showAdminSetup() {
+      // Generate room code for admin
+      auctionRoomCode = generateRoomCode();
+      roomCodeSpan.textContent = auctionRoomCode;
+      roomCodeDisplay.style.display = 'block';
+      
+      // Initialize auction room
+      set(ref(db, `auctions/${auctionRoomCode}`), {
+        createdBy: currentUser,
+        createdAt: Date.now(),
+        playersPool: [],
+        teams: {},
+        status: 'setup'
+      });
+      
+      // Listen for changes to players pool
+      const playersPoolRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      onValue(playersPoolRef, (snap) => {
+        if (snap.exists()) {
+          playersPool = snap.val();
+          updatePlayerPool();
+        } else {
+          playersPool = [];
+        }
+      });
+      
+      adminSetupSection.style.display = 'block';
     }
 
     function showRetentionSection() {
@@ -744,46 +791,20 @@
         rtmCards: rtmCards
       });
       
-      // Hide retention section and show join room
+      // Hide retention section and show appropriate next section
       retentionSection.style.display = 'none';
-      joinRoomSection.style.display = 'block';
+      
+      if (isAdmin) {
+        showAdminSetup();
+      } else {
+        joinRoomSection.style.display = 'block';
+      }
       
       alert(`Retention successful! ${selectedRetentions.length} players retained (${retentionCaptain} as captain). You have ₹${myBudget} Cr remaining and ${rtmCards} RTM cards.`);
     });
 
-    // Show appropriate section based on user role
-    if (isAdmin) {
-      joinRoomSection.style.display = 'none';
-      adminSetupSection.style.display = 'block';
-      
-      // Generate room code for admin
-      auctionRoomCode = generateRoomCode();
-      roomCodeSpan.textContent = auctionRoomCode;
-      roomCodeDisplay.style.display = 'block';
-      
-      // Initialize auction room
-      set(ref(db, `auctions/${auctionRoomCode}`), {
-        createdBy: currentUser,
-        createdAt: Date.now(),
-        playersPool: [],
-        teams: {},
-        status: 'setup'
-      });
-      
-      // Listen for changes to players pool
-      const playersPoolRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-      onValue(playersPoolRef, (snap) => {
-        if (snap.exists()) {
-          playersPool = snap.val();
-          updatePlayerPool();
-        } else {
-          playersPool = [];
-        }
-      });
-    }
-
     // Join auction room
-    joinAuctionBtn.addEventListener('click', async () => {
+    joinAuctionBtn.addEventListener('click', () => {
       auctionRoomCode = auctionRoomCodeInput.value.trim();
       
       if (!auctionRoomCode || auctionRoomCode.length !== 6) {
@@ -791,40 +812,46 @@
         return;
       }
       
+      joinAuctionRoom();
+    });
+
+    function joinAuctionRoom() {
       // Check if room exists
       const roomRef = ref(db, `auctions/${auctionRoomCode}`);
-      const roomSnap = await get(roomRef);
-      
-      if (!roomSnap.exists()) {
-        alert('Auction room not found. Please check the code.');
-        return;
-      }
-      
-      const roomData = roomSnap.val();
-      
-      if (roomData.status === 'setup') {
-        alert('Auction has not started yet. Please wait for admin to start.');
-        return;
-      }
-      
-      // Join room
-      joinRoomSection.style.display = 'none';
-      auctionRoom.style.display = 'block';
-      
-      // Add team to auction if not already added
-      if (!roomData.teams || !roomData.teams[currentTeam]) {
-        await update(ref(db, `auctions/${auctionRoomCode}/teams`), {
-          [currentTeam]: {
-            budget: myBudget,
-            players: [],
-            rtmCards: rtmCards
-          }
-        });
-      }
-      
-      // Load room data
-      loadAuctionRoom();
-    });
+      get(roomRef).then((roomSnap) => {
+        if (!roomSnap.exists()) {
+          alert('Auction room not found. Please check the code.');
+          return;
+        }
+        
+        const roomData = roomSnap.val();
+        
+        if (roomData.status === 'setup') {
+          alert('Auction has not started yet. Please wait for admin to start.');
+          return;
+        }
+        
+        // Join room
+        joinRoomSection.style.display = 'none';
+        retentionSection.style.display = 'none';
+        adminSetupSection.style.display = 'none';
+        auctionRoom.style.display = 'block';
+        
+        // Add team to auction if not already added
+        if (!roomData.teams || !roomData.teams[currentTeam]) {
+          update(ref(db, `auctions/${auctionRoomCode}/teams`), {
+            [currentTeam]: {
+              budget: myBudget,
+              players: [],
+              rtmCards: rtmCards
+            }
+          });
+        }
+        
+        // Load room data
+        loadAuctionRoom();
+      });
+    }
 
     // Load auction room data
     function loadAuctionRoom() {
