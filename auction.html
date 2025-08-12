@@ -423,39 +423,6 @@
     .queue-controls {
       margin-top: 10px;
     }
-
-    /* Toast notification */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      z-index: 1000;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .toast.show {
-      opacity: 1;
-    }
-
-    /* Search box */
-    .search-box {
-      margin: 15px 0;
-    }
-
-    .search-box input {
-      width: 100%;
-      padding: 8px 15px;
-      border: 1px solid #1e88e5;
-      border-radius: 20px;
-      background: rgba(30, 136, 229, 0.1);
-      color: white;
-    }
     
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -543,23 +510,13 @@
       <!-- Bulk Add Section -->
       <div class="bulk-add-section">
         <h3>Bulk Add Players</h3>
-        <div class="input-group">
-          <label for="bulkPlayersText">Enter players (one per line) in format: Player Name,Role</label>
-          <textarea id="bulkPlayersText" class="bulk-textarea" placeholder="Virat Kohli,Batter&#10;Jasprit Bumrah,Bowler&#10;Ravindra Jadeja,Allrounder&#10;MS Dhoni,Wicket-Keeper"></textarea>
-        </div>
-        <div class="input-group">
-          <label for="bulkBasePrice">Base Price for all players (in Cr)</label>
-          <input type="number" id="bulkBasePrice" min="0.5" step="0.25" value="0.5">
-        </div>
+        <textarea id="bulkPlayersText" class="bulk-textarea" placeholder="Enter player names, one per line. Format: Player Name,Role (e.g. Virat Kohli,Batter)"></textarea>
         <button id="bulkAddBtn" class="btn btn-add-player">Add All Players</button>
       </div>
       
       <!-- Player Selection for Auction -->
       <div class="auction-queue" id="auctionQueueSection">
         <h3>Auction Queue</h3>
-        <div class="search-box">
-          <input type="text" id="playerSearch" placeholder="Search players...">
-        </div>
         <ul class="auction-queue-list" id="auctionQueueList"></ul>
         <div class="queue-controls">
           <button id="startSelectedAuctionBtn" class="btn btn-start-auction">Start Auction with Selected Players</button>
@@ -578,9 +535,6 @@
       <div class="auction-container">
         <div class="player-pool">
           <h2>Player Pool</h2>
-          <div class="search-box">
-            <input type="text" id="auctionPlayerSearch" placeholder="Search players...">
-          </div>
           <div id="playerPoolList"></div>
         </div>
         
@@ -613,9 +567,6 @@
       <button id="backBtn" class="btn btn-back">Back to Home</button>
     </div>
   </div>
-
-  <!-- Toast Notification -->
-  <div id="toast" class="toast"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -672,14 +623,10 @@
     const roomCodeSpan = document.getElementById('roomCodeSpan');
     const bulkPlayersText = document.getElementById('bulkPlayersText');
     const bulkAddBtn = document.getElementById('bulkAddBtn');
-    const bulkBasePrice = document.getElementById('bulkBasePrice');
     const auctionQueueSection = document.getElementById('auctionQueueSection');
     const auctionQueueList = document.getElementById('auctionQueueList');
     const startSelectedAuctionBtn = document.getElementById('startSelectedAuctionBtn');
     const clearQueueBtn = document.getElementById('clearQueueBtn');
-    const playerSearch = document.getElementById('playerSearch');
-    const auctionPlayerSearch = document.getElementById('auctionPlayerSearch');
-    const toast = document.getElementById('toast');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
@@ -722,15 +669,6 @@
     } else {
       // Otherwise proceed with normal flow
       loadPreviousSquad();
-    }
-
-    // Show toast notification
-    function showToast(message, duration = 3000) {
-      toast.textContent = message;
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, duration);
     }
 
     function loadPreviousSquad() {
@@ -816,38 +754,6 @@
       if (isAdmin) {
         auctionQueueSection.style.display = 'block';
       }
-
-      // Setup search functionality
-      playerSearch.addEventListener('input', filterPlayersForSelection);
-      auctionPlayerSearch.addEventListener('input', filterPlayersForAuction);
-    }
-
-    function filterPlayersForSelection() {
-      const searchTerm = playerSearch.value.toLowerCase();
-      const playerCards = document.querySelectorAll('.player-card');
-      
-      playerCards.forEach(card => {
-        const playerName = card.querySelector('h3').textContent.toLowerCase();
-        if (playerName.includes(searchTerm)) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    }
-
-    function filterPlayersForAuction() {
-      const searchTerm = auctionPlayerSearch.value.toLowerCase();
-      const playerCards = document.querySelectorAll('#playerPoolList .player-card');
-      
-      playerCards.forEach(card => {
-        const playerName = card.querySelector('h3').textContent.toLowerCase();
-        if (playerName.includes(searchTerm)) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
-      });
     }
 
     function updateAuctionQueueDisplay() {
@@ -1022,7 +928,7 @@
         joinRoomSection.style.display = 'block';
       }
       
-      showToast(`Retention successful! ${selectedRetentions.length} players retained (${retentionCaptain} as captain). You have ₹${myBudget} Cr remaining and ${rtmCards} RTM cards.`);
+      alert(`Retention successful! ${selectedRetentions.length} players retained (${retentionCaptain} as captain). You have ₹${myBudget} Cr remaining and ${rtmCards} RTM cards.`);
     });
 
     // Join auction room
@@ -1030,7 +936,7 @@
       auctionRoomCode = auctionRoomCodeInput.value.trim();
       
       if (!auctionRoomCode || auctionRoomCode.length !== 6) {
-        showToast('Please enter a valid 6-digit room code');
+        alert('Please enter a valid 6-digit room code');
         return;
       }
       
@@ -1042,7 +948,7 @@
       const roomRef = ref(db, `auctions/${auctionRoomCode}`);
       get(roomRef).then((roomSnap) => {
         if (!roomSnap.exists()) {
-          showToast('Auction room not found. Please check the code.');
+          alert('Auction room not found. Please check the code.');
           return;
         }
         
@@ -1109,7 +1015,7 @@
               // I'm the current bidder - can make final bid
               finalBidActive = true;
               finalBidBtn.style.display = 'block';
-              showToast(`${roomData.rtmTeam} is using RTM on ${roomData.rtmPlayer}. You can make one final bid.`);
+              alert(`${roomData.rtmTeam} is using RTM on ${roomData.rtmPlayer}. You can make one final bid.`);
             }
           }
           
@@ -1214,7 +1120,7 @@
             playerCard.innerHTML = `
               <h3>${player.name}</h3>
               <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
-              <p>Base Price: ₹${player.basePrice || '0.50'} Cr</p>
+              <p>Base Price: ₹0.50 Cr</p>
               ${player.stats ? `<p>${player.stats}</p>` : ''}
             `;
             
@@ -1241,7 +1147,6 @@
           auctionQueue: updatedQueue
         });
         card.classList.add('selected-for-auction');
-        showToast(`${player.name} added to auction queue`);
       } else {
         // Remove from queue
         const updatedQueue = [...auctionQueue];
@@ -1250,7 +1155,6 @@
           auctionQueue: updatedQueue
         });
         card.classList.remove('selected-for-auction');
-        showToast(`${player.name} removed from auction queue`);
       }
     }
 
@@ -1271,7 +1175,7 @@
       currentPlayerCard.innerHTML = `
         <h3>${currentPlayer.name}</h3>
         <span class="player-role role-${currentPlayer.role}">${getRoleDisplayName(currentPlayer.role)}</span>
-        <p>Base Price: ₹${currentPlayer.basePrice || '0.50'} Cr</p>
+        <p>Base Price: ₹0.50 Cr</p>
         ${currentPlayer.stats ? `<p>${currentPlayer.stats}</p>` : ''}
       `;
       
@@ -1332,7 +1236,7 @@
       const newBid = currentPlayerBid + 0.25;
       
       if (newBid > myBudget) {
-        showToast('Not enough budget!');
+        alert('Not enough budget!');
         return;
       }
       
@@ -1348,14 +1252,13 @@
         autoAuctionInterval = null;
       }
       startAutoAuctionTimer();
-      
-      showToast(`Bid placed for ${currentPlayer.name} at ₹${newBid.toFixed(2)} Cr`);
     });
 
     // Pass
     passBtn.addEventListener('click', () => {
       if (!currentPlayer) return;
-      showToast(`Passed on ${currentPlayer.name}`);
+      
+      // Just wait for others to bid or admin to mark as sold
     });
 
     // RTM button handler
@@ -1372,7 +1275,7 @@
         rtmPlayer: currentPlayer.id
       });
       
-      showToast(`Using RTM card on ${currentPlayer.name}. Original bidder gets one final chance to bid.`);
+      alert(`Using RTM card on ${currentPlayer.name}. Original bidder gets one final chance to bid.`);
     });
     
     // Final bid button handler (for original bidder)
@@ -1389,7 +1292,6 @@
       });
       
       finalBidBtn.style.display = 'none';
-      showToast(`Final bid placed for ${currentPlayer.name} at ₹${newBid.toFixed(2)} Cr`);
     });
 
     // Admin: Add player to pool
@@ -1398,13 +1300,7 @@
       const playerRole = playerRoleSelect.value;
       
       if (!playerName) {
-        showToast('Please enter player name');
-        return;
-      }
-      
-      // Check for duplicate player
-      if (playersPool.some(p => p.name.toLowerCase() === playerName.toLowerCase())) {
-        showToast('Player already exists in pool!');
+        alert('Please enter player name');
         return;
       }
       
@@ -1430,115 +1326,65 @@
       
       await set(roomRef, updatedPool);
       
-      // Manually update the local playersPool and refresh the display
-      playersPool = updatedPool;
-      updatePlayerPool();
-      
       playerNameInput.value = '';
-      showToast(`${playerName} added to player pool!`);
+      alert('Player added to pool!');
     });
 
     // Admin: Bulk add players
-    // Admin: Bulk add players
-bulkAddBtn.addEventListener('click', async () => {
-  const bulkText = bulkPlayersText.value.trim();
-  if (!bulkText) {
-    showToast('Please enter player data');
-    return;
-  }
-  
-  const basePrice = parseFloat(bulkBasePrice.value) || 0.5;
-  const lines = bulkText.split('\n');
-  const newPlayers = [];
-  const duplicates = [];
-  const invalidEntries = [];
-  
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue; // Skip empty lines
-    
-    // Split on comma, but handle cases where player name might contain commas
-    const lastCommaIndex = trimmedLine.lastIndexOf(',');
-    if (lastCommaIndex === -1) {
-      invalidEntries.push(trimmedLine);
-      continue;
-    }
-    
-    const name = trimmedLine.substring(0, lastCommaIndex).trim();
-    const role = trimmedLine.substring(lastCommaIndex + 1).trim().toLowerCase();
-    
-    if (!name || !role) {
-      invalidEntries.push(trimmedLine);
-      continue;
-    }
-    
-    // Validate role
-    const validRoles = ['batter', 'bowler', 'spinner', 'allrounder', 'wk'];
-    if (!validRoles.includes(role)) {
-      invalidEntries.push(trimmedLine);
-      continue;
-    }
-    
-    // Check if player already exists
-    if (playersPool.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-      duplicates.push(name);
-      continue;
-    }
-    
-    newPlayers.push({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      name: name,
-      role: role,
-      basePrice: basePrice,
-      sold: false
+    bulkAddBtn.addEventListener('click', async () => {
+      const bulkText = bulkPlayersText.value.trim();
+      if (!bulkText) {
+        alert('Please enter player data');
+        return;
+      }
+      
+      const lines = bulkText.split('\n');
+      const newPlayers = [];
+      
+      for (const line of lines) {
+        const [name, role] = line.split(',').map(s => s.trim());
+        if (name && role) {
+          newPlayers.push({
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            name: name,
+            role: role.toLowerCase(),
+            basePrice: 0.5,
+            sold: false
+          });
+        }
+      }
+      
+      if (newPlayers.length === 0) {
+        alert('No valid players found. Format: "Player Name,Role"');
+        return;
+      }
+      
+      // Add to pool in Firebase
+      const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
+      const roomSnap = await get(roomRef);
+      
+      let updatedPool = [];
+      if (roomSnap.exists()) {
+        updatedPool = roomSnap.val();
+      }
+      
+      updatedPool = [...updatedPool, ...newPlayers];
+      
+      await set(roomRef, updatedPool);
+      
+      bulkPlayersText.value = '';
+      alert(`Added ${newPlayers.length} players to pool!`);
     });
-  }
-  
-  if (newPlayers.length === 0 && invalidEntries.length === 0) {
-    showToast('No valid players found. Format: "Player Name,Role"');
-    return;
-  }
-  
-  // Add to pool in Firebase
-  const roomRef = ref(db, `auctions/${auctionRoomCode}/playersPool`);
-  const roomSnap = await get(roomRef);
-  
-  let updatedPool = [];
-  if (roomSnap.exists()) {
-    updatedPool = roomSnap.val();
-  }
-  
-  updatedPool = [...updatedPool, ...newPlayers];
-  
-  await set(roomRef, updatedPool);
-  
-  // Manually update the local playersPool and refresh the display
-  playersPool = updatedPool;
-  updatePlayerPool();
-  
-  bulkPlayersText.value = '';
-  
-  // Prepare feedback message
-  let message = `Added ${newPlayers.length} players to pool!`;
-  if (duplicates.length > 0) {
-    message += ` Skipped ${duplicates.length} duplicates.`;
-  }
-  if (invalidEntries.length > 0) {
-    message += ` ${invalidEntries.length} invalid entries ignored.`;
-  }
-  
-  showToast(message);
-});
 
     // Admin: Set current player
     function setCurrentPlayer(player) {
       currentPlayer = player;
-      currentPlayerBid = player.basePrice || 0.5;
+      currentPlayerBid = 0.5;
       currentBidder = null;
       
       update(ref(db, `auctions/${auctionRoomCode}`), {
         currentPlayer: player,
-        currentBid: player.basePrice || 0.5,
+        currentBid: 0.5,
         currentBidder: null,
         rtmActive: false,
         finalBid: false,
@@ -1551,14 +1397,12 @@ bulkAddBtn.addEventListener('click', async () => {
         clearInterval(autoAuctionInterval);
         autoAuctionInterval = null;
       }
-      
-      showToast(`Now auctioning: ${player.name}`);
     }
 
     // Admin: Start auction with selected players
     startSelectedAuctionBtn.addEventListener('click', () => {
       if (auctionQueue.length === 0) {
-        showToast('Please select players for auction first');
+        alert('Please select players for auction first');
         return;
       }
       
@@ -1570,7 +1414,6 @@ bulkAddBtn.addEventListener('click', async () => {
       update(ref(db, `auctions/${auctionRoomCode}`), {
         auctionQueue: []
       });
-      showToast('Auction queue cleared');
     });
 
     // Admin: Start auction
@@ -1579,7 +1422,7 @@ bulkAddBtn.addEventListener('click', async () => {
     function startAuction(useQueue) {
       // Check if there are players in the pool
       if (playersPool.length === 0) {
-        showToast('Please add players to the pool first');
+        alert('Please add players to the pool first');
         return;
       }
       
@@ -1621,7 +1464,7 @@ bulkAddBtn.addEventListener('click', async () => {
       adminSetupSection.style.display = 'none';
       auctionRoom.style.display = 'block';
       
-      showToast('Auction started! All teams can now join and bid.');
+      alert('Auction started! All teams can now join and bid.');
     }
     
     // Select next player from pool
@@ -1630,14 +1473,14 @@ bulkAddBtn.addEventListener('click', async () => {
       if (unsoldPlayers.length > 0) {
         setCurrentPlayer(unsoldPlayers[0]);
       } else {
-        showToast('All players have been sold! Auction completed.');
+        alert('All players have been sold! Auction completed.');
       }
     }
 
     // Select next player from queue
     function selectNextPlayerFromQueue() {
       if (auctionQueue.length === 0) {
-        showToast('Auction queue is empty!');
+        alert('Auction queue is empty!');
         return;
       }
       
@@ -1655,7 +1498,7 @@ bulkAddBtn.addEventListener('click', async () => {
           auctionQueue: updatedQueue
         });
       } else {
-        showToast('Player not found in pool!');
+        alert('Player not found in pool!');
       }
     }
 
@@ -1702,8 +1545,6 @@ bulkAddBtn.addEventListener('click', async () => {
       finalBidActive = false;
       
       update(roomRef, updates).then(() => {
-        showToast(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentPlayerBid.toFixed(2)} Cr`);
-        
         // Auto-select next player
         if (isAdmin) {
           setTimeout(() => {
