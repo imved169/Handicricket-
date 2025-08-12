@@ -582,6 +582,7 @@
     let retentionCaptain = null;
     let rtmActive = false;
     let finalBidActive = false;
+    let autoAuctionInterval = null;
 
     // Initialize
     if (!currentUser || !currentTeam) {
@@ -657,6 +658,18 @@
           updatePlayerPool();
         } else {
           playersPool = [];
+        }
+      });
+      
+      // Listen for team joins to auto-start auction
+      const teamsRef = ref(db, `auctions/${auctionRoomCode}/teams`);
+      onValue(teamsRef, (snap) => {
+        if (snap.exists()) {
+          const teams = snap.val();
+          if (Object.keys(teams).length >= 2 && playersPool.length > 0) {
+            // Auto-start auction when 2+ teams join and players exist
+            startAuction();
+          }
         }
       });
       
@@ -826,11 +839,6 @@
         
         const roomData = roomSnap.val();
         
-        if (roomData.status === 'setup') {
-          alert('Auction has not started yet. Please wait for admin to start.');
-          return;
-        }
-        
         // Join room
         joinRoomSection.style.display = 'none';
         retentionSection.style.display = 'none';
@@ -871,6 +879,9 @@
             currentPlayerBid = roomData.currentBid || 0.5;
             currentBidder = roomData.currentBidder || null;
             updateCurrentPlayer();
+          } else if (isAdmin && roomData.status === 'active' && !currentPlayer && playersPool.length > 0) {
+            // Auto-select next player if none is selected
+            selectNextPlayer();
           }
           
           // Update my team if exists
@@ -909,7 +920,7 @@
                 });
                 
                 // Mark player as sold to my team
-                soldBtn.click();
+                markPlayerAsSold();
                 rtmCards--;
                 rtmCardsDisplay.textContent = rtmCards;
               } else {
@@ -923,8 +934,36 @@
               }
             }
           }
+          
+          // Auto-mark player as sold if no bids after timeout (admin only)
+          if (isAdmin && currentPlayer && currentBidder && !autoAuctionInterval) {
+            startAutoAuctionTimer();
+          }
         }
       });
+    }
+    
+    function startAutoAuctionTimer() {
+      // Clear any existing interval
+      if (autoAuctionInterval) {
+        clearInterval(autoAuctionInterval);
+      }
+      
+      // Start new timer (30 seconds)
+      let timeLeft = 30;
+      autoAuctionInterval = setInterval(() => {
+        timeLeft--;
+        
+        if (timeLeft <= 0) {
+          clearInterval(autoAuctionInterval);
+          autoAuctionInterval = null;
+          
+          // Auto-mark player as sold
+          if (currentPlayer && currentBidder) {
+            markPlayerAsSold();
+          }
+        }
+      }, 1000);
     }
 
     // Update player pool display
@@ -1066,6 +1105,13 @@
         currentBid: newBid,
         currentBidder: currentTeam
       });
+      
+      // Reset auto auction timer
+      if (autoAuctionInterval) {
+        clearInterval(autoAuctionInterval);
+        autoAuctionInterval = null;
+      }
+      startAutoAuctionTimer();
     });
 
     // Pass
@@ -1205,10 +1251,18 @@
         rtmTeam: null,
         rtmPlayer: null
       });
+      
+      // Start auto auction timer
+      if (autoAuctionInterval) {
+        clearInterval(autoAuctionInterval);
+        autoAuctionInterval = null;
+      }
     }
 
     // Admin: Start auction
-    startAuctionBtn.addEventListener('click', async () => {
+    startAuctionBtn.addEventListener('click', startAuction);
+    
+    function startAuction() {
       // Check if there are players in the pool
       if (playersPool.length === 0) {
         alert('Please add players to the pool first');
@@ -1217,40 +1271,55 @@
       
       // Initialize teams with all registered users
       const usersRef = ref(db, 'users');
-      const usersSnap = await get(usersRef);
-      
-      if (usersSnap.exists()) {
-        const users = usersSnap.val();
-        const teamsData = {};
-        
-        for (const [username, user] of Object.entries(users)) {
-          teamsData[user.team] = {
-            budget: user.auctionBudget || 120,
-            players: user.retainedPlayers ? user.retainedPlayers.map(name => ({
-              name: name,
-              role: 'unknown',
-              price: name === user.retentionCaptain ? 4 : 2
-            })) : [],
-            rtmCards: user.rtmCards || 0
-          };
+      get(usersRef).then((usersSnap) => {
+        if (usersSnap.exists()) {
+          const users = usersSnap.val();
+          const teamsData = {};
+          
+          for (const [username, user] of Object.entries(users)) {
+            teamsData[user.team] = {
+              budget: user.auctionBudget || 120,
+              players: user.retainedPlayers ? user.retainedPlayers.map(name => ({
+                name: name,
+                role: 'unknown',
+                price: name === user.retentionCaptain ? 4 : 2
+              })) : [],
+              rtmCards: user.rtmCards || 0
+            };
+          }
+          
+          // Update room status and teams
+          update(ref(db, `auctions/${auctionRoomCode}`), {
+            teams: teamsData,
+            status: 'active'
+          }).then(() => {
+            // Select first player automatically
+            selectNextPlayer();
+          });
         }
-        
-        // Update room status and teams
-        await update(ref(db, `auctions/${auctionRoomCode}`), {
-          teams: teamsData,
-          status: 'active'
-        });
-      }
+      });
       
       // Hide setup section and show auction room
       adminSetupSection.style.display = 'none';
       auctionRoom.style.display = 'block';
       
       alert('Auction started! All teams can now join and bid.');
-    });
+    }
+    
+    // Select next player from pool
+    function selectNextPlayer() {
+      const unsoldPlayers = playersPool.filter(p => !p.sold);
+      if (unsoldPlayers.length > 0) {
+        setCurrentPlayer(unsoldPlayers[0]);
+      } else {
+        alert('All players have been sold! Auction completed.');
+      }
+    }
 
     // Admin: Mark player as sold
-    soldBtn.addEventListener('click', () => {
+    soldBtn.addEventListener('click', markPlayerAsSold);
+    
+    function markPlayerAsSold() {
       if (!currentPlayer || !currentBidder) return;
       
       // Update player as sold
@@ -1289,8 +1358,19 @@
       rtmActive = false;
       finalBidActive = false;
       
-      update(roomRef, updates);
-    });
+      update(roomRef, updates).then(() => {
+        // Auto-select next player
+        if (isAdmin) {
+          setTimeout(selectNextPlayer, 1000);
+        }
+      });
+      
+      // Clear auto auction timer
+      if (autoAuctionInterval) {
+        clearInterval(autoAuctionInterval);
+        autoAuctionInterval = null;
+      }
+    }
 
     // Back button
     backBtn.addEventListener('click', () => {
