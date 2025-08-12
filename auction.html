@@ -377,6 +377,52 @@
       margin-bottom: 10px;
       font-family: inherit;
     }
+
+    /* Admin selection controls */
+    .admin-selection-controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .player-card.selected-for-auction {
+      background: rgba(255, 235, 59, 0.3);
+      border: 1px dashed #ffeb3b;
+    }
+
+    .auction-queue {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      display: none;
+    }
+
+    .auction-queue h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+
+    .auction-queue-list {
+      list-style: none;
+      padding: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .auction-queue-list li {
+      padding: 8px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .queue-controls {
+      margin-top: 10px;
+    }
     
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -394,6 +440,10 @@
       
       .retention-player {
         width: calc(50% - 10px);
+      }
+
+      .admin-selection-controls {
+        flex-direction: column;
       }
     }
   </style>
@@ -464,7 +514,17 @@
         <button id="bulkAddBtn" class="btn btn-add-player">Add All Players</button>
       </div>
       
-      <button id="startAuctionBtn" class="btn btn-start-auction">Start Auction</button>
+      <!-- Player Selection for Auction -->
+      <div class="auction-queue" id="auctionQueueSection">
+        <h3>Auction Queue</h3>
+        <ul class="auction-queue-list" id="auctionQueueList"></ul>
+        <div class="queue-controls">
+          <button id="startSelectedAuctionBtn" class="btn btn-start-auction">Start Auction with Selected Players</button>
+          <button id="clearQueueBtn" class="btn btn-pass">Clear Queue</button>
+        </div>
+      </div>
+      
+      <button id="startAuctionBtn" class="btn btn-start-auction">Start Full Auction</button>
       <div class="room-code-display" id="roomCodeDisplay">
         Share this code with other teams: <span class="room-code" id="roomCodeSpan"></span>
       </div>
@@ -563,11 +623,15 @@
     const roomCodeSpan = document.getElementById('roomCodeSpan');
     const bulkPlayersText = document.getElementById('bulkPlayersText');
     const bulkAddBtn = document.getElementById('bulkAddBtn');
+    const auctionQueueSection = document.getElementById('auctionQueueSection');
+    const auctionQueueList = document.getElementById('auctionQueueList');
+    const startSelectedAuctionBtn = document.getElementById('startSelectedAuctionBtn');
+    const clearQueueBtn = document.getElementById('clearQueueBtn');
 
     // Game state
     let currentUser = localStorage.getItem('hc_username');
     let currentTeam = localStorage.getItem('hc_team');
-    let isAdmin = currentUser === 'imved169';
+    let isAdmin = currentUser === 'imved169' || currentTeam === 'Ratnagiri Hunters';
     let auctionRoomCode = '';
     let myTeam = [];
     let myBudget = 120; // Starting budget of 120 Cr
@@ -583,6 +647,7 @@
     let rtmActive = false;
     let finalBidActive = false;
     let autoAuctionInterval = null;
+    let auctionQueue = [];
 
     // Initialize
     if (!currentUser || !currentTeam) {
@@ -647,7 +712,8 @@
         createdAt: Date.now(),
         playersPool: [],
         teams: {},
-        status: 'setup'
+        status: 'setup',
+        auctionQueue: []
       });
       
       // Listen for changes to players pool
@@ -658,6 +724,17 @@
           updatePlayerPool();
         } else {
           playersPool = [];
+        }
+      });
+
+      // Listen for auction queue changes
+      const auctionQueueRef = ref(db, `auctions/${auctionRoomCode}/auctionQueue`);
+      onValue(auctionQueueRef, (snap) => {
+        if (snap.exists()) {
+          auctionQueue = snap.val();
+          updateAuctionQueueDisplay();
+        } else {
+          auctionQueue = [];
         }
       });
       
@@ -674,6 +751,44 @@
       });
       
       adminSetupSection.style.display = 'block';
+      if (isAdmin) {
+        auctionQueueSection.style.display = 'block';
+      }
+    }
+
+    function updateAuctionQueueDisplay() {
+      auctionQueueList.innerHTML = '';
+      
+      if (auctionQueue.length === 0) {
+        auctionQueueList.innerHTML = '<li>No players in queue</li>';
+        return;
+      }
+      
+      auctionQueue.forEach((playerId, index) => {
+        const player = playersPool.find(p => p.id === playerId);
+        if (player) {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            ${player.name} <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
+            <button class="btn btn-pass" data-index="${index}" style="padding: 2px 8px; font-size: 12px;">Remove</button>
+          `;
+          auctionQueueList.appendChild(li);
+          
+          // Add event listener to remove button
+          li.querySelector('button').addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFromQueue(index);
+          });
+        }
+      });
+    }
+
+    function removeFromQueue(index) {
+      const updatedQueue = [...auctionQueue];
+      updatedQueue.splice(index, 1);
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        auctionQueue: updatedQueue
+      });
     }
 
     function showRetentionSection() {
@@ -999,6 +1114,9 @@
             if (currentPlayer && currentPlayer.id === player.id) {
               playerCard.classList.add('current-player');
             }
+            if (auctionQueue.includes(player.id)) {
+              playerCard.classList.add('selected-for-auction');
+            }
             playerCard.innerHTML = `
               <h3>${player.name}</h3>
               <span class="player-role role-${player.role}">${getRoleDisplayName(player.role)}</span>
@@ -1008,13 +1126,35 @@
             
             if (isAdmin) {
               playerCard.addEventListener('click', () => {
-                setCurrentPlayer(player);
+                togglePlayerForAuction(player, playerCard);
               });
             }
             
             playerPoolList.appendChild(playerCard);
           });
         }
+      }
+    }
+
+    // Toggle player selection for auction queue
+    function togglePlayerForAuction(player, card) {
+      const index = auctionQueue.indexOf(player.id);
+      
+      if (index === -1) {
+        // Add to queue
+        const updatedQueue = [...auctionQueue, player.id];
+        update(ref(db, `auctions/${auctionRoomCode}`), {
+          auctionQueue: updatedQueue
+        });
+        card.classList.add('selected-for-auction');
+      } else {
+        // Remove from queue
+        const updatedQueue = [...auctionQueue];
+        updatedQueue.splice(index, 1);
+        update(ref(db, `auctions/${auctionRoomCode}`), {
+          auctionQueue: updatedQueue
+        });
+        card.classList.remove('selected-for-auction');
       }
     }
 
@@ -1259,10 +1399,27 @@
       }
     }
 
+    // Admin: Start auction with selected players
+    startSelectedAuctionBtn.addEventListener('click', () => {
+      if (auctionQueue.length === 0) {
+        alert('Please select players for auction first');
+        return;
+      }
+      
+      startAuction(true);
+    });
+
+    // Admin: Clear queue
+    clearQueueBtn.addEventListener('click', () => {
+      update(ref(db, `auctions/${auctionRoomCode}`), {
+        auctionQueue: []
+      });
+    });
+
     // Admin: Start auction
-    startAuctionBtn.addEventListener('click', startAuction);
+    startAuctionBtn.addEventListener('click', () => startAuction(false));
     
-    function startAuction() {
+    function startAuction(useQueue) {
       // Check if there are players in the pool
       if (playersPool.length === 0) {
         alert('Please add players to the pool first');
@@ -1294,7 +1451,11 @@
             status: 'active'
           }).then(() => {
             // Select first player automatically
-            selectNextPlayer();
+            if (useQueue) {
+              selectNextPlayerFromQueue();
+            } else {
+              selectNextPlayer();
+            }
           });
         }
       });
@@ -1313,6 +1474,31 @@
         setCurrentPlayer(unsoldPlayers[0]);
       } else {
         alert('All players have been sold! Auction completed.');
+      }
+    }
+
+    // Select next player from queue
+    function selectNextPlayerFromQueue() {
+      if (auctionQueue.length === 0) {
+        alert('Auction queue is empty!');
+        return;
+      }
+      
+      // Get next player ID from queue
+      const nextPlayerId = auctionQueue[0];
+      const nextPlayer = playersPool.find(p => p.id === nextPlayerId);
+      
+      if (nextPlayer) {
+        setCurrentPlayer(nextPlayer);
+        
+        // Remove from queue
+        const updatedQueue = [...auctionQueue];
+        updatedQueue.shift();
+        update(ref(db, `auctions/${auctionRoomCode}`), {
+          auctionQueue: updatedQueue
+        });
+      } else {
+        alert('Player not found in pool!');
       }
     }
 
@@ -1361,7 +1547,13 @@
       update(roomRef, updates).then(() => {
         // Auto-select next player
         if (isAdmin) {
-          setTimeout(selectNextPlayer, 1000);
+          setTimeout(() => {
+            if (auctionQueue.length > 0) {
+              selectNextPlayerFromQueue();
+            } else {
+              selectNextPlayer();
+            }
+          }, 1000);
         }
       });
       
