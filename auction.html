@@ -452,6 +452,8 @@
           <button id="createRoomBtn" class="btn btn-primary">Generate Room Code</button>
           <div id="roomCodeDisplay" style="margin-top: 15px; display: none;">
             <p>Share this code with other teams: <strong id="roomCodeSpan"></strong></p>
+            <p>Waiting for at least 2 teams to join...</p>
+            <div id="teamsJoinedCount">Teams joined: 1</div>
           </div>
         </div>
         
@@ -509,49 +511,57 @@ Harshit Rana,Pacer,0.50"></textarea>
     <div id="auctionSection" class="section">
       <h2>Auction in Progress</h2>
       
-      <div class="current-player" id="currentPlayerCard">
-        <h2 id="currentPlayerName">No player currently</h2>
-        <p id="currentPlayerRole"></p>
-        <p>Base Price: <span id="currentPlayerPrice">₹0 Cr</span></p>
-        
-        <div class="timer" id="auctionTimer">30s</div>
-        
-        <div class="current-bid" id="currentBidDisplay">No bids yet</div>
-        
-        <div class="auction-controls" id="auctionControls">
-          <button class="btn btn-primary bid-btn" data-increment="0.10">+0.10 Cr</button>
-          <button class="btn btn-primary bid-btn" data-increment="0.25">+0.25 Cr</button>
-          <button class="btn btn-primary bid-btn" data-increment="0.50">+0.50 Cr</button>
-          <button class="btn btn-primary bid-btn" data-increment="1.00">+1.00 Cr</button>
-          <button class="btn btn-warning" id="passBtn">Pass</button>
-          <button class="btn btn-purple" id="rtmBtn" style="display: none;">Use RTM</button>
-        </div>
-        
-        <div class="bid-history" id="bidHistory"></div>
+      <div id="auctionNotStartedMessage" style="text-align: center; padding: 20px; display: none;">
+        <p>Auction has not started yet. Waiting for admin to begin...</p>
+        <div class="loading-spinner"></div>
       </div>
       
-      <div id="adminControls" style="display: none;">
-        <div class="auction-controls">
-          <button class="btn btn-success" id="nextPlayerBtn">Next Player</button>
-          <button class="btn btn-danger" id="sellPlayerBtn">Sold</button>
-          <button class="btn btn-yellow" id="autoSellBtn">Auto-Sell</button>
-        </div>
-      </div>
-      
-      <div class="team-info">
-        <div class="team-card">
-          <h3>Your Team</h3>
-          <p>Budget: <span id="yourBudget">₹150 Cr</span></p>
-          <p>Players: <span id="yourPlayerCount">0</span>/25</p>
-          <p>RTM Cards: <span id="yourRTM">0</span></p>
+      <div id="auctionActiveContent" style="display: none;">
+        <div class="current-player" id="currentPlayerCard">
+          <h2 id="currentPlayerName">No player currently</h2>
+          <p id="currentPlayerRole"></p>
+          <p>Base Price: <span id="currentPlayerPrice">₹0 Cr</span></p>
           
-          <h4>Your Squad</h4>
-          <ul class="team-squad" id="yourSquad"></ul>
+          <div class="timer" id="auctionTimer">30s</div>
+          
+          <div class="current-bid" id="currentBidDisplay">No bids yet</div>
+          
+          <div class="auction-controls" id="auctionControls">
+            <button class="btn btn-primary bid-btn" data-increment="0.10">+0.10 Cr</button>
+            <button class="btn btn-primary bid-btn" data-increment="0.25">+0.25 Cr</button>
+            <button class="btn btn-primary bid-btn" data-increment="0.50">+0.50 Cr</button>
+            <button class="btn btn-primary bid-btn" data-increment="1.00">+1.00 Cr</button>
+            <button class="btn btn-warning" id="passBtn">Pass</button>
+            <button class="btn btn-purple" id="rtmBtn" style="display: none;">Use RTM</button>
+          </div>
+          
+          <div class="bid-history" id="bidHistory"></div>
         </div>
         
-        <div class="team-card">
-          <h3>Other Teams</h3>
-          <div id="otherTeamsInfo"></div>
+        <div id="adminControls" style="display: none;">
+          <div class="auction-controls">
+            <button class="btn btn-success" id="nextPlayerBtn">Next Player</button>
+            <button class="btn btn-danger" id="sellPlayerBtn">Sold</button>
+            <button class="btn btn-yellow" id="autoSellBtn">Auto-Sell</button>
+            <button class="btn btn-primary" id="startAuctionInProgressBtn" style="display: none;">Start Auction</button>
+          </div>
+        </div>
+        
+        <div class="team-info">
+          <div class="team-card">
+            <h3>Your Team</h3>
+            <p>Budget: <span id="yourBudget">₹150 Cr</span></p>
+            <p>Players: <span id="yourPlayerCount">0</span>/25</p>
+            <p>RTM Cards: <span id="yourRTM">0</span></p>
+            
+            <h4>Your Squad</h4>
+            <ul class="team-squad" id="yourSquad"></ul>
+          </div>
+          
+          <div class="team-card">
+            <h3>Other Teams</h3>
+            <div id="otherTeamsInfo"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -633,6 +643,7 @@ Harshit Rana,Pacer,0.50"></textarea>
     const createRoomBtn = document.getElementById('createRoomBtn');
     const roomCodeDisplay = document.getElementById('roomCodeDisplay');
     const roomCodeSpan = document.getElementById('roomCodeSpan');
+    const teamsJoinedCount = document.getElementById('teamsJoinedCount');
     const joinRoomCode = document.getElementById('joinRoomCode');
     const joinRoomBtn = document.getElementById('joinRoomBtn');
     const waitingMessage = document.getElementById('waitingMessage');
@@ -646,6 +657,8 @@ Harshit Rana,Pacer,0.50"></textarea>
     const startAuctionBtn = document.getElementById('startAuctionBtn');
     
     // Auction elements
+    const auctionNotStartedMessage = document.getElementById('auctionNotStartedMessage');
+    const auctionActiveContent = document.getElementById('auctionActiveContent');
     const currentPlayerCard = document.getElementById('currentPlayerCard');
     const currentPlayerName = document.getElementById('currentPlayerName');
     const currentPlayerRole = document.getElementById('currentPlayerRole');
@@ -659,6 +672,7 @@ Harshit Rana,Pacer,0.50"></textarea>
     const nextPlayerBtn = document.getElementById('nextPlayerBtn');
     const sellPlayerBtn = document.getElementById('sellPlayerBtn');
     const autoSellBtn = document.getElementById('autoSellBtn');
+    const startAuctionInProgressBtn = document.getElementById('startAuctionInProgressBtn');
     const yourBudget = document.getElementById('yourBudget');
     const yourPlayerCount = document.getElementById('yourPlayerCount');
     const yourRTM = document.getElementById('yourRTM');
@@ -1041,16 +1055,27 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
     
     // Admin: Start auction
     startAuctionBtn.addEventListener('click', function() {
-      update(ref(db, `auctions/${roomCode}`), {
-        status: 'live',
-        currentPlayer: null,
-        currentBid: null,
-        bidHistory: []
-      }).then(() => {
-        showNotification('Auction started!');
+      // Check if at least 2 teams have joined
+      get(ref(db, `auctions/${roomCode}/teams`)).then((snap) => {
+        const teams = snap.val();
+        const teamCount = Object.keys(teams).length;
         
-        // Automatically select first player
-        nextPlayer();
+        if (teamCount < 2) {
+          showNotification('Need at least 2 teams to start auction', 'error');
+          return;
+        }
+        
+        update(ref(db, `auctions/${roomCode}`), {
+          status: 'live',
+          currentPlayer: null,
+          currentBid: null,
+          bidHistory: []
+        }).then(() => {
+          showNotification('Auction started!');
+          
+          // Automatically select first player
+          nextPlayer();
+        });
       });
     });
     
@@ -1072,12 +1097,21 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         currentBid = data.currentBid;
         currentBidder = data.currentBidder;
         
+        // Update team count display for admin
+        if (isAdmin && setupSection.classList.contains('active')) {
+          get(ref(db, `auctions/${roomCode}/teams`)).then((teamsSnap) => {
+            const teams = teamsSnap.val();
+            const teamCount = Object.keys(teams).length;
+            teamsJoinedCount.textContent = `Teams joined: ${teamCount}`;
+            
+            // Enable start button if at least 2 teams and players exist
+            startAuctionBtn.style.display = (teamCount >= 2 && playerPoolData.length > 0) ? 'block' : 'none';
+          });
+        }
+        
         // Update player pool display (admin only)
         if (isAdmin && setupSection.classList.contains('active')) {
           renderPlayerPool();
-          
-          // Show start button if there are players
-          startAuctionBtn.style.display = playerPoolData.length > 0 ? 'block' : 'none';
         }
         
         // If auction is live, show auction section
@@ -1088,6 +1122,13 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           // Show admin controls if admin
           adminControls.style.display = isAdmin ? 'block' : 'none';
           
+          // Show auction content
+          auctionNotStartedMessage.style.display = 'none';
+          auctionActiveContent.style.display = 'block';
+          
+          // Show start auction button for admin if no current player
+          startAuctionInProgressBtn.style.display = (isAdmin && !currentPlayer) ? 'block' : 'none';
+          
           // Update current player display
           updateCurrentPlayerDisplay();
           
@@ -1097,6 +1138,12 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           // Start timer if there's an active player
           if (currentPlayer && !timerInterval) {
             startTimer();
+          }
+        } else if (data.status === 'setup') {
+          // Auction not started yet
+          if (auctionSection.classList.contains('active')) {
+            auctionNotStartedMessage.style.display = 'block';
+            auctionActiveContent.style.display = 'none';
           }
         }
       });
@@ -1396,6 +1443,23 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
       updateTimerDisplay();
     });
     
+    // Admin: Start auction from auction section
+    startAuctionInProgressBtn.addEventListener('click', function() {
+      // Check if at least 2 teams have joined
+      get(ref(db, `auctions/${roomCode}/teams`)).then((snap) => {
+        const teams = snap.val();
+        const teamCount = Object.keys(teams).length;
+        
+        if (teamCount < 2) {
+          showNotification('Need at least 2 teams to start auction', 'error');
+          return;
+        }
+        
+        // Automatically select first player
+        nextPlayer();
+      });
+    });
+    
     // Sell player to highest bidder
     function sellPlayer() {
       if (!currentPlayer || !currentBidder) {
@@ -1412,10 +1476,13 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           showNotification(`${currentPlayer.name} went unsold`);
           clearInterval(timerInterval);
           
-          // Automatically move to next player
+          // Show start auction button for admin
           if (isAdmin) {
-            setTimeout(nextPlayer, 2000);
+            startAuctionInProgressBtn.style.display = 'block';
           }
+          
+          // Automatically move to next player after 2 seconds
+          setTimeout(nextPlayer, 2000);
         });
         return;
       }
@@ -1454,10 +1521,13 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         showNotification(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentBid} Cr`);
         clearInterval(timerInterval);
         
-        // Automatically move to next player
+        // Show start auction button for admin
         if (isAdmin) {
-          setTimeout(nextPlayer, 2000);
+          startAuctionInProgressBtn.style.display = 'block';
         }
+        
+        // Automatically move to next player after 2 seconds
+        setTimeout(nextPlayer, 2000);
       });
     }
     
