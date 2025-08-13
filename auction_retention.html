@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - Player Retention</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      color: #ffeb3b;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-bottom: 20px;
+    }
+    
+    .budget-display {
+      font-size: 24px;
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .budget-amount {
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    
+    .player-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .player-card {
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    
+    .player-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .player-card.selected {
+      border-color: #ffeb3b;
+      background: rgba(255, 235, 59, 0.1);
+    }
+    
+    .player-card.captain {
+      border-color: #1e88e5;
+      background: rgba(30, 136, 229, 0.2);
+    }
+    
+    .player-card h3 {
+      margin-top: 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .player-card p {
+      margin: 8px 0;
+      color: #aaa;
+    }
+    
+    .player-role {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #1e88e5;
+      color: white;
+    }
+    
+    .retention-cost {
+      font-weight: bold;
+      color: #ff9800;
+    }
+    
+    .btn {
+      padding: 12px 25px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-confirm {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .btn-back {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    .btn-clear {
+      background: linear-gradient(145deg, #f44336, #d32f2f);
+    }
+    
+    .retention-rules {
+      text-align: left;
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .retention-rules h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+    
+    .retention-rules ul {
+      padding-left: 20px;
+    }
+    
+    .retention-rules li {
+      margin-bottom: 8px;
+    }
+    
+    .error-message {
+      color: #f44336;
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .player-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 Player Retention</h1>
+    
+    <div class="user-info">
+      <h2 id="teamNameDisplay"></h2>
+      <div class="budget-display">
+        Total Budget: <span class="budget-amount" id="budgetDisplay">₹100 Cr</span>
+      </div>
+      <div>
+        Retained: <span id="retainedCount">0</span>/6 | RTM Cards: <span id="rtmCount">0</span>
+      </div>
+    </div>
+    
+    <div class="retention-rules">
+      <h3>Retention Rules:</h3>
+      <ul>
+        <li>You can retain up to 6 players from your previous squad</li>
+        <li>1 Captain retention costs ₹4 Cr</li>
+        <li>Each additional retention costs ₹2 Cr</li>
+        <li>For every 2 players retained, you get 1 RTM card</li>
+        <li>Maximum 3 RTM cards can be earned</li>
+      </ul>
+    </div>
+    
+    <div class="player-list" id="playerList"></div>
+    
+    <p class="error-message" id="errorMessage"></p>
+    
+    <button id="confirmRetentionBtn" class="btn btn-confirm">Confirm Retention</button>
+    <button id="clearSelectionBtn" class="btn btn-clear">Clear Selection</button>
+    <button id="proceedBtn" class="btn" disabled>Proceed to Auction Room</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = localStorage.getItem('hc_username');
+    const currentTeam = localStorage.getItem('hc_team');
+    
+    if (!currentUser || !currentTeam) {
+      window.location.href = 'index.html';
+    }
+    
+    // DOM elements
+    const teamNameDisplay = document.getElementById('teamNameDisplay');
+    const budgetDisplay = document.getElementById('budgetDisplay');
+    const retainedCount = document.getElementById('retainedCount');
+    const rtmCount = document.getElementById('rtmCount');
+    const playerList = document.getElementById('playerList');
+    const errorMessage = document.getElementById('errorMessage');
+    const confirmRetentionBtn = document.getElementById('confirmRetentionBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const proceedBtn = document.getElementById('proceedBtn');
+    
+    let players = [];
+    let selectedPlayers = [];
+    let selectedCaptain = null;
+    let totalBudget = 100;
+    let retentionCost = 0;
+    let rtmCards = 0;
+    
+    // Set team name
+    teamNameDisplay.textContent = currentTeam;
+    
+    // Load user squad
+    async function loadSquad() {
+      try {
+        const userRef = ref(db, `users/${currentUser}`);
+        const userSnap = await get(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.val();
+          players = userData.players || [];
+          
+          // Check if already has retention data
+          if (userData.retainedPlayers) {
+            selectedPlayers = userData.retainedPlayers;
+            selectedCaptain = userData.retentionCaptain;
+            retentionCost = userData.retentionCost || 0;
+            rtmCards = userData.rtmCards || 0;
+            proceedBtn.disabled = false;
+          }
+          
+          updatePlayerList();
+          updateBudget();
+        }
+      } catch (error) {
+        console.error("Error loading squad:", error);
+        showError("Failed to load squad. Please try again.");
+      }
+    }
+    
+    // Update player list UI
+    function updatePlayerList() {
+      playerList.innerHTML = '';
+      
+      players.forEach(player => {
+        const isSelected = selectedPlayers.includes(player);
+        const isCaptain = player === selectedCaptain;
+        
+        const playerCard = document.createElement('div');
+        playerCard.className = `player-card ${isSelected ? 'selected' : ''} ${isCaptain ? 'captain' : ''}`;
+        playerCard.innerHTML = `
+          <h3>
+            <span>${player}</span>
+            ${isCaptain ? '<span class="retention-cost">₹4 Cr</span>' : 
+              isSelected ? '<span class="retention-cost">₹2 Cr</span>' : ''}
+          </h3>
+          <p>
+            <span class="player-role">Batsman</span>
+            <span class="player-role" style="background: #4CAF50;">Bowler</span>
+          </p>
+          ${isCaptain ? '<p><strong>Captain</strong></p>' : ''}
+        `;
+        
+        playerCard.addEventListener('click', () => togglePlayerSelection(player));
+        playerList.appendChild(playerCard);
+      });
+      
+      retainedCount.textContent = selectedPlayers.length;
+      rtmCount.textContent = rtmCards;
+    }
+    
+    // Toggle player selection
+    function togglePlayerSelection(player) {
+      if (selectedPlayers.includes(player)) {
+        if (player === selectedCaptain) {
+          // Deselect captain
+          selectedCaptain = null;
+          selectedPlayers = selectedPlayers.filter(p => p !== player);
+        } else {
+          // Just remove from selected
+          selectedPlayers = selectedPlayers.filter(p => p !== player);
+        }
+      } else {
+        if (selectedPlayers.length >= 6) {
+          showError("Maximum 6 players can be retained");
+          return;
+        }
+        selectedPlayers.push(player);
+      }
+      
+      updateBudget();
+      updatePlayerList();
+      clearError();
+    }
+    
+    // Set player as captain
+    function setAsCaptain(player) {
+      if (!selectedPlayers.includes(player)) {
+        showError("Player must be selected before making captain");
+        return;
+      }
+      
+      if (selectedCaptain === player) {
+        selectedCaptain = null;
+      } else {
+        selectedCaptain = player;
+      }
+      
+      updateBudget();
+      updatePlayerList();
+      clearError();
+    }
+    
+    // Update budget calculation
+    function updateBudget() {
+      // Calculate retention cost
+      retentionCost = selectedCaptain ? 4 : 0;
+      retentionCost += Math.max(0, selectedPlayers.length - 1) * 2;
+      
+      // Calculate RTM cards (1 for every 2 players, max 3)
+      rtmCards = Math.min(3, Math.floor(selectedPlayers.length / 2));
+      
+      // Update UI
+      budgetDisplay.textContent = `₹${totalBudget - retentionCost} Cr`;
+      retainedCount.textContent = selectedPlayers.length;
+      rtmCount.textContent = rtmCards;
+    }
+    
+    // Confirm retention
+    confirmRetentionBtn.addEventListener('click', async () => {
+      if (selectedPlayers.length === 0) {
+        showError("Please select at least 1 player to retain");
+        return;
+      }
+      
+      try {
+        const updates = {
+          retainedPlayers: selectedPlayers,
+          retentionCaptain: selectedCaptain,
+          retentionCost: retentionCost,
+          rtmCards: rtmCards,
+          auctionBudget: totalBudget - retentionCost
+        };
+        
+        await update(ref(db, `users/${currentUser}`), updates);
+        
+        proceedBtn.disabled = false;
+        showError("Retention confirmed successfully!", "success");
+      } catch (error) {
+        console.error("Error confirming retention:", error);
+        showError("Failed to confirm retention. Please try again.");
+      }
+    });
+    
+    // Clear selection
+    clearSelectionBtn.addEventListener('click', () => {
+      selectedPlayers = [];
+      selectedCaptain = null;
+      updateBudget();
+      updatePlayerList();
+      clearError();
+    });
+    
+    // Proceed to auction room
+    proceedBtn.addEventListener('click', () => {
+      window.location.href = 'auction_room.html';
+    });
+    
+    // Helper functions
+    function showError(message, type = "error") {
+      errorMessage.textContent = message;
+      errorMessage.style.color = type === "error" ? "#f44336" : "#4CAF50";
+    }
+    
+    function clearError() {
+      errorMessage.textContent = '';
+    }
+    
+    // Initialize
+    loadSquad();
+  </script>
+</body>
+</html>
