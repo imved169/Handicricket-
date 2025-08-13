@@ -471,7 +471,6 @@
         <h3>Room: <span id="roomCodeDisplay"></span></h3>
         <p>Status: <span id="roomStatus">Waiting to start...</span></p>
         <div id="adminStartControls" style="display: none;">
-          <button id="startAuctionBtn" class="btn btn-success">Start Auction</button>
           <button id="selectPlayerBtn" class="btn btn-warning">Select Next Player</button>
         </div>
       </div>
@@ -518,6 +517,11 @@
         <div class="player-pool" id="playerPool">
           <!-- Players available for auction will appear here -->
         </div>
+      </div>
+      
+      <!-- New Start Auction Button for Admin -->
+      <div id="adminStartAuctionBtnContainer" style="display: none; margin-top: 20px;">
+        <button id="startAuctionFromAuctionBtn" class="btn btn-success">Start Auction</button>
       </div>
     </div>
     
@@ -591,7 +595,6 @@
     const roomCodeDisplay = document.getElementById('roomCodeDisplay');
     const roomStatus = document.getElementById('roomStatus');
     const adminStartControls = document.getElementById('adminStartControls');
-    const startAuctionBtn = document.getElementById('startAuctionBtn');
     const selectPlayerBtn = document.getElementById('selectPlayerBtn');
     const playerManagement = document.getElementById('playerManagement');
     const playerName = document.getElementById('playerName');
@@ -616,6 +619,8 @@
     const nextPlayerBtn = document.getElementById('nextPlayerBtn');
     const playerPoolSection = document.getElementById('playerPoolSection');
     const playerPool = document.getElementById('playerPool');
+    const adminStartAuctionBtnContainer = document.getElementById('adminStartAuctionBtnContainer');
+    const startAuctionFromAuctionBtn = document.getElementById('startAuctionFromAuctionBtn');
     
     // Team elements
     const teamsContainer = document.getElementById('teamsContainer');
@@ -928,27 +933,24 @@
         });
     });
 
-    // Start auction
-startAuctionBtn.addEventListener('click', () => {
-  update(ref(db, `auctions/${roomCode}`), {
-    status: 'live'
-  }).then(() => {
-    roomStatus.textContent = 'Auction in progress';
-    showNotification('Auction started!', 'success');
-    
-    // Automatically show auction section for admin
-    setupSection.classList.remove('active');
-    auctionSection.classList.add('active');
-    
-    // Show player pool by default
-    waitingMessage.style.display = 'block';
-    currentPlayerCard.style.display = 'none';
-    playerPoolSection.style.display = 'block';
-  }).catch(error => {
-    console.error('Error starting auction:', error);
-    showNotification('Failed to start auction', 'error');
-  });
-});
+    // Start auction from auction section
+    startAuctionFromAuctionBtn.addEventListener('click', () => {
+      update(ref(db, `auctions/${roomCode}`), {
+        status: 'live'
+      }).then(() => {
+        roomStatus.textContent = 'Auction in progress';
+        showNotification('Auction started!', 'success');
+        adminStartAuctionBtnContainer.style.display = 'none';
+        
+        // Show player pool by default
+        waitingMessage.style.display = 'block';
+        currentPlayerCard.style.display = 'none';
+        playerPoolSection.style.display = 'block';
+      }).catch(error => {
+        console.error('Error starting auction:', error);
+        showNotification('Failed to start auction', 'error');
+      });
+    });
     
     // Select next player (admin)
     selectPlayerBtn.addEventListener('click', () => {
@@ -1004,18 +1006,25 @@ startAuctionBtn.addEventListener('click', () => {
     }
     
     // Listen for auction updates
-function setupAuctionListener() {
-  const auctionRef = ref(db, `auctions/${roomCode}`);
-  onValue(auctionRef, (snap) => {
-    if (!snap.exists()) return;
-    
-    auctionData = snap.val();
-    
-    // If admin and auction just started, show auction section
-    if (isAdmin && auctionData.status === 'live' && setupSection.classList.contains('active')) {
-      setupSection.classList.remove('active');
-      auctionSection.classList.add('active');
-    }
+    function setupAuctionListener() {
+      const auctionRef = ref(db, `auctions/${roomCode}`);
+      onValue(auctionRef, (snap) => {
+        if (!snap.exists()) return;
+        
+        auctionData = snap.val();
+        
+        // Show/hide start auction button for admin
+        if (isAdmin && auctionData.admin === currentUser) {
+          adminStartAuctionBtnContainer.style.display = auctionData.status === 'setup' ? 'block' : 'none';
+        } else {
+          adminStartAuctionBtnContainer.style.display = 'none';
+        }
+        
+        // If admin and auction just started, show auction section
+        if (isAdmin && auctionData.status === 'live' && setupSection.classList.contains('active')) {
+          setupSection.classList.remove('active');
+          auctionSection.classList.add('active');
+        }
         
         // Update room status
         if (setupSection.classList.contains('active')) {
@@ -1299,4 +1308,4 @@ function setupAuctionListener() {
     setupAuctionListener();
   </script>
 </body>
-  </html>
+</html>
