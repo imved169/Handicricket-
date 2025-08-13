@@ -927,19 +927,28 @@
           showNotification('Failed to add players', 'error');
         });
     });
-    
+
     // Start auction
-    startAuctionBtn.addEventListener('click', () => {
-      update(ref(db, `auctions/${roomCode}`), {
-        status: 'live'
-      }).then(() => {
-        roomStatus.textContent = 'Auction in progress';
-        showNotification('Auction started!', 'success');
-      }).catch(error => {
-        console.error('Error starting auction:', error);
-        showNotification('Failed to start auction', 'error');
-      });
-    });
+startAuctionBtn.addEventListener('click', () => {
+  update(ref(db, `auctions/${roomCode}`), {
+    status: 'live'
+  }).then(() => {
+    roomStatus.textContent = 'Auction in progress';
+    showNotification('Auction started!', 'success');
+    
+    // Automatically show auction section for admin
+    setupSection.classList.remove('active');
+    auctionSection.classList.add('active');
+    
+    // Show player pool by default
+    waitingMessage.style.display = 'block';
+    currentPlayerCard.style.display = 'none';
+    playerPoolSection.style.display = 'block';
+  }).catch(error => {
+    console.error('Error starting auction:', error);
+    showNotification('Failed to start auction', 'error');
+  });
+});
     
     // Select next player (admin)
     selectPlayerBtn.addEventListener('click', () => {
@@ -995,12 +1004,18 @@
     }
     
     // Listen for auction updates
-    function setupAuctionListener() {
-      const auctionRef = ref(db, `auctions/${roomCode}`);
-      onValue(auctionRef, (snap) => {
-        if (!snap.exists()) return;
-        
-        auctionData = snap.val();
+function setupAuctionListener() {
+  const auctionRef = ref(db, `auctions/${roomCode}`);
+  onValue(auctionRef, (snap) => {
+    if (!snap.exists()) return;
+    
+    auctionData = snap.val();
+    
+    // If admin and auction just started, show auction section
+    if (isAdmin && auctionData.status === 'live' && setupSection.classList.contains('active')) {
+      setupSection.classList.remove('active');
+      auctionSection.classList.add('active');
+    }
         
         // Update room status
         if (setupSection.classList.contains('active')) {
