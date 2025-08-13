@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - Auction Summary</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      color: #ffeb3b;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-bottom: 20px;
+    }
+    
+    .user-info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+    }
+    
+    .user-info p {
+      margin: 5px 0;
+    }
+    
+    .user-team {
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .stat-card {
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .stat-card h3 {
+      margin-top: 0;
+      color: #aaa;
+    }
+    
+    .stat-card-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .teams-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .team-card {
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: left;
+    }
+    
+    .team-card h3 {
+      margin-top: 0;
+      color: #ffeb3b;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+    
+    .team-players {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .team-player {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .team-player-price {
+      float: right;
+      color: #4CAF50;
+    }
+    
+    .team-budget {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    .top-players {
+      margin: 30px 0;
+    }
+    
+    .player-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    .player-table th, .player-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .player-table th {
+      background: rgba(30, 136, 229, 0.2);
+      color: #ffeb3b;
+    }
+    
+    .player-table tr:hover {
+      background: rgba(30, 136, 229, 0.1);
+    }
+    
+    .price-cell {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    .btn {
+      padding: 12px 25px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-download {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .btn-back {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .summary-stats, .teams-section {
+        grid-template-columns: 1fr;
+      }
+      
+      .player-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 Auction Summary</h1>
+    
+    <div class="user-info">
+      <p>Room: <span id="roomCodeDisplay" class="user-team"></span></p>
+      <p>Team: <span id="teamDisplay" class="user-team"></span></p>
+    </div>
+    
+    <div class="summary-stats">
+      <div class="stat-card">
+        <h3>Total Players Sold</h3>
+        <div class="stat-card-value" id="totalSold">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Amount Spent</h3>
+        <div class="stat-card-value" id="totalAmount">₹0 Cr</div>
+      </div>
+      <div class="stat-card">
+        <h3>Most Expensive Player</h3>
+        <div class="stat-card-value" id="mostExpensive">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Unsold Players</h3>
+        <div class="stat-card-value" id="unsoldCount">0</div>
+      </div>
+    </div>
+    
+    <h2>Team Squads</h2>
+    <div class="teams-section" id="teamsSection"></div>
+    
+    <div class="top-players">
+      <h2>Top Buys</h2>
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Role</th>
+            <th>Team</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody id="topPlayersTable">
+        </tbody>
+      </table>
+    </div>
+    
+    <button id="downloadBtn" class="btn btn-download">Download Squad Data</button>
+    <button id="backBtn" class="btn btn-back">Back to Home</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = localStorage.getItem('hc_username');
+    const currentTeam = localStorage.getItem('hc_team');
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+    
+    if (!currentUser || !currentTeam) {
+      window.location.href = 'index.html';
+    }
+    
+    // DOM elements
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const teamDisplay = document.getElementById('teamDisplay');
+    const totalSold = document.getElementById('totalSold');
+    const totalAmount = document.getElementById('totalAmount');
+    const mostExpensive = document.getElementById('mostExpensive');
+    const unsoldCount = document.getElementById('unsoldCount');
+    const teamsSection = document.getElementById('teamsSection');
+    const topPlayersTable = document.getElementById('topPlayersTable');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const backBtn = document.getElementById('backBtn');
+    
+    let auctionData = {};
+    let topPlayers = [];
+    
+    // Set room info
+    if (roomCode) {
+      roomCodeDisplay.textContent = roomCode;
+    } else {
+      roomCodeDisplay.textContent = "Completed Auction";
+    }
+    teamDisplay.textContent = currentTeam;
+    
+    // Load auction data
+    function loadAuctionData() {
+      if (!roomCode) {
+        // Load from user's auction purchases if no room code
+        const userRef = ref(db, `users/${currentUser}/auctionPurchases`);
+        
+        onValue(userRef, (snap) => {
+          if (snap.exists()) {
+            const purchases = snap.val();
+            updateSummaryUI({ soldPlayers: purchases });
+          }
+        });
+        return;
+      }
+      
+      // Load from room data if room code exists
+      const stateRef = ref(db, `auctionState/${roomCode}`);
+      
+      onValue(stateRef, (snap) => {
+        if (snap.exists()) {
+          auctionData = snap.val();
+          updateSummaryUI(auctionData);
+        }
+      });
+      
+      // Load participants data
+      const participantsRef = ref(db, `auctionRooms/${roomCode}/participants`);
+      
+      onValue(participantsRef, (snap) => {
+        if (snap.exists()) {
+          updateTeamsUI(snap.val());
+        }
+      });
+    }
+    
+    // Update summary UI
+    function updateSummaryUI(data) {
+      if (!data) return;
+      
+      // Calculate stats
+      const soldPlayers = data.soldPlayers ? Object.values(data.soldPlayers) : [];
+      const unsoldPlayers = data.unsoldPlayers ? Object.keys(data.unsoldPlayers).length : 0;
+      
+      // Update stats
+      totalSold.textContent = soldPlayers.length;
+      unsoldCount.textContent = unsoldPlayers;
+      
+      if (soldPlayers.length > 0) {
+        // Calculate total amount and most expensive player
+        let total = 0;
+        let maxPrice = 0;
+        let expensivePlayer = "";
+        
+        soldPlayers.forEach(player => {
+          total += player.price;
+          if (player.price > maxPrice) {
+            maxPrice = player.price;
+            expensivePlayer = `${player.name} (₹${player.price} Cr)`;
+          }
+        });
+        
+        totalAmount.textContent = `₹${total} Cr`;
+        mostExpensive.textContent = expensivePlayer;
+        
+        // Prepare top players (top 10 by price)
+        topPlayers = [...soldPlayers]
+          .sort((a, b) => b.price - a.price)
+          .slice(0, 10);
+        
+        updateTopPlayersTable();
+      }
+    }
+    
+    // Update teams UI
+    function updateTeamsUI(participants) {
+      teamsSection.innerHTML = '';
+      
+      Object.entries(participants).forEach(([username, team]) => {
+        const teamCard = document.createElement('div');
+        teamCard.className = 'team-card';
+        
+        let playersList = '';
+        if (team.players) {
+          Object.entries(team.players).forEach(([playerName, price]) => {
+            playersList += `
+              <div class="team-player">
+                ${playerName} <span class="team-player-price">₹${price} Cr</span>
+              </div>
+            `;
+          });
+        }
+        
+        teamCard.innerHTML = `
+          <h3>${team.team} ${username === currentUser ? '(You)' : ''}</h3>
+          <div class="team-players">
+            ${playersList || '<p>No players purchased</p>'}
+          </div>
+          <div class="team-budget">
+            Budget Left: ₹${team.budget || 0} Cr
+          </div>
+        `;
+        
+        teamsSection.appendChild(teamCard);
+      });
+    }
+    
+    // Update top players table
+    function updateTopPlayersTable() {
+      topPlayersTable.innerHTML = '';
+      
+      topPlayers.forEach(player => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${player.name}</td>
+          <td>${player.role || '-'}</td>
+          <td>${player.team}</td>
+          <td class="price-cell">₹${player.price} Cr</td>
+        `;
+        topPlayersTable.appendChild(row);
+      });
+    }
+    
+    // Download squad data
+    downloadBtn.addEventListener('click', () => {
+      let dataToDownload = "";
+      
+      // Get our team data
+      const userRef = ref(db, `users/${currentUser}`);
+      get(userRef).then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.val();
+          const squad = userData.players || [];
+          const retained = userData.retainedPlayers || [];
+          const purchases = userData.auctionPurchases || [];
+          
+          dataToDownload += `Team: ${currentTeam}\n`;
+          dataToDownload += `Budget Left: ₹${userData.auctionBudget || 0} Cr\n\n`;
+          
+          dataToDownload += "=== Squad ===\n";
+          squad.forEach(player => {
+            dataToDownload += `${player}\n`;
+          });
+          
+          dataToDownload += "\n=== Retained Players ===\n";
+          retained.forEach(player => {
+            dataToDownload += `${player}\n`;
+          });
+          
+          dataToDownload += "\n=== Auction Purchases ===\n";
+          purchases.forEach(purchase => {
+            dataToDownload += `${purchase.name} - ₹${purchase.price} Cr\n`;
+          });
+          
+          // Create download link
+          const blob = new Blob([dataToDownload], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${currentTeam}_squad.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      });
+    });
+    
+    // Back button
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+    
+    // Initialize
+    loadAuctionData();
+  </script>
+</body>
+</html>
