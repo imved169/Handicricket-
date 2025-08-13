@@ -340,7 +340,7 @@
       <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
     </div>
     
-    <button id="auctionBtn" class="btn btn-auction" style="margin-top: 20px;">Auction Room</button>
+    <button id="auctionBtn" class="btn btn-auction" style="margin-top: 20px;">Auction Center</button>
     <button id="manageSquadBtn" class="btn btn-squad" style="margin-top: 20px;">Manage Squad</button>
     <button id="leaderboardBtn" class="btn btn-leaderboard">Leaderboard</button>
   </div>
@@ -565,22 +565,41 @@
     });
 
     // Auction button
+// Replace the existing auction button handler with this:
 document.getElementById('auctionBtn').addEventListener('click', function() {
   if (!currentUser || !currentTeam) {
     alert('Please login first');
     return;
   }
-  window.location.href = 'auction.html';
+  
+  // Check if user has already completed retention
+  const userRef = ref(db, `users/${currentUser}`);
+  get(userRef).then((snap) => {
+    if (snap.exists()) {
+      const userData = snap.val();
+      if (userData.retainedPlayers) {
+        // Already completed retention - go to auction room
+        window.location.href = 'auction_room.html';
+      } else {
+        // Needs to do retention first
+        window.location.href = 'auction_retention.html';
+      }
+    }
+  }).catch((error) => {
+    console.error("Error checking user data:", error);
+    alert("Failed to check auction status. Please try again.");
+  });
 });
     
     // Manage squad
-    document.getElementById('manageSquadBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      window.location.href = `squad.html?username=${currentUser}`;
-    });
+    // Update the manage squad button to include username parameter
+document.getElementById('manageSquadBtn').addEventListener('click', function() {
+  if (!currentUser || !currentTeam) {
+    alert('Please login first');
+    return;
+  }
+  window.location.href = `squad.html?username=${currentUser}`;
+});
     
     // Leaderboard
     document.getElementById('leaderboardBtn').addEventListener('click', function() {
