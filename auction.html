@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - IPL 2025 Auction</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #061e3e, #0a2a4a);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      color: #ffeb3b;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+      margin-top: 0;
+      text-align: center;
+    }
+    
+    .section {
+      display: none;
+      margin-bottom: 20px;
+    }
+    
+    .section.active {
+      display: block;
+    }
+    
+    .user-info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    
+    .user-info p {
+      margin: 5px 0;
+    }
+    
+    .user-team {
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .budget-display {
+      font-size: 18px;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    
+    .rtm-count {
+      font-size: 18px;
+      font-weight: bold;
+      color: #FF9800;
+    }
+    
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .player-card {
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+      position: relative;
+    }
+    
+    .player-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .player-card.selected {
+      border-color: #ffeb3b;
+      background: rgba(30, 136, 229, 0.3);
+    }
+    
+    .player-card.captain {
+      border-color: gold;
+      background: rgba(255, 215, 0, 0.2);
+    }
+    
+    .player-card h3 {
+      margin-top: 0;
+      margin-bottom: 5px;
+    }
+    
+    .player-role {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 10px;
+    }
+    
+    .player-role.batter {
+      color: #4CAF50;
+    }
+    
+    .player-role.pacer {
+      color: #f44336;
+    }
+    
+    .player-role.spinner {
+      color: #9C27B0;
+    }
+    
+    .player-role.allrounder {
+      color: #FF9800;
+    }
+    
+    .player-role.wicketkeeper {
+      color: #00BCD4;
+    }
+    
+    .retention-cost {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 5px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+    }
+    
+    .btn-success {
+      background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    }
+    
+    .btn-warning {
+      background: linear-gradient(145deg, #FF9800, #F57C00);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(145deg, #f44336, #d32f2f);
+    }
+    
+    .btn-info {
+      background: linear-gradient(145deg, #00BCD4, #0097A7);
+    }
+    
+    .btn-back {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    .btn-captain {
+      background: linear-gradient(145deg, #FFD700, #FFC000);
+      color: #333;
+    }
+    
+    .btn-rtm {
+      background: linear-gradient(145deg, #9C27B0, #7B1FA2);
+    }
+    
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    
+    .current-player {
+      background: rgba(30, 136, 229, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: center;
+      border: 2px solid #1e88e5;
+    }
+    
+    .current-player h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+    
+    .current-player .player-role {
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+    
+    .bid-amount {
+      font-size: 28px;
+      font-weight: bold;
+      color: #ffeb3b;
+      margin: 10px 0;
+    }
+    
+    .bidder-info {
+      font-size: 18px;
+      margin: 10px 0;
+    }
+    
+    .timer {
+      font-size: 24px;
+      font-weight: bold;
+      color: #f44336;
+      margin: 10px 0;
+    }
+    
+    .squad-list {
+      margin: 20px 0;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .squad-list h3 {
+      margin-top: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+    }
+    
+    .squad-list ul {
+      list-style: none;
+      padding: 0;
+      columns: 2;
+    }
+    
+    .squad-list li {
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .squad-list .captain {
+      color: #FFD700;
+      font-weight: bold;
+    }
+    
+    .admin-controls {
+      background: rgba(255, 0, 0, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+      border: 1px solid rgba(255, 0, 0, 0.3);
+    }
+    
+    .admin-controls h3 {
+      margin-top: 0;
+      color: #f44336;
+    }
+    
+    .input-group {
+      margin-bottom: 15px;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+    }
+    
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #1e88e5;
+      background: rgba(30, 136, 229, 0.1);
+      color: white;
+      font-size: 16px;
+    }
+    
+    .input-group select option {
+      background: #061e3e;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .modal-content {
+      background: #0a2a4a;
+      border-radius: 10px;
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .modal h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+    
+    .close-modal {
+      float: right;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid #1e88e5;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .players-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+      
+      .squad-list ul {
+        columns: 1;
+      }
+      
+      .btn {
+        padding: 10px 15px;
+        font-size: 14px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .players-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .user-info {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏏 IPL 2025 Auction</h1>
+    
+    <div class="user-info">
+      <p>Team: <span id="teamDisplay" class="user-team"></span></p>
+      <p>Budget: <span id="budgetDisplay" class="budget-display">₹150 Cr</span></p>
+      <p>RTM Cards: <span id="rtmCount" class="rtm-count">0</span></p>
+      <p>Players: <span id="squadCount">0/25</span></p>
+    </div>
+    
+    <!-- Retention Section -->
+    <div id="retentionSection" class="section active">
+      <h2>Player Retention</h2>
+      <p>Retain up to 6 players from your previous squad. Captain retention costs ₹4 Cr, others cost ₹2 Cr.</p>
+      
+      <div class="players-grid" id="retentionPlayersGrid"></div>
+      
+      <div class="btn-group">
+        <button id="confirmRetentionBtn" class="btn btn-success">Confirm Retention</button>
+        <button id="skipRetentionBtn" class="btn btn-back">Skip Retention</button>
+      </div>
+    </div>
+    
+    <!-- Auction Setup Section (Admin Only) -->
+    <div id="auctionSetupSection" class="section">
+      <h2>Auction Setup</h2>
+      
+      <div class="admin-controls">
+        <h3>Admin Controls</h3>
+        
+        <div class="input-group">
+          <label for="roomCodeInput">Room Code</label>
+          <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="4">
+        </div>
+        
+        <div class="btn-group">
+          <button id="createRoomBtn" class="btn btn-primary">Create Auction Room</button>
+          <button id="joinRoomBtn" class="btn btn-info">Join Room</button>
+        </div>
+        
+        <div class="input-group">
+          <label>Add Players to Auction Pool</label>
+          <div class="btn-group">
+            <button id="addSinglePlayerBtn" class="btn btn-primary">Add Single Player</button>
+            <button id="addBulkPlayersBtn" class="btn btn-primary">Bulk Add Players</button>
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <label>Start Auction</label>
+          <button id="startAuctionBtn" class="btn btn-success">Begin Auction</button>
+        </div>
+      </div>
+      
+      <div class="players-grid" id="auctionPoolGrid"></div>
+    </div>
+    
+    <!-- Bidding Section -->
+    <div id="biddingSection" class="section">
+      <div class="current-player" id="currentPlayerCard">
+        <h2 id="currentPlayerName">No player currently</h2>
+        <div id="currentPlayerRole" class="player-role">Select a player to start</div>
+        <div class="bid-amount" id="currentBidAmount">Base Price: ₹0.50 Cr</div>
+        <div class="bidder-info" id="currentBidder">No bids yet</div>
+        <div class="timer" id="auctionTimer">30s</div>
+        
+        <div class="btn-group">
+          <button id="bidBtn" class="btn btn-success">Bid (+₹0.25 Cr)</button>
+          <button id="passBtn" class="btn btn-danger">Pass</button>
+          <button id="rtmBtn" class="btn btn-rtm">Use RTM</button>
+        </div>
+      </div>
+      
+      <div class="admin-controls" id="adminBiddingControls">
+        <h3>Admin Controls</h3>
+        <div class="btn-group">
+          <button id="nextPlayerBtn" class="btn btn-primary">Next Player</button>
+          <button id="autoSellBtn" class="btn btn-success">Auto Sell</button>
+          <button id="soldBtn" class="btn btn-warning">Sold!</button>
+        </div>
+        
+        <div class="input-group">
+          <label>Bid Increment</label>
+          <div class="btn-group">
+            <button class="btn btn-primary increment-btn" data-increment="0.10">+₹0.10 Cr</button>
+            <button class="btn btn-primary increment-btn" data-increment="0.25">+₹0.25 Cr</button>
+            <button class="btn btn-primary increment-btn" data-increment="0.50">+₹0.50 Cr</button>
+            <button class="btn btn-primary increment-btn" data-increment="1.00">+₹1.00 Cr</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="squad-list">
+        <h3>Your Squad</h3>
+        <ul id="squadList"></ul>
+        <p>Total Spent: <span id="totalSpent">₹0 Cr</span></p>
+      </div>
+    </div>
+    
+    <button id="backBtn" class="btn btn-back">Back to Home</button>
+  </div>
+  
+  <!-- Modals -->
+  <div class="modal" id="playerModal">
+    <div class="modal-content">
+      <button class="close-modal">&times;</button>
+      <h2>Select Player</h2>
+      <div class="players-grid" id="modalPlayersGrid"></div>
+    </div>
+  </div>
+  
+  <div class="modal" id="addPlayerModal">
+    <div class="modal-content">
+      <button class="close-modal">&times;</button>
+      <h2>Add Player</h2>
+      
+      <div class="input-group">
+        <label for="playerNameInput">Player Name</label>
+        <input type="text" id="playerNameInput" placeholder="Enter player name">
+      </div>
+      
+      <div class="input-group">
+        <label for="playerRoleInput">Role</label>
+        <select id="playerRoleInput">
+          <option value="batter">Batter</option>
+          <option value="pacer">Pacer</option>
+          <option value="spinner">Spinner</option>
+          <option value="allrounder">All-Rounder</option>
+          <option value="wicketkeeper">Wicket-Keeper</option>
+        </select>
+      </div>
+      
+      <div class="input-group">
+        <label for="playerBasePrice">Base Price (Cr)</label>
+        <input type="number" id="playerBasePrice" min="0.5" max="20" step="0.5" value="0.5">
+      </div>
+      
+      <button id="confirmAddPlayerBtn" class="btn btn-success">Add Player</button>
+    </div>
+  </div>
+  
+  <div class="modal" id="bulkAddModal">
+    <div class="modal-content">
+      <button class="close-modal">&times;</button>
+      <h2>Bulk Add Players</h2>
+      
+      <div class="input-group">
+        <label for="bulkPlayersInput">Enter players (one per line, format: Name,Role,BasePrice)</label>
+        <textarea id="bulkPlayersInput" rows="10" placeholder="Virat Kohli,batter,2.0&#10;Jasprit Bumrah,pacer,1.5&#10;..."></textarea>
+      </div>
+      
+      <button id="confirmBulkAddBtn" class="btn btn-success">Add Players</button>
+    </div>
+  </div>
+  
+  <div class="modal" id="confirmModal">
+    <div class="modal-content">
+      <button class="close-modal">&times;</button>
+      <h2 id="confirmModalTitle">Confirm Action</h2>
+      <p id="confirmModalMessage">Are you sure you want to perform this action?</p>
+      <div class="btn-group">
+        <button id="confirmModalYes" class="btn btn-success">Yes</button>
+        <button id="confirmModalNo" class="btn btn-danger">No</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="notification" id="notification">
+    <p id="notificationMessage"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, update, get, child, onValue, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // DOM elements
+    const teamDisplay = document.getElementById('teamDisplay');
+    const budgetDisplay = document.getElementById('budgetDisplay');
+    const rtmCount = document.getElementById('rtmCount');
+    const squadCount = document.getElementById('squadCount');
+    const squadList = document.getElementById('squadList');
+    const totalSpent = document.getElementById('totalSpent');
+    
+    // Sections
+    const retentionSection = document.getElementById('retentionSection');
+    const auctionSetupSection = document.getElementById('auctionSetupSection');
+    const biddingSection = document.getElementById('biddingSection');
+    
+    // Retention elements
+    const retentionPlayersGrid = document.getElementById('retentionPlayersGrid');
+    const confirmRetentionBtn = document.getElementById('confirmRetentionBtn');
+    const skipRetentionBtn = document.getElementById('skipRetentionBtn');
+    
+    // Auction setup elements
+    const roomCodeInput = document.getElementById('roomCodeInput');
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+    const addSinglePlayerBtn = document.getElementById('addSinglePlayerBtn');
+    const addBulkPlayersBtn = document.getElementById('addBulkPlayersBtn');
+    const startAuctionBtn = document.getElementById('startAuctionBtn');
+    const auctionPoolGrid = document.getElementById('auctionPoolGrid');
+    
+    // Bidding elements
+    const currentPlayerCard = document.getElementById('currentPlayerCard');
+    const currentPlayerName = document.getElementById('currentPlayerName');
+    const currentPlayerRole = document.getElementById('currentPlayerRole');
+    const currentBidAmount = document.getElementById('currentBidAmount');
+    const currentBidder = document.getElementById('currentBidder');
+    const auctionTimer = document.getElementById('auctionTimer');
+    const bidBtn = document.getElementById('bidBtn');
+    const passBtn = document.getElementById('passBtn');
+    const rtmBtn = document.getElementById('rtmBtn');
+    const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+    const autoSellBtn = document.getElementById('autoSellBtn');
+    const soldBtn = document.getElementById('soldBtn');
+    
+    // Modals
+    const playerModal = document.getElementById('playerModal');
+    const modalPlayersGrid = document.getElementById('modalPlayersGrid');
+    const addPlayerModal = document.getElementById('addPlayerModal');
+    const bulkAddModal = document.getElementById('bulkAddModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmModalTitle = document.getElementById('confirmModalTitle');
+    const confirmModalMessage = document.getElementById('confirmModalMessage');
+    const confirmModalYes = document.getElementById('confirmModalYes');
+    const confirmModalNo = document.getElementById('confirmModalNo');
+    
+    // Notification
+    const notification = document.getElementById('notification');
+    const notificationMessage = document.getElementById('notificationMessage');
+    
+    // Back button
+    const backBtn = document.getElementById('backBtn');
+    
+    // App state
+    let currentUser = localStorage.getItem('hc_username');
+    let currentTeam = localStorage.getItem('hc_team');
+    let isAdmin = currentUser === 'imved169' && currentTeam === 'Ratnagiri Hunters';
+    let roomCode = null;
+    let auctionRef = null;
+    let retentionPlayers = [];
+    let selectedRetentions = [];
+    let retentionCaptain = null;
+    let auctionPlayers = [];
+    let currentPlayer = null;
+    let currentBid = 0;
+    let currentBidTeam = null;
+    let timerInterval = null;
+    let timeLeft = 30;
+    let bidIncrement = 0.25;
+    let rtmCards = 0;
+    let budget = 150;
+    let squad = [];
+    
+    if (!currentUser || !currentTeam) {
+      window.location.href = 'index.html';
+    }
+    
+    teamDisplay.textContent = currentTeam;
+    updateBudgetDisplay();
+    
+    // Initialize retention section
+    initRetentionSection();
+    
+    // Event listeners
+    confirmRetentionBtn.addEventListener('click', confirmRetention);
+    skipRetentionBtn.addEventListener('click', skipRetention);
+    
+    createRoomBtn.addEventListener('click', createRoom);
+    joinRoomBtn.addEventListener('click', joinRoom);
+    addSinglePlayerBtn.addEventListener('click', () => addPlayerModal.style.display = 'flex');
+    addBulkPlayersBtn.addEventListener('click', () => bulkAddModal.style.display = 'flex');
+    startAuctionBtn.addEventListener('click', startAuction);
+    
+    bidBtn.addEventListener('click', placeBid);
+    passBtn.addEventListener('click', passBid);
+    rtmBtn.addEventListener('click', useRTM);
+    nextPlayerBtn.addEventListener('click', nextPlayer);
+    autoSellBtn.addEventListener('click', autoSell);
+    soldBtn.addEventListener('click', soldPlayer);
+    
+    document.querySelectorAll('.close-modal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        playerModal.style.display = 'none';
+        addPlayerModal.style.display = 'none';
+        bulkAddModal.style.display = 'none';
+        confirmModal.style.display = 'none';
+      });
+    });
+    
+    document.querySelectorAll('.increment-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bidIncrement = parseFloat(btn.dataset.increment);
+        showNotification(`Bid increment set to ₹${bidIncrement} Cr`);
+      });
+    });
+    
+    confirmModalYes.addEventListener('click', confirmAction);
+    confirmModalNo.addEventListener('click', () => confirmModal.style.display = 'none');
+    
+    backBtn.addEventListener('click', () => window.location.href = 'index.html');
+    
+    // Initialize retention section
+    async function initRetentionSection() {
+      const userRef = ref(db, `users/${currentUser}`);
+      const userSnap = await get(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.val();
+        retentionPlayers = userData.players || [];
+        
+        if (retentionPlayers.length === 0) {
+          // No players to retain, skip to auction setup
+          skipRetention();
+          return;
+        }
+        
+        renderRetentionPlayers();
+      } else {
+        // New user, no players to retain
+        skipRetention();
+      }
+    }
+    
+    function renderRetentionPlayers() {
+      retentionPlayersGrid.innerHTML = '';
+      
+      retentionPlayers.forEach(player => {
+        const card = document.createElement('div');
+        card.className = 'player-card';
+        card.dataset.player = player;
+        
+        card.innerHTML = `
+          <h3>${player}</h3>
+          <div class="player-role">Previous Player</div>
+          <div class="retention-cost">₹2 Cr</div>
+        `;
+        
+        card.addEventListener('click', () => {
+          if (card.classList.contains('selected') {
+            card.classList.remove('selected');
+            selectedRetentions = selectedRetentions.filter(p => p !== player);
+          } else if (selectedRetentions.length < 6) {
+            card.classList.add('selected');
+            selectedRetentions.push(player);
+          }
+          
+          // Update confirm button text
+          confirmRetentionBtn.textContent = `Confirm Retention (${selectedRetentions.length}/6)`;
+        });
+        
+        retentionPlayersGrid.appendChild(card);
+      });
+      
+      // Add captain selection button
+      if (selectedRetentions.length > 0) {
+        const captainBtn = document.createElement('button');
+        captainBtn.className = 'btn btn-captain';
+        captainBtn.textContent = 'Choose Captain';
+        captainBtn.addEventListener('click', chooseCaptain);
+        retentionPlayersGrid.appendChild(captainBtn);
+      }
+    }
+    
+    function chooseCaptain() {
+      if (selectedRetentions.length === 0) return;
+      
+      confirmModalTitle.textContent = 'Choose Captain';
+      confirmModalMessage.innerHTML = `
+        <p>Select a captain from your retained players. Captain retention costs ₹4 Cr (instead of ₹2 Cr).</p>
+        <select id="captainSelect" style="width: 100%; padding: 8px; margin: 10px 0; background: #0a2a4a; color: white; border: 1px solid #1e88e5; border-radius: 5px;">
+          ${selectedRetentions.map(p => `<option value="${p}">${p}</option>`).join('')}
+        </select>
+      `;
+      
+      confirmModalYes.textContent = 'Confirm Captain';
+      confirmModalYes.onclick = () => {
+        retentionCaptain = document.getElementById('captainSelect').value;
+        showNotification(`Captain selected: ${retentionCaptain} (₹4 Cr)`);
+        confirmModal.style.display = 'none';
+      };
+      
+      confirmModal.style.display = 'flex';
+    }
+    
+    async function confirmRetention() {
+      if (selectedRetentions.length === 0) {
+        showNotification('Please select at least one player to retain');
+        return;
+      }
+      
+      // Calculate retention cost
+      let cost = selectedRetentions.length * 2;
+      if (retentionCaptain) {
+        cost += 2; // Captain costs 4 total (2 extra)
+      }
+      
+      if (cost > budget) {
+        showNotification('Not enough budget for these retentions');
+        return;
+      }
+      
+      // Calculate RTM cards
+      rtmCards = 6 - selectedRetentions.length;
+      
+      // Update user data
+      const userRef = ref(db, `users/${currentUser}`);
+      await update(userRef, {
+        retainedPlayers: selectedRetentions,
+        retentionCaptain: retentionCaptain || null,
+        budget: budget - cost
+      });
+      
+      // Update local state
+      budget -= cost;
+      updateBudgetDisplay();
+      rtmCount.textContent = rtmCards;
+      
+      // Move to auction setup
+      retentionSection.classList.remove('active');
+      auctionSetupSection.classList.add('active');
+      
+      showNotification(`Retention confirmed! Cost: ₹${cost} Cr. You have ${rtmCards} RTM cards.`);
+    }
+    
+    function skipRetention() {
+      rtmCards = 6; // Full RTM cards if no retention
+      rtmCount.textContent = rtmCards;
+      
+      retentionSection.classList.remove('active');
+      auctionSetupSection.classList.add('active');
+      
+      showNotification('Skipped player retention. You have 6 RTM cards available.');
+    }
+    
+    async function createRoom() {
+      const code = roomCodeInput.value.trim();
+      
+      if (!code || code.length !== 4 || isNaN(code)) {
+        showNotification('Please enter a valid 4-digit room code');
+        return;
+      }
+      
+      if (!isAdmin) {
+        showNotification('Only admin can create rooms');
+        return;
+      }
+      
+      try {
+        // Check if room exists
+        const roomRef = ref(db, `auctions/${code}`);
+        const roomSnap = await get(roomRef);
+        
+        if (roomSnap.exists()) {
+          showNotification('Room already exists');
+          return;
+        }
+        
+        // Create room
+        await set(roomRef, {
+          admin: currentUser,
+          status: 'setup',
+          players: [],
+          currentPlayer: null,
+          currentBid: 0,
+          currentBidTeam: null,
+          timer: 30,
+          teams: {
+            [currentTeam]: {
+              budget: budget,
+              rtmCards: rtmCards,
+              squad: []
+            }
+          }
+        });
+        
+        roomCode = code;
+        auctionRef = roomRef;
+        
+        // Listen for changes
+        onValue(roomRef, (snap) => {
+          const data = snap.val();
+          if (!data) return;
+          
+          auctionPlayers = data.players || [];
+          currentPlayer = data.currentPlayer;
+          currentBid = data.currentBid || 0;
+          currentBidTeam = data.currentBidTeam;
+          
+          if (data.status === 'bidding') {
+            auctionSetupSection.classList.remove('active');
+            biddingSection.classList.add('active');
+            updateBiddingUI();
+          }
+          
+          renderAuctionPool();
+        });
+        
+        showNotification(`Room ${code} created successfully!`);
+      } catch (error) {
+        console.error('Error creating room:', error);
+        showNotification('Failed to create room');
+      }
+    }
+    
+    async function joinRoom() {
+      const code = roomCodeInput.value.trim();
+      
+      if (!code || code.length !== 4 || isNaN(code)) {
+        showNotification('Please enter a valid 4-digit room code');
+        return;
+      }
+      
+      try {
+        const roomRef = ref(db, `auctions/${code}`);
+        const roomSnap = await get(roomRef);
+        
+        if (!roomSnap.exists()) {
+          showNotification('Room not found');
+          return;
+        }
+        
+        const roomData = roomSnap.val();
+        
+        // Check if team already joined
+        if (roomData.teams && roomData.teams[currentTeam]) {
+          showNotification('Your team has already joined this room');
+        } else {
+          // Join room
+          await update(ref(db, `auctions/${code}/teams`), {
+            [currentTeam]: {
+              budget: budget,
+              rtmCards: rtmCards,
+              squad: []
+            }
+          });
+          
+          showNotification(`Joined room ${code} successfully!`);
+        }
+        
+        roomCode = code;
+        auctionRef = roomRef;
+        
+        // Listen for changes
+        onValue(roomRef, (snap) => {
+          const data = snap.val();
+          if (!data) return;
+          
+          auctionPlayers = data.players || [];
+          currentPlayer = data.currentPlayer;
+          currentBid = data.currentBid || 0;
+          currentBidTeam = data.currentBidTeam;
+          
+          if (data.status === 'bidding') {
+            auctionSetupSection.classList.remove('active');
+            biddingSection.classList.add('active');
+            updateBiddingUI();
+          }
+          
+          renderAuctionPool();
+          
+          // Update team-specific data
+          if (data.teams && data.teams[currentTeam]) {
+            budget = data.teams[currentTeam].budget;
+            rtmCards = data.teams[currentTeam].rtmCards;
+            squad = data.teams[currentTeam].squad || [];
+            
+            updateBudgetDisplay();
+            rtmCount.textContent = rtmCards;
+            updateSquadList();
+          }
+        });
+      } catch (error) {
+        console.error('Error joining room:', error);
+        showNotification('Failed to join room');
+      }
+    }
+    
+    function renderAuctionPool() {
+      auctionPoolGrid.innerHTML = '';
+      
+      auctionPlayers.forEach(player => {
+        const card = document.createElement('div');
+        card.className = 'player-card';
+        card.dataset.player = player.name;
+        
+        card.innerHTML = `
+          <h3>${player.name}</h3>
+          <div class="player-role ${player.role}">${player.role.charAt(0).toUpperCase() + player.role.slice(1)}</div>
+          <div class="retention-cost">₹${player.basePrice} Cr</div>
+        `;
+        
+        if (isAdmin) {
+          card.addEventListener('click', () => {
+            showConfirmModal(
+              'Select Player',
+              `Set ${player.name} as current auction player?`,
+              () => setCurrentPlayer(player)
+            );
+          });
+        }
+        
+        auctionPoolGrid.appendChild(card);
+      });
+    }
+    
+    async function setCurrentPlayer(player) {
+      if (!isAdmin) return;
+      
+      await update(auctionRef, {
+        currentPlayer: player,
+        currentBid: player.basePrice,
+        currentBidTeam: null,
+        timer: 30
+      });
+      
+      showNotification(`${player.name} is now up for auction!`);
+    }
+    
+    async function startAuction() {
+      if (!isAdmin) {
+        showNotification('Only admin can start the auction');
+        return;
+      }
+      
+      if (auctionPlayers.length === 0) {
+        showNotification('Add players to the auction pool first');
+        return;
+      }
+      
+      await update(auctionRef, {
+        status: 'bidding'
+      });
+      
+      showNotification('Auction started! Select a player to begin bidding.');
+    }
+    
+    function updateBiddingUI() {
+      if (!currentPlayer) {
+        currentPlayerName.textContent = 'No player currently';
+        currentPlayerRole.textContent = 'Select a player to start';
+        currentBidAmount.textContent = 'Base Price: ₹0.50 Cr';
+        currentBidder.textContent = 'No bids yet';
+        return;
+      }
+      
+      currentPlayerName.textContent = currentPlayer.name;
+      currentPlayerRole.textContent = currentPlayer.role.charAt(0).toUpperCase() + currentPlayer.role.slice(1);
+      currentPlayerRole.className = `player-role ${currentPlayer.role}`;
+      currentBidAmount.textContent = `Current Bid: ₹${currentBid} Cr`;
+      currentBidder.textContent = currentBidTeam ? `Highest Bidder: ${currentBidTeam}` : 'No bids yet';
+      
+      // Start/reset timer
+      if (timerInterval) clearInterval(timerInterval);
+      timeLeft = 30;
+      updateTimerDisplay();
+      
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          if (isAdmin) {
+            showNotification(`Time's up for ${currentPlayer.name}!`);
+          }
+        }
+      }, 1000);
+    }
+    
+    function updateTimerDisplay() {
+      auctionTimer.textContent = `${timeLeft}s`;
+      
+      if (timeLeft <= 10) {
+        auctionTimer.style.color = '#f44336';
+        auctionTimer.style.fontSize = '28px';
+      } else {
+        auctionTimer.style.color = '#ffeb3b';
+        auctionTimer.style.fontSize = '24px';
+      }
+    }
+    
+    async function placeBid() {
+      if (!currentPlayer) {
+        showNotification('No player currently up for auction');
+        return;
+      }
+      
+      if (currentBidTeam === currentTeam) {
+        showNotification('You already have the highest bid');
+        return;
+      }
+      
+      const newBid = currentBid + bidIncrement;
+      
+      if (newBid > budget) {
+        showNotification('Not enough budget for this bid');
+        return;
+      }
+      
+      await update(auctionRef, {
+        currentBid: newBid,
+        currentBidTeam: currentTeam,
+        timer: 30 // Reset timer on new bid
+      });
+      
+      showNotification(`Bid placed: ₹${newBid} Cr for ${currentPlayer.name}`);
+    }
+    
+    async function passBid() {
+      if (!currentPlayer) return;
+      
+      showNotification(`Passed on ${currentPlayer.name}`);
+      
+      if (isAdmin) {
+        // Admin gets notification when someone passes
+        showNotification(`${currentTeam} has passed on ${currentPlayer.name}`);
+      }
+    }
+    
+    async function useRTM() {
+      if (!currentPlayer) {
+        showNotification('No player currently up for auction');
+        return;
+      }
+      
+      if (rtmCards <= 0) {
+        showNotification('No RTM cards remaining');
+        return;
+      }
+      
+      // Check if player was in previous squad
+      if (!retentionPlayers.includes(currentPlayer.name)) {
+        showNotification('This player was not in your previous squad');
+        return;
+      }
+      
+      if (currentBid > budget) {
+        showNotification('Not enough budget to use RTM');
+        return;
+      }
+      
+      showConfirmModal(
+        'Use RTM Card',
+        `Use RTM to match ₹${currentBid} Cr bid for ${currentPlayer.name}? You'll have ${rtmCards - 1} RTM cards left.`,
+        async () => {
+          await update(ref(db, `auctions/${roomCode}/teams/${currentTeam}`), {
+            rtmCards: rtmCards - 1,
+            budget: budget - currentBid,
+            squad: [...squad, {
+              name: currentPlayer.name,
+              role: currentPlayer.role,
+              price: currentBid,
+              isCaptain: false
+            }]
+          };
+          
+          // Move to next player
+          if (isAdmin) {
+            await nextPlayer();
+          }
+          
+          showNotification(`RTM used successfully! ${currentPlayer.name} added to your squad for ₹${currentBid} Cr`);
+        }
+      );
+    }
+    
+    async function nextPlayer() {
+      if (!isAdmin) return;
+      
+      if (auctionPlayers.length === 0) {
+        showNotification('No more players in auction pool');
+        return;
+      }
+      
+      // Remove current player from pool
+      const updatedPlayers = auctionPlayers.filter(p => p.name !== currentPlayer?.name);
+      
+      await update(auctionRef, {
+        players: updatedPlayers,
+        currentPlayer: null,
+        currentBid: 0,
+        currentBidTeam: null,
+        timer: 30
+      });
+      
+      showNotification('Moving to next player...');
+    }
+    
+    async function autoSell() {
+      if (!isAdmin || !currentPlayer || !currentBidTeam) {
+        showNotification('Cannot auto-sell without a bidder');
+        return;
+      }
+      
+      await soldPlayer();
+    }
+    
+    async function soldPlayer() {
+      if (!isAdmin || !currentPlayer || !currentBidTeam) {
+        showNotification('Cannot sell without a bidder');
+        return;
+      }
+      
+      // Update winning team's squad
+      const winningTeamRef = ref(db, `auctions/${roomCode}/teams/${currentBidTeam}`);
+      const teamSnap = await get(winningTeamRef);
+      const teamData = teamSnap.val();
+      
+      await update(winningTeamRef, {
+        budget: teamData.budget - currentBid,
+        squad: [...teamData.squad, {
+          name: currentPlayer.name,
+          role: currentPlayer.role,
+          price: currentBid,
+          isCaptain: false
+        }]
+      });
+      
+      // Remove player from pool and reset bidding
+      const updatedPlayers = auctionPlayers.filter(p => p.name !== currentPlayer.name);
+      
+      await update(auctionRef, {
+        players: updatedPlayers,
+        currentPlayer: null,
+        currentBid: 0,
+        currentBidTeam: null,
+        timer: 30
+      });
+      
+      showNotification(`${currentPlayer.name} sold to ${currentBidTeam} for ₹${currentBid} Cr!`);
+    }
+    
+    function updateBudgetDisplay() {
+      budgetDisplay.textContent = `₹${budget} Cr`;
+      
+      if (budget < 20) {
+        budgetDisplay.style.color = '#f44336';
+      } else if (budget < 50) {
+        budgetDisplay.style.color = '#FF9800';
+      } else {
+        budgetDisplay.style.color = '#4CAF50';
+      }
+    }
+    
+    function updateSquadList() {
+      squadList.innerHTML = '';
+      let total = 0;
+      
+      squad.forEach((player, index) => {
+        const li = document.createElement('li');
+        li.className = player.isCaptain ? 'captain' : '';
+        li.innerHTML = `${player.name} (${player.role}) - ₹${player.price} Cr`;
+        squadList.appendChild(li);
+        total += player.price;
+      });
+      
+      squadCount.textContent = `${squad.length}/25`;
+      totalSpent.textContent = `₹${total} Cr`;
+    }
+    
+    function showConfirmModal(title, message, callback) {
+      confirmModalTitle.textContent = title;
+      confirmModalMessage.textContent = message;
+      confirmModalYes.onclick = () => {
+        callback();
+        confirmModal.style.display = 'none';
+      };
+      confirmModal.style.display = 'flex';
+    }
+    
+    function showNotification(message) {
+      notificationMessage.textContent = message;
+      notification.style.display = 'block';
+      
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 3000);
+    }
+    
+    // Make functions available globally for inline event handlers
+    window.removePlayer = removePlayer;
+    window.claimPlayer = claimPlayer;
+  </script>
+</body>
+  </html>
