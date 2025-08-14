@@ -718,6 +718,13 @@ Harshit Rana,Pacer,0.50"></textarea>
     let yourSquadData = [];
     let oldSquadData = [];
     
+    // Helper function to format currency
+    function formatCurrency(amount) {
+      // Round to 2 decimal places and format as currency
+      const rounded = Math.round(amount * 100) / 100;
+      return `₹${rounded.toFixed(2)} Cr`;
+    }
+
     if (!currentUser || !currentTeam) {
       window.location.href = 'index.html';
     }
@@ -809,8 +816,8 @@ Harshit Rana,Pacer,0.50"></textarea>
       remainingBudgetValue = 150 - retentionCostValue;
       rtmCards = 6 - (selectedPlayers.length + (selectedCaptain ? 1 : 0));
       
-      retentionCost.textContent = `₹${retentionCostValue} Cr`;
-      remainingBudget.textContent = `₹${remainingBudgetValue} Cr`;
+      retentionCost.textContent = formatCurrency(retentionCostValue);
+      remainingBudget.textContent = formatCurrency(remainingBudgetValue);
       earnedRTM.textContent = rtmCards;
     }
     
@@ -839,7 +846,7 @@ Harshit Rana,Pacer,0.50"></textarea>
         };
         
         // Update UI
-        budgetDisplay.textContent = `₹${remainingBudgetValue} Cr`;
+        budgetDisplay.textContent = formatCurrency(remainingBudgetValue);
         rtmDisplay.textContent = rtmCards;
         
         // Move to setup section
@@ -1157,6 +1164,30 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         playerPool.innerHTML = '<p>No players in pool yet. Add players above.</p>';
         return;
       }
+
+      // Show joined teams for admin
+      if (isAdmin) {
+        get(ref(db, `auctions/${roomCode}/teams`)).then((teamsSnap) => {
+          const teams = teamsSnap.val();
+          const teamCount = Object.keys(teams).length;
+          
+          const teamsInfo = document.createElement('div');
+          teamsInfo.className = 'card';
+          teamsInfo.innerHTML = `
+            <h3>Teams Joined (${teamCount})</h3>
+            <ul class="team-squad" id="joinedTeamsList"></ul>
+          `;
+          
+          playerPool.appendChild(teamsInfo);
+          
+          const joinedTeamsList = document.getElementById('joinedTeamsList');
+          for (const [teamName, teamData] of Object.entries(teams)) {
+            const li = document.createElement('li');
+            li.textContent = `${teamName} (Budget: ${formatCurrency(teamData.budget)})`;
+            joinedTeamsList.appendChild(li);
+          }
+        });
+      }
       
       // Group by role
       const byRole = {
@@ -1187,7 +1218,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           playerEl.innerHTML = `
             <h3>${player.name}</h3>
             <p><span class="role-badge ${player.role.toLowerCase()}">${player.role}</span></p>
-            <p>Base: ₹${player.basePrice} Cr</p>
+            <p>Base: ${formatCurrency(player.basePrice)}</p>
           `;
           playerList.appendChild(playerEl);
         });
@@ -1208,11 +1239,11 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
       currentPlayerName.textContent = currentPlayer.name;
       currentPlayerRole.textContent = currentPlayer.role;
       currentPlayerRole.className = currentPlayer.role.toLowerCase();
-      currentPlayerPrice.textContent = `₹${currentPlayer.basePrice} Cr`;
+      currentPlayerPrice.textContent = formatCurrency(currentPlayer.basePrice);
       
       // Update current bid display
       if (currentBid) {
-        currentBidDisplay.innerHTML = `Current Bid: <strong>₹${currentBid} Cr</strong> by <strong>${currentBidder}</strong>`;
+        currentBidDisplay.innerHTML = `Current Bid: <strong>${formatCurrency(currentBid)}</strong> by <strong>${currentBidder}</strong>`;
       } else {
         currentBidDisplay.textContent = 'No bids yet';
       }
@@ -1223,7 +1254,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         auctionState.bidHistory.forEach(bid => {
           const bidEl = document.createElement('div');
           bidEl.className = 'bid-item';
-          bidEl.textContent = `${bid.team} bid ₹${bid.amount} Cr`;
+          bidEl.textContent = `${bid.team} bid ${formatCurrency(bid.amount)}`;
           bidHistory.appendChild(bidEl);
         });
       }
@@ -1246,7 +1277,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
       }
       
       // Update your team info
-      yourBudget.textContent = `₹${yourTeamData.budget} Cr`;
+      yourBudget.textContent = formatCurrency(yourTeamData.budget);
       yourPlayerCount.textContent = `${yourTeamData.squad ? yourTeamData.squad.length : 0}/25`;
       yourRTM.textContent = yourTeamData.rtmCards || 0;
       
@@ -1255,7 +1286,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
       if (yourTeamData.squad && yourTeamData.squad.length > 0) {
         yourTeamData.squad.forEach(player => {
           const li = document.createElement('li');
-          li.textContent = `${player.name} (₹${player.price} Cr)`;
+          li.textContent = `${player.name} (${formatCurrency(player.price)})`;
           yourSquad.appendChild(li);
         });
       } else {
@@ -1270,7 +1301,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         teamEl.className = 'team-card';
         teamEl.innerHTML = `
           <h3>${teamName}</h3>
-          <p>Budget: ₹${teamData.budget} Cr</p>
+          <p>Budget: ${formatCurrency(teamData.budget)}</p>
           <p>Players: ${teamData.squad ? teamData.squad.length : 0}/25</p>
           <p>RTM Cards: ${teamData.rtmCards || 0}</p>
         `;
@@ -1314,7 +1345,10 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
     document.querySelectorAll('.bid-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const increment = parseFloat(this.dataset.increment);
-        const newBid = currentBid ? currentBid + increment : currentPlayer.basePrice + increment;
+        const baseBid = currentBid || currentPlayer.basePrice;
+        
+        // Calculate new bid with proper rounding to avoid floating point issues
+        const newBid = Math.round((baseBid + increment) * 100) / 100;
         
         // Check if team can afford this bid
         if (newBid > yourTeamData.budget) {
@@ -1378,8 +1412,8 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
       
       // Show RTM confirmation modal
       rtmPlayerName.textContent = currentPlayer.name;
-      rtmCurrentBid.textContent = `₹${currentBid} Cr`;
-      rtmYourBudget.textContent = `₹${yourTeamData.budget} Cr`;
+      rtmCurrentBid.textContent = formatCurrency(currentBid);
+      rtmYourBudget.textContent = formatCurrency(yourTeamData.budget);
       rtmModal.style.display = 'flex';
     });
     
@@ -1518,7 +1552,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           currentBidder: null
         });
       }).then(() => {
-        showNotification(`${currentPlayer.name} sold to ${currentBidder} for ₹${currentBid} Cr`);
+        showNotification(`${currentPlayer.name} sold to ${currentBidder} for ${formatCurrency(currentBid)}`);
         clearInterval(timerInterval);
         
         // Show start auction button for admin
