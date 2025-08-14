@@ -379,6 +379,14 @@
       margin-left: 5px;
     }
     
+    .auction-complete {
+      text-align: center;
+      padding: 30px;
+      background: rgba(76, 175, 80, 0.2);
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -517,50 +525,58 @@ Harshit Rana,Pacer,0.50"></textarea>
       </div>
       
       <div id="auctionActiveContent" style="display: none;">
-        <div class="current-player" id="currentPlayerCard">
-          <h2 id="currentPlayerName">No player currently</h2>
-          <p id="currentPlayerRole"></p>
-          <p>Base Price: <span id="currentPlayerPrice">₹0 Cr</span></p>
-          
-          <div class="timer" id="auctionTimer">30s</div>
-          
-          <div class="current-bid" id="currentBidDisplay">No bids yet</div>
-          
-          <div class="auction-controls" id="auctionControls">
-            <button class="btn btn-primary bid-btn" data-increment="0.10">+0.10 Cr</button>
-            <button class="btn btn-primary bid-btn" data-increment="0.25">+0.25 Cr</button>
-            <button class="btn btn-primary bid-btn" data-increment="0.50">+0.50 Cr</button>
-            <button class="btn btn-primary bid-btn" data-increment="1.00">+1.00 Cr</button>
-            <button class="btn btn-warning" id="passBtn">Pass</button>
-            <button class="btn btn-purple" id="rtmBtn" style="display: none;">Use RTM</button>
-          </div>
-          
-          <div class="bid-history" id="bidHistory"></div>
+        <div id="auctionCompleteMessage" class="auction-complete" style="display: none;">
+          <h2>Auction Complete!</h2>
+          <p>All players have been auctioned. Your squad has been updated.</p>
+          <button id="viewSquadBtn" class="btn btn-success">View Your Squad</button>
         </div>
         
-        <div id="adminControls" style="display: none;">
-          <div class="auction-controls">
-            <button class="btn btn-success" id="nextPlayerBtn">Next Player</button>
-            <button class="btn btn-danger" id="sellPlayerBtn">Sold</button>
-            <button class="btn btn-yellow" id="autoSellBtn">Auto-Sell</button>
-            <button class="btn btn-primary" id="startAuctionInProgressBtn" style="display: none;">Start Auction</button>
-          </div>
-        </div>
-        
-        <div class="team-info">
-          <div class="team-card">
-            <h3>Your Team</h3>
-            <p>Budget: <span id="yourBudget">₹150 Cr</span></p>
-            <p>Players: <span id="yourPlayerCount">0</span>/25</p>
-            <p>RTM Cards: <span id="yourRTM">0</span></p>
+        <div id="auctionLiveContent">
+          <div class="current-player" id="currentPlayerCard">
+            <h2 id="currentPlayerName">No player currently</h2>
+            <p id="currentPlayerRole"></p>
+            <p>Base Price: <span id="currentPlayerPrice">₹0 Cr</span></p>
             
-            <h4>Your Squad</h4>
-            <ul class="team-squad" id="yourSquad"></ul>
+            <div class="timer" id="auctionTimer">30s</div>
+            
+            <div class="current-bid" id="currentBidDisplay">No bids yet</div>
+            
+            <div class="auction-controls" id="auctionControls">
+              <button class="btn btn-primary bid-btn" data-increment="0.10">+0.10 Cr</button>
+              <button class="btn btn-primary bid-btn" data-increment="0.25">+0.25 Cr</button>
+              <button class="btn btn-primary bid-btn" data-increment="0.50">+0.50 Cr</button>
+              <button class="btn btn-primary bid-btn" data-increment="1.00">+1.00 Cr</button>
+              <button class="btn btn-warning" id="passBtn">Pass</button>
+              <button class="btn btn-purple" id="rtmBtn" style="display: none;">Use RTM</button>
+            </div>
+            
+            <div class="bid-history" id="bidHistory"></div>
           </div>
           
-          <div class="team-card">
-            <h3>Other Teams</h3>
-            <div id="otherTeamsInfo"></div>
+          <div id="adminControls" style="display: none;">
+            <div class="auction-controls">
+              <button class="btn btn-success" id="nextPlayerBtn">Next Player</button>
+              <button class="btn btn-danger" id="sellPlayerBtn">Sold</button>
+              <button class="btn btn-yellow" id="autoSellBtn">Auto-Sell</button>
+              <button class="btn btn-primary" id="startAuctionInProgressBtn" style="display: none;">Start Auction</button>
+            </div>
+          </div>
+          
+          <div class="team-info">
+            <div class="team-card">
+              <h3>Your Team</h3>
+              <p>Budget: <span id="yourBudget">₹150 Cr</span></p>
+              <p>Players: <span id="yourPlayerCount">0</span>/25</p>
+              <p>RTM Cards: <span id="yourRTM">0</span></p>
+              
+              <h4>Your Squad</h4>
+              <ul class="team-squad" id="yourSquad"></ul>
+            </div>
+            
+            <div class="team-card">
+              <h3>Other Teams</h3>
+              <div id="otherTeamsInfo"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -604,7 +620,7 @@ Harshit Rana,Pacer,0.50"></textarea>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, update, get, child, onValue, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, update, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -659,6 +675,8 @@ Harshit Rana,Pacer,0.50"></textarea>
     // Auction elements
     const auctionNotStartedMessage = document.getElementById('auctionNotStartedMessage');
     const auctionActiveContent = document.getElementById('auctionActiveContent');
+    const auctionCompleteMessage = document.getElementById('auctionCompleteMessage');
+    const auctionLiveContent = document.getElementById('auctionLiveContent');
     const currentPlayerCard = document.getElementById('currentPlayerCard');
     const currentPlayerName = document.getElementById('currentPlayerName');
     const currentPlayerRole = document.getElementById('currentPlayerRole');
@@ -678,6 +696,7 @@ Harshit Rana,Pacer,0.50"></textarea>
     const yourRTM = document.getElementById('yourRTM');
     const yourSquad = document.getElementById('yourSquad');
     const otherTeamsInfo = document.getElementById('otherTeamsInfo');
+    const viewSquadBtn = document.getElementById('viewSquadBtn');
     
     // Modals
     const rtmModal = document.getElementById('rtmModal');
@@ -858,9 +877,70 @@ Harshit Rana,Pacer,0.50"></textarea>
           nonAdminSetup.style.display = 'none';
           
           // Pre-load players for admin
-          bulkPlayers.value = `Abhishek Sharma,All-Rounder,0.50
+          bulkPlayers.value = `🌀 Spinners
+Rashid Khan,Spinner,0.50
+Kuldeep Yadav,Spinner,0.50
+Varun Chakravarthy,Spinner,0.50
+R Ashwin,Spinner,0.50
+Yuzvendra Chahal,Spinner,0.50
+Ravi Bishnoi,Spinner,0.50
+Akeal Hosein,Spinner,0.50
+Tanveer Sangha,Spinner,0.50
+Sandeep Lamichhane,Spinner,0.50
+Washington Sundar,Spinner,0.50
+Axar Patel,Spinner,0.50
+Zahir Khan,Spinner,0.50
+
+⚡ Pacers
+Kagiso Rabada,Pacer,0.50
+Harshit Rana,Pacer,0.50
+Scott Boland,Pacer,0.50
+Matheesa Pathirana,Pacer,0.50
+James Anderson,Pacer,0.50
+Jofra Archer,Pacer,0.50
+Mukesh Kumar,Pacer,0.50
+Tim Southee,Pacer,0.50
+Bhuvneshwar Kumar,Pacer,0.50
+Mark Wood,Pacer,0.50
+Naseem Shah,Pacer,0.50
+Shoriful Islam,Pacer,0.50
+Kyle Jamieson,Pacer,0.50
+Blessing Muzarabani,Pacer,0.50
+Obed McCoy,Pacer,0.50
+Yash Dayal,Pacer,0.50
+Mohammad Amir,Pacer,0.50
+Josh Hazlewood,Pacer,0.50
+
+🏏 Batters
+Nitish Rana,Batter,0.50
+Faf du Plessis,Batter,0.50
+Shreyas Iyer,Batter,0.50
+Rajat Patidar,Batter,0.50
+Riyan Parag,Batter,0.50
+Jake Fraser-McGurk,Batter,0.50
+Ashutosh Sharma,Batter,0.50
+V Suryavanshi,Batter,0.50
+Sai Sudharsan,Batter,0.50
+Ben Duckett,Batter,0.50
+Marnus Labuschagne,Batter,0.50
+Ollie Pope,Batter,0.50
+Cheteshwar Pujara,Batter,0.50
+Sarfaraz Khan,Batter,0.50
+Karun Nair,Batter,0.50
+Hanuma Vihari,Batter,0.50
+Abhimanyu Easwaran,Batter,0.50
+Rinku Singh,Batter,0.50
+Joe Root,Batter,0.50
+Harry Brook,Batter,0.50
+Rehan Ahmed,Batter,0.50
+Rassie van der Dussen,Batter,0.50
+Shubham Khajuria,Batter,0.50
+Richie Berrington,Batter,0.50
+Tawanda Muyeye,Batter,0.50
+
+🛡 All-rounders
+Abhishek Sharma,All-Rounder,0.50
 Ben Stokes,All-Rounder,0.50
-Washington Sundar,All-Rounder,0.50
 Mitchell Santner,All-Rounder,0.50
 Cameron Green,All-Rounder,0.50
 Marcus Stoinis,All-Rounder,0.50
@@ -869,19 +949,16 @@ Nitish Kumar Reddy,All-Rounder,0.50
 Aiden Markram,All-Rounder,0.50
 Sam Konstas,All-Rounder,0.50
 Harshal Patel,All-Rounder,0.50
-Axar Patel,All-Rounder,0.50
-Musheer Khan,All-Rounder,0.50
-Matthew Short,All-Rounder,0.50
-Rachin Ravindra,All-Rounder,0.50
 Faheem Ashraf,All-Rounder,0.50
 Dasun Shanaka,All-Rounder,0.50
 Brandon King,All-Rounder,0.50
 George Dockrell,All-Rounder,0.50
+
+🧤 Wicket-keepers
 Ryan Rickelton,Wicket-Keeper,0.50
 Rovman Powell,Wicket-Keeper,0.50
 Phil Salt,Wicket-Keeper,0.50
 Jonny Bairstow,Wicket-Keeper,0.50
-KL Rahul,Wicket-Keeper,0.50
 Sanju Samson,Wicket-Keeper,0.50
 Jos Buttler,Wicket-Keeper,0.50
 Ishan Kishan,Wicket-Keeper,0.50
@@ -889,7 +966,6 @@ Quinton de Kock,Wicket-Keeper,0.50
 Robin Minz,Wicket-Keeper,0.50
 Litton Das,Wicket-Keeper,0.50
 Josh Inglis,Wicket-Keeper,0.50
-Tom Latham,Wicket-Keeper,0.50
 Kusal Mendis,Wicket-Keeper,0.50
 Mohammad Haris,Wicket-Keeper,0.50
 Joshua Da Silva,Wicket-Keeper,0.50`;
@@ -918,10 +994,13 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         teams: {
           [currentTeam]: yourTeamData
         },
-        playerPool: [],
+        playerPool: {},
         currentPlayer: null,
         currentBid: null,
-        bidHistory: []
+        currentBidder: null,
+        bidHistory: [],
+        timer: 30,
+        auctionComplete: false
       });
       
       showNotification('Auction room created! Share the code with other teams.');
@@ -1076,7 +1155,10 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           status: 'live',
           currentPlayer: null,
           currentBid: null,
-          bidHistory: []
+          currentBidder: null,
+          bidHistory: [],
+          timer: 30,
+          auctionComplete: false
         }).then(() => {
           showNotification('Auction started!');
           
@@ -1103,6 +1185,23 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         currentPlayer = data.currentPlayer;
         currentBid = data.currentBid;
         currentBidder = data.currentBidder;
+        
+        // Check if auction is complete
+        if (data.auctionComplete) {
+          handleAuctionComplete();
+          return;
+        }
+        
+        // Update timer from server
+        if (data.timer !== undefined) {
+          timeLeft = data.timer;
+          updateTimerDisplay();
+          
+          // Start timer if it's running
+          if (timeLeft > 0 && currentPlayer && !timerInterval) {
+            startTimer();
+          }
+        }
         
         // Update team count display for admin
         if (isAdmin && setupSection.classList.contains('active')) {
@@ -1132,6 +1231,8 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           // Show auction content
           auctionNotStartedMessage.style.display = 'none';
           auctionActiveContent.style.display = 'block';
+          auctionLiveContent.style.display = 'block';
+          auctionCompleteMessage.style.display = 'none';
           
           // Show start auction button for admin if no current player
           startAuctionInProgressBtn.style.display = (isAdmin && !currentPlayer) ? 'block' : 'none';
@@ -1142,9 +1243,9 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           // Update team info
           updateTeamInfo(data.teams);
           
-          // Start timer if there's an active player
-          if (currentPlayer && !timerInterval) {
-            startTimer();
+          // Check if all players are sold/unsold
+          if (isAdmin) {
+            checkAuctionCompletion();
           }
         } else if (data.status === 'setup') {
           // Auction not started yet
@@ -1155,6 +1256,62 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         }
       });
     }
+    
+    // Check if auction is complete (admin only)
+    function checkAuctionCompletion() {
+      const availablePlayers = playerPoolData.filter(p => p.status === 'available');
+      if (availablePlayers.length === 0 && !currentPlayer) {
+        // Auction complete
+        update(ref(db, `auctions/${roomCode}`), {
+          auctionComplete: true
+        }).then(() => {
+          // Update all teams' squads in their profiles
+          updateAllTeamsSquads();
+        });
+      }
+    }
+    
+    // Update all teams' squads after auction completion
+    function updateAllTeamsSquads() {
+      get(ref(db, `auctions/${roomCode}/teams`)).then((teamsSnap) => {
+        const teams = teamsSnap.val();
+        
+        const updates = {};
+        
+        // For each team, update their profile with auction purchases
+        for (const [teamName, teamData] of Object.entries(teams)) {
+          const username = Object.entries(localStorage).find(([key, value]) => 
+            key.startsWith('hc_') && value === teamName
+          )?.[0]?.replace('hc_', '');
+          
+          if (username && teamData.squad) {
+            updates[`users/${username}/auctionPurchases`] = teamData.squad;
+          }
+        }
+        
+        return update(ref(db), updates);
+      }).then(() => {
+        showNotification('Auction complete! All squads have been updated.');
+      });
+    }
+    
+    // Handle auction completion for all users
+    function handleAuctionComplete() {
+      auctionLiveContent.style.display = 'none';
+      auctionCompleteMessage.style.display = 'block';
+      
+      // Update user's squad with auction purchases
+      if (yourTeamData.squad && yourTeamData.squad.length > 0) {
+        update(userRef, {
+          auctionPurchases: yourTeamData.squad
+        });
+      }
+    }
+    
+    // View squad button
+    viewSquadBtn.addEventListener('click', function() {
+      window.location.href = `squad.html?username=${currentUser}`;
+    });
     
     // Render player pool (admin only)
     function renderPlayerPool() {
@@ -1219,6 +1376,7 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
             <h3>${player.name}</h3>
             <p><span class="role-badge ${player.role.toLowerCase()}">${player.role}</span></p>
             <p>Base: ${formatCurrency(player.basePrice)}</p>
+            <p>Status: ${player.status || 'available'}</p>
           `;
           playerList.appendChild(playerEl);
         });
@@ -1312,11 +1470,21 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
     // Start timer for current player
     function startTimer() {
       clearInterval(timerInterval);
-      timeLeft = 30;
       updateTimerDisplay();
+      
+      // Update timer on server
+      update(ref(db, `auctions/${roomCode}`), {
+        timer: timeLeft
+      });
       
       timerInterval = setInterval(() => {
         timeLeft--;
+        
+        // Update timer on server
+        update(ref(db, `auctions/${roomCode}`), {
+          timer: timeLeft
+        });
+        
         updateTimerDisplay();
         
         if (timeLeft <= 0) {
@@ -1365,11 +1533,13 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         push(ref(db, `auctions/${roomCode}/bidHistory`), bidData);
         update(ref(db, `auctions/${roomCode}`), {
           currentBid: newBid,
-          currentBidder: currentTeam
+          currentBidder: currentTeam,
+          timer: 30 // Reset timer to 30 seconds on new bid
         });
         
         // Reset timer
         if (timerInterval) {
+          timeLeft = 30;
           startTimer();
         }
       });
@@ -1425,7 +1595,8 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
           by: currentTeam,
           forPlayer: currentPlayer.name,
           amount: currentBid
-        }
+        },
+        timer: 30 // Reset timer for final bid opportunity
       }).then(() => {
         rtmModal.style.display = 'none';
         showNotification(`Used RTM for ${currentPlayer.name}`);
@@ -1454,7 +1625,8 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         currentPlayer: nextPlayer,
         currentBid: null,
         currentBidder: null,
-        bidHistory: []
+        bidHistory: [],
+        timer: 30
       }).then(() => {
         startTimer();
       });
@@ -1474,6 +1646,9 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
     autoSellBtn.addEventListener('click', function() {
       // Sell to highest bidder with 10s timer
       timeLeft = 10;
+      update(ref(db, `auctions/${roomCode}`), {
+        timer: timeLeft
+      });
       updateTimerDisplay();
     });
     
@@ -1498,13 +1673,15 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
     function sellPlayer() {
       if (!currentPlayer || !currentBidder) {
         // No bids - player goes unsold
-        update(ref(db, `auctions/${roomCode}/playerPool/${currentPlayer.name.toLowerCase().replace(/\s+/g, '_')}`), {
+        const playerKey = currentPlayer.name.toLowerCase().replace(/\s+/g, '_');
+        update(ref(db, `auctions/${roomCode}/playerPool/${playerKey}`), {
           status: 'unsold'
         }).then(() => {
           return update(ref(db, `auctions/${roomCode}`), {
             currentPlayer: null,
             currentBid: null,
-            currentBidder: null
+            currentBidder: null,
+            timer: 0
           });
         }).then(() => {
           showNotification(`${currentPlayer.name} went unsold`);
@@ -1532,14 +1709,17 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         }];
         
         const updatedBudget = teamData.budget - currentBid;
+        const updatedRTMCards = teamData.rtmCards || 0;
         
         return update(winningTeamRef, {
           squad: updatedSquad,
-          budget: updatedBudget
+          budget: updatedBudget,
+          rtmCards: updatedRTMCards
         });
       }).then(() => {
         // Mark player as sold
-        return update(ref(db, `auctions/${roomCode}/playerPool/${currentPlayer.name.toLowerCase().replace(/\s+/g, '_')}`), {
+        const playerKey = currentPlayer.name.toLowerCase().replace(/\s+/g, '_');
+        return update(ref(db, `auctions/${roomCode}/playerPool/${playerKey}`), {
           status: 'sold',
           soldTo: currentBidder,
           price: currentBid
@@ -1549,7 +1729,8 @@ Joshua Da Silva,Wicket-Keeper,0.50`;
         return update(ref(db, `auctions/${roomCode}`), {
           currentPlayer: null,
           currentBid: null,
-          currentBidder: null
+          currentBidder: null,
+          timer: 0
         });
       }).then(() => {
         showNotification(`${currentPlayer.name} sold to ${currentBidder} for ${formatCurrency(currentBid)}`);

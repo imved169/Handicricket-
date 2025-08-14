@@ -208,6 +208,17 @@
       margin: 10px 0;
     }
     
+    .auction-player {
+      background: rgba(30, 136, 229, 0.4);
+      border-left: 3px solid #1e88e5;
+    }
+    
+    .auction-price {
+      font-size: 12px;
+      color: #ffeb3b;
+      margin-left: 5px;
+    }
+    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -310,6 +321,7 @@
     let currentTeam = localStorage.getItem('hc_team');
     let retainedPlayers = [];
     let retentionCaptain = null;
+    let auctionPurchases = [];
     
     // Set team name
     teamDisplay.textContent = currentTeam;
@@ -323,10 +335,11 @@
         // Start with retained players
         players = userData.retainedPlayers || [];
         retentionCaptain = userData.retentionCaptain || null;
+        auctionPurchases = userData.auctionPurchases || [];
         
         // Add auction purchases
-        if (userData.auctionPurchases) {
-          players = players.concat(userData.auctionPurchases.map(p => p.name));
+        if (auctionPurchases.length > 0) {
+          players = players.concat(auctionPurchases.map(p => p.name));
         }
         
         // Add any manually added players
@@ -370,15 +383,15 @@
         }
         
         // Show auction purchases if any
-        if (userData.auctionPurchases && userData.auctionPurchases.length > 0) {
+        if (auctionPurchases.length > 0) {
           const auctionElement = document.createElement('div');
           auctionElement.style.margin = '10px 0';
           auctionElement.style.padding = '8px';
           auctionElement.style.background = 'rgba(30, 136, 229, 0.2)';
           auctionElement.style.borderRadius = '5px';
           
-          let auctionText = `<strong>Auction Purchases (${userData.auctionPurchases.length}):</strong> `;
-          auctionText += userData.auctionPurchases.map(p => `${p.name} (₹${p.price} Cr)`).join(', ');
+          let auctionText = `<strong>Auction Purchases (${auctionPurchases.length}):</strong> `;
+          auctionText += auctionPurchases.map(p => `${p.name} (₹${p.price} Cr)`).join(', ');
           
           auctionElement.innerHTML = auctionText;
           playerList.parentNode.insertBefore(auctionElement, playerList);
@@ -442,6 +455,20 @@
     
     // Remove player from squad
     function removePlayer(index) {
+      const playerToRemove = players[index];
+      
+      // Don't allow removing retained players or captain
+      if (retentionCaptain === playerToRemove || retainedPlayers.includes(playerToRemove)) {
+        showError('Cannot remove retained players');
+        return;
+      }
+      
+      // Don't allow removing auction purchases
+      if (auctionPurchases.some(p => p.name === playerToRemove)) {
+        showError('Cannot remove auction purchases. Contact admin if needed.');
+        return;
+      }
+      
       players.splice(index, 1);
       updatePlayerList();
       
@@ -462,9 +489,17 @@
         .filter(player => player.toLowerCase().includes(searchTerm))
         .forEach((player, index) => {
           const li = document.createElement('li');
+          
+          // Check if this is an auction purchase
+          const auctionPlayer = auctionPurchases.find(p => p.name === player);
+          if (auctionPlayer) {
+            li.classList.add('auction-player');
+          }
+          
           li.innerHTML = `
-            <span>${player}</span>
-            <button onclick="removePlayer(${index})">×</button>
+            <span>${player} ${auctionPlayer ? `<span class="auction-price">(₹${auctionPlayer.price} Cr)</span>` : ''}</span>
+            ${!retainedPlayers.includes(player) && player !== retentionCaptain && !auctionPurchases.some(p => p.name === player) ? 
+              `<button onclick="removePlayer(${index})">×</button>` : ''}
           `;
           playerList.appendChild(li);
         });
