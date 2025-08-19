@@ -1713,7 +1713,7 @@ const FORMAT_RULES = {
   "5": { 
     name: "5 Overs", 
     totalOvers: 5, 
-    totalWickets: 11,
+    totalWickets: 10,
     powerplayOvers: 2, 
     powerplayWicketValue: 0.5,
     regularWicketValue: 1.0,
@@ -1722,7 +1722,7 @@ const FORMAT_RULES = {
   "10": { 
     name: "10 Overs", 
     totalOvers: 10, 
-    totalWickets: 11,
+    totalWickets: 10,
     powerplayOvers: 3, 
     powerplayWicketValue: 0.5,
     regularWicketValue: 1.0,
@@ -1731,7 +1731,7 @@ const FORMAT_RULES = {
   "20": { 
     name: "T20", 
     totalOvers: 20, 
-    totalWickets: 11,
+    totalWickets: 10,
     powerplayOvers: 6, 
     powerplayWicketValue: 0.5,
     regularWicketValue: 1.0,
@@ -1740,22 +1740,14 @@ const FORMAT_RULES = {
   "50": { 
     name: "ODI", 
     totalOvers: 50, 
-    totalWickets: 11,
+    totalWickets: 10,
     powerplayOvers: [1,10, 21,30, 41,42], 
     powerplayWicketValue: 0.25,
     regularWicketValue: 0.5,
     deadOvers: [11,20, 31,40]
-  },
-  "Test": { 
-    name: "Test", 
-    totalOvers: 450, // 90 overs/day * 5 days
-    totalWickets: 11,
-    powerplayOvers: [], // No powerplays in Test
-    powerplayWicketValue: 0.333, // 1/3 wicket per dismissal
-    regularWicketValue: 0.333,
-    deadOvers: []
   }
 };
+
 const COMMENTARY_PHRASES = {
   boundary: [
     "Cracked away to the boundary!",
@@ -2678,17 +2670,17 @@ class CricketGame {
       this.checkDeadOver();
 
       // 1. Check for no ball (both 0)
-if (batterCard === 0 && bowlerCard === 0 && this.state.currentFormat.name !== "Test") {
-  outcome = "NO BALL! +1 run (Free Hit next ball)";
-  this.state.runs += 1;
-  this.state.freeHitNextBall = true;
-  isLegalBall = false;
-  
-  commentaryText = COMMENTARY_PHRASES.noBall[Math.floor(Math.random() * COMMENTARY_PHRASES.noBall.length)];
-  this.showNotification(commentaryText, 'error');
-  this.addToTimeline("NB", 'error');
-  this.createUmpireSignal("👆");
-} 
+      if (batterCard === 0 && bowlerCard === 0) {
+        outcome = "NO BALL! +1 run (Free Hit next ball)";
+        this.state.runs += 1;
+        this.state.freeHitNextBall = true;
+        isLegalBall = false;
+        
+        commentaryText = COMMENTARY_PHRASES.noBall[Math.floor(Math.random() * COMMENTARY_PHRASES.noBall.length)];
+        this.showNotification(commentaryText, 'error');
+        this.addToTimeline("NB", 'error');
+        this.createUmpireSignal("👆");
+      } 
       // 2. Handle free hit balls
       else if (this.state.freeHit) {
         if (batterCard === bowlerCard && batterCard > 0) {
@@ -2784,142 +2776,26 @@ if (batterCard === 0 && bowlerCard === 0 && this.state.currentFormat.name !== "T
         }
         isLegalBall = true;
       }
-      // 5. Handle batter playing 0 with penalty
-else if (batterCard === 0 && bowlerCard > 0) {
-  if (this.state.zerosThisOver[battingPlayer] > 3 && this.state.currentFormat.name !== "Test") {
-    const penaltyRuns = 5;
-    this.state.runs -= penaltyRuns;
-    this.state.batterPenalties[this.state.currentBatter] = (this.state.batterPenalties[this.state.currentBatter] || 0) + penaltyRuns;
-    outcome = "4th 0 in over! -5 runs";
-    
-    commentaryText = COMMENTARY_PHRASES.dotBall[Math.floor(Math.random() * COMMENTARY_PHRASES.dotBall.length)];
-    this.showNotification(`4th dot ball in over! Penalty of 5 runs - ${commentaryText}`, 'error');
-    this.addToTimeline("-5", 'error');
-    
-    this.checkBatterMilestones(true);
-  } else {
-    runsScored = bowlerCard;
-    this.state.runs += bowlerCard;
-    this.state.batterStats[this.state.currentBatter].runs += runsScored;
-    // Count boundaries in batter's stats if bowler's card is 4 or 6
-    if (bowlerCard === 4) this.state.batterStats[this.state.currentBatter].fours += 1;
-    if (bowlerCard === 6) this.state.batterStats[this.state.currentBatter].sixes += 1;
-    
-    outcome = `Batter played 0. Runs = ${bowlerCard}`;
-    if (bowlerCard === 4 || bowlerCard === 6) boundary = true;
-    if (bowlerCard === 6) isSix = true;
-    
-    commentaryText = COMMENTARY_PHRASES.dotBall[Math.floor(Math.random() * COMMENTARY_PHRASES.dotBall.length)];
-    this.showNotification(`${this.state.currentBatter} plays defensive, ${bowlerCard} runs conceded - ${commentaryText}`, 'info');
-    this.addToTimeline(`${bowlerCard}`, 'info');
-  }
-  isLegalBall = true;
-    }
-
-    // Test match specific rules
-else if (this.state.currentFormat.name === "Test") {
-  // Both 0 in Test is dot ball
-  if (batterCard === 0 && bowlerCard === 0) {
-    outcome = "DOT BALL!";
-    commentaryText = COMMENTARY_PHRASES.dotBall[Math.floor(Math.random() * COMMENTARY_PHRASES.dotBall.length)];
-    this.showNotification("Test match dot ball", 'info');
-    this.addToTimeline("•", 'info');
-    isLegalBall = true;
-  }
-  // Batter 0, bowler 1-6 is dot in Test
-  else if (batterCard === 0 && bowlerCard > 0) {
-    outcome = "DOT BALL!";
-    commentaryText = COMMENTARY_PHRASES.dotBall[Math.floor(Math.random() * COMMENTARY_PHRASES.dotBall.length)];
-    this.showNotification("Test match dot ball", 'info');
-    this.addToTimeline("•", 'info');
-    isLegalBall = true;
-  }
-  // Bowler 0, batter 1-6 is runs in Test
-  else if (bowlerCard === 0 && batterCard > 0) {
-    runsScored = batterCard;
-    this.state.runs += batterCard;
-    this.state.batterStats[this.state.currentBatter].runs += batterCard;
-    outcome = `${batterCard} Run(s)!`;
-    if (batterCard === 4 || batterCard === 6) boundary = true;
-    if (batterCard === 6) isSix = true;
-    
-    if (batterCard === 4) this.state.batterStats[this.state.currentBatter].fours += 1;
-    if (batterCard === 6) this.state.batterStats[this.state.currentBatter].sixes += 1;
-    
-    commentaryText = COMMENTARY_PHRASES.boundary[Math.floor(Math.random() * COMMENTARY_PHRASES.boundary.length)];
-    this.showNotification(`${batterCard} runs! ${commentaryText}`, 'info');
-    this.addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
-    
-    if (boundary) {
-      this.createBoundaryEffect(isSix);
-    }
-    
-    isLegalBall = true;
-  }
-  // Wicket in Test is 1/3 of life
-  else if (batterCard === bowlerCard && batterCard > 0) {
-    const wicketValue = 0.333; // 1/3 wicket in Test
-    const currentWickets = this.state.batterWickets[this.state.currentBatter] || 0;
-
-    if (currentWickets < 1.0) {
-      const actualWicketValue = Math.min(wicketValue, 1.0 - currentWickets);
-      this.state.batterWickets[this.state.currentBatter] = currentWickets + actualWicketValue;
-      this.state.wickets += actualWicketValue;
-      isWicket = true;
-
-      if (this.state.batterWickets[this.state.currentBatter] >= 1.0) {
-        isPlayerOut = true;
-        outcome = "WICKET! (Out)";
-        this.state.fallOfWickets.push({
-          score: this.state.runs,
-          over: `${Math.floor(this.state.legalBalls / 6)}.${(this.state.legalBalls % 6) + 1}`,
-          batter: this.state.currentBatter,
-          bowler: this.state.currentBowler
-        });
-        
-        commentaryText = COMMENTARY_PHRASES.wicket[Math.floor(Math.random() * COMMENTARY_PHRASES.wicket.length)];
-        this.showNotification(`WICKET! ${commentaryText} - ${this.state.currentBowler} gets ${this.state.currentBatter} out!`, 'wicket');
-        this.addToTimeline(`W ${this.state.currentBatter}`, 'wicket');
-        this.createWicketAnimation();
-        this.createUmpireSignal("☝️");
-      } else {
-        const remain = (1.0 - this.state.batterWickets[this.state.currentBatter]).toFixed(2).replace(/\.00$/, '');
-        outcome = `WICKET! (${remain} left for this batter)`;
-        
-        commentaryText = COMMENTARY_PHRASES.wicket[Math.floor(Math.random() * COMMENTARY_PHRASES.wicket.length)];
-        this.showNotification(`${commentaryText} - ${this.state.currentBatter} loses ${actualWicketValue} wicket points`, 'wicket');
-        this.addToTimeline(`W ${actualWicketValue}`, 'wicket');
+      // 5. Handle bowler playing 0
+      else if (bowlerCard === 0 && batterCard > 0) {
+        if (this.state.zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
+          outcome = "4th 0 in over! No ball";
+          this.state.runs += 1;
+          this.state.freeHitNextBall = true;
+          
+          commentaryText = COMMENTARY_PHRASES.noBall[Math.floor(Math.random() * COMMENTARY_PHRASES.noBall.length)];
+          this.showNotification(`4th dot ball from bowler! ${commentaryText}`, 'error');
+          this.addToTimeline("NB", 'error');
+          this.createUmpireSignal("👆");
+        } else {
+          outcome = "DOT BALL!";
+          
+          commentaryText = COMMENTARY_PHRASES.dotBall[Math.floor(Math.random() * COMMENTARY_PHRASES.dotBall.length)];
+          this.showNotification(`${this.state.currentBowler} bowls a dot ball to ${this.state.currentBatter} - ${commentaryText}`, 'info');
+          this.addToTimeline("•", 'info');
+        }
+        isLegalBall = true;
       }
-    } else {
-      outcome = "Batter already out!";
-      this.showNotification(`${this.state.currentBatter} is already out!`, 'error');
-    }
-    
-    isLegalBall = true;
-  }
-  // Normal runs in Test when cards don't match
-  else if (batterCard !== bowlerCard && batterCard > 0 && bowlerCard > 0) {
-    runsScored = batterCard;
-    this.state.runs += batterCard;
-    this.state.batterStats[this.state.currentBatter].runs += batterCard;
-    outcome = `${batterCard} Run(s)!`;
-    if (batterCard === 4 || batterCard === 6) boundary = true;
-    if (batterCard === 6) isSix = true;
-    
-    if (batterCard === 4) this.state.batterStats[this.state.currentBatter].fours += 1;
-    if (batterCard === 6) this.state.batterStats[this.state.currentBatter].sixes += 1;
-    
-    commentaryText = COMMENTARY_PHRASES.boundary[Math.floor(Math.random() * COMMENTARY_PHRASES.boundary.length)];
-    this.showNotification(`${batterCard} runs! ${commentaryText}`, 'info');
-    this.addToTimeline(`${batterCard}`, boundary ? 'boundary' : '');
-    
-    if (boundary) {
-      this.createBoundaryEffect(isSix);
-    }
-    
-    isLegalBall = true;
-  }
-}
       // 6. Normal runs
       else {
         runsScored = batterCard;
