@@ -8,7 +8,8 @@
   <style>
     /* PHASE 1: BASIC STRUCTURE STYLES */
     body {
-      background: #061e3e;
+      background: #061e3e url('https://images.unsplash.com/photo-1608096299210-db7e38487075?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2000&q=80') no-repeat center center fixed;
+      background-size: cover;
       color: white;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
@@ -27,6 +28,46 @@
       bottom: 0;
       background: rgba(6, 30, 62, 0.85);
       z-index: -1;
+    }
+    
+    /* Stadium effects - PHASE 5 IMPLEMENTATION */
+    .stadium-effects {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+    
+    .crowd {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 100px;
+      background: url('https://i.imgur.com/JQJQZQK.png') repeat-x;
+      background-size: contain;
+      opacity: 0.3;
+      animation: crowdMove 20s linear infinite;
+    }
+    
+    @keyframes crowdMove {
+      0% { background-position: 0 0; }
+      100% { background-position: -1000px 0; }
+    }
+    
+    .pitch {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 300px;
+      background: linear-gradient(to bottom, #2a5c2a, #1e3e1e);
+      border-radius: 50% 50% 0 0;
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
     }
     
     h1 {
@@ -269,6 +310,120 @@
       border-left: 3px solid #ffeb3b;
     }
     
+    /* PHASE 5: VISUAL EFFECTS AND ANIMATIONS */
+    .match-graphics {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 999;
+    }
+    
+    .ball-trail {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: white;
+      border-radius: 50%;
+      z-index: 1000;
+      animation: ballTrail 0.5s forwards;
+    }
+    
+    @keyframes ballTrail {
+      0% { transform: translateX(0) translateY(0); opacity: 1; }
+      100% { transform: translateX(100px) translateY(-50px); opacity: 0; }
+    }
+    
+    .stump {
+      position: absolute;
+      width: 5px;
+      height: 30px;
+      background: #8B4513;
+      bottom: 50px;
+      transform-origin: bottom center;
+    }
+    
+    .stump.left {
+      left: calc(50% - 15px);
+    }
+    
+    .stump.middle {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .stump.right {
+      left: calc(50% + 10px);
+    }
+    
+    .stump.bail {
+      width: 20px;
+      height: 5px;
+      background: #D2B48C;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    @keyframes stumpFall {
+      0% { transform: rotate(0); }
+      100% { transform: rotate(-45deg); }
+    }
+    
+    @keyframes screenShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+    }
+    
+    @keyframes ripple {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+    
+    .ripple-effect {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      animation: ripple 1s forwards;
+      z-index: 999;
+    }
+    
+    .score-change {
+      animation: scoreIncrease 0.8s ease-in-out;
+    }
+    
+    @keyframes scoreIncrease {
+      0% { transform: scale(1); color: white; }
+      50% { transform: scale(1.3); color: #4CAF50; }
+      100% { transform: scale(1); color: white; }
+    }
+    
+    .wicket-flash {
+      animation: wicketFlash 1.5s ease-in-out;
+    }
+    
+    @keyframes wicketFlash {
+      0% { background-color: rgba(244, 67, 54, 0); }
+      50% { background-color: rgba(244, 67, 54, 0.3); }
+      100% { background-color: rgba(244, 67, 54, 0); }
+    }
+    
+    .boundary-flash {
+      animation: boundary 1s ease-in-out;
+    }
+    
+    @keyframes boundary {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); color: #FFC107; }
+      100% { transform: scale(1); }
+    }
+    
     /* Responsive adjustments */
     @media (max-width: 480px) {
       body {
@@ -305,6 +460,15 @@
   </style>
 </head>
 <body>
+  <!-- Stadium Effects - PHASE 5 IMPLEMENTATION -->
+  <div class="stadium-effects">
+    <div class="crowd"></div>
+    <div class="pitch"></div>
+  </div>
+  
+  <!-- Match Graphics Container - PHASE 5 IMPLEMENTATION -->
+  <div class="match-graphics" id="matchGraphics"></div>
+  
   <div class="container">
     <h1>HandiCricket</h1>
     
@@ -453,7 +617,8 @@
           selectionModal: document.getElementById("selectionModal"),
           selectionTitle: document.getElementById("selectionTitle"),
           selectionList: document.getElementById("selectionList"),
-          confirmSelection: document.getElementById("confirmSelection")
+          confirmSelection: document.getElementById("confirmSelection"),
+          matchGraphics: document.getElementById("matchGraphics")
         };
 
         // Game state
@@ -701,6 +866,78 @@
         });
       }
 
+      // PHASE 5: VISUAL EFFECTS METHODS
+      createBallTrail() {
+        const ball = document.createElement('div');
+        ball.className = 'ball-trail';
+        this.elements.matchGraphics.appendChild(ball);
+        
+        const startX = Math.random() * 50 + 25;
+        const startY = Math.random() * 50 + 25;
+        
+        ball.style.left = `${startX}%`;
+        ball.style.top = `${startY}%`;
+        
+        setTimeout(() => {
+          ball.remove();
+        }, 500);
+      }
+
+      createWicketAnimation() {
+        const stumpLeft = document.createElement('div');
+        stumpLeft.className = 'stump left';
+        this.elements.matchGraphics.appendChild(stumpLeft);
+        
+        const stumpMiddle = document.createElement('div');
+        stumpMiddle.className = 'stump middle';
+        this.elements.matchGraphics.appendChild(stumpMiddle);
+        
+        const stumpRight = document.createElement('div');
+        stumpRight.className = 'stump right';
+        this.elements.matchGraphics.appendChild(stumpRight);
+        
+        const bail = document.createElement('div');
+        bail.className = 'stump bail';
+        this.elements.matchGraphics.appendChild(bail);
+        
+        setTimeout(() => {
+          stumpLeft.style.animation = 'stumpFall 0.5s forwards';
+          stumpMiddle.style.animation = 'stumpFall 0.5s forwards 0.1s';
+          stumpRight.style.animation = 'stumpFall 0.5s forwards 0.2s';
+          bail.style.transform = 'translateY(-20px) rotate(10deg)';
+          bail.style.opacity = '0';
+          
+          setTimeout(() => {
+            stumpLeft.remove();
+            stumpMiddle.remove();
+            stumpRight.remove();
+            bail.remove();
+          }, 1000);
+        }, 100);
+      }
+
+      createBoundaryEffect(isSix = false) {
+        document.body.classList.add('screen-shake');
+        setTimeout(() => {
+          document.body.classList.remove('screen-shake');
+        }, 500);
+        
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple-effect';
+        this.elements.matchGraphics.appendChild(ripple);
+        
+        ripple.style.left = `${Math.random() * 80 + 10}%`;
+        ripple.style.top = `${Math.random() * 80 + 10}%`;
+        
+        setTimeout(() => {
+          ripple.remove();
+        }, 1000);
+        
+        if (isSix) {
+          this.createBallTrail();
+        }
+      }
+
       // Game logic methods
       updateScoreboard() {
         this.elements.runs.textContent = this.state.runs;
@@ -805,6 +1042,8 @@
         let isLegalBall = false;
         let isWicket = false;
         let runsScored = 0;
+        let boundary = false;
+        let isSix = false;
         
         // 1. Check for no ball (both 0)
         if (batterCard === 0 && bowlerCard === 0) {
@@ -822,6 +1061,8 @@
             runsScored = batterCard;
             this.state.runs += batterCard;
             outcome = `${batterCard} Run(s)! (Free Hit)`;
+            if (batterCard === 4 || batterCard === 6) boundary = true;
+            if (batterCard === 6) isSix = true;
           }
           this.state.freeHit = false;
           isLegalBall = true;
@@ -839,6 +1080,8 @@
           runsScored = batterCard;
           this.state.runs += batterCard;
           outcome = `${batterCard} Run(s)!`;
+          if (batterCard === 4 || batterCard === 6) boundary = true;
+          if (batterCard === 6) isSix = true;
           isLegalBall = true;
         }
 
@@ -864,12 +1107,33 @@
         
         this.elements.result.innerText = outcome;
         
+        // PHASE 5: VISUAL EFFECTS BASED ON OUTCOME
+        if (boundary) {
+          this.createBoundaryEffect(isSix);
+          document.getElementById('runs').classList.add("boundary-flash");
+        }
+        
+        if (isWicket) {
+          this.createWicketAnimation();
+          document.getElementById('wickets').classList.add("score-change");
+          document.querySelector('.scorebox-main').classList.add("wicket-flash");
+        }
+        
+        if (runsScored > 0) {
+          document.getElementById('runs').classList.add("score-change");
+        }
+        
         // Reset for next ball
         setTimeout(() => {
           this.firebaseData.player1.card = null;
           this.firebaseData.player2.card = null;
           this.enableButtons();
           this.clearCardSelection();
+          
+          // Remove animation classes
+          document.getElementById('runs').classList.remove("score-change", "boundary-flash");
+          document.getElementById('wickets').classList.remove("score-change");
+          document.querySelector('.scorebox-main').classList.remove("wicket-flash");
           
           this.elements.result.innerText = "Next ball...";
         }, 2000);
