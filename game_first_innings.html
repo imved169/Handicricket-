@@ -226,6 +226,49 @@
       color: white;
     }
     
+    /* Selection Modal */
+    .selection-modal { 
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 350px;
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      display: none;
+    }
+    
+    .selection-list { 
+      max-height: 50vh;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    
+    .player-item, .batter-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    
+    .player-item:hover, .batter-item:hover {
+      background: rgba(30, 136, 229, 0.4);
+      transform: translateX(5px);
+    }
+    
+    .player-item.selected, .batter-item.selected {
+      background: rgba(13, 71, 161, 0.6);
+      border-left: 3px solid #ffeb3b;
+    }
+    
     /* Responsive adjustments */
     @media (max-width: 480px) {
       body {
@@ -326,6 +369,13 @@
     </div>
   </div>
 
+  <!-- Selection Modal -->
+  <div id="selectionModal" class="selection-modal">
+    <h3 id="selectionTitle">Select Next Batter</h3>
+    <div id="selectionList" class="selection-list"></div>
+    <button id="confirmSelection">Confirm Selection</button>
+  </div>
+
   <script>
     // PHASE 2: CORE GAME LOGIC IMPLEMENTATION
     
@@ -399,7 +449,11 @@
           matchDate: document.getElementById("matchDate"),
           connectionStatus: document.getElementById("connectionStatus"),
           cardButtons: document.getElementById("cardButtons"),
-          buttons: document.querySelectorAll(".btn")
+          buttons: document.querySelectorAll(".btn"),
+          selectionModal: document.getElementById("selectionModal"),
+          selectionTitle: document.getElementById("selectionTitle"),
+          selectionList: document.getElementById("selectionList"),
+          confirmSelection: document.getElementById("confirmSelection")
         };
 
         // Game state
@@ -459,26 +513,17 @@
 
           // Set up game components
           this.setupCardButtons();
+          this.setupSelectionModal();
           this.updateAllDisplays();
 
-          // Simulate loading teams and game setup
-          setTimeout(() => {
-            this.state.team1Players = ["Batter 1", "Batter 2", "Batter 3", "Batter 4", "Batter 5"];
-            this.state.team2Players = ["Bowler 1", "Bowler 2", "Bowler 3", "Bowler 4", "Bowler 5"];
-            this.state.currentFormat = FORMAT_RULES["5"];
-            this.state.tossWinner = "player1";
-            this.state.battingFirst = "player1";
-            this.state.isBatting = (this.player === this.state.battingFirst);
-            
-            this.elements.formatDisplay.innerText = `${this.state.currentFormat.name}`;
-            this.elements.roleText.textContent = this.state.isBatting ? "You are Batting" : "You are Bowling";
-            this.elements.team1Name.textContent = "Team A";
-            this.elements.team2Name.textContent = "Team B";
-            this.elements.battingTeamName.textContent = "Team A";
-            
-            this.elements.result.innerText = "Game ready! Select your players to begin.";
-            this.updateButtonStates();
-          }, 1500);
+          // Load data from previous pages (simulated for now)
+          await this.loadGameSetupData();
+
+          // Set up game based on loaded data
+          await this.setupRole();
+
+          this.elements.result.innerText = "Game ready! Select your players to begin.";
+          this.updateButtonStates();
         } catch (error) {
           console.error("Initialization failed:", error);
           this.elements.result.innerHTML = `Initialization failed: ${error.message}<br>
@@ -486,6 +531,34 @@
                            Retry Initialization
                          </button>`;
         }
+      }
+
+      // Load game setup data from previous pages
+      async loadGameSetupData() {
+        // Simulate loading from localStorage or URL parameters
+        // In a real implementation, this would come from Firebase or localStorage
+        
+        // Load format from index.html
+        const format = localStorage.getItem(`${this.room}_format`) || "5";
+        this.state.currentFormat = FORMAT_RULES[format];
+        this.elements.formatDisplay.innerText = `${this.state.currentFormat.name}`;
+        
+        // Load toss result from toss.html
+        const tossWinner = localStorage.getItem(`${this.room}_tossWinner`) || "player1";
+        const battingFirst = localStorage.getItem(`${this.room}_battingFirst`) || "player1";
+        this.state.tossWinner = tossWinner;
+        this.state.battingFirst = battingFirst;
+        
+        // Load teams from playing11.html
+        const team1Players = JSON.parse(localStorage.getItem(`${this.room}_team1Players`) || '["Batter 1", "Batter 2", "Batter 3", "Batter 4", "Batter 5"]');
+        const team2Players = JSON.parse(localStorage.getItem(`${this.room}_team2Players`) || '["Bowler 1", "Bowler 2", "Bowler 3", "Bowler 4", "Bowler 5"]');
+        
+        this.state.team1Players = team1Players;
+        this.state.team2Players = team2Players;
+        
+        // Set team names
+        this.elements.team1Name.textContent = localStorage.getItem(`${this.room}_team1Name`) || "Team A";
+        this.elements.team2Name.textContent = localStorage.getItem(`${this.room}_team2Name`) || "Team B";
       }
 
       // Firebase simulation for offline testing
@@ -503,6 +576,129 @@
           this.elements.connectionStatus.textContent = "Opponent: Online";
           this.elements.connectionStatus.className = "online";
         }, 1000);
+      }
+
+      // Setup role based on toss result
+      async setupRole() {
+        this.state.isBatting = (this.player === this.state.battingFirst);
+        this.elements.roleText.textContent = this.state.isBatting ? "You are Batting" : "You are Bowling";
+        this.elements.battingTeamName.textContent = this.state.battingFirst === "player1" ? 
+          this.elements.team1Name.textContent : this.elements.team2Name.textContent;
+        
+        console.log(`Player: ${this.player}, BattingFirst: ${this.state.battingFirst}, isBatting: ${this.state.isBatting}`);
+        
+        // Reset selections
+        this.state.batterSelected = false;
+        this.state.bowlerSelected = false;
+        this.state.currentBatter = null;
+        this.state.currentBowler = null;
+        
+        // Show appropriate selection modal
+        if (this.state.isBatting) {
+          await this.showBatterSelection();
+        } else {
+          await this.showBowlerSelection();
+        }
+      }
+
+      // Show batter selection modal
+      async showBatterSelection() {
+        this.disableButtons();
+        
+        try {
+          this.elements.result.innerText = "Loading batters...";
+          
+          const currentPlayers = this.player === "player1" ? this.state.team1Players : this.state.team2Players;
+          
+          this.elements.selectionTitle.textContent = "Select Next Batter";
+          this.elements.selectionList.innerHTML = "";
+          
+          currentPlayers.forEach(player => {
+            const batterEl = document.createElement("div");
+            batterEl.className = "batter-item";
+            batterEl.dataset.name = player;
+            batterEl.textContent = player;
+            
+            batterEl.addEventListener("click", function() {
+              document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
+              this.classList.add("selected");
+            });
+            
+            this.elements.selectionList.appendChild(batterEl);
+          });
+
+          this.elements.selectionModal.style.display = "block";
+          this.elements.result.innerText = "Select your next batter...";
+        } catch (error) {
+          console.error("Batter selection error:", error);
+          this.elements.result.innerText = "Error loading batters";
+          this.enableButtons();
+        }
+      }
+
+      // Show bowler selection modal
+      async showBowlerSelection() {
+        this.disableButtons();
+        
+        try {
+          this.elements.result.innerText = "Loading bowlers...";
+          
+          const currentPlayers = this.player === "player1" ? this.state.team1Players : this.state.team2Players;
+          
+          this.elements.selectionTitle.textContent = "Select Next Bowler";
+          this.elements.selectionList.innerHTML = "";
+          
+          currentPlayers.forEach(player => {
+            const playerEl = document.createElement("div");
+            playerEl.className = "player-item";
+            playerEl.dataset.name = player;
+            playerEl.textContent = player;
+            
+            playerEl.addEventListener("click", function() {
+              document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
+              this.classList.add("selected");
+            });
+            
+            this.elements.selectionList.appendChild(playerEl);
+          });
+
+          this.elements.selectionModal.style.display = "block";
+          this.elements.result.innerText = "Select your next bowler...";
+        } catch (error) {
+          console.error("Bowler selection error:", error);
+          this.elements.result.innerText = "Error loading bowlers";
+          this.enableButtons();
+        }
+      }
+
+      // Setup selection modal event listeners
+      setupSelectionModal() {
+        this.elements.confirmSelection.addEventListener("click", async () => {
+          const selected = document.querySelector(".batter-item.selected, .player-item.selected");
+          if (!selected) {
+            this.elements.result.innerText = "Please select a player";
+            return;
+          }
+
+          const playerName = selected.dataset.name;
+          this.elements.selectionModal.style.display = "none";
+
+          if (this.elements.selectionTitle.textContent.includes("Batter")) {
+            // Simulate setting batter in Firebase
+            this.firebaseData.currentBatter = playerName;
+            this.state.currentBatter = playerName;
+            this.state.batterSelected = true;
+            this.elements.result.innerText = `${playerName} selected as batter`;
+          } else {
+            // Simulate setting bowler in Firebase
+            this.firebaseData.currentBowler = playerName;
+            this.state.currentBowler = playerName;
+            this.state.bowlerSelected = true;
+            this.elements.result.innerText = `${playerName} selected as bowler`;
+          }
+
+          this.updateButtonStates();
+        });
       }
 
       // Game logic methods
@@ -539,6 +735,10 @@
         this.elements.buttons.forEach(btn => {
           btn.disabled = !canPlay;
         });
+        
+        if (canPlay) {
+          this.elements.result.innerText = this.state.isBatting ? "Select your shot" : "Select your delivery";
+        }
       }
 
       disableButtons() {
@@ -552,10 +752,6 @@
         this.elements.buttons.forEach(btn => {
           btn.disabled = !canPlay;
         });
-        
-        if (canPlay) {
-          this.elements.result.innerText = this.state.isBatting ? "Select your shot" : "Select your delivery";
-        }
       }
 
       clearCardSelection() {
