@@ -132,6 +132,45 @@
       flex-shrink: 0;
     }
     
+    /* Card Buttons */
+    .card-btns { 
+      margin: 10px auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+    }
+    
+    .card-btns button { 
+      width: 50px;
+      height: 50px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s;
+    }
+    
+    .card-btns button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .card-btns button:active {
+      transform: translateY(1px);
+    }
+    
+    .card-btns button:disabled { 
+      background: #607d8b;
+      color: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
     /* Result display */
     #result {
       font-size: 15px;
@@ -182,6 +221,12 @@
       h1 {
         font-size: 1.3rem;
         margin: 6px 0 10px;
+      }
+      
+      .card-btns button {
+        width: 40px;
+        height: 40px;
+        font-size: 15px;
       }
       
       .score-large {
@@ -239,6 +284,17 @@
     <!-- Game status and result display -->
     <div id="result">Initializing game...</div>
     
+    <!-- Card buttons -->
+    <div class="card-btns" id="cardButtons">
+      <button class="btn" data-value="0">0</button>
+      <button class="btn" data-value="1">1</button>
+      <button class="btn" data-value="2">2</button>
+      <button class="btn" data-value="3">3</button>
+      <button class="btn" data-value="4">4</button>
+      <button class="btn" data-value="5">5</button>
+      <button class="btn" data-value="6">6</button>
+    </div>
+    
     <!-- Connection status -->
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -246,73 +302,359 @@
   </div>
 
   <script>
-    // PHASE 1: BASIC JAVASCRIPT STRUCTURE
+    // PHASE 2: CORE GAME LOGIC IMPLEMENTATION
     
-    // Game state object
-    const gameState = {
-      runs: 0,
-      wickets: 0,
-      legalBalls: 0,
-      currentBatter: null,
-      currentBowler: null,
-      isBatting: false,
-      gameInProgress: true
+    // Game Constants
+    const FORMAT_RULES = {
+      "5": { 
+        name: "5 Overs", 
+        totalOvers: 5, 
+        totalWickets: 11,
+        powerplayOvers: 2, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1.0,
+        deadOvers: []
+      },
+      "10": { 
+        name: "10 Overs", 
+        totalOvers: 10, 
+        totalWickets: 11,
+        powerplayOvers: 3, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1.0,
+        deadOvers: []
+      },
+      "20": { 
+        name: "T20", 
+        totalOvers: 20, 
+        totalWickets: 11,
+        powerplayOvers: 6, 
+        powerplayWicketValue: 0.5,
+        regularWicketValue: 1.0,
+        deadOvers: []
+      },
+      "50": { 
+        name: "ODI", 
+        totalOvers: 50, 
+        totalWickets: 11,
+        powerplayOvers: [1,10, 21,30, 41,42], 
+        powerplayWicketValue: 0.25,
+        regularWicketValue: 0.5,
+        deadOvers: [11,20, 31,40]
+      },
+      "Test": { 
+        name: "Test", 
+        totalOvers: 450, // 90 overs/day * 5 days
+        totalWickets: 11,
+        powerplayOvers: [], // No powerplays in Test
+        powerplayWicketValue: 0.333, // 1/3 wicket per dismissal
+        regularWicketValue: 0.333,
+        deadOvers: []
+      }
     };
     
-    // DOM elements cache
-    const elements = {
-      result: document.getElementById("result"),
-      team1Name: document.getElementById("team1Name"),
-      team2Name: document.getElementById("team2Name"),
-      battingTeamName: document.getElementById("battingTeamName"),
-      runs: document.getElementById("runs"),
-      wickets: document.getElementById("wickets"),
-      overs: document.getElementById("overs"),
-      runRate: document.getElementById("runRate"),
-      formatDisplay: document.getElementById("formatDisplay"),
-      inningsNumber: document.getElementById("inningsNumber"),
-      roleText: document.getElementById("roleText"),
-      currentTime: document.getElementById("currentTime"),
-      matchDate: document.getElementById("matchDate"),
-      connectionStatus: document.getElementById("connectionStatus")
-    };
-    
-    // Initialize the game
-    function initGame() {
-      console.log("Initializing HandiCricket game...");
-      
-      // Set current time and date
-      updateTime();
+    // CricketGame class
+    class CricketGame {
+      constructor() {
+        // DOM Elements
+        this.elements = {
+          result: document.getElementById("result"),
+          team1Name: document.getElementById("team1Name"),
+          team2Name: document.getElementById("team2Name"),
+          battingTeamName: document.getElementById("battingTeamName"),
+          runs: document.getElementById("runs"),
+          wickets: document.getElementById("wickets"),
+          overs: document.getElementById("overs"),
+          runRate: document.getElementById("runRate"),
+          formatDisplay: document.getElementById("formatDisplay"),
+          inningsNumber: document.getElementById("inningsNumber"),
+          roleText: document.getElementById("roleText"),
+          currentTime: document.getElementById("currentTime"),
+          matchDate: document.getElementById("matchDate"),
+          connectionStatus: document.getElementById("connectionStatus"),
+          cardButtons: document.getElementById("cardButtons"),
+          buttons: document.querySelectorAll(".btn")
+        };
+
+        // Game state
+        this.state = {
+          runs: 0,
+          wickets: 0,
+          legalBalls: 0,
+          freeHit: false,
+          freeHitNextBall: false,
+          currentBatter: null,
+          currentBowler: null,
+          isBatting: false,
+          currentFormat: {},
+          isPowerplay: false,
+          isDeadOver: false,
+          gameInProgress: true,
+          lastOverRuns: 0,
+          lastOverWickets: 0,
+          lastWicketScore: 0,
+          ballByBall: {},
+          fallOfWickets: [],
+          batterStats: {},
+          bowlerStats: {},
+          tossWinner: null,
+          battingFirst: null,
+          batterSelected: false,
+          bowlerSelected: false,
+          team1Players: [],
+          team2Players: [],
+          selectedCardValue: null,
+          isProcessingSelection: false
+        };
+
+        // Get URL parameters
+        const params = new URLSearchParams(window.location.search);
+        this.room = params.get('room');
+        this.player = params.get('player') || 'player1';
+        this.opponent = this.player === "player1" ? "player2" : "player1";
+
+        // Initialize
+        this.init();
+      }
+
+      async init() {
+        try {
+          console.log("Starting game initialization...");
+          this.elements.result.innerText = "Initializing game...";
+
+          if (!this.room) {
+            throw new Error("Missing room parameter in URL");
+          }
+
+          // Set up Firebase (simulated for now)
+          console.log("Initializing Firebase simulation...");
+          this.setupFirebaseSimulation();
+          console.log("Firebase simulation initialized");
+
+          // Set up game components
+          this.setupCardButtons();
+          this.updateAllDisplays();
+
+          // Simulate loading teams and game setup
+          setTimeout(() => {
+            this.state.team1Players = ["Batter 1", "Batter 2", "Batter 3", "Batter 4", "Batter 5"];
+            this.state.team2Players = ["Bowler 1", "Bowler 2", "Bowler 3", "Bowler 4", "Bowler 5"];
+            this.state.currentFormat = FORMAT_RULES["5"];
+            this.state.tossWinner = "player1";
+            this.state.battingFirst = "player1";
+            this.state.isBatting = (this.player === this.state.battingFirst);
+            
+            this.elements.formatDisplay.innerText = `${this.state.currentFormat.name}`;
+            this.elements.roleText.textContent = this.state.isBatting ? "You are Batting" : "You are Bowling";
+            this.elements.team1Name.textContent = "Team A";
+            this.elements.team2Name.textContent = "Team B";
+            this.elements.battingTeamName.textContent = "Team A";
+            
+            this.elements.result.innerText = "Game ready! Select your players to begin.";
+            this.updateButtonStates();
+          }, 1500);
+        } catch (error) {
+          console.error("Initialization failed:", error);
+          this.elements.result.innerHTML = `Initialization failed: ${error.message}<br>
+                         <button onclick="initGame()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                           Retry Initialization
+                         </button>`;
+        }
+      }
+
+      // Firebase simulation for offline testing
+      setupFirebaseSimulation() {
+        this.firebaseData = {
+          room: this.room,
+          player1: { online: true, card: null },
+          player2: { online: true, card: null },
+          currentBatter: null,
+          currentBowler: null
+        };
+        
+        // Simulate opponent connection
+        setTimeout(() => {
+          this.elements.connectionStatus.textContent = "Opponent: Online";
+          this.elements.connectionStatus.className = "online";
+        }, 1000);
+      }
+
+      // Game logic methods
+      updateScoreboard() {
+        this.elements.runs.textContent = this.state.runs;
+        this.elements.wickets.textContent = Math.floor(this.state.wickets);
+        this.elements.overs.textContent = 
+          `${Math.floor(this.state.legalBalls/6)}.${this.state.legalBalls%6}`;
+        
+        const completedOvers = Math.floor(this.state.legalBalls / 6) + (this.state.legalBalls % 6) / 10;
+        const rr = completedOvers > 0 ? (this.state.runs / completedOvers).toFixed(2) : '0.00';
+        this.elements.runRate.textContent = rr;
+      }
+
+      updateCurrentTime() {
+        const now = new Date();
+        this.elements.currentTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        this.elements.matchDate.textContent = now.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+
+      updateAllDisplays() {
+        this.updateScoreboard();
+        this.updateCurrentTime();
+      }
+
+      updateButtonStates() {
+        const canPlay = (this.state.isBatting && this.state.batterSelected) || (!this.state.isBatting && this.state.bowlerSelected);
+        this.elements.buttons.forEach(btn => {
+          btn.disabled = !canPlay;
+        });
+      }
+
+      disableButtons() {
+        this.elements.buttons.forEach(btn => {
+          btn.disabled = true;
+        });
+      }
+
+      enableButtons() {
+        const canPlay = (this.state.isBatting && this.state.batterSelected) || (!this.state.isBatting && this.state.bowlerSelected);
+        this.elements.buttons.forEach(btn => {
+          btn.disabled = !canPlay;
+        });
+        
+        if (canPlay) {
+          this.elements.result.innerText = this.state.isBatting ? "Select your shot" : "Select your delivery";
+        }
+      }
+
+      clearCardSelection() {
+        this.elements.buttons.forEach(btn => {
+          btn.classList.remove("selected");
+        });
+        this.state.selectedCardValue = null;
+        this.state.isProcessingSelection = false;
+      }
+
+      highlightSelectedCard(value) {
+        this.elements.buttons.forEach(btn => {
+          const val = parseInt(btn.dataset.value);
+          btn.classList.toggle("selected", val === value);
+        });
+      }
+
+      setupCardButtons() {
+        this.elements.buttons.forEach(btn => {
+          btn.addEventListener("click", () => {
+            if (btn.disabled || this.state.isProcessingSelection) return;
+            
+            const cardValue = parseInt(btn.dataset.value);
+            this.state.selectedCardValue = cardValue;
+            this.state.isProcessingSelection = true;
+
+            this.disableButtons();
+            this.highlightSelectedCard(cardValue);
+            
+            this.elements.result.innerText = `${this.state.isBatting ? 'Batting' : 'Bowling'} selection: ${cardValue}`;
+
+            // Simulate sending to Firebase
+            setTimeout(() => {
+              this.firebaseData[this.player].card = cardValue;
+              
+              // Simulate opponent's response
+              setTimeout(() => {
+                const opponentCard = Math.floor(Math.random() * 7); // Random card for simulation
+                this.firebaseData[this.opponent].card = opponentCard;
+                
+                // Process the result
+                this.processBallResult(cardValue, opponentCard);
+              }, 1000);
+            }, 500);
+          });
+        });
+      }
+
+      processBallResult(batterCard, bowlerCard) {
+        let outcome = "";
+        let isLegalBall = false;
+        let isWicket = false;
+        let runsScored = 0;
+        
+        // 1. Check for no ball (both 0)
+        if (batterCard === 0 && bowlerCard === 0) {
+          outcome = "NO BALL! +1 run (Free Hit next ball)";
+          this.state.runs += 1;
+          this.state.freeHitNextBall = true;
+          isLegalBall = false;
+        } 
+        // 2. Handle free hit balls
+        else if (this.state.freeHit) {
+          if (batterCard === bowlerCard && batterCard > 0) {
+            outcome = "Wicket on Free Hit (not out)";
+            isWicket = false;
+          } else {
+            runsScored = batterCard;
+            this.state.runs += batterCard;
+            outcome = `${batterCard} Run(s)! (Free Hit)`;
+          }
+          this.state.freeHit = false;
+          isLegalBall = true;
+        }
+        // 3. Handle wickets (same number > 0)
+        else if (batterCard === bowlerCard && batterCard > 0) {
+          const wicketValue = this.state.isPowerplay ? 0.5 : 1.0;
+          this.state.wickets += wicketValue;
+          isWicket = true;
+          outcome = `WICKET! (${wicketValue} wicket${wicketValue !== 1 ? 's' : ''})`;
+          isLegalBall = true;
+        }
+        // 4. Normal runs
+        else {
+          runsScored = batterCard;
+          this.state.runs += batterCard;
+          outcome = `${batterCard} Run(s)!`;
+          isLegalBall = true;
+        }
+
+        // Record ball in ball-by-ball
+        this.state.ballByBall[this.state.legalBalls] = {
+          runs: runsScored,
+          wicket: isWicket,
+          batter: this.state.currentBatter,
+          bowler: this.state.currentBowler,
+          timestamp: Date.now(),
+          outcome: outcome
+        };
+
+        if (isWicket) {
+          this.state.lastWicketScore = this.state.runs;
+        }
+
+        if (isLegalBall) {
+          this.state.legalBalls++;
+        }
+
+        this.updateAllDisplays();
+        
+        this.elements.result.innerText = outcome;
+        
+        // Reset for next ball
+        setTimeout(() => {
+          this.firebaseData.player1.card = null;
+          this.firebaseData.player2.card = null;
+          this.enableButtons();
+          this.clearCardSelection();
+          
+          this.elements.result.innerText = "Next ball...";
+        }, 2000);
+      }
+    }
+
+    // Initialize the game when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      const game = new CricketGame();
       
       // Set up a timer to update time every minute
-      setInterval(updateTime, 60000);
-      
-      // Simulate game initialization
-      setTimeout(() => {
-        elements.result.textContent = "Game ready! Select your players to begin.";
-      }, 1500);
-    }
-    
-    // Update current time display
-    function updateTime() {
-      const now = new Date();
-      elements.currentTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      elements.matchDate.textContent = now.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-    
-    // Update scoreboard display
-    function updateScoreboard() {
-      elements.runs.textContent = gameState.runs;
-      elements.wickets.textContent = gameState.wickets;
-      elements.overs.textContent = `${Math.floor(gameState.legalBalls/6)}.${gameState.legalBalls%6}`;
-      
-      const completedOvers = Math.floor(gameState.legalBalls / 6) + (gameState.legalBalls % 6) / 10;
-      const rr = completedOvers > 0 ? (gameState.runs / completedOvers).toFixed(2) : '0.00';
-      elements.runRate.textContent = rr;
-    }
-    
-    // Initialize the game when page loads
-    document.addEventListener('DOMContentLoaded', initGame);
+      setInterval(() => game.updateCurrentTime(), 60000);
+    });
   </script>
 </body>
 </html>
