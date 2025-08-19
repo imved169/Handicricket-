@@ -135,7 +135,7 @@
     }
 
     .btn-auction {
-  background: linear-gradient(145deg, #FF5722, #E64A19);
+      background: linear-gradient(145deg, #FF5722, #E64A19);
     }
     
     .btn-squad {
@@ -299,7 +299,7 @@
       <div class="input-group">
         <label>Match Format</label>
         <div class="format-options">
-          <div class="format-card selected" data-format="5">
+          <div class="format-card" data-format="5">
             <h3>T5 (5 Overs)</h3>
             <p>Quick 30-minute match</p>
           </div>
@@ -375,7 +375,7 @@
     });
     
     // Format selection
-    let selectedFormat = '5';
+    let selectedFormat = null;
     document.querySelectorAll('.format-card').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
@@ -483,6 +483,11 @@
         return;
       }
       
+      if (!selectedFormat) {
+        alert('Please select a match format');
+        return;
+      }
+      
       // Generate a random 4-digit room code
       const roomCode = Math.floor(1000 + Math.random() * 9000);
       
@@ -491,7 +496,7 @@
       document.getElementById('roomCodeDisplay').style.display = 'block';
       
       try {
-        // Create room in Firebase
+        // Create room in Firebase with the selected format
         await set(ref(db, `rooms/${roomCode}`), {
           player1: {
             username: currentUser,
@@ -499,10 +504,11 @@
             connected: true,
             format: selectedFormat
           },
+          format: selectedFormat,
           createdAt: Date.now()
         });
         
-        // Redirect to toss page
+        // Redirect to toss page with the selected format
         window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
       } catch (error) {
         console.error("Error creating room:", error);
@@ -534,6 +540,8 @@
           return;
         }
         
+        const roomData = roomSnap.val();
+        
         // Join room
         await update(ref(db, `rooms/${roomCode}`), {
           player2: {
@@ -543,7 +551,7 @@
           }
         });
         
-        // Redirect to toss page
+        // Redirect to toss page with the room's format
         window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
       } catch (error) {
         console.error("Error joining room:", error);
@@ -565,13 +573,13 @@
     });
 
     // Auction button
-document.getElementById('auctionBtn').addEventListener('click', function() {
-  if (!currentUser || !currentTeam) {
-    alert('Please login first');
-    return;
-  }
-  window.location.href = 'auction.html';
-});
+    document.getElementById('auctionBtn').addEventListener('click', function() {
+      if (!currentUser || !currentTeam) {
+        alert('Please login first');
+        return;
+      }
+      window.location.href = 'auction.html';
+    });
     
     // Manage squad
     document.getElementById('manageSquadBtn').addEventListener('click', function() {
