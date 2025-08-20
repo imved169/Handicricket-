@@ -496,17 +496,27 @@
       document.getElementById('roomCodeDisplay').style.display = 'block';
       
       try {
-        // Create room in Firebase with the selected format
+        // Create room in Firebase with the selected format and team name
         await set(ref(db, `rooms/${roomCode}`), {
           player1: {
             username: currentUser,
             team: currentTeam,
-            connected: true,
-            format: selectedFormat
+            connected: true
           },
           format: selectedFormat,
-          createdAt: Date.now()
+          team1: currentTeam, // Save team name in the room data
+          createdAt: Date.now(),
+          status: 'waiting'
         });
+        
+        // Also update the user's data to include the room they created
+        await update(ref(db, `users/${currentUser}`), {
+          currentRoom: roomCode
+        });
+        
+        // Store room info in local storage for quick access
+        localStorage.setItem('hc_currentRoom', roomCode);
+        localStorage.setItem('hc_roomFormat', selectedFormat);
         
         // Redirect to toss page with the selected format
         window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
@@ -542,17 +552,34 @@
         
         const roomData = roomSnap.val();
         
+        // Check if room already has two players
+        if (roomData.player2) {
+          alert('This room is already full');
+          return;
+        }
+        
         // Join room
         await update(ref(db, `rooms/${roomCode}`), {
           player2: {
             username: currentUser,
             team: currentTeam,
             connected: true
-          }
+          },
+          team2: currentTeam, // Save team name in the room data
+          status: 'ready'
         });
         
+        // Update the user's data to include the room they joined
+        await update(ref(db, `users/${currentUser}`), {
+          currentRoom: roomCode
+        });
+        
+        // Store room info in local storage for quick access
+        localStorage.setItem('hc_currentRoom', roomCode);
+        localStorage.setItem('hc_roomFormat', roomData.format);
+        
         // Redirect to toss page with the room's format
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
       } catch (error) {
         console.error("Error joining room:", error);
         alert("Failed to join room. Please check the room code and try again.");
@@ -567,6 +594,9 @@
         alert('Please enter a valid 4-digit room code');
         return;
       }
+      
+      // Store room info in local storage for quick access
+      localStorage.setItem('hc_currentRoom', roomCode);
       
       // Redirect to game page as spectator
       window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
