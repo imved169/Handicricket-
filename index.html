@@ -25,7 +25,7 @@
     }
     
     .container {
-      max-width: 500px;
+      max-width: 600px;
       margin: 0 auto;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 15px;
@@ -241,9 +241,44 @@
       position: relative;
     }
     
+    .test-options {
+      display: none;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .test-option {
+      padding: 10px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    
+    .test-option:hover {
+      background: rgba(30, 136, 229, 0.3);
+    }
+    
+    .test-option.selected {
+      border-color: #ffeb3b;
+      background: rgba(30, 136, 229, 0.5);
+    }
+    
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
+    }
+    
+    @media (max-width: 768px) {
+      .format-options {
+        grid-template-columns: 1fr;
+      }
+      
+      .test-options {
+        grid-template-columns: 1fr 1fr;
+      }
     }
     
     @media (max-width: 480px) {
@@ -259,7 +294,7 @@
         font-size: 50px;
       }
       
-      .format-options {
+      .test-options {
         grid-template-columns: 1fr;
       }
     }
@@ -320,6 +355,33 @@
           <div class="format-card" data-format="50">
             <h3>ODI (50 Overs)</h3>
             <p>Full day challenge</p>
+          </div>
+          <div class="format-card" data-format="test" id="testFormat">
+            <h3>Test Match</h3>
+            <p>Multi-day challenge</p>
+          </div>
+        </div>
+        
+        <div id="testOptions" class="test-options">
+          <div class="test-option" data-overs="20">
+            <h4>20 Overs/Day</h4>
+            <p>1-2 day match</p>
+          </div>
+          <div class="test-option" data-overs="30">
+            <h4>30 Overs/Day</h4>
+            <p>2-3 day match</p>
+          </div>
+          <div class="test-option" data-overs="50">
+            <h4>50 Overs/Day</h4>
+            <p>3-4 day match</p>
+          </div>
+          <div class="test-option" data-overs="60">
+            <h4>60 Overs/Day</h4>
+            <p>4-5 day match</p>
+          </div>
+          <div class="test-option" data-overs="90">
+            <h4>90 Overs/Day</h4>
+            <p>Traditional 5-day test</p>
           </div>
         </div>
       </div>
@@ -382,11 +444,30 @@
     
     // Format selection
     let selectedFormat = null;
+    let selectedTestOvers = null;
+    
     document.querySelectorAll('.format-card').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
         selectedFormat = card.dataset.format;
+        
+        // Show test options if Test Match is selected
+        if (selectedFormat === 'test') {
+          document.getElementById('testOptions').style.display = 'grid';
+        } else {
+          document.getElementById('testOptions').style.display = 'none';
+          selectedTestOvers = null;
+        }
+      });
+    });
+    
+    // Test match overs selection
+    document.querySelectorAll('.test-option').forEach(option => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.test-option').forEach(o => o.classList.remove('selected'));
+        option.classList.add('selected');
+        selectedTestOvers = option.dataset.overs;
       });
     });
     
@@ -494,6 +575,12 @@
         return;
       }
       
+      // For Test matches, check if overs are selected
+      if (selectedFormat === 'test' && !selectedTestOvers) {
+        alert('Please select overs per day for the Test match');
+        return;
+      }
+      
       // Generate a random 4-digit room code
       const roomCode = Math.floor(1000 + Math.random() * 9000);
       
@@ -503,7 +590,7 @@
       
       try {
         // Create room in Firebase with the selected format and team name
-        await set(ref(db, `rooms/${roomCode}`), {
+        const roomData = {
           player1: {
             username: currentUser,
             team: currentTeam,
@@ -513,7 +600,18 @@
           team1: currentTeam, // Save team name in the room data
           createdAt: Date.now(),
           status: 'waiting'
-        });
+        };
+        
+        // Add test match specific data if applicable
+        if (selectedFormat === 'test') {
+          roomData.testOversPerDay = selectedTestOvers;
+          roomData.testDays = selectedTestOvers == 90 ? 5 : 
+                             selectedTestOvers == 60 ? 4 :
+                             selectedTestOvers == 50 ? 3 :
+                             selectedTestOvers == 30 ? 2 : 1;
+        }
+        
+        await set(ref(db, `rooms/${roomCode}`), roomData);
         
         // Also update the user's data to include the room they created
         await update(ref(db, `users/${currentUser}`), {
@@ -523,6 +621,9 @@
         // Store room info in local storage for quick access
         localStorage.setItem('hc_currentRoom', roomCode);
         localStorage.setItem('hc_roomFormat', selectedFormat);
+        if (selectedFormat === 'test') {
+          localStorage.setItem('hc_testOvers', selectedTestOvers);
+        }
         
         // Redirect to toss page with the selected format
         window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
@@ -583,6 +684,9 @@
         // Store room info in local storage for quick access
         localStorage.setItem('hc_currentRoom', roomCode);
         localStorage.setItem('hc_roomFormat', roomData.format);
+        if (roomData.format === 'test') {
+          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
+        }
         
         // Redirect to toss page with the room's format
         window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
