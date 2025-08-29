@@ -63,6 +63,28 @@
       letter-spacing: 1px;
     }
     
+    .match-info {
+      background: rgba(13, 42, 82, 0.6);
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border-left: 4px solid var(--primary);
+      text-align: left;
+    }
+    
+    .match-info h2 {
+      margin: 0 0 10px 0;
+      color: var(--secondary);
+      font-size: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 8px;
+    }
+    
+    .match-info p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+    
     .toss-info {
       background: rgba(13, 42, 82, 0.6);
       padding: 18px;
@@ -436,6 +458,13 @@
   <div class="container">
     <h1>🏏 Select Your Playing 11</h1>
     
+    <div class="match-info">
+      <h2>Match Details</h2>
+      <p>Room Code: <span id="roomCodeDisplay"></span></p>
+      <p>Format: <span id="formatDisplay"></span></p>
+      <p>You are: <span id="playerRoleDisplay"></span></p>
+    </div>
+    
     <button id="teamManagementBtn" class="team-management-btn">
       <i class="fas fa-users"></i> Manage Squad
     </button>
@@ -543,6 +572,9 @@
     const squadList = document.getElementById('squadList');
     const editSquadBtn = document.getElementById('editSquadBtn');
     const closeTeamManagement = document.getElementById('closeTeamManagement');
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const formatDisplay = document.getElementById('formatDisplay');
+    const playerRoleDisplay = document.getElementById('playerRoleDisplay');
 
     let players = [];
     let squadPlayers = [];
@@ -550,12 +582,28 @@
     let opponentTeamNameValue = '';
     let tossWinner = '';
     let battingFirst = '';
+    let matchFormat = '';
+    let testOversPerDay = '';
+    let testDays = '';
     const username = localStorage.getItem('hc_username');
     let captain = null;
     let viceCaptain = null;
 
+    // Format names
+    const formatNames = {
+      "5": "T5 (5 Overs)",
+      "10": "T10 (10 Overs)",
+      "20": "T20 (20 Overs)",
+      "50": "ODI (50 Overs)",
+      "test": "Test Match"
+    };
+
     // Set player online status
-    set(playerRef, true).catch(error => {
+    set(playerRef, {
+      name: teamName,
+      connected: true,
+      team: teamName
+    }).catch(error => {
       console.error('Connection error:', error);
     });
 
@@ -563,6 +611,12 @@
     onValue(roomRef, (snap) => {
       if (snap.exists()) {
         const room = snap.val();
+        
+        // Display room code
+        roomCodeDisplay.textContent = roomId;
+        
+        // Display player role
+        playerRoleDisplay.textContent = player === 'player1' ? 'Player 1' : 'Player 2';
         
         // Set team names
         yourTeamName.textContent = teamName;
@@ -572,21 +626,37 @@
         
         opponentTeamName.textContent = opponentTeamNameValue;
         
+        // Set format info
+        matchFormat = room.format || '5';
+        let formatDisplayText = formatNames[matchFormat] || matchFormat;
+        
+        // Add test match details if applicable
+        if (matchFormat === 'test') {
+          testOversPerDay = room.testOversPerDay || '90';
+          testDays = room.testDays || '5';
+          formatDisplayText += ` (${testOversPerDay} overs/day, ${testDays} days)`;
+        }
+        
+        formatDisplay.textContent = formatDisplayText;
+        
         // Set toss info
-        if (room.toss) {
-          tossWinner = room.toss.winner;
-          battingFirst = room.toss.battingFirst;
+        if (room.tossWinner) {
+          tossWinner = room.tossWinner;
+          battingFirst = room.battingFirst;
           
-          const winnerName = room.toss.winner === 'player1' ? 
+          const winnerName = room.tossWinner === 'player1' ? 
             room.team1 || 'Team A' : 
             room.team2 || 'Team B';
           
-          const battingFirstName = room.toss.battingFirst === 'player1' ? 
+          const battingFirstName = room.battingFirst === 'player1' ? 
             room.team1 || 'Team A' : 
             room.team2 || 'Team B';
+          
+          const tossCall = room.tossCall || 'heads';
+          const tossResult = room.tossResult || (Math.random() < 0.5 ? 'heads' : 'tails');
           
           tossSummary.textContent = `Toss won by ${winnerName}`;
-          battingTeam.textContent = `${battingFirstName} chose to ${room.toss.battingChoice === 'bat' ? 'bat' : 'bowl'} first`;
+          battingTeam.textContent = `${battingFirstName} chose to ${room.tossCall === 'bat' ? 'bat' : 'bowl'} first`;
         }
         
         // Load opponent team if available
@@ -806,7 +876,8 @@
     // Start match (only for player1)
     startMatchBtn.addEventListener('click', () => {
       update(roomRef, {
-        gameStarted: true
+        gameStarted: true,
+        status: 'in-progress'
       }).then(() => {
         window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
       });
