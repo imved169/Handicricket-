@@ -85,20 +85,6 @@
       font-size: 14px;
     }
     
-    .toss-info {
-      background: rgba(13, 42, 82, 0.6);
-      padding: 18px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      border-left: 4px solid var(--primary);
-    }
-    
-    .toss-info h2 {
-      margin: 0 0 10px 0;
-      color: var(--secondary);
-      font-size: 18px;
-    }
-    
     .team-management-btn {
       padding: 12px 20px;
       border: none;
@@ -460,19 +446,14 @@
     
     <div class="match-info">
       <h2>Match Details</h2>
-      <p>Room Code: <span id="roomCodeDisplay"></span></p>
-      <p>Format: <span id="formatDisplay"></span></p>
-      <p>You are: <span id="playerRoleDisplay"></span></p>
+      <p>Room Code: <span id="roomCode"></span></p>
+      <p>Format: <span id="matchFormat"></span></p>
+      <p>Toss: <span id="tossResult"></span></p>
     </div>
     
     <button id="teamManagementBtn" class="team-management-btn">
       <i class="fas fa-users"></i> Manage Squad
     </button>
-    
-    <div class="toss-info">
-      <h2 id="tossSummary">Toss Summary</h2>
-      <p id="battingTeam"></p>
-    </div>
     
     <div class="team-selection">
       <div class="team-box">
@@ -490,7 +471,8 @@
       <div class="team-box">
         <h2 id="opponentTeamName">Opponent Team</h2>
         <div class="waiting" id="opponentWaiting">
-          Waiting for opponent to select their team...
+          <div class="loading-spinner"></div>
+          <p>Waiting for opponent to select their team...</p>
         </div>
         <ul class="player-list" id="opponentPlayerList" style="display: none;"></ul>
       </div>
@@ -565,31 +547,25 @@
     const opponentWaiting = document.getElementById('opponentWaiting');
     const yourTeamName = document.getElementById('yourTeamName');
     const opponentTeamName = document.getElementById('opponentTeamName');
-    const tossSummary = document.getElementById('tossSummary');
-    const battingTeam = document.getElementById('battingTeam');
+    const roomCodeEl = document.getElementById('roomCode');
+    const matchFormatEl = document.getElementById('matchFormat');
+    const tossResultEl = document.getElementById('tossResult');
     const teamManagementBtn = document.getElementById('teamManagementBtn');
     const teamManagementModal = document.getElementById('teamManagementModal');
     const squadList = document.getElementById('squadList');
     const editSquadBtn = document.getElementById('editSquadBtn');
     const closeTeamManagement = document.getElementById('closeTeamManagement');
-    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-    const formatDisplay = document.getElementById('formatDisplay');
-    const playerRoleDisplay = document.getElementById('playerRoleDisplay');
 
     let players = [];
     let squadPlayers = [];
     let opponentPlayers = [];
     let opponentTeamNameValue = '';
-    let tossWinner = '';
-    let battingFirst = '';
     let matchFormat = '';
-    let testOversPerDay = '';
-    let testDays = '';
-    const username = localStorage.getItem('hc_username');
+    let username = localStorage.getItem('hc_username');
     let captain = null;
     let viceCaptain = null;
 
-    // Format names
+    // Format names mapping
     const formatNames = {
       "5": "T5 (5 Overs)",
       "10": "T10 (10 Overs)",
@@ -598,94 +574,108 @@
       "test": "Test Match"
     };
 
-    // Set player online status
-    set(playerRef, {
-      name: teamName,
-      connected: true,
-      team: teamName
-    }).catch(error => {
-      console.error('Connection error:', error);
-    });
+    // Initialize page
+    function initPage() {
+      yourTeamName.textContent = teamName;
+      roomCodeEl.textContent = roomId;
+      
+      // Set player online status
+      update(playerRef, {
+        connected: true,
+        team: teamName
+      }).catch(error => {
+        console.error('Connection error:', error);
+      });
 
-    // Load room data to get team names and format
-    onValue(roomRef, (snap) => {
-      if (snap.exists()) {
-        const room = snap.val();
-        
-        // Display room code
-        roomCodeDisplay.textContent = roomId;
-        
-        // Display player role
-        playerRoleDisplay.textContent = player === 'player1' ? 'Player 1' : 'Player 2';
-        
-        // Set team names
-        yourTeamName.textContent = teamName;
-        opponentTeamNameValue = player === 'player1' ? 
-          (room.team2 || 'Team B') : 
-          (room.team1 || 'Team A');
-        
-        opponentTeamName.textContent = opponentTeamNameValue;
-        
-        // Set format info
-        matchFormat = room.format || '5';
-        let formatDisplayText = formatNames[matchFormat] || matchFormat;
-        
-        // Add test match details if applicable
-        if (matchFormat === 'test') {
-          testOversPerDay = room.testOversPerDay || '90';
-          testDays = room.testDays || '5';
-          formatDisplayText += ` (${testOversPerDay} overs/day, ${testDays} days)`;
+      // Load room data
+      onValue(roomRef, (snap) => {
+        if (snap.exists()) {
+          const room = snap.val();
+          
+          // Set opponent team name
+          opponentTeamNameValue = player === 'player1' ? 
+            (room.team2 || 'Team B') : 
+            (room.team1 || 'Team A');
+          
+          opponentTeamName.textContent = opponentTeamNameValue;
+          
+          // Set match format
+          matchFormat = room.format || '20';
+          const formatDisplay = formatNames[matchFormat] || matchFormat;
+          matchFormatEl.textContent = formatDisplay;
+          
+          // Set toss result if available
+          if (room.tossWinner) {
+            const tossWinnerTeam = room.tossWinner === 'player1' ? 
+              (room.team1 || 'Team A') : 
+              (room.team2 || 'Team B');
+            
+            const battingFirstTeam = room.battingFirst === 'player1' ? 
+              (room.team1 || 'Team A') : 
+              (room.team2 || 'Team B');
+            
+            tossResultEl.textContent = `${tossWinnerTeam} won the toss and chose to ${room.tossCall === 'bat' ? 'bat' : 'bowl'} first`;
+          }
+          
+          // Load opponent team if available
+          if (room.teams && room.teams[opponent]) {
+            opponentPlayers = room.teams[opponent].players || [];
+            updateOpponentPlayerList();
+            
+            // Show start button for player1 if both teams submitted
+            if (player === 'player1' && room.teams.player1 && room.teams.player2) {
+              startMatchBtn.style.display = 'block';
+              waitingForOpponent.style.display = 'none';
+            } else if (player === 'player2' && room.teams.player1 && room.teams.player2) {
+              // Auto-redirect player2 to game page
+              window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
+            }
+          }
         }
-        
-        formatDisplay.textContent = formatDisplayText;
-        
-        // Set toss info
-        if (room.tossWinner) {
-          tossWinner = room.tossWinner;
-          battingFirst = room.battingFirst;
-          
-          const winnerName = room.tossWinner === 'player1' ? 
-            room.team1 || 'Team A' : 
-            room.team2 || 'Team B';
-          
-          const battingFirstName = room.battingFirst === 'player1' ? 
-            room.team1 || 'Team A' : 
-            room.team2 || 'Team B';
-          
-          const tossCall = room.tossCall || 'heads';
-          const tossResult = room.tossResult || (Math.random() < 0.5 ? 'heads' : 'tails');
-          
-          tossSummary.textContent = `Toss won by ${winnerName}`;
-          battingTeam.textContent = `${battingFirstName} chose to ${room.tossCall === 'bat' ? 'bat' : 'bowl'} first`;
-        }
-        
-        // Load opponent team if available
-        if (room.teams && room.teams[opponent]) {
-          opponentPlayers = room.teams[opponent].players || [];
+      });
+
+      // Load squad from database if logged in
+      if (username) {
+        loadSquadPlayers();
+      } else {
+        alert('Please login to select your playing 11');
+        window.location.href = 'index.html';
+      }
+
+      // Listen for opponent's team selection
+      onValue(teamsRef, (snap) => {
+        if (snap.exists() && snap.val()[opponent]) {
+          opponentPlayers = snap.val()[opponent].players || [];
           updateOpponentPlayerList();
           
           // Show start button for player1 if both teams submitted
-          if (player === 'player1' && room.teams.player1 && room.teams.player2) {
+          if (player === 'player1' && snap.val().player1 && snap.val().player2) {
             startMatchBtn.style.display = 'block';
             waitingForOpponent.style.display = 'none';
-          } else if (player === 'player2' && room.teams.player1 && room.teams.player2) {
+          } else if (player === 'player2' && snap.val().player1 && snap.val().player2) {
             // Auto-redirect player2 to game page
             window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
           }
         }
-      }
-    });
+      });
+    }
 
-    // Load squad from database if logged in
-    if (username) {
+    // Load squad players from database
+    function loadSquadPlayers() {
       get(ref(db, `users/${username}`)).then((snap) => {
         if (snap.exists()) {
           const userData = snap.val();
           if (userData.players && userData.players.length > 0) {
             squadPlayers = userData.players;
             populatePlayerSelect();
+          } else {
+            alert('Your squad is empty. Please add players first.');
+            window.location.href = `squad.html?username=${username}`;
           }
         }
+      }).catch(error => {
+        console.error('Error loading squad:', error);
+        alert('Error loading your squad. Please try again.');
       });
     }
 
@@ -729,7 +719,7 @@
         addPlayerBtn.disabled = true;
       }
       
-      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+      submitTeamBtn.disabled = players.length < 11 || !captain || !viceCaptain;
     });
 
     // Remove player from team
@@ -747,7 +737,7 @@
         addPlayerBtn.disabled = false;
       }
       
-      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+      submitTeamBtn.disabled = players.length < 11 || !captain || !viceCaptain;
     }
 
     // Create player list item
@@ -820,7 +810,7 @@
         (viceCaptain ? ` | VC: ${viceCaptain}` : '');
       playerCount.textContent = countText;
       
-      submitTeamBtn.disabled = players.length < 2 || !captain || !viceCaptain;
+      submitTeamBtn.disabled = players.length < 11 || !captain || !viceCaptain;
     }
 
     // Set captain
@@ -850,8 +840,8 @@
 
     // Submit team to Firebase
     submitTeamBtn.addEventListener('click', () => {
-      if (players.length < 2) {
-        alert('Minimum 2 players required');
+      if (players.length < 11) {
+        alert('Please select 11 players');
         return;
       }
       
@@ -870,6 +860,20 @@
       }).then(() => {
         submitTeamBtn.style.display = 'none';
         waitingForOpponent.style.display = 'block';
+        
+        // For player1, wait for player2 to submit
+        if (player === 'player1') {
+          // Listen for player2's team submission
+          onValue(teamsRef, (snap) => {
+            if (snap.exists() && snap.val().player2) {
+              startMatchBtn.style.display = 'block';
+              waitingForOpponent.style.display = 'none';
+            }
+          });
+        }
+      }).catch(error => {
+        console.error('Error submitting team:', error);
+        alert('Failed to submit team. Please try again.');
       });
     });
 
@@ -880,14 +884,10 @@
         status: 'in-progress'
       }).then(() => {
         window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
+      }).catch(error => {
+        console.error('Error starting match:', error);
+        alert('Failed to start match. Please try again.');
       });
-    });
-
-    // Auto-redirect player2 when both teams are ready
-    onValue(teamsRef, (snap) => {
-      if (snap.exists() && snap.val().player1 && snap.val().player2 && player === 'player2') {
-        window.location.href = `game_first_innings.html?room=${roomId}&player=${player}`;
-      }
     });
 
     // Handle opponent disconnect
@@ -900,11 +900,6 @@
 
     // Team management functionality
     teamManagementBtn.addEventListener('click', () => {
-      if (!username) {
-        alert('Please login to manage your squad');
-        return;
-      }
-      
       get(ref(db, `users/${username}`)).then((snap) => {
         if (snap.exists()) {
           const userData = snap.val();
@@ -932,6 +927,9 @@
     editSquadBtn.addEventListener('click', () => {
       window.location.href = `squad.html?username=${username}`;
     });
+
+    // Initialize the page
+    initPage();
 
     // Make functions available globally
     window.removePlayer = removePlayer;
