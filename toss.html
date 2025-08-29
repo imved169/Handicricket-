@@ -53,10 +53,14 @@
       padding: 15px;
       background: rgba(13, 42, 82, 0.5);
       border-radius: 10px;
+      flex-wrap: wrap;
     }
     
     .info-item {
       text-align: center;
+      flex: 1;
+      min-width: 120px;
+      margin: 5px;
     }
     
     .info-label {
@@ -83,6 +87,12 @@
       background: rgba(13, 42, 82, 0.5);
       border-radius: 10px;
       text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .player-card.active {
+      background: rgba(30, 136, 229, 0.3);
+      box-shadow: 0 0 15px rgba(30, 136, 229, 0.5);
     }
     
     .player-name {
@@ -98,15 +108,24 @@
     
     .toss-container {
       margin: 30px 0;
+      perspective: 1000px;
     }
     
-    .coin {
-      width: 100px;
-      height: 100px;
+    .coin-wrapper {
+      width: 120px;
+      height: 120px;
       margin: 0 auto;
       position: relative;
       transform-style: preserve-3d;
-      cursor: pointer;
+    }
+    
+    .coin {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      transform-style: preserve-3d;
+      transition: transform 1.5s ease-out;
     }
     
     .coin .front,
@@ -121,12 +140,13 @@
       justify-content: center;
       font-size: 40px;
       font-weight: bold;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
     }
     
     .coin .front {
       background: linear-gradient(145deg, #ffc107, #ff9800);
       color: #333;
+      transform: rotateY(0deg);
     }
     
     .coin .back {
@@ -147,17 +167,20 @@
     
     .toss-call {
       margin: 20px 0;
+      padding: 15px;
+      background: rgba(13, 42, 82, 0.5);
+      border-radius: 10px;
     }
     
     .call-options {
       display: flex;
       justify-content: center;
       gap: 15px;
-      margin-top: 10px;
+      margin-top: 15px;
     }
     
     .call-btn {
-      padding: 10px 20px;
+      padding: 12px 24px;
       border: none;
       border-radius: 8px;
       background: rgba(30, 136, 229, 0.3);
@@ -165,23 +188,32 @@
       font-weight: bold;
       cursor: pointer;
       transition: all 0.3s;
+      min-width: 100px;
     }
     
     .call-btn:hover {
       background: rgba(30, 136, 229, 0.5);
+      transform: translateY(-2px);
     }
     
     .call-btn.selected {
       background: #1e88e5;
-      box-shadow: 0 0 10px rgba(30, 136, 229, 0.5);
+      box-shadow: 0 0 15px rgba(30, 136, 229, 0.5);
+      transform: translateY(-2px);
     }
     
     .toss-result {
       margin: 20px 0;
-      padding: 15px;
+      padding: 20px;
       background: rgba(13, 42, 82, 0.5);
       border-radius: 10px;
       display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .result-text {
@@ -193,17 +225,18 @@
       color: #ffeb3b;
       font-weight: bold;
       font-size: 20px;
+      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
     }
     
     .decision-options {
       display: flex;
       justify-content: center;
       gap: 15px;
-      margin-top: 15px;
+      margin-top: 20px;
     }
     
     .decision-btn {
-      padding: 10px 20px;
+      padding: 12px 24px;
       border: none;
       border-radius: 8px;
       background: rgba(76, 175, 80, 0.3);
@@ -211,15 +244,18 @@
       font-weight: bold;
       cursor: pointer;
       transition: all 0.3s;
+      min-width: 100px;
     }
     
     .decision-btn:hover {
       background: rgba(76, 175, 80, 0.5);
+      transform: translateY(-2px);
     }
     
     .decision-btn.selected {
       background: #4CAF50;
-      box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+      box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+      transform: translateY(-2px);
     }
     
     .action-btn {
@@ -245,21 +281,31 @@
     .action-btn:disabled {
       background: #666;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     
     .waiting-message {
       margin: 20px 0;
-      padding: 15px;
+      padding: 20px;
       background: rgba(255, 152, 0, 0.2);
       border-radius: 10px;
       color: #ff9800;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { opacity: 0.8; }
     }
     
     .status-message {
-      margin: 10px 0;
-      padding: 10px;
+      margin: 15px 0;
+      padding: 15px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 16px;
+      animation: fadeIn 0.5s ease;
     }
     
     .status-waiting {
@@ -271,11 +317,56 @@
       background: rgba(76, 175, 80, 0.2);
       color: #4CAF50;
     }
+    
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #ffeb3b;
+      opacity: 0.7;
+      animation: confetti-fall 5s linear forwards;
+    }
+    
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100px) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .room-info {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .info-item {
+        min-width: 100%;
+      }
+      
+      .player-roles {
+        grid-template-columns: 1fr;
+      }
+      
+      .call-options, .decision-options {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .call-btn, .decision-btn {
+        width: 100%;
+        max-width: 200px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Match Toss</h1>
+    <h1>Match Toss 🏏</h1>
     
     <div class="room-info">
       <div class="info-item">
@@ -293,12 +384,12 @@
     </div>
     
     <div class="player-roles">
-      <div class="player-card">
+      <div class="player-card" id="player1Card">
         <div class="info-label">Player 1</div>
         <div class="player-name" id="player1Name">Waiting...</div>
         <div class="player-team" id="player1Team">Team: --</div>
       </div>
-      <div class="player-card">
+      <div class="player-card" id="player2Card">
         <div class="info-label">Player 2</div>
         <div class="player-name" id="player2Name">Waiting...</div>
         <div class="player-team" id="player2Team">Team: --</div>
@@ -309,9 +400,11 @@
       <h2>Toss Time!</h2>
       
       <div class="toss-container">
-        <div class="coin" id="coin">
-          <div class="front">H</div>
-          <div class="back">T</div>
+        <div class="coin-wrapper">
+          <div class="coin" id="coin">
+            <div class="front">H</div>
+            <div class="back">T</div>
+          </div>
         </div>
       </div>
       
@@ -389,9 +482,32 @@
     document.getElementById('formatDisplay').textContent = format === 'test' ? 'Test Match' : `T${format}`;
     document.getElementById('playerRoleDisplay').textContent = playerRole === 'player1' ? 'Player 1' : 'Player 2';
     
+    // Highlight current player's card
+    document.getElementById(`${playerRole}Card`).classList.add('active');
+    
     // Initialize Firebase
     const db = getDatabase();
     const roomRef = ref(db, `rooms/${roomCode}`);
+    
+    // Create confetti effect
+    function createConfetti() {
+      const colors = ['#ffeb3b', '#1e88e5', '#4CAF50', '#FF9800', '#9C27B0'];
+      for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.width = (5 + Math.random() * 10) + 'px';
+        confetti.style.height = (5 + Math.random() * 10) + 'px';
+        confetti.style.animationDuration = (3 + Math.random() * 5) + 's';
+        document.body.appendChild(confetti);
+        
+        // Remove confetti after animation completes
+        setTimeout(() => {
+          confetti.remove();
+        }, 8000);
+      }
+    }
     
     // Listen for room data changes
     onValue(roomRef, (snapshot) => {
@@ -503,26 +619,35 @@
       // Generate random result (heads or tails)
       const result = Math.random() > 0.5 ? 'heads' : 'tails';
       
-      // Determine winner
-      const roomData = getRoomData(); // This would need to be implemented to get current room data
-      const call = roomData.toss.call;
-      const winner = call === result ? 'player1' : 'player2';
-      
-      // After animation completes, update Firebase
-      setTimeout(() => {
-        update(roomRef, {
-          toss: {
-            call: call,
-            calledBy: 'player1',
-            result: result,
-            winner: winner
-          }
-        }).then(() => {
-          coin.classList.remove('flipping');
-          document.getElementById('flipperSection').style.display = 'none';
-          document.getElementById('tossResult').style.display = 'block';
-        });
-      }, 2000);
+      // Get current room data to determine the call
+      get(roomRef).then((snapshot) => {
+        const roomData = snapshot.val();
+        if (!roomData || !roomData.toss || !roomData.toss.call) return;
+        
+        const call = roomData.toss.call;
+        const winner = call === result ? 'player1' : 'player2';
+        
+        // After animation completes, update Firebase
+        setTimeout(() => {
+          update(roomRef, {
+            toss: {
+              call: call,
+              calledBy: 'player1',
+              result: result,
+              winner: winner
+            }
+          }).then(() => {
+            coin.classList.remove('flipping');
+            document.getElementById('flipperSection').style.display = 'none';
+            document.getElementById('tossResult').style.display = 'block';
+            
+            // Add confetti for the winner
+            if (winner === playerRole) {
+              createConfetti();
+            }
+          });
+        }, 2000);
+      });
     });
     
     // Decision selection (Toss winner)
@@ -568,16 +693,6 @@
         });
       });
     });
-    
-    // Helper function to get room data (would need proper implementation)
-    function getRoomData() {
-      // This is a placeholder - in a real implementation, you would fetch this from Firebase
-      return {
-        toss: {
-          call: selectedCall
-        }
-      };
-    }
     
     // Initialize page based on current room state
     get(roomRef).then((snapshot) => {
