@@ -1,3650 +1,1840 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>HandiCricket - Match</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandiCricket - First Innings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { 
-      background: #061e3e url('https://images.unsplash.com/photo-1608096299210-db7e38487075?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2000&q=80') no-repeat center center fixed;
-      background-size: cover;
-      color: white; 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      text-align: center; 
-      padding: 8px;
-      margin: 0;
-      overflow-x: hidden;
-      position: relative;
+    :root {
+      --primary: #1e88e5;
+      --primary-dark: #1565c0;
+      --secondary: #ffeb3b;
+      --secondary-dark: #fbc02d;
+      --success: #4CAF50;
+      --success-dark: #2E7D32;
+      --warning: #FF9800;
+      --warning-dark: #F57C00;
+      --danger: #f44336;
+      --danger-dark: #d32f2f;
+      --purple: #9C27B0;
+      --purple-dark: #7B1FA2;
+      --dark-blue: #061e3e;
+      --medium-blue: #0a2a4a;
+      --light-blue: #0f3a64;
     }
     
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(6, 30, 62, 0.85);
-      z-index: -1;
-    }
-    
-    /* Stadium effects */
-    .stadium-effects {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-      overflow: hidden;
-    }
-    
-    .crowd {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 100px;
-      background: url('https://i.imgur.com/JQJQZQK.png') repeat-x;
-      background-size: contain;
-      opacity: 0.3;
-      animation: crowdMove 20s linear infinite;
-    }
-    
-    @keyframes crowdMove {
-      0% { background-position: 0 0; }
-      100% { background-position: -1000px 0; }
-    }
-    
-    .pitch {
-      position: absolute;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80%;
-      height: 300px;
-      background: linear-gradient(to bottom, #2a5c2a, #1e3e1e);
-      border-radius: 50% 50% 0 0;
-      box-shadow: 0 0 50px rgba(0,0,0,0.5);
-    }
-    
-    h1 { 
-      margin: 8px 0 12px;
-      color: #ffeb3b;
-      text-shadow: 0 0 5px rgba(255, 235, 59, 0.5);
-      font-size: 1.5rem;
-    }
-    
-    .container {
-      max-width: 100%;
-      width: 100%;
-      margin: 0 auto;
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 10px;
-      padding: 8px;
+    * {
       box-sizing: border-box;
-      backdrop-filter: blur(5px);
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      margin: 0;
+      padding: 0;
     }
     
-    /* Enhanced Scoreboard */
-    .scorebox-main {
+    body {
+      background: linear-gradient(135deg, var(--dark-blue), var(--medium-blue));
+      color: white;
+      font-family: 'Poppins', sans-serif;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    /* Header and Score Ticker */
+    .header {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .score-ticker {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px;
-      background: rgba(13, 42, 82, 0.8);
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-
-    .team-score {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .score-large {
-      font-size: 1.8rem;
-      font-weight: bold;
-      color: #ffeb3b;
-    }
-
-    .score-details {
-      text-align: right;
-      font-size: 0.85rem;
-    }
-
-    /* Live score ticker */
-    .live-ticker {
-      background: linear-gradient(90deg, #1e88e5, #0d47a1);
-      color: white;
-      padding: 6px;
-      border-radius: 4px;
-      margin: 6px 0;
-      font-size: 0.8rem;
-      white-space: nowrap;
-      overflow: hidden;
-      position: relative;
+      padding: 0 20px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
     
-    .ticker-content {
-      display: inline-block;
-      padding-left: 100%;
-      animation: ticker 20s linear infinite;
-    }
-    
-    @keyframes ticker {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(-100%); }
-    }
-    
-    .ticker-item {
-      display: inline-block;
-      margin-right: 30px;
-    }
-    
-    .ticker-item span {
-      margin: 0 5px;
-      color: #ffeb3b;
-      font-weight: bold;
-    }
-
-    /* Match Info Bar */
-    .match-info-bar {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: rgba(13, 42, 82, 0.5);
-      padding: 6px 8px;
-      border-radius: 6px;
-      margin: 4px 0 8px 0;
-      font-size: 0.75rem;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .match-info-item {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 45%;
-    }
-
-    .divider {
-      color: #666;
-      flex-shrink: 0;
-    }
-
-    /* Over Progress */
-    .over-progress {
-      background: rgba(13, 42, 82, 0.5);
-      padding: 6px;
-      border-radius: 6px;
-      margin: 6px 0;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .over-title {
-      font-size: 0.75rem;
-      color: #aaa;
-      margin-bottom: 4px;
-    }
-
-    .balls-container {
-      display: flex;
-      gap: 4px;
-    }
-
-    .ball {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: bold;
-      transition: transform 0.2s;
-    }
-
-    .ball.dot {
-      background: #333;
-      color: white;
-    }
-
-    .ball.run {
-      background: #4CAF50;
-      color: white;
-    }
-
-    .ball.wicket {
-      background: #F44336;
-      color: white;
-    }
-
-    .ball.wide {
-      background: #FF9800;
-      color: white;
-    }
-
-    .ball.noball {
-      background: #9C27B0;
-      color: white;
-    }
-
-    .ball.empty {
-      background: rgba(255,255,255,0.1);
-    }
-
-    .over-number {
-      text-align: right;
-      font-size: 0.75rem;
-      margin-top: 4px;
-      color: #aaa;
-    }
-
-    /* Timeline Styles */
-    .timeline-container {
-      background: rgba(13, 42, 82, 0.7);
-      border-radius: 8px;
-      margin: 8px 0;
-      padding: 6px;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .timeline-container h4 {
-      margin: 0 0 6px 0;
-      font-size: 0.85rem;
-    }
-
-    .timeline {
-      display: flex;
-      overflow-x: auto;
-      gap: 6px;
-      padding-bottom: 4px;
-    }
-
-    .timeline-item {
-      min-width: 70px;
-      padding: 4px;
-      border-radius: 4px;
-      background: rgba(30, 136, 229, 0.2);
-      font-size: 0.7rem;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .timeline-item.wicket {
-      background: rgba(244, 67, 54, 0.2);
-      border-left: 2px solid #F44336;
-    }
-
-    .timeline-item.boundary {
-      background: rgba(255, 193, 7, 0.2);
-      border-left: 2px solid #FFC107;
-    }
-
-    .timeline-item.milestone {
-      background: rgba(76, 175, 80, 0.2);
-      border-left: 2px solid #4CAF50;
-    }
-
-    .timeline-over {
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-
-    .timeline-event {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Player Comparison Styles - Enhanced */
-    .comparison-container {
-      background: rgba(13, 42, 82, 0.7);
-      border-radius: 8px;
-      margin: 8px 0;
-      padding: 6px;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .comparison-container h4 {
-      margin: 0 0 6px 0;
-      font-size: 0.85rem;
-    }
-
-    .comparison-box {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .player-comparison {
-      flex: 1;
-      padding: 6px;
-      border-radius: 6px;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .batter-comparison {
-      background: rgba(76, 175, 80, 0.1);
-      border-left: 3px solid #4CAF50;
-    }
-
-    .bowler-comparison {
-      background: rgba(244, 67, 54, 0.1);
-      border-left: 3px solid #F44336;
-    }
-
-    .comparison-header {
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      color: #aaa;
-      margin-bottom: 4px;
-    }
-
-    .comparison-name {
-      font-weight: bold;
-      margin: 4px 0;
-      font-size: 0.85rem;
-    }
-    
-    .comparison-name.highlight {
-      animation: highlightPlayer 2s infinite;
-    }
-    
-    @keyframes highlightPlayer {
-      0% { text-shadow: 0 0 5px rgba(255,255,255,0.5); }
-      50% { text-shadow: 0 0 15px gold; }
-      100% { text-shadow: 0 0 5px rgba(255,255,255,0.5); }
-    }
-
-    .comparison-stats {
-      font-size: 0.75rem;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-    }
-
-    .comparison-stats div {
-      flex: 1;
-      min-width: 50%;
-      margin: 2px 0;
-    }
-
-    .vs-circle {
-      width: 30px;
-      height: 30px;
-      background: #1e88e5;
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 0.65rem;
-      border: 2px solid white;
-    }
-
-    /* Animations */
-    @keyframes scoreIncrease {
-      0% { transform: scale(1); color: white; }
-      50% { transform: scale(1.3); color: #4CAF50; }
-      100% { transform: scale(1); color: white; }
-    }
-
-    @keyframes wicketFlash {
-      0% { background-color: rgba(244, 67, 54, 0); }
-      50% { background-color: rgba(244, 67, 54, 0.3); }
-      100% { background-color: rgba(244, 67, 54, 0); }
-    }
-
-    @keyframes boundary {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.2); color: #FFC107; }
-      100% { transform: scale(1); }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    @keyframes ballTrail {
-      0% { transform: translateX(0) translateY(0); opacity: 1; }
-      100% { transform: translateX(100px) translateY(-50px); opacity: 0; }
-    }
-    
-    @keyframes stumpFall {
-      0% { transform: rotate(0); }
-      100% { transform: rotate(-45deg); }
-    }
-    
-    @keyframes screenShake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      50% { transform: translateX(5px); }
-      75% { transform: translateX(-5px); }
-    }
-    
-    @keyframes ripple {
-      0% { transform: scale(0.5); opacity: 1; }
-      100% { transform: scale(3); opacity: 0; }
-    }
-
-    .score-change {
-      animation: scoreIncrease 0.8s ease-in-out;
-    }
-
-    .wicket-flash {
-      animation: wicketFlash 1.5s ease-in-out;
-    }
-
-    .boundary-flash {
-      animation: boundary 1s ease-in-out;
-    }
-    
-    .screen-shake {
-      animation: screenShake 0.5s ease-in-out;
-    }
-
-    /* Card Buttons */
-    .card-btns { 
-      margin: 10px auto;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 6px;
-      position: relative;
-    }
-    
-    .card-btns button { 
-      width: 50px;
-      height: 50px;
+    .match-title {
       font-size: 18px;
-      border-radius: 8px;
-      border: none;
-      background: linear-gradient(145deg, #1e88e5, #1565c0);
-      color: white;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s;
-      position: relative;
-      overflow: hidden;
+      font-weight: 600;
+      color: var(--secondary);
     }
     
-    .card-btns button::after {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: rgba(255,255,255,0.1);
-      transform: rotate(45deg);
-      transition: all 0.3s;
-      opacity: 0;
+    .live-score {
+      font-size: 20px;
+      font-weight: 700;
     }
     
-    .card-btns button:hover::after {
-      opacity: 1;
-      top: -30%;
-      left: -30%;
-    }
-    
-    .card-btns button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
-    }
-    
-    .card-btns button:active {
-      transform: translateY(1px);
-    }
-    
-    .card-btns button:disabled { 
-      background: #607d8b;
+    .current-over {
+      font-size: 16px;
       color: #ccc;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
     }
     
-    .card-btns button.selected {
-      background: #4caf50;
-      border: 2px solid #ffeb3b;
-      transform: scale(1.05);
-    }
-    
-    /* Status Indicators */
-    #statusIndicators {
-      margin: 6px 0;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    
-    .free-hit-indicator,
-    .powerplay-indicator,
-    .dead-over {
-      padding: 3px 6px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: bold;
-      margin: 0 2px;
+    .live-indicator {
       display: inline-block;
-    }
-    
-    .free-hit-indicator {
-      background: #4CAF50;
-      color: white;
+      width: 10px;
+      height: 10px;
+      background-color: var(--danger);
+      border-radius: 50%;
+      margin-right: 8px;
       animation: pulse 1.5s infinite;
     }
     
-    .powerplay-indicator {
-      background: #ffeb3b;
-      color: #000;
-      animation: pulse 2s infinite;
-    }
-    
-    .dead-over {
-      background: #f44336;
-      color: white;
-    }
-    
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
-    }
-    
-    /* Result Display */
-    #result {
-      font-size: 15px;
-      margin: 8px 0;
-      padding: 6px;
-      min-height: 45px;
+    /* Main Game Container */
+    .game-container {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.5);
-      border-radius: 6px;
-      border-left: 3px solid #1e88e5;
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 0 20px;
+      gap: 20px;
     }
     
-    #result.error {
-      color: #ff4444;
-      background: rgba(255, 0, 0, 0.1);
-      padding: 6px;
-      border-radius: 4px;
-      border-left: 3px solid #ff4444;
-    }
-    
-    /* Connection Status */
-    #connectionStatus {
-      padding: 6px;
-      border-radius: 6px;
-      text-align: center;
-      margin: 8px auto;
-      max-width: 250px;
-      font-weight: bold;
-      font-size: 13px;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .online { 
-      background: #4CAF50;
-      color: white;
-    }
-    
-    .offline { 
-      background: #F44336;
-      color: white;
-    }
-    
-    /* Selection Modal */
-    .selection-modal { 
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 90%;
-      max-width: 350px;
-      background: linear-gradient(145deg, #123456, #0a1f3a);
-      padding: 10px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 100;
-      display: none;
-    }
-    
-    .selection-list { 
-      max-height: 50vh;
-      overflow-y: auto;
-      margin: 6px 0;
-      padding-right: 4px;
-    }
-    
-    .player-item, .batter-item {
-      padding: 6px;
-      margin: 3px 0;
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-      border-left: 3px solid transparent;
-      font-size: 13px;
-    }
-    
-    .player-item:hover, .batter-item:hover {
-      background: rgba(30, 136, 229, 0.4);
-      transform: translateX(5px);
-    }
-    
-    .player-item.selected, .batter-item.selected {
-      background: rgba(13, 71, 161, 0.6);
-      border-left: 3px solid #ffeb3b;
-    }
-    
-    /* Top Controls */
-    #topControls {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
-    
-    #topControls button {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
-    #saveBtn { 
-      background: #FF9800;
-      color: white;
-    }
-    
-    #saveBtn:hover {
-      background: #F57C00;
-    }
-    
-    #exitBtn { 
-      background: #f44336;
-      color: white;
-    }
-    
-    #exitBtn:hover {
-      background: #d32f2f;
-    }
-    
-    #resetPlaysBtn { 
-      background: #9c27b0;
-      color: white;
-    }
-    
-    #resetPlaysBtn:hover {
-      background: #7b1fa2;
-    }
-    
-    /* Teams Modal */
-    .teams-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 1000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    .teams-container {
-      width: 90%;
-      max-width: 320px;
-      height: 65vh;
-      display: flex;
-      overflow: hidden;
-      position: relative;
-      scroll-snap-type: x mandatory;
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .team-slide {
-      min-width: 100%;
-      height: 100%;
-      padding: 8px;
-      background: rgba(13, 42, 82, 0.9);
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      overflow-y: auto;
-      scroll-snap-align: start;
-      flex-shrink: 0;
-      box-sizing: border-box;
-    }
-
-    .team-slide h3 {
-      text-align: center;
-      margin-bottom: 6px;
-      color: #ffeb3b;
-      border-bottom: 2px solid #1e88e5;
-      padding-bottom: 3px;
-      font-size: 0.95rem;
-      position: sticky;
-      top: 0;
-      background: rgba(13, 42, 82, 0.9);
-      z-index: 1;
-    }
-
-    .team-slide ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .team-slide li {
-      padding: 6px 8px;
-      margin: 3px 0;
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 6px;
-      border-left: 2px solid #1e88e5;
-      transition: all 0.3s;
-      font-size: 13px;
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-
-    .team-slide li:hover {
-      background: rgba(30, 136, 229, 0.4);
-      transform: translateX(5px);
-    }
-
-    .close-teams {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      background: #f44336;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      font-size: 16px;
-      cursor: pointer;
-      z-index: 1001;
-      transition: all 0.2s;
-    }
-    
-    .close-teams:hover {
-      transform: scale(1.1);
-    }
-
-    .teams-nav {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .team-nav-btn {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 5px;
-      background: #1e88e5;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.2s;
-    }
-    
-    .team-nav-btn:hover {
-      background: #1565c0;
-    }
-
-    .team-nav-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
-    }
-
-    .team-nav-indicator {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .team-nav-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #555;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .team-nav-dot.active {
-      background: #1e88e5;
-      transform: scale(1.2);
-    }
-
-    .show-teams-btn {
-      padding: 8px 16px;
-      font-size: 13px;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #9c27b0, #7b1fa2);
-      color: white;
-      cursor: pointer;
-      margin: 12px auto;
-      display: block;
-      transition: all 0.3s;
-    }
-
-    .show-teams-btn:hover {
-      background: linear-gradient(135deg, #7b1fa2, #6a1b9a);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-
-    /* Team Names Display */
-    .team-names-compact {
-      margin-bottom: 8px;
-      font-size: 13px;
-      background: rgba(13, 42, 82, 0.5);
-      padding: 6px;
-      border-radius: 6px;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .team-name-line {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-
-    .team-label {
-      color: #aaa;
-      font-size: 11px;
-    }
-
-    .team-divider {
-      color: #666;
-      margin: 0 4px;
-    }
-
-    /* Over Summary */
-    .over-summary-container {
-      margin: 8px 0;
-      padding: 6px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 6px;
-      max-height: 100px;
-      overflow-y: auto;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .over-summary-item {
-      padding: 3px;
-      margin: 3px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      font-size: 12px;
-    }
-
-    /* Spectator Mode */
-    .spectator-mode {
-      background: #9c27b0;
-      padding: 3px 6px;
+    /* Main Game Board */
+    .game-board {
+      flex: 2;
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 15px;
-      margin-bottom: 6px;
-      display: inline-block;
-      font-size: 11px;
-      animation: pulse 2s infinite;
-    }
-
-    /* Milestone Notifications */
-    .milestone-notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 15px;
-      z-index: 1001;
-      animation: fadeInOut 3s forwards;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.2);
-      max-width: 250px;
-    }
-    
-    @keyframes fadeInOut {
-      0% { opacity: 0; transform: translateY(5px); }
-      10% { opacity: 1; transform: translateY(0); }
-      90% { opacity: 1; transform: translateY(0); }
-      100% { opacity: 0; transform: translateY(5px); }
-    }
-    
-    .milestone-notification.batting {
-      border-left: 4px solid #4CAF50;
-    }
-    
-    .milestone-notification.error {
-      border-left: 4px solid #F44336;
-    }
-    
-    .milestone-notification.info {
-      border-left: 4px solid #FFC107;
-    }
-    
-    .milestone-notification.winner {
-      border-left: 4px solid #9C27B0;
-      font-size: 18px;
-      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(70,0,100,0.9));
-    }
-    
-    /* Confetti */
-    .confetti {
-      position: fixed;
-      width: 8px;
-      height: 8px;
-      background-color: #f00;
-      animation: confetti-fall 5s linear forwards;
-      z-index: 1000;
-    }
-    
-    @keyframes confetti-fall {
-      0% {
-        transform: translateY(-100vh) rotate(0deg);
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(100vh) rotate(360deg);
-        opacity: 0;
-      }
-    }
-    
-    /* Loading Spinner */
-    .loading-spinner {
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 3px solid #1e88e5;
-      width: 30px;
-      height: 30px;
-      animation: spin 1s linear infinite;
-      margin: 12px auto;
-      display: none;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Reset Notification */
-    .reset-notification {
-      position: fixed;
-      top: 20%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.9);
-      color: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      z-index: 1001;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      width: 80%;
-      max-width: 280px;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-    
-    .reset-notification-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-    }
-    
-    .reset-notification button {
-      padding: 4px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 11px;
-      transition: all 0.2s;
-    }
-    
-    .reset-accept {
-      background: #4CAF50;
-      color: white;
-    }
-    
-    .reset-accept:hover {
-      background: #388E3C;
-    }
-    
-    .reset-decline {
-      background: #f44336;
-      color: white;
-    }
-    
-    .reset-decline:hover {
-      background: #d32f2f;
-    }
-    
-    /* Innings Summary Popup - Updated to match image */
-    .summary-popup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: linear-gradient(145deg, #123456, #0a1f3a);
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      padding: 25px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 1001;
+      backdrop-filter: blur(10px);
+    }
+    
+    .innings-info {
       text-align: center;
-      color: white;
-      max-width: 320px;
-      width: 90%;
-      display: none;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    .summary-popup h3 {
-      margin-top: 0;
-      color: #ffeb3b;
-      font-size: 1.2rem;
-      border-bottom: 2px solid #1e88e5;
-      padding-bottom: 6px;
-      margin-bottom: 12px;
+    .innings-info h2 {
+      color: var(--secondary);
+      margin-bottom: 10px;
     }
     
-    .summary-content {
-      text-align: left;
-      margin-bottom: 12px;
-    }
-    
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 6px;
-      font-size: 13px;
-    }
-    
-    .summary-label {
-      color: #aaa;
-    }
-    
-    .summary-value {
-      font-weight: bold;
-    }
-    
-    .summary-highlight {
-      background: rgba(255, 235, 59, 0.2);
-      padding: 4px;
-      border-radius: 4px;
-      margin: 8px 0;
-      font-weight: bold;
-      text-align: center;
-      border-left: 3px solid #ffeb3b;
-    }
-    
-    .summary-countdown {
-      font-size: 22px;
-      font-weight: bold;
-      margin: 8px 0;
-      color: #4CAF50;
-    }
-    
-    .summary-popup button {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 15px;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: all 0.3s;
-      width: 100%;
-    }
-    
-    .summary-popup button:hover {
-      background: #388E3C;
-      transform: scale(1.05);
-    }
-    
-    /* Match graphics */
-    .match-graphics {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 999;
-    }
-    
-    .ball-trail {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      background: white;
-      border-radius: 50%;
-      z-index: 1000;
-      animation: ballTrail 0.5s forwards;
-    }
-    
-    .stump {
-      position: absolute;
-      width: 5px;
-      height: 30px;
-      background: #8B4513;
-      bottom: 50px;
-      transform-origin: bottom center;
-    }
-    
-    .stump.left {
-      left: calc(50% - 15px);
-    }
-    
-    .stump.middle {
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    
-    .stump.right {
-      left: calc(50% + 10px);
-    }
-    
-    .stump.bail {
-      width: 20px;
-      height: 3px;
-      background: #DAA520;
-      top: -3px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    
-    .stump.fallen {
-      animation: stumpFall 0.5s forwards;
-    }
-    
-    .ripple {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.3);
-      animation: ripple 1s forwards;
-    }
-    
-    /* Mini scorecard */
-    .mini-scorecard {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 6px 10px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: bold;
-      z-index: 900;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.2);
-      backdrop-filter: blur(5px);
-    }
-    
-    /* Additional styles for new features */
-    .declare-btn {
-      background: linear-gradient(145deg, #9C27B0, #7B1FA2) !important;
+    .target-display {
+      font-size: 18px;
+      color: #ff9800;
+      font-weight: 600;
       margin-top: 10px;
     }
     
-    .commentary-box {
-      background: rgba(13, 42, 82, 0.7);
-      border-radius: 8px;
-      margin: 8px 0;
-      padding: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      max-height: 150px;
+    /* Players Section */
+    .players-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      gap: 20px;
+    }
+    
+    .player-card {
+      flex: 1;
+      background: rgba(13, 42, 82, 0.6);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .player-card.active {
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      border: 2px solid gold;
+    }
+    
+    .player-role {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 5px;
+    }
+    
+    .player-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--secondary);
+    }
+    
+    .player-stats {
+      font-size: 14px;
+      color: #ccc;
+    }
+    
+    .player-highlight {
+      animation: highlight 2s ease;
+    }
+    
+    /* Cards Selection */
+    .cards-section {
+      margin-bottom: 30px;
+    }
+    
+    .cards-title {
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--secondary);
+    }
+    
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+    
+    .card-btn {
+      aspect-ratio: 3/4;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(145deg, var(--primary), var(--primary-dark));
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .card-btn:active {
+      transform: translateY(2px);
+    }
+    
+    .card-btn.zero {
+      background: linear-gradient(145deg, #607D8B, #455A64);
+    }
+    
+    .card-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .card-flip {
+      animation: flip 0.6s ease;
+    }
+    
+    .card-boundary {
+      animation: boundary 1s ease;
+    }
+    
+    .card-six {
+      animation: six 1s ease;
+    }
+    
+    /* Commentary Section */
+    .commentary-section {
+      background: rgba(13, 42, 82, 0.6);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      max-height: 200px;
       overflow-y: auto;
-      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .commentary-title {
+      color: var(--secondary);
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    
+    .commentary-list {
+      list-style: none;
     }
     
     .commentary-item {
-      padding: 5px;
-      margin: 3px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      font-size: 13px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
     }
     
-    .commentary-time {
-      color: #ffeb3b;
-      font-weight: bold;
-      margin-right: 5px;
+    .commentary-item:last-child {
+      border-bottom: none;
     }
     
-    .stats-container {
+    .commentary-over {
+      font-weight: 600;
+      color: var(--secondary);
+      margin-right: 8px;
+    }
+    
+    /* Game Controls */
+    .game-controls {
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px 0;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
     }
     
-    .stat-card {
+    .control-btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, var(--primary), var(--primary-dark));
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .control-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .control-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .control-btn.declare {
+      background: linear-gradient(145deg, var(--warning), var(--warning-dark));
+    }
+    
+    .control-btn.follow-on {
+      background: linear-gradient(145deg, var(--purple), var(--purple-dark));
+    }
+    
+    /* Sidebar */
+    .game-sidebar {
       flex: 1;
-      min-width: 120px;
-      background: rgba(13, 42, 82, 0.5);
-      padding: 8px;
-      border-radius: 6px;
-      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
     
-    .stat-value {
-      font-weight: bold;
-      color: #ffeb3b;
-      font-size: 16px;
+    .sidebar-card {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
     }
     
-    .momentum-bar {
-      height: 10px;
-      background: #333;
-      border-radius: 5px;
-      margin: 5px 0;
-      overflow: hidden;
+    .sidebar-title {
+      color: var(--secondary);
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
     }
     
-    .momentum-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #f44336, #ff9800, #4caf50);
-      width: 50%;
-      transition: width 0.5s;
-    }
-    
-    .graph-container {
-      height: 100px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
-      margin: 10px 0;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .graph-bar {
-      position: absolute;
-      bottom: 0;
-      background: #1e88e5;
-      width: 5px;
-      transition: height 0.5s;
-    }
-    
-    /* Stats table styles */
-    .stats-table {
+    /* Scorecard */
+    .scorecard-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
-      margin: 5px 0;
+      font-size: 14px;
     }
     
-    .stats-table th, .stats-table td {
-      padding: 3px;
+    .scorecard-table th,
+    .scorecard-table td {
+      padding: 8px 5px;
       text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    .stats-table th {
-      background: rgba(30, 136, 229, 0.3);
+    .scorecard-table th {
+      color: var(--secondary);
+      font-weight: 600;
     }
     
-    .stats-table tr:nth-child(even) {
-      background: rgba(255,255,255,0.05);
+    .scorecard-table tr:last-child td {
+      border-bottom: none;
     }
     
-    /* Awards container */
-    .awards-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
-    }
-    
-    .award-item {
+    .batsman-active {
       background: rgba(255, 215, 0, 0.1);
-      padding: 5px;
-      border-radius: 5px;
+    }
+    
+    .bowler-active {
+      background: rgba(30, 136, 229, 0.1);
+    }
+    
+    /* Charts */
+    .chart-container {
+      position: relative;
+      height: 200px;
+      width: 100%;
+    }
+    
+    /* Chat Section */
+    .chat-messages {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+    
+    .chat-message {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
+    }
+    
+    .chat-input {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .chat-input input {
+      flex: 1;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--primary);
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+    
+    .chat-input button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+    }
+    
+    /* Overlay Modals */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+    }
+    
+    .modal {
+      background: linear-gradient(145deg, var(--dark-blue), var(--medium-blue));
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-title {
+      color: var(--secondary);
       text-align: center;
-      border: 1px solid rgba(255, 215, 0, 0.3);
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    
+    .modal-content {
+      margin-bottom: 25px;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    
+    .modal-btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, var(--primary), var(--primary-dark));
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .modal-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Stumps Overlay */
+    .stumps-overlay {
+      text-align: center;
+    }
+    
+    .stumps-icon {
+      font-size: 60px;
+      color: var(--secondary);
+      margin-bottom: 20px;
+    }
+    
+    .stumps-summary {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    
+    /* Awards Section */
+    .awards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .award-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    .award-icon {
+      font-size: 30px;
+      margin-bottom: 10px;
     }
     
     .award-title {
-      font-size: 10px;
-      color: #aaa;
+      font-size: 16px;
+      color: var(--secondary);
+      margin-bottom: 5px;
     }
     
     .award-winner {
-      font-weight: bold;
-      font-size: 12px;
-      color: #ffeb3b;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    /* Animations */
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    @keyframes highlight {
+      0% { background-color: rgba(255, 215, 0, 0.3); }
+      100% { background-color: transparent; }
+    }
+    
+    @keyframes flip {
+      0% { transform: rotateY(0deg); }
+      50% { transform: rotateY(90deg); }
+      100% { transform: rotateY(0deg); }
+    }
+    
+    @keyframes boundary {
+      0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(76, 175, 80, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+    
+    @keyframes six {
+      0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    .screen-shake {
+      animation: shake 0.5s ease;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+      .game-container {
+        flex-direction: column;
+      }
+      
+      .cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .players-section {
+        flex-direction: column;
+      }
+      
+      .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .game-controls {
+        flex-wrap: wrap;
+      }
+      
+      .awards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .header {
+        padding: 10px;
+      }
+      
+      .score-ticker {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
+      
+      .game-board, .sidebar-card {
+        padding: 15px;
+      }
+      
+      .modal {
+        padding: 20px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="stadium-effects">
-    <div class="crowd"></div>
-    <div class="pitch"></div>
-  </div>
-  
-  <div class="match-graphics" id="matchGraphics"></div>
-  
-  <div class="container">
-    <div class="team-names-compact">
-      <div class="team-name-line">
-        <span class="team-label">Batting:</span>
-        <span id="team1Name">Team A</span>
-        <span class="team-divider">|</span>
-        <span class="team-label">Bowling:</span>
-        <span id="team2Name">Team B</span>
-      </div>
-      <div id="targetDisplay" style="display: none;">
-        Target: <span id="targetValue">0</span> runs | RR: <span id="requiredRunRate">0.00</span>
-      </div>
-    </div>
-    
-    <!-- Live score ticker -->
-    <div class="live-ticker">
-      <div class="ticker-content" id="tickerContent">
-        <div class="ticker-item">Partnership: <span id="tickerPartnership">0</span> runs (<span id="tickerPartnershipBalls">0</span> balls)</div>
-        <div class="ticker-item">Run Rate: <span id="tickerRunRate">0.00</span></div>
-        <div class="ticker-item">Last 5 Overs: <span id="tickerLast5">0/0</span></div>
-        <div class="ticker-item">Required Rate: <span id="tickerRequiredRate">0.00</span></div>
-      </div>
-    </div>
-    
-    <!-- Enhanced Scoreboard -->
-    <div class="scorebox">
-      <div class="scorebox-main">
-        <div class="team-score">
-          <span id="battingTeamName">Team A</span>
-          <span class="score-large"><span id="runs">0</span>/<span id="wickets">0</span></span>
-        </div>
-        <div class="score-details">
-          <div>Overs: <strong id="overs">0.0</strong></div>
-          <div>Run Rate: <strong id="runRate">0.00</strong></div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Match Info Bar -->
-    <div class="match-info-bar">
-      <div class="match-format" id="formatDisplay"></div>
-      <div class="match-status">
-        <span id="inningsNumber">1st Innings</span>
-        <span class="divider">|</span>
-        <span id="roleText"></span>
-      </div>
-      <div class="match-time">
-        <span id="currentTime">14:30</span>
-        <span class="divider">|</span>
-        <span id="matchDate">23 Jul 2023</span>
-      </div>
-    </div>
-    
-    <!-- Over Progress -->
-    <div class="over-progress">
-      <div class="over-title">Current Over</div>
-      <div class="balls-container" id="ballsContainer">
-        <!-- Balls will be added dynamically -->
-      </div>
-      <div class="over-number">Over <span id="currentOverNumber">1</span></div>
-    </div>
-    
-    <!-- Commentary Box -->
-    <div class="commentary-box" id="commentaryBox">
-      <div class="commentary-item"><span class="commentary-time">0.0:</span> Match about to begin!</div>
-    </div>
-    
-    <!-- Stats Container -->
-    <div class="stats-container">
-      <div class="stat-card">
-        <div>Current RR: <span class="stat-value" id="currentRR">0.00</span></div>
-        <div>Required RR: <span class="stat-value" id="requiredRR">0.00</span></div>
-      </div>
-      <div class="stat-card">
-        <div>Partnership: <span class="stat-value" id="currentPartnership">0</span></div>
-        <div>Balls: <span class="stat-value" id="partnershipBalls">0</span></div>
-      </div>
-      <div class="stat-card">
-        <div>Momentum</div>
-        <div class="momentum-bar"><div class="momentum-fill" id="momentumFill"></div></div>
-        <div>Form: <span class="stat-value" id="formRating">50</span></div>
-      </div>
-    </div>
-    
-    <!-- Match Timeline -->
-    <div class="timeline-container">
-      <h4>Match Timeline</h4>
-      <div class="timeline" id="matchTimeline">
-        <!-- Timeline items will be added here -->
-      </div>
-    </div>
-    
-    <!-- Enhanced Player Comparison -->
-    <div class="comparison-container">
-      <h4>Current Battle</h4>
-      <div class="comparison-box">
-        <div class="player-comparison batter-comparison">
-          <div class="comparison-header">Batter</div>
-          <div class="comparison-name" id="comparisonBatterName">-</div>
-          <div class="comparison-stats">
-            <div>Runs: <span id="comparisonBatterRuns">0</span></div>
-            <div>Balls: <span id="comparisonBatterBalls">0</span></div>
-            <div>SR: <span id="comparisonBatterSR">0.00</span></div>
-            <div>4s/6s: <span id="comparisonBatterBoundaries">0/0</span></div>
-          </div>
-        </div>
-        <div class="vs-circle">VS</div>
-        <div class="player-comparison bowler-comparison">
-          <div class="comparison-header">Bowler</div>
-          <div class="comparison-name" id="comparisonBowlerName">-</div>
-          <div class="comparison-stats">
-            <div>Overs: <span id="comparisonBowlerOvers">0.0</span></div>
-            <div>Wkts: <span id="comparisonBowlerWickets">0</span></div>
-            <div>ER: <span id="comparisonBowlerER">0.00</span></div>
-            <div>Runs: <span id="comparisonBowlerRuns">0</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div id="statusIndicators">
-      <span id="powerplayIndicator" class="powerplay-indicator" style="display: none;">Powerplay</span>
-      <span id="deadOverIndicator" class="dead-over" style="display: none;">Dead Over</span>
-      <span id="freeHitIndicator" class="free-hit-indicator" style="display: none;">Free Hit</span>
-    </div>
-    
-    <div id="result">Initializing game...</div>
-    
-    <div class="card-btns" id="cardButtons">
-      <button class="btn" data-value="0">0</button>
-      <button class="btn" data-value="1">1</button>
-      <button class="btn" data-value="2">2</button>
-      <button class="btn" data-value="3">3</button>
-      <button class="btn" data-value="4">4</button>
-      <button class="btn" data-value="5">5</button>
-      <button class="btn" data-value="6">6</button>
-    </div>
-
-    <!-- Declare Innings Button (Test matches only) -->
-    <button id="declareBtn" class="btn declare-btn" style="display: none;">Declare Innings</button>
-
-    <div class="over-summary-container">
-      <h4>Over Summary</h4>
-      <div id="overSummaryList"></div>
-    </div>
-
-    <button class="show-teams-btn" id="showTeamsBtn">Show Teams</button>
-
-    <div id="topControls">
-      <button id="saveBtn">💾 Save & Exit</button>
-      <button id="exitBtn">🚪 Exit Without Saving</button>
-      <button id="resetPlaysBtn">🔄 Reset Plays</button>
-    </div>
-    <div id="connectionStatus" class="online">
-      Opponent: Online
-    </div>
-    
-    <div id="loading-spinner" class="loading-spinner"></div>
-  </div>
-  
-  <!-- Mini scorecard that stays visible when scrolling -->
-  <div class="mini-scorecard" id="miniScorecard" style="display: none;">
-    <span id="miniScore">0/0</span> (<span id="miniOvers">0.0</span>)
-  </div>
-  
-  <div id="selectionModal" class="selection-modal">
-    <h3 id="selectionTitle">Select Next Batter</h3>
-    <div id="selectionList" class="selection-list"></div>
-    <button id="confirmSelection">Confirm Selection</button>
-  </div>
-
-  <div id="teamsModal" class="teams-modal">
-    <button class="close-teams" id="closeTeamsBtn">×</button>
-    <div class="teams-container" id="teamsSlider">
-      <div class="team-slide" id="team1Slide">
-        <h3 id="modalTeam1Name">Team 1</h3>
-        <ul id="modalTeam1Players"></ul>
-      </div>
-      <div class="team-slide" id="team2Slide">
-        <h3 id="modalTeam2Name">Team 2</h3>
-        <ul id="modalTeam2Players"></ul>
-      </div>
-    </div>
-    <div class="teams-nav">
-      <button class="team-nav-btn" id="prevTeamBtn" disabled>Previous</button>
-      <button class="team-nav-btn" id="nextTeamBtn">Next</button>
-    </div>
-    <div class="team-nav-indicator">
-      <div class="team-nav-dot active" data-index="0"></div>
-      <div class="team-nav-dot" data-index="1"></div>
+  <!-- Header with Live Score Ticker -->
+  <div class="header">
+    <div class="score-ticker">
+      <div class="match-title" id="matchTitle">Match Title</div>
+      <div class="live-score" id="liveScore">0/0 (0.0 Ov)</div>
+      <div class="current-over" id="currentOver">Over: 0.0</div>
     </div>
   </div>
 
-  <!-- Enhanced Innings Summary Popup with stats slides -->
-  <div id="summaryPopup" class="summary-popup">
-    <h3 id="summaryTitle">First Innings Summary</h3>
-    <div class="summary-content">
-      <div class="summary-row">
-        <span class="summary-label">Total Runs:</span>
-        <span class="summary-value" id="summaryTotalRuns">0</span>
+  <!-- Main Game Container -->
+  <div class="game-container">
+    <!-- Main Game Board -->
+    <div class="game-board">
+      <!-- Innings Info -->
+      <div class="innings-info">
+        <h2 id="inningsTitle">First Innings</h2>
+        <div id="targetDisplay" class="target-display" style="display: none;">Target: 0 runs</div>
       </div>
-      <div class="summary-row">
-        <span class="summary-label">Wickets:</span>
-        <span class="summary-value" id="summaryWickets">0</span>
-      </div>
-      <div class="summary-row">
-        <span class="summary-label">Overs:</span>
-        <span class="summary-value" id="summaryOvers">0.0</span>
-      </div>
-      <div class="summary-row">
-        <span class="summary-label">Run Rate:</span>
-        <span class="summary-value" id="summaryRunRate">0.00</span>
-      </div>
-      <div class="summary-highlight" id="summaryHighlight"></div>
-      
-      <!-- Stats slides container -->
-      <div class="teams-container" id="statsSlider" style="height: 200px; margin: 10px 0;">
-        <!-- Batters stats slide -->
-        <div class="stats-slide">
-          <h4>Batting Stats</h4>
-          <table class="stats-table" id="battersStatsTable">
-            <thead>
-              <tr>
-                <th>Batter</th>
-                <th>Runs</th>
-                <th>Balls</th>
-                <th>SR</th>
-                <th>4s/6s</th>
-              </tr>
-            </thead>
-            <tbody id="battersStatsBody"></tbody>
-          </table>
+
+      <!-- Players Section -->
+      <div class="players-section">
+        <div class="player-card" id="batsmanCard">
+          <div class="player-role">Batsman</div>
+          <div class="player-name" id="batsmanName">Batsman Name</div>
+          <div class="player-stats" id="batsmanStats">0 (0)</div>
         </div>
-        
-        <!-- Bowlers stats slide -->
-        <div class="stats-slide">
-          <h4>Bowling Stats</h4>
-          <table class="stats-table" id="bowlersStatsTable">
-            <thead>
-              <tr>
-                <th>Bowler</th>
-                <th>Overs</th>
-                <th>Wkts</th>
-                <th>Runs</th>
-                <th>ER</th>
-              </tr>
-            </thead>
-            <tbody id="bowlersStatsBody"></tbody>
-          </table>
+
+        <div class="player-card" id="bowlerCard">
+          <div class="player-role">Bowler</div>
+          <div class="player-name" id="bowlerName">Bowler Name</div>
+          <div class="player-stats" id="bowlerStats">0-0 (0)</div>
         </div>
       </div>
-      
-      <!-- Stats navigation -->
-      <div class="teams-nav">
-        <button class="team-nav-btn" id="prevStatsBtn" disabled>Previous</button>
-        <button class="team-nav-btn" id="nextStatsBtn">Next</button>
+
+      <!-- Cards Selection -->
+      <div class="cards-section">
+        <h3 class="cards-title">Select Your Card</h3>
+        <div class="cards-grid" id="cardsGrid">
+          <!-- Cards will be generated dynamically -->
+        </div>
       </div>
-      <div class="team-nav-indicator">
-        <div class="team-nav-dot active" data-index="0"></div>
-        <div class="team-nav-dot" data-index="1"></div>
+
+      <!-- Commentary Section -->
+      <div class="commentary-section">
+        <h3 class="commentary-title">Commentary</h3>
+        <ul class="commentary-list" id="commentaryList">
+          <li class="commentary-item">Welcome to HandiCricket! The match is about to begin.</li>
+        </ul>
       </div>
-      
-      <!-- Target display for second innings -->
-      <div class="summary-row" id="summaryTargetDisplay" style="display: none;">
-        <span class="summary-label">Target:</span>
-        <span class="summary-value" id="summaryTargetValue">0</span>
-      </div>
-      
-      <!-- Player of the match -->
-      <div class="summary-row" id="pomDisplay" style="display: none;">
-        <span class="summary-label">Player of the Match:</span>
-        <span class="summary-value" id="pomValue">-</span>
-      </div>
-      
-      <!-- Awards section -->
-      <div class="awards-container" id="awardsContainer" style="display: none;">
-        <!-- Awards will be added dynamically -->
+
+      <!-- Game Controls -->
+      <div class="game-controls">
+        <button class="control-btn" id="undoBtn" disabled><i class="fas fa-undo"></i> Undo</button>
+        <button class="control-btn declare" id="declareBtn" style="display: none;"><i class="fas fa-flag"></i> Declare</button>
+        <button class="control-btn follow-on" id="followOnBtn" style="display: none;"><i class="fas fa-exchange-alt"></i> Follow On</button>
+        <button class="control-btn" id="settingsBtn"><i class="fas fa-cog"></i> Settings</button>
       </div>
     </div>
-    <button id="startSecondInningsBtn">🏏 Start Second Innings</button>
+
+    <!-- Sidebar -->
+    <div class="game-sidebar">
+      <!-- Scorecard -->
+      <div class="sidebar-card">
+        <h3 class="sidebar-title">Scorecard</h3>
+        <div class="scorecard-container" id="scorecardContainer">
+          <!-- Scorecard will be generated dynamically -->
+        </div>
+      </div>
+
+      <!-- Run Rate Chart -->
+      <div class="sidebar-card">
+        <h3 class="sidebar-title">Run Rate</h3>
+        <div class="chart-container">
+          <canvas id="runRateChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chat Section -->
+      <div class="sidebar-card">
+        <h3 class="sidebar-title">Chat</h3>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-message">System: Chat connected</div>
+        </div>
+        <div class="chat-input">
+          <input type="text" id="chatInput" placeholder="Type your message...">
+          <button id="chatSendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay Modals -->
+  <!-- Innings Break Overlay -->
+  <div class="overlay" id="inningsBreakOverlay" style="display: none;">
+    <div class="modal">
+      <h2 class="modal-title" id="inningsBreakTitle">Innings Break</h2>
+      <div class="modal-content" id="inningsBreakContent">
+        <p>First innings completed. The score is <span id="inningsBreakScore">0/0</span>.</p>
+        <div id="inningsHighlights"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="continueInningsBtn">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stumps Overlay -->
+  <div class="overlay" id="stumpsOverlay" style="display: none;">
+    <div class="modal stumps-overlay">
+      <div class="stumps-icon">🏏</div>
+      <h2 class="modal-title">STUMPS - Day <span id="currentDay">1</span></h2>
+      <div class="modal-content">
+        <p>That's the end of day's play. <span id="stumpsScore">0/0</span> after <span id="stumpsOvers">0</span> overs.</p>
+        <div class="stumps-summary" id="stumpsSummary">
+          <!-- Stumps summary will be generated dynamically -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="continueDayBtn">Continue to Next Day</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Match Summary Overlay -->
+  <div class="overlay" id="matchSummaryOverlay" style="display: none;">
+    <div class="modal">
+      <h2 class="modal-title">Match Summary</h2>
+      <div class="modal-content">
+        <div id="matchResult"></div>
+        <div class="awards-grid" id="awardsGrid">
+          <!-- Awards will be generated dynamically -->
+        </div>
+        <div id="fullScorecard"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="exportPDFBtn">Export PDF</button>
+        <button class="modal-btn" id="newMatchBtn">New Match</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Batter Selection Overlay -->
+  <div class="overlay" id="batterSelectionOverlay" style="display: none;">
+    <div class="modal">
+      <h2 class="modal-title">Select New Batter</h2>
+      <div class="modal-content">
+        <p>Wicket! Please select a new batter:</p>
+        <div id="availableBatters"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="confirmBatterBtn" disabled>Confirm Selection</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update, push, remove, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, get, push, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
       authDomain: "handicricket-85a06.firebaseapp.com",
       projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
+      storageBucket: "handicricket-85a06.appbasestorage.app",
       messagingSenderId: "599182538558",
       appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
       measurementId: "G-HSV9H4LEJQ"
     };
 
     // Initialize Firebase
-    let app;
-    let db;
-
-    try {
-      console.log("Initializing Firebase...");
-      app = initializeApp(firebaseConfig);
-      db = getDatabase(app);
-      console.log("Firebase initialized successfully");
-    } catch (error) {
-      console.error("Firebase initialization failed:", error);
-      document.getElementById("result").innerHTML = `
-        Failed to connect to game server.<br>
-        Please check your internet connection and refresh.<br>
-        <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
-          Refresh Page
-        </button>
-      `;
-      document.getElementById("result").className = "error";
-      throw error;
-    }
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
     // Get URL parameters
     const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
-    const player = params.get('player') || 'player1'; // Default to player1 if not specified
-    
-    if (!room) {
-      document.getElementById("result").innerHTML = `
-        Missing required room parameter in URL.<br>
-        Please return to the main page and join the game again.<br>
-        <button onclick="window.location.href='index.html'" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
-          Return to Main Page
-        </button>
-      `;
-      document.getElementById("result").className = "error";
-      throw new Error("Missing room parameter");
+    const roomId = params.get('room');
+    const playerRole = params.get('player'); // player1, player2, or spectator
+    const isSpectator = playerRole === 'spectator';
+
+    if (!roomId) {
+      alert('Room ID not specified');
+      window.location.href = 'index.html';
     }
-
-    const opponent = player === "player1" ? "player2" : "player1";
-
-    // Debug game parameters
-    console.log("Game Parameters:", {
-      room: room,
-      player: player,
-      opponent: opponent,
-      url: window.location.href
-    });
 
     // Firebase references
-    const roomRef = ref(db, `rooms/${room}`);
-    const playerRef = ref(db, `rooms/${room}/${player}`);
-    const opponentRef = ref(db, `rooms/${room}/${opponent}`);
-    const playsRef = ref(db, `rooms/${room}/currentPlays`);
-    const batterRef = ref(db, `rooms/${room}/currentBatter`);
-    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
-    const teamsRef = ref(db, `rooms/${room}/teams`);
-    const spectatorsRef = ref(db, `rooms/${room}/spectators`);
-    const reactionsRef = ref(db, `rooms/${room}/reactions`);
-    const matchStatsRef = ref(db, `rooms/${room}/matchStats`);
-    const liveStateRef = ref(db, `rooms/${room}/liveState`);
-    const overSummariesRef = ref(db, `rooms/${room}/overSummaries`);
-    const resultRef = ref(db, `rooms/${room}/result`);
-    const resetRequestRef = ref(db, `rooms/${room}/resetRequest`);
-    const firstInningsRef = ref(db, `rooms/${room}/firstInnings`);
-    const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
-    const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
-    const commentaryRef = ref(db, `rooms/${room}/commentary`);
-    const declareRef = ref(db, `rooms/${room}/declareRequest`);
-    
-    // Format rules - Updated with Test match details
-    const formatRules = {
-      "5": { 
-        name: "5 Overs", 
-        totalOvers: 5, 
-        totalWickets: 10,
-        powerplayOvers: 2, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        deadOvers: [],
-        bowlerMaxOvers: 1,
-        type: "limited"
-      },
-      "10": { 
-        name: "10 Overs", 
-        totalOvers: 10, 
-        totalWickets: 10,
-        powerplayOvers: 3, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        deadOvers: [],
-        bowlerMaxOvers: 2,
-        type: "limited"
-      },
-      "20": { 
-        name: "T20", 
-        totalOvers: 20, 
-        totalWickets: 10,
-        powerplayOvers: 6, 
-        powerplayWicketValue: 0.5,
-        regularWicketValue: 1.0,
-        deadOvers: [],
-        bowlerMaxOvers: 4,
-        type: "limited"
-      },
-      "50": { 
-        name: "ODI", 
-        totalOvers: 50, 
-        totalWickets: 10,
-        powerplayOvers: [1,10, 21,30, 41,42], 
-        powerplayWicketValue: 0.25,
-        regularWicketValue: 0.5,
-        deadOvers: [11,20, 31,40],
-        bowlerMaxOvers: 10,
-        type: "limited"
-      },
-      "test": { 
-        name: "Test Match", 
-        totalOvers: 0, // Will be set from room data
-        totalWickets: 10,
-        powerplayOvers: [], 
-        powerplayWicketValue: 0.33,
-        regularWicketValue: 0.33,
-        deadOvers: [],
-        bowlerMaxOvers: 0, // No limit in Test matches
-        type: "test",
-        batterLives: 3
-      }
-    };
-
-    // Game state variables
-    let runs = 0, wickets = 0;
-    let legalBalls = 0;
-    let freeHit = false;
-    let freeHitNextBall = false;
-    let currentBatter = null;
-    let currentBowler = null;
-    let battersUsed = [];
-    let bowlersUsed = [];
-    let bowlerOvers = {};
-    let isBatting = false;
-    let currentFormat = {};
-    let isPowerplay = false;
-    let isDeadOver = false;
-    let batterWickets = {};
-    let zerosThisOver = { player1: 0, player2: 0 };
-    let bowlerRuns = {};
-    let gameInProgress = true;
-    let lastOverRuns = 0;
-    let lastOverWickets = 0;
-    let lastWicketScore = 0;
-    let ballByBall = {};
-    let fallOfWickets = [];
-    let batterStats = {};
-    let bowlerStats = {};
-    let tossWinner = null;
-    let battingFirst = null;
-    const milestoneLevels = [50, 100, 150, 200, 250, 300, 350, 400];
-    let batterSelected = false;
-    let bowlerSelected = false;
-    let team1Players = [];
-    let team2Players = [];
-    let batterPenalties = {};
-    let lastBatterRuns = {};
-    let resetRequested = false;
-    let resetRequestedBy = null;
-    let isResetting = false;
-    let resetCount = 0;
-    const MAX_RESETS = 999999999999999999;
-    let selectedCardValue = null;
-    let isProcessingSelection = false;
-    let overSummaries = [];
-    let isSpectator = false;
-    let firstInningsCompleted = false;
-    let firstInningsData = null;
-    let target = 0;
-    let chasingTeam = null;
-    let secondInningsStarted = false;
-    let partnershipRuns = 0;
-    let partnershipBalls = 0;
-    let last5Runs = 0;
-    let last5Wickets = 0;
-    let last5Balls = 0;
-    let lastBoundaryTime = 0;
-    let commentary = [];
-    let testOversPerDay = 90; // Default for Test matches
-    let declaredInnings = false;
-    let followOnEnabled = false;
-    let formRating = 50;
-    let momentum = 50;
-
-    // Commentary phrases for different situations
-    const commentaryPhrases = {
-      boundary: [
-        "Cracked away to the boundary!",
-        "What a shot! That races to the rope",
-        "Timed to perfection, that's four runs",
-        "The fielder gives chase but it's a boundary",
-        "No stopping that one, excellent placement"
-      ],
-      six: [
-        "That's gone all the way! What a hit!",
-        "Maximum! Clears the ropes with ease",
-        "Launched into the stands! Six runs",
-        "Monstrous hit! That's out of the ground",
-        "The crowd goes wild as that sails over"
-      ],
-      wicket: [
-        "That's a wicket! The bowler strikes",
-        "Edged and taken! The fielders celebrate",
-        "Clean bowled! That's a beauty",
-        "Trapped in front! The umpire raises the finger",
-        "Caught in the deep! That's the end of the batter"
-      ],
-      dotBall: [
-        "Good line and length, defended solidly",
-        "Dot ball, pressure building",
-        "Beaten! The bowler appeals but nothing given",
-        "Play and a miss, good delivery",
-        "Well bowled, no run from that"
-      ],
-      single: [
-        "Tucked away for a comfortable single",
-        "Quick run taken, good cricket",
-        "Pushed into the gap for one",
-        "Easy single to rotate strike",
-        "Nudged away for a run"
-      ],
-      double: [
-        "Well run, they come back for two",
-        "Good placement, two runs added",
-        "Pushed into the gap, excellent running",
-        "Comfortable two runs there",
-        "Fielders chase but they get back easily"
-      ],
-      triple: [
-        "Great running! Three taken",
-        "They push hard and get three",
-        "Excellent fielding keeps it to three",
-        "Risky run but they make it back",
-        "Three runs added to the total"
-      ],
-      noBall: [
-        "Oh dear, that's a no ball! Free hit coming up",
-        "Overstepping! The umpire calls it a no ball",
-        "That's a front foot no ball, extra delivery",
-        "No ball called, batter gets a free hit",
-        "Bowling team under pressure now with a no ball"
-      ],
-      freeHit: [
-        "Free hit coming up! Big opportunity",
-        "Batter can't be dismissed here",
-        "Chance to swing freely on this free hit",
-        "Field restrictions apply for this free hit",
-        "Bowling team under pressure now"
-      ],
-      powerplay: [
-        "Powerplay restrictions in place",
-        "Fielding restrictions apply now",
-        "Only two fielders allowed outside the circle",
-        "Batters looking to capitalize on powerplay",
-        "Bowling team needs to be careful now"
-      ],
-      milestone: [
-        "That's a well-played half century",
-        "Raises the bat for a fine fifty",
-        "Magnificent century! What an innings",
-        "Brings up the milestone in style",
-        "The crowd rises to applaud the achievement"
-      ],
-      partnership: [
-        "This partnership is building nicely",
-        "Good understanding between these two",
-        "They're rotating the strike well",
-        "The partnership is frustrating the bowlers",
-        "These two are taking the game away"
-      ],
-      runRate: [
-        "The required rate is climbing now",
-        "They're keeping up with the required rate",
-        "The pressure is on with this run rate",
-        "They need to accelerate soon",
-        "The run rate is well under control"
-      ],
-      testMatch: [
-        "Good defensive technique shown there",
-        "Patience is the key in Test cricket",
-        "Building a solid foundation",
-        "The bowlers are working in partnerships",
-        "This is proper Test match batting"
-      ],
-      declare: [
-        "A surprise declaration!",
-        "The captain has decided to declare",
-        "An aggressive move by the batting side",
-        "They're putting the opposition in",
-        "Strategic declaration to have more time to bowl"
-      ]
-    };
+    const roomRef = ref(db, `rooms/${roomId}`);
+    const eventsRef = ref(db, `rooms/${roomId}/events`);
+    const scoreboardRef = ref(db, `rooms/${roomId}/scoreboard`);
+    const chatRef = ref(db, `rooms/${roomId}/chat`);
+    const playingXIRef = ref(db, `rooms/${roomId}/teams`);
+    const tossRef = ref(db, `rooms/${roomId}/toss`);
 
     // DOM elements
-    const resultEl = document.getElementById("result");
-    const scoreboard = document.querySelector(".scorebox");
-    const buttons = document.querySelectorAll(".btn");
-    const roleText = document.getElementById("roleText");
-    const selectionModal = document.getElementById("selectionModal");
-    const selectionTitle = document.getElementById("selectionTitle");
-    const selectionList = document.getElementById("selectionList");
-    const confirmSelection = document.getElementById("confirmSelection");
-    const team1NameEl = document.getElementById("modalTeam1Name");
-    const team2NameEl = document.getElementById("modalTeam2Name");
-    const team1PlayersEl = document.getElementById("modalTeam1Players");
-    const team2PlayersEl = document.getElementById("modalTeam2Players");
-    const formatDisplay = document.getElementById("formatDisplay");
-    const saveBtn = document.getElementById("saveBtn");
-    const exitBtn = document.getElementById("exitBtn");
-    const resetPlaysBtn = document.getElementById("resetPlaysBtn");
-    const connectionStatus = document.getElementById("connectionStatus");
-    const loadingSpinner = document.getElementById("loading-spinner");
-    const powerplayIndicator = document.getElementById("powerplayIndicator");
-    const deadOverIndicator = document.getElementById("deadOverIndicator");
-    const freeHitIndicator = document.getElementById("freeHitIndicator");
-    const showTeamsBtn = document.getElementById("showTeamsBtn");
-    const teamsModal = document.getElementById("teamsModal");
-    const closeTeamsBtn = document.getElementById("closeTeamsBtn");
-    const teamsSlider = document.getElementById("teamsSlider");
-    const overSummaryList = document.getElementById("overSummaryList");
-    const team1NameDisplay = document.getElementById("team1Name");
-    const team2NameDisplay = document.getElementById("team2Name");
-    const prevTeamBtn = document.getElementById("prevTeamBtn");
-    const nextTeamBtn = document.getElementById("nextTeamBtn");
-    const battingTeamName = document.getElementById("battingTeamName");
-    const summaryPopup = document.getElementById("summaryPopup");
-    const summaryCountdown = document.getElementById("summaryCountdown");
-    const startSecondInningsBtn = document.getElementById("startSecondInningsBtn");
-    const summaryTotalRuns = document.getElementById("summaryTotalRuns");
-    const summaryWickets = document.getElementById("summaryWickets");
-    const summaryOvers = document.getElementById("summaryOvers");
-    const summaryRunRate = document.getElementById("summaryRunRate");
-    const summaryHighlight = document.getElementById("summaryHighlight");
-    const targetDisplay = document.getElementById("targetDisplay");
-    const targetValue = document.getElementById("targetValue");
-    const requiredRunRate = document.getElementById("requiredRunRate");
-    const matchGraphics = document.getElementById("matchGraphics");
-    const miniScorecard = document.getElementById("miniScorecard");
-    const miniScore = document.getElementById("miniScore");
-    const miniOvers = document.getElementById("miniOvers");
-    const tickerContent = document.getElementById("tickerContent");
-    const tickerPartnership = document.getElementById("tickerPartnership");
-    const tickerPartnershipBalls = document.getElementById("tickerPartnershipBalls");
-    const tickerRunRate = document.getElementById("tickerRunRate");
-    const tickerLast5 = document.getElementById("tickerLast5");
-    const tickerRequiredRate = document.getElementById("tickerRequiredRate");
-    const pomDisplay = document.getElementById("pomDisplay");
-    const pomValue = document.getElementById("pomValue");
-    const awardsContainer = document.getElementById("awardsContainer");
-    const statsSlider = document.getElementById("statsSlider");
-    const battersStatsBody = document.getElementById("battersStatsBody");
-    const bowlersStatsBody = document.getElementById("bowlersStatsBody");
-    const prevStatsBtn = document.getElementById("prevStatsBtn");
-    const nextStatsBtn = document.getElementById("nextStatsBtn");
-    const declareBtn = document.getElementById("declareBtn");
-    const commentaryBox = document.getElementById("commentaryBox");
-    const currentRR = document.getElementById("currentRR");
-    const requiredRR = document.getElementById("requiredRR");
-    const currentPartnership = document.getElementById("currentPartnership");
-    const partnershipBallsEl = document.getElementById("partnershipBalls");
-    const formRatingEl = document.getElementById("formRating");
-    const momentumFill = document.getElementById("momentumFill");
-    const summaryTargetDisplay = document.getElementById("summaryTargetDisplay");
-    const summaryTargetValue = document.getElementById("summaryTargetValue");
+    const matchTitleEl = document.getElementById('matchTitle');
+    const liveScoreEl = document.getElementById('liveScore');
+    const currentOverEl = document.getElementById('currentOver');
+    const inningsTitleEl = document.getElementById('inningsTitle');
+    const targetDisplayEl = document.getElementById('targetDisplay');
+    const batsmanNameEl = document.getElementById('batsmanName');
+    const batsmanStatsEl = document.getElementById('batsmanStats');
+    const bowlerNameEl = document.getElementById('bowlerName');
+    const bowlerStatsEl = document.getElementById('bowlerStats');
+    const batsmanCardEl = document.getElementById('batsmanCard');
+    const bowlerCardEl = document.getElementById('bowlerCard');
+    const cardsGridEl = document.getElementById('cardsGrid');
+    const commentaryListEl = document.getElementById('commentaryList');
+    const scorecardContainerEl = document.getElementById('scorecardContainer');
+    const chatMessagesEl = document.getElementById('chatMessages');
+    const chatInputEl = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const declareBtn = document.getElementById('declareBtn');
+    const followOnBtn = document.getElementById('followOnBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const inningsBreakOverlay = document.getElementById('inningsBreakOverlay');
+    const inningsBreakTitleEl = document.getElementById('inningsBreakTitle');
+    const inningsBreakContentEl = document.getElementById('inningsBreakContent');
+    const inningsBreakScoreEl = document.getElementById('inningsBreakScore');
+    const inningsHighlightsEl = document.getElementById('inningsHighlights');
+    const continueInningsBtn = document.getElementById('continueInningsBtn');
+    const stumpsOverlay = document.getElementById('stumpsOverlay');
+    const currentDayEl = document.getElementById('currentDay');
+    const stumpsScoreEl = document.getElementById('stumpsScore');
+    const stumpsSummaryEl = document.getElementById('stumpsSummary');
+    const continueDayBtn = document.getElementById('continueDayBtn');
+    const matchSummaryOverlay = document.getElementById('matchSummaryOverlay');
+    const matchResultEl = document.getElementById('matchResult');
+    const awardsGridEl = document.getElementById('awardsGrid');
+    const fullScorecardEl = document.getElementById('fullScorecard');
+    const exportPDFBtn = document.getElementById('exportPDFBtn');
+    const newMatchBtn = document.getElementById('newMatchBtn');
+    const batterSelectionOverlay = document.getElementById('batterSelectionOverlay');
+    const availableBattersEl = document.getElementById('availableBatters');
+    const confirmBatterBtn = document.getElementById('confirmBatterBtn');
 
-    // Helper function with timeout
-    async function setWithTimeout(ref, value, timeoutMs, timeoutMsg) {
-      return Promise.race([
-        set(ref, value),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(timeoutMsg)), timeoutMs)
-        )
-      ]);
-    }
+    // Game state variables
+    let gameState = {
+      innings: 1,
+      totalRuns: 0,
+      wickets: 0,
+      ballsBowled: 0,
+      overs: 0,
+      currentBatsman: null,
+      currentBowler: null,
+      batsmen: [],
+      bowlers: [],
+      team1: { name: '', players: [] },
+      team2: { name: '', players: [] },
+      battingTeam: null,
+      bowlingTeam: null,
+      target: 0,
+      matchFormat: '20',
+      testOversPerDay: 90,
+      currentDay: 1,
+      isTestMatch: false,
+      isFreeHit: false,
+      lastEvent: null,
+      events: [],
+      batsmanZeroCount: 0,
+      bowlerZeroCount: 0,
+      playerLives: 3,
+      followOnEnabled: false,
+      declared: false
+    };
 
-    // Helper function with retries
-    async function getWithRetries(ref, maxRetries, delayMs) {
-      let lastError;
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          const snap = await get(ref);
-          return snap;
-        } catch (error) {
-          lastError = error;
-          console.log(`Attempt ${i+1} failed, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-        }
-      }
-      throw lastError;
-    }
+    let runRateChart = null;
+    let username = localStorage.getItem('hc_username');
+    let selectedNewBatsman = null;
 
-    // Enhanced loadPlaying11 function with validation
-    async function loadPlaying11() {
+    // Initialize the game
+    async function initGame() {
       try {
-        resultEl.innerText = "Loading teams...";
-        
-        const roomSnap = await get(roomRef);
-        if (!roomSnap.exists()) throw new Error("Room not found");
-
-        const teams = roomSnap.val().teams;
-        if (!teams) throw new Error("Teams not found in room data");
-        
-        team1Players = teams.team1.players;
-        team2Players = teams.team2.players;
-        
-        if (!team1Players || !team2Players || team1Players.length === 0 || team2Players.length === 0) {
-          throw new Error("Invalid team data");
+        // Load room data
+        const roomSnapshot = await get(roomRef);
+        if (!roomSnapshot.exists()) {
+          alert('Room not found');
+          window.location.href = 'index.html';
+          return;
         }
 
-        // Set team names
-        team1NameEl.innerText = teams.team1.name || "Team 1";
-        team2NameEl.innerText = teams.team2.name || "Team 2";
-        team1NameDisplay.innerText = teams.team1.name || "Team 1";
-        team2NameDisplay.innerText = teams.team2.name || "Team 2";
-        battingTeamName.innerText = teams.team1.name || "Team 1";
-
-        // Populate team lists
-        team1PlayersEl.innerHTML = "";
-        team2PlayersEl.innerHTML = "";
+        const roomData = roomSnapshot.val();
         
-        team1Players.forEach((player, index) => {
-          const li = document.createElement("li");
-          li.innerHTML = `<span class="player-name">${player.name}</span> <span class="player-role">${player.role}</span>`;
-          team1PlayersEl.appendChild(li);
-        });
+        // Set match format
+        gameState.matchFormat = roomData.format || '20';
+        gameState.isTestMatch = gameState.matchFormat === 'test';
         
-        team2Players.forEach((player, index) => {
-          const li = document.createElement("li");
-          li.innerHTML = `<span class="player-name">${player.name}</span> <span class="player-role">${player.role}</span>`;
-          team2PlayersEl.appendChild(li);
-        });
-
-        // Initialize batter stats
-        team1Players.forEach(player => {
-          batterStats[player.name] = {
-            runs: 0,
-            balls: 0,
-            fours: 0,
-            sixes: 0,
-            status: "not out",
-            outBy: "",
-            wicketType: "",
-            strikeRate: 0,
-            partnershipRuns: 0,
-            partnershipBalls: 0
-          };
-        });
-
-        team2Players.forEach(player => {
-          batterStats[player.name] = {
-            runs: 0,
-            balls: 0,
-            fours: 0,
-            sixes: 0,
-            status: "not out",
-            outBy: "",
-            wicketType: "",
-            strikeRate: 0,
-            partnershipRuns: 0,
-            partnershipBalls: 0
-          };
-        });
-
-        // Initialize bowler stats
-        team1Players.forEach(player => {
-          bowlerStats[player.name] = {
-            runs: 0,
-            balls: 0,
-            maidens: 0,
-            wickets: 0,
-            economy: 0,
-            overs: 0
-          };
-        });
-
-        team2Players.forEach(player => {
-          bowlerStats[player.name] = {
-            runs: 0,
-            balls: 0,
-            maidens: 0,
-            wickets: 0,
-            economy: 0,
-            overs: 0
-          };
-        });
-
-        // Load format
-        const format = roomSnap.val().format || "20";
-        currentFormat = formatRules[format];
-        
-        // For Test matches, get overs per day from room data
-        if (format === "test") {
-          testOversPerDay = roomSnap.val().testOversPerDay || 90;
-          currentFormat.totalOvers = testOversPerDay;
-          console.log(`Test match: ${testOversPerDay} overs per day`);
+        // Set test overs per day (with localStorage fallback)
+        if (gameState.isTestMatch) {
+          gameState.testOversPerDay = roomData.testOversPerDay || parseInt(localStorage.getItem('hc_testOvers')) || 90;
         }
         
-        formatDisplay.innerText = currentFormat.name;
-        
-        // Load toss info
-        tossWinner = roomSnap.val().tossWinner;
-        battingFirst = roomSnap.val().battingFirst;
-        
-        // Set up initial state based on toss
-        if (battingFirst === "team1") {
-          isBatting = player === "player1";
+        // Set team data
+        if (roomData.teams) {
+          gameState.team1 = roomData.teams.player1 || { name: 'Team 1', players: [] };
+          gameState.team2 = roomData.teams.player2 || { name: 'Team 2', players: [] };
         } else {
-          isBatting = player === "player2";
+          // Fallback if teams data not available
+          gameState.team1 = { name: roomData.team1 || 'Team 1', players: [] };
+          gameState.team2 = { name: roomData.team2 || 'Team 2', players: [] };
         }
         
-        roleText.innerText = isBatting ? "Batting" : "Bowling";
-        
-        // Check if first innings is completed
-        const firstInningsCompletedSnap = await get(firstInningsCompletedRef);
-        if (firstInningsCompletedSnap.exists()) {
-          firstInningsCompleted = firstInningsCompletedSnap.val();
-        }
-        
-        // Check if second innings has started
-        const secondInningsStartedSnap = await get(secondInningsStartedRef);
-        if (secondInningsStartedSnap.exists()) {
-          secondInningsStarted = secondInningsStartedSnap.val();
-        }
-        
-        // Load first innings data if available
-        const firstInningsSnap = await get(firstInningsRef);
-        if (firstInningsSnap.exists()) {
-          firstInningsData = firstInningsSnap.val();
-          target = firstInningsData.runs + 1;
-          targetValue.innerText = target;
-          requiredRunRate.innerText = (target / currentFormat.totalOvers).toFixed(2);
+        // Set batting and bowling teams based on toss
+        if (roomData.tossWinner) {
+          const tossWinner = roomData.tossWinner;
+          const battingFirst = roomData.battingFirst;
           
-          // Show target display in second innings
-          if (secondInningsStarted) {
-            targetDisplay.style.display = "block";
-            chasingTeam = battingFirst === "team1" ? "team2" : "team1";
-          }
-        }
-        
-        // Set innings number
-        const inningsNumberEl = document.getElementById("inningsNumber");
-        inningsNumberEl.innerText = secondInningsStarted ? "2nd Innings" : "1st Innings";
-        
-        // Show declare button only for Test matches
-        if (format === "test" && isBatting && !secondInningsStarted) {
-          declareBtn.style.display = "block";
-        }
-        
-        // Load current match state
-        const liveStateSnap = await get(liveStateRef);
-        if (liveStateSnap.exists()) {
-          const state = liveStateSnap.val();
-          runs = state.runs || 0;
-          wickets = state.wickets || 0;
-          legalBalls = state.legalBalls || 0;
-          freeHit = state.freeHit || false;
-          freeHitNextBall = state.freeHitNextBall || false;
-          isPowerplay = state.isPowerplay || false;
-          isDeadOver = state.isDeadOver || false;
-          zerosThisOver = state.zerosThisOver || { player1: 0, player2: 0 };
-          lastOverRuns = state.lastOverRuns || 0;
-          lastOverWickets = state.lastOverWickets || 0;
-          lastWicketScore = state.lastWicketScore || 0;
-          ballByBall = state.ballByBall || {};
-          fallOfWickets = state.fallOfWickets || [];
-          batterWickets = state.batterWickets || {};
-          bowlerRuns = state.bowlerRuns || {};
-          batterPenalties = state.batterPenalties || {};
-          lastBatterRuns = state.lastBatterRuns || {};
-          overSummaries = state.overSummaries || [];
-          partnershipRuns = state.partnershipRuns || 0;
-          partnershipBalls = state.partnershipBalls || 0;
-          last5Runs = state.last5Runs || 0;
-          last5Wickets = state.last5Wickets || 0;
-          last5Balls = state.last5Balls || 0;
-          lastBoundaryTime = state.lastBoundaryTime || 0;
-          formRating = state.formRating || 50;
-          momentum = state.momentum || 50;
-          
-          // Update UI
-          updateScoreboard();
-          updateOverProgress();
-          updateOverSummaries();
-          updateMomentumBar();
-          updateFormRating();
-        }
-        
-        // Load current batter and bowler
-        const currentBatterSnap = await get(batterRef);
-        if (currentBatterSnap.exists()) {
-          currentBatter = currentBatterSnap.val();
-          updatePlayerComparison();
-        }
-        
-        const currentBowlerSnap = await get(bowlerRef);
-        if (currentBowlerSnap.exists()) {
-          currentBowler = currentBowlerSnap.val();
-          updatePlayerComparison();
-        }
-        
-        // Load batter stats
-        const batterStatsSnap = await get(ref(db, `rooms/${room}/batterStats`));
-        if (batterStatsSnap.exists()) {
-          batterStats = batterStatsSnap.val();
-        }
-        
-        // Load bowler stats
-        const bowlerStatsSnap = await get(ref(db, `rooms/${room}/bowlerStats`));
-        if (bowlerStatsSnap.exists()) {
-          bowlerStats = bowlerStatsSnap.val();
-        }
-        
-        // Load commentary
-        const commentarySnap = await get(commentaryRef);
-        if (commentarySnap.exists()) {
-          commentary = commentarySnap.val() || [];
-          updateCommentary();
+          gameState.battingTeam = battingFirst === 'player1' ? gameState.team1 : gameState.team2;
+          gameState.bowlingTeam = battingFirst === 'player1' ? gameState.team2 : gameState.team1;
+        } else {
+          // Default if toss data not available
+          gameState.battingTeam = gameState.team1;
+          gameState.bowlingTeam = gameState.team2;
         }
         
         // Update UI
-        updateScoreboard();
-        updateOverProgress();
-        updateOverSummaries();
-        updatePlayerComparison();
-        updateCommentary();
-        updateLiveTicker();
-        updateMomentumBar();
-        updateFormRating();
+        updateMatchTitle();
+        initializeScorecard();
+        generateCardButtons();
         
-        resultEl.innerText = isBatting ? "Select a card to bat" : "Waiting for batter to play...";
-        loadingSpinner.style.display = "none";
+        // Set up real-time listeners
+        setupEventListeners();
+        setupFirebaseListeners();
+        
+        // Initialize charts
+        initCharts();
+        
+        // Add welcome commentary
+        addCommentary('The match is about to begin!');
         
       } catch (error) {
-        console.error("Error loading teams:", error);
-        resultEl.innerHTML = `
-          Failed to load teams.<br>
-          Please check your internet connection and refresh.<br>
-          <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            Refresh Page
-          </button>
-        `;
-        resultEl.className = "error";
+        console.error('Error initializing game:', error);
+        alert('Failed to initialize game. Please try again.');
       }
     }
 
-    // Update scoreboard
-    function updateScoreboard() {
-      document.getElementById("runs").innerText = runs;
-      document.getElementById("wickets").innerText = wickets;
-      
-      const overs = Math.floor(legalBalls / 6);
-      const balls = legalBalls % 6;
-      document.getElementById("overs").innerText = `${overs}.${balls}`;
-      
-      const runRate = legalBalls > 0 ? (runs / (legalBalls / 6)).toFixed(2) : "0.00";
-      document.getElementById("runRate").innerText = runRate;
-      
-      // Update mini scorecard
-      miniScore.innerText = `${runs}/${wickets}`;
-      miniOvers.innerText = `${overs}.${balls}`;
-      miniScorecard.style.display = "block";
-      
-      // Update current RR
-      currentRR.innerText = runRate;
-      
-      // Update required RR for second innings
-      if (secondInningsStarted) {
-        const remainingBalls = (currentFormat.totalOvers * 6) - legalBalls;
-        const requiredRuns = target - runs;
-        const requiredRR = remainingBalls > 0 ? (requiredRuns / (remainingBalls / 6)).toFixed(2) : "0.00";
-        requiredRR.innerText = requiredRR;
-        tickerRequiredRate.innerText = requiredRR;
-      }
-      
-      // Update partnership
-      currentPartnership.innerText = partnershipRuns;
-      partnershipBallsEl.innerText = partnershipBalls;
-      tickerPartnership.innerText = partnershipRuns;
-      tickerPartnershipBalls.innerText = partnershipBalls;
-      
-      // Update run rate in ticker
-      tickerRunRate.innerText = runRate;
-    }
-
-    // Update over progress
-    function updateOverProgress() {
-      const ballsContainer = document.getElementById("ballsContainer");
-      ballsContainer.innerHTML = "";
-      
-      const ballsInOver = legalBalls % 6;
-      for (let i = 0; i < 6; i++) {
-        const ball = document.createElement("div");
-        ball.className = "ball";
-        
-        if (i < ballsInOver) {
-          ball.classList.add("bowled");
-          
-          // Get ball result
-          const overNumber = Math.floor(legalBalls / 6);
-          const ballIndex = overNumber * 6 + i;
-          if (ballByBall[ballIndex]) {
-            const ballResult = ballByBall[ballIndex];
-            
-            if (ballResult.wicket) {
-              ball.classList.add("wicket-ball");
-            } else if (ballResult.runs === 4) {
-              ball.classList.add("four-ball");
-            } else if (ballResult.runs === 6) {
-              ball.classList.add("six-ball");
-            } else if (ballResult.runs === 0) {
-              ball.classList.add("dot-ball");
-            }
-          }
-        }
-        
-        ballsContainer.appendChild(ball);
-      }
-      
-      document.getElementById("currentOverNumber").innerText = Math.floor(legalBalls / 6) + 1;
-    }
-
-    // Update over summaries
-    function updateOverSummaries() {
-      overSummaryList.innerHTML = "";
-      
-      overSummaries.forEach((over, index) => {
-        const overEl = document.createElement("div");
-        overEl.className = "over-summary";
-        overEl.innerHTML = `
-          <div class="over-number">Over ${index + 1}</div>
-          <div class="over-runs">${over.runs}/${over.wickets}</div>
-          <div class="over-bowler">${over.bowler}</div>
-        `;
-        overSummaryList.appendChild(overEl);
-      });
-    }
-
-    // Update player comparison
-    function updatePlayerComparison() {
-      if (currentBatter) {
-        document.getElementById("comparisonBatterName").innerText = currentBatter.name;
-        document.getElementById("comparisonBatterRuns").innerText = batterStats[currentBatter.name]?.runs || 0;
-        document.getElementById("comparisonBatterBalls").innerText = batterStats[currentBatter.name]?.balls || 0;
-        
-        const sr = batterStats[currentBatter.name]?.balls > 0 
-          ? ((batterStats[currentBatter.name].runs / batterStats[currentBatter.name].balls) * 100).toFixed(2)
-          : "0.00";
-        document.getElementById("comparisonBatterSR").innerText = sr;
-        
-        document.getElementById("comparisonBatterBoundaries").innerText = 
-          `${batterStats[currentBatter.name]?.fours || 0}/${batterStats[currentBatter.name]?.sixes || 0}`;
-      }
-      
-      if (currentBowler) {
-        document.getElementById("comparisonBowlerName").innerText = currentBowler.name;
-        
-        const overs = Math.floor(bowlerStats[currentBowler.name]?.balls / 6) || 0;
-        const balls = bowlerStats[currentBowler.name]?.balls % 6 || 0;
-        document.getElementById("comparisonBowlerOvers").innerText = `${overs}.${balls}`;
-        
-        document.getElementById("comparisonBowlerWickets").innerText = bowlerStats[currentBowler.name]?.wickets || 0;
-        
-        const er = bowlerStats[currentBowler.name]?.balls > 0 
-          ? ((bowlerStats[currentBowler.name].runs / bowlerStats[currentBowler.name].balls) * 6).toFixed(2)
-          : "0.00";
-        document.getElementById("comparisonBowlerER").innerText = er;
-        
-        document.getElementById("comparisonBowlerRuns").innerText = bowlerStats[currentBowler.name]?.runs || 0;
-      }
-    }
-
-    // Update commentary
-    function updateCommentary() {
-      commentaryBox.innerHTML = "";
-      
-      // Show last 10 commentary items
-      const recentCommentary = commentary.slice(-10);
-      
-      recentCommentary.forEach(item => {
-        const commentaryItem = document.createElement("div");
-        commentaryItem.className = "commentary-item";
-        
-        const overs = Math.floor(item.ball / 6);
-        const balls = item.ball % 6;
-        
-        commentaryItem.innerHTML = `
-          <span class="commentary-time">${overs}.${balls}:</span>
-          ${item.text}
-        `;
-        
-        commentaryBox.appendChild(commentaryItem);
-      });
-      
-      // Scroll to bottom
-      commentaryBox.scrollTop = commentaryBox.scrollHeight;
-    }
-
-    // Update live ticker
-    function updateLiveTicker() {
-      // Update last 5 overs
-      const last5Overs = overSummaries.slice(-5);
-      let last5Runs = 0;
-      let last5Wickets = 0;
-      
-      last5Overs.forEach(over => {
-        last5Runs += over.runs;
-        last5Wickets += over.wickets;
-      });
-      
-      tickerLast5.innerText = `${last5Runs}/${last5Wickets}`;
-    }
-
-    // Update momentum bar
-    function updateMomentumBar() {
-      momentumFill.style.width = `${momentum}%`;
-    }
-
-    // Update form rating
-    function updateFormRating() {
-      formRatingEl.innerText = formRating;
-    }
-
-    // Add commentary
-    function addCommentary(text, ballNumber) {
-      const commentaryItem = {
-        text: text,
-        ball: ballNumber || legalBalls,
-        timestamp: new Date().getTime()
+    // Update match title based on teams and format
+    function updateMatchTitle() {
+      const formatNames = {
+        "5": "T5",
+        "10": "T10",
+        "20": "T20",
+        "50": "ODI",
+        "test": "Test Match"
       };
       
-      commentary.push(commentaryItem);
+      const formatDisplay = formatNames[gameState.matchFormat] || gameState.matchFormat;
+      matchTitleEl.textContent = `${gameState.battingTeam.name} vs ${gameState.bowlingTeam.name} - ${formatDisplay}`;
       
-      // Keep only last 50 commentary items
-      if (commentary.length > 50) {
-        commentary = commentary.slice(-50);
+      if (gameState.isTestMatch) {
+        inningsTitleEl.textContent = `Innings ${gameState.innings} - Day ${gameState.currentDay}`;
+      } else {
+        inningsTitleEl.textContent = gameState.innings === 1 ? 'First Innings' : 'Second Innings';
       }
       
-      // Update Firebase
-      set(commentaryRef, commentary);
-      
-      // Update UI
-      updateCommentary();
+      // Show target in second innings
+      if (gameState.innings === 2) {
+        targetDisplayEl.textContent = `Target: ${gameState.target} runs`;
+        targetDisplayEl.style.display = 'block';
+      }
     }
 
-    // Check if powerplay
-    function checkPowerplay() {
-      const overNumber = Math.floor(legalBalls / 6) + 1;
+    // Initialize scorecard
+    function initializeScorecard() {
+      // Create batting scorecard
+      let scorecardHTML = `
+        <h4>${gameState.battingTeam.name} Batting</h4>
+        <table class="scorecard-table">
+          <tr>
+            <th>Batter</th>
+            <th>R</th>
+            <th>B</th>
+            <th>4s</th>
+            <th>6s</th>
+            <th>SR</th>
+          </tr>
+      `;
       
-      if (currentFormat.type === "test") {
-        isPowerplay = false;
-        powerplayIndicator.style.display = "none";
-        return;
+      gameState.battingTeam.players.forEach(player => {
+        scorecardHTML += `
+          <tr>
+            <td>${player}</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0.00</td>
+          </tr>
+        `;
+      });
+      
+      scorecardHTML += `
+        </table>
+        <h4>${gameState.bowlingTeam.name} Bowling</h4>
+        <table class="scorecard-table">
+          <tr>
+            <th>Bowler</th>
+            <th>O</th>
+            <th>M</th>
+            <th>R</th>
+            <th>W</th>
+            <th>ER</th>
+          </tr>
+      `;
+      
+      gameState.bowlingTeam.players.forEach(player => {
+        scorecardHTML += `
+          <tr>
+            <td>${player}</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0</td>
+            <td>0.00</td>
+          </tr>
+        `;
+      });
+      
+      scorecardHTML += `</table>`;
+      scorecardContainerEl.innerHTML = scorecardHTML;
+      
+      // Set initial batsman and bowler
+      if (gameState.battingTeam.players.length > 0) {
+        gameState.currentBatsman = {
+          name: gameState.battingTeam.players[0],
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          isOut: false
+        };
+        batsmanNameEl.textContent = gameState.currentBatsman.name;
+        batsmanStatsEl.textContent = `${gameState.currentBatsman.runs} (${gameState.currentBatsman.balls})`;
       }
       
-      if (Array.isArray(currentFormat.powerplayOvers)) {
-        // ODI format with multiple powerplay phases
-        for (let i = 0; i < currentFormat.powerplayOvers.length; i += 2) {
-          const start = currentFormat.powerplayOvers[i];
-          const end = currentFormat.powerplayOvers[i + 1];
+      if (gameState.bowlingTeam.players.length > 0) {
+        gameState.currentBowler = {
+          name: gameState.bowlingTeam.players[0],
+          overs: 0,
+          maidens: 0,
+          runs: 0,
+          wickets: 0,
+          ballsInOver: 0
+        };
+        bowlerNameEl.textContent = gameState.currentBowler.name;
+        bowlerStatsEl.textContent = `${gameState.currentBowler.wickets}-${gameState.currentBowler.runs} (${gameState.currentBowler.overs}.${gameState.currentBowler.ballsInOver})`;
+      }
+    }
+
+    // Generate card buttons
+    function generateCardButtons() {
+      cardsGridEl.innerHTML = '';
+      for (let i = 0; i <= 6; i++) {
+        const cardBtn = document.createElement('button');
+        cardBtn.className = `card-btn ${i === 0 ? 'zero' : ''}`;
+        cardBtn.textContent = i;
+        cardBtn.dataset.value = i;
+        
+        if (isSpectator) {
+          cardBtn.disabled = true;
+          cardBtn.classList.add('disabled');
+        } else {
+          cardBtn.addEventListener('click', () => playCard(i));
+        }
+        
+        cardsGridEl.appendChild(cardBtn);
+      }
+    }
+
+    // Set up event listeners
+    function setupEventListeners() {
+      chatSendBtn.addEventListener('click', sendChatMessage);
+      chatInputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+      });
+      
+      undoBtn.addEventListener('click', undoLastBall);
+      declareBtn.addEventListener('click', declareInnings);
+      followOnBtn.addEventListener('click', enableFollowOn);
+      settingsBtn.addEventListener('click', showSettings);
+      continueInningsBtn.addEventListener('click', continueToNextInnings);
+      continueDayBtn.addEventListener('click', continueToNextDay);
+      exportPDFBtn.addEventListener('click', exportSummaryPDF);
+      newMatchBtn.addEventListener('click', startNewMatch);
+      confirmBatterBtn.addEventListener('click', confirmNewBatsman);
+    }
+
+    // Set up Firebase listeners
+    function setupFirebaseListeners() {
+      // Listen for events
+      onValue(eventsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const events = snapshot.val();
+          gameState.events = Object.values(events);
           
-          if (overNumber >= start && overNumber <= end) {
-            isPowerplay = true;
-            powerplayIndicator.style.display = "inline";
-            return;
+          // Process the latest event if it's new
+          if (gameState.events.length > 0) {
+            const latestEvent = gameState.events[gameState.events.length - 1];
+            if (!gameState.lastEvent || latestEvent.timestamp !== gameState.lastEvent.timestamp) {
+              processEvent(latestEvent);
+              gameState.lastEvent = latestEvent;
+            }
           }
         }
-        
-        isPowerplay = false;
-        powerplayIndicator.style.display = "none";
-      } else {
-        // T20, T10, T5 format with single powerplay
-        isPowerplay = overNumber <= currentFormat.powerplayOvers;
-        powerplayIndicator.style.display = isPowerplay ? "inline" : "none";
-      }
-    }
-
-    // Check if dead over (ODI only)
-    function checkDeadOver() {
-      if (currentFormat.type !== "50") {
-        isDeadOver = false;
-        deadOverIndicator.style.display = "none";
-        return;
-      }
+      });
       
-      const overNumber = Math.floor(legalBalls / 6) + 1;
-      
-      for (let i = 0; i < currentFormat.deadOvers.length; i += 2) {
-        const start = currentFormat.deadOvers[i];
-        const end = currentFormat.deadOvers[i + 1];
-        
-        if (overNumber >= start && overNumber <= end) {
-          isDeadOver = true;
-          deadOverIndicator.style.display = "inline";
-          return;
+      // Listen for scoreboard updates
+      onValue(scoreboardRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const scoreboard = snapshot.val();
+          updateScoreboard(scoreboard);
         }
-      }
+      });
       
-      isDeadOver = false;
-      deadOverIndicator.style.display = "none";
-    }
-
-    // Check for free hit
-    function updateFreeHitIndicator() {
-      freeHitIndicator.style.display = freeHit ? "inline" : "none";
-    }
-
-    // Check for milestones
-    function checkMilestones(batterName, runsScored) {
-      const totalRuns = batterStats[batterName].runs;
-      
-      for (const milestone of milestoneLevels) {
-        if (totalRuns >= milestone && totalRuns - runsScored < milestone) {
-          addCommentary(`${batterName} reaches ${milestone} runs! ${commentaryPhrases.milestone[Math.floor(Math.random() * commentaryPhrases.milestone.length)]}`, legalBalls);
-          break;
+      // Listen for chat messages
+      onValue(chatRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const messages = snapshot.val();
+          updateChat(messages);
         }
-      }
+      });
     }
 
-    // Update partnership
-    function updatePartnership(runsToAdd, isWicket) {
-      if (isWicket) {
-        partnershipRuns = 0;
-        partnershipBalls = 0;
-      } else {
-        partnershipRuns += runsToAdd;
-        partnershipBalls++;
-      }
-      
-      // Update ticker
-      tickerPartnership.innerText = partnershipRuns;
-      tickerPartnershipBalls.innerText = partnershipBalls;
-      
-      // Update stats
-      currentPartnership.innerText = partnershipRuns;
-      partnershipBallsEl.innerText = partnershipBalls;
-    }
-
-    // Update last 5 overs stats
-    function updateLast5Overs(runsToAdd, isWicket) {
-      // Count balls in last 5 overs (30 balls)
-      if (last5Balls >= 30) {
-        // Remove the oldest ball from the count
-        const oldestBallIndex = legalBalls - 30;
-        if (ballByBall[oldestBallIndex]) {
-          last5Runs -= ballByBall[oldestBallIndex].runs;
-          if (ballByBall[oldestBallIndex].wicket) {
-            last5Wickets--;
+    // Initialize charts
+    function initCharts() {
+      const ctx = document.getElementById('runRateChart').getContext('2d');
+      runRateChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Run Rate',
+            data: [],
+            borderColor: '#1e88e5',
+            backgroundColor: 'rgba(30, 136, 229, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: 'white'
+              }
+            },
+            x: {
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: 'white'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: 'white'
+              }
+            }
           }
-          last5Balls--;
         }
-      }
-      
-      // Add current ball
-      last5Runs += runsToAdd;
-      if (isWicket) {
-        last5Wickets++;
-      }
-      last5Balls++;
-      
-      // Update ticker
-      tickerLast5.innerText = `${last5Runs}/${last5Wickets}`;
+      });
     }
 
-    // Update form rating and momentum
-    function updateFormAndMomentum(runsScored, isWicket, isBoundary) {
-      // Update form rating based on recent performance
-      if (isWicket) {
-        formRating = Math.max(0, formRating - 10);
-      } else if (runsScored > 0) {
-        formRating = Math.min(100, formRating + (runsScored * 2));
-      } else {
-        formRating = Math.max(0, formRating - 1);
+    // Play a card
+    async function playCard(cardValue) {
+      if (isSpectator) return;
+      
+      try {
+        // Disable buttons during processing
+        const cardButtons = document.querySelectorAll('.card-btn');
+        cardButtons.forEach(btn => {
+          btn.disabled = true;
+          btn.classList.add('disabled');
+        });
+        
+        // Create event object
+        const event = {
+          type: 'ball',
+          batsmanCard: cardValue,
+          bowlerCard: Math.floor(Math.random() * 7), // Random card for bowler (AI)
+          timestamp: Date.now(),
+          player: playerRole
+        };
+        
+        // Push event to Firebase
+        await push(eventsRef, event);
+        
+        // Re-enable buttons after a short delay
+        setTimeout(() => {
+          cardButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+          });
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Error playing card:', error);
+        alert('Failed to play card. Please try again.');
+        
+        // Re-enable buttons on error
+        const cardButtons = document.querySelectorAll('.card-btn');
+        cardButtons.forEach(btn => {
+          btn.disabled = false;
+          btn.classList.remove('disabled');
+        });
       }
-      
-      // Update momentum based on partnership and run rate
-      const partnershipRate = partnershipBalls > 0 ? (partnershipRuns / partnershipBalls) * 6 : 0;
-      const overallRate = legalBalls > 0 ? (runs / legalBalls) * 6 : 0;
-      
-      if (partnershipRate > overallRate) {
-        momentum = Math.min(100, momentum + 5);
-      } else {
-        momentum = Math.max(0, momentum - 5);
-      }
-      
-      // Boundary boosts momentum
-      if (isBoundary) {
-        momentum = Math.min(100, momentum + 10);
-        lastBoundaryTime = legalBalls;
-      }
-      
-      // Long time without boundary reduces momentum
-      if (legalBalls - lastBoundaryTime > 18) { // 3 overs without boundary
-        momentum = Math.max(0, momentum - 5);
-      }
-      
-      // Update UI
-      updateMomentumBar();
-      updateFormRating();
     }
 
-    // Process ball outcome
-    async function processBallOutcome(batterCard, bowlerCard) {
-      if (!gameInProgress || isProcessingSelection) return;
+    // Process a game event
+    function processEvent(event) {
+      if (event.type !== 'ball') return;
       
-      isProcessingSelection = true;
-      const ballNumber = legalBalls;
-      let runsScored = 0;
+      const batsmanCard = event.batsmanCard;
+      const bowlerCard = event.bowlerCard;
+      let runs = 0;
       let isWicket = false;
       let isNoBall = false;
-      let isBoundary = false;
-      let commentaryText = "";
+      let isFreeHit = gameState.isFreeHit;
+      let commentary = '';
       
-      // Reset free hit if it was active from previous ball
-      if (freeHit) {
-        freeHit = false;
-        freeHitNextBall = false;
-        updateFreeHitIndicator();
-      }
-      
-      // Check for no-ball (both zeros)
-      if (batterCard === 0 && bowlerCard === 0) {
+      // Apply HandiCricket rules
+      if (batsmanCard === 0 && bowlerCard === 0) {
+        // Both zeros: No-ball (+1 run, Free Hit next ball)
+        runs = 1;
         isNoBall = true;
-        runsScored = 1; // No ball gives 1 run
-        freeHitNextBall = true; // Next ball is free hit
-        commentaryText = `${commentaryPhrases.noBall[Math.floor(Math.random() * commentaryPhrases.noBall.length)]}`;
-        addCommentary(commentaryText, ballNumber);
-      }
-      
-      // Check for free hit
-      if (freeHitNextBall) {
-        freeHit = true;
-        freeHitNextBall = false;
-        updateFreeHitIndicator();
-        commentaryText = `${commentaryPhrases.freeHit[Math.floor(Math.random() * commentaryPhrases.freeHit.length)]}`;
-        addCommentary(commentaryText, ballNumber);
-      }
-      
-      // Process based on format rules
-      if (currentFormat.type === "test") {
-        // Test match rules
-        if (batterCard === 0 && bowlerCard > 0) {
-          // Dot ball
-          commentaryText = `${commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)]}`;
-        } else if (bowlerCard === 0 && batterCard > 0) {
-          // Runs scored
-          runsScored = batterCard;
-          commentaryText = runsScored === 1 
-            ? `${commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)]}`
-            : runsScored === 4 
-              ? `${commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)]}`
-              : runsScored === 6 
-                ? `${commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)]}`
-                : `${runsScored} runs scored`;
-        } else if (batterCard > 0 && bowlerCard > 0) {
-          if (batterCard === bowlerCard) {
-            // Wicket
-            isWicket = true;
-            commentaryText = `${commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)]}`;
-          } else {
-            // Runs scored (difference)
-            runsScored = Math.abs(batterCard - bowlerCard);
-            commentaryText = runsScored === 1 
-              ? `${commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)]}`
-              : runsScored === 4 
-                ? `${commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)]}`
-                : runsScored === 6 
-                  ? `${commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)]}`
-                  : `${runsScored} runs scored`;
-          }
-        }
+        gameState.isFreeHit = true;
+        commentary = `No ball! ${runs} run${runs !== 1 ? 's' : ''} added. Free Hit awarded!`;
+        
+      } else if (batsmanCard === bowlerCard && batsmanCard !== 0) {
+        // Same non-zero cards: Wicket
+        isWicket = true;
+        commentary = `OUT! ${gameState.currentBatsman.name} is dismissed!`;
+        
+      } else if (batsmanCard === 0) {
+        // Batter zero, bowler non-zero: runs = bowler's card
+        runs = bowlerCard;
+        commentary = `${runs} run${runs !== 1 ? 's' : ''} scored!`;
+        
+      } else if (bowlerCard === 0) {
+        // Bowler zero, batter non-zero: dot ball
+        runs = 0;
+        commentary = `Dot ball.`;
+        
       } else {
-        // Limited overs rules
-        if (isDeadOver) {
-          // Dead over rules (ODI only)
-          if (batterCard === 0 && bowlerCard > 0) {
-            // Dot ball
-            commentaryText = `${commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)]}`;
-          } else if (bowlerCard === 0 && batterCard > 0) {
-            // Dot ball in dead over
-            commentaryText = `${commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)]}`;
-          } else if (batterCard === 0 && bowlerCard === 0) {
-            // Dot ball in dead over
-            commentaryText = `${commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)]}`;
-          } else if (batterCard > 0 && bowlerCard > 0) {
-            if (batterCard === bowlerCard) {
-              // Wicket
-              isWicket = true;
-              commentaryText = `${commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)]}`;
-            } else {
-              // Runs scored (difference)
-              runsScored = Math.abs(batterCard - bowlerCard);
-              commentaryText = runsScored === 1 
-                ? `${commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)]}`
-                : runsScored === 4 
-                  ? `${commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)]}`
-                  : runsScored === 6 
-                    ? `${commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)]}`
-                    : `${runsScored} runs scored`;
-            }
-          }
-        } else {
-          // Normal over rules
-          if (batterCard === 0 && bowlerCard > 0) {
-            // Bowler's card value as runs
-            runsScored = bowlerCard;
-            commentaryText = runsScored === 1 
-              ? `${commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)]}`
-              : runsScored === 4 
-                ? `${commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)]}`
-                : runsScored === 6 
-                  ? `${commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)]}`
-                  : `${runsScored} runs scored`;
-          } else if (bowlerCard === 0 && batterCard > 0) {
-            // Dot ball
-            commentaryText = `${commentaryPhrases.dotBall[Math.floor(Math.random() * commentaryPhrases.dotBall.length)]}`;
-          } else if (batterCard > 0 && bowlerCard > 0) {
-            if (batterCard === bowlerCard) {
-              // Wicket
-              isWicket = true;
-              commentaryText = `${commentaryPhrases.wicket[Math.floor(Math.random() * commentaryPhrases.wicket.length)]}`;
-            } else {
-              // Runs scored (difference)
-              runsScored = Math.abs(batterCard - bowlerCard);
-              commentaryText = runsScored === 1 
-                ? `${commentaryPhrases.single[Math.floor(Math.random() * commentaryPhrases.single.length)]}`
-                : runsScored === 4 
-                  ? `${commentaryPhrases.boundary[Math.floor(Math.random() * commentaryPhrases.boundary.length)]}`
-                  : runsScored === 6 
-                    ? `${commentaryPhrases.six[Math.floor(Math.random() * commentaryPhrases.six.length)]}`
-                    : `${runsScored} runs scored`;
-            }
-          }
-        }
+        // Different non-zero cards: runs = batter's card
+        runs = batsmanCard;
+        commentary = `${runs} run${runs !== 1 ? 's' : ''} scored!`;
       }
       
-      // Check for boundary
-      if (runsScored === 4 || runsScored === 6) {
-        isBoundary = true;
-      }
-      
-      // Handle no-ball
-      if (isNoBall) {
-        runs += runsScored;
-        legalBalls--; // No ball doesn't count as a legal delivery
-      } else {
-        // Update runs and legal balls
-        runs += runsScored;
-        legalBalls++;
-      }
-      
-      // Update batter stats
-      if (currentBatter && !isNoBall) {
-        batterStats[currentBatter.name].runs += runsScored;
-        batterStats[currentBatter.name].balls++;
-        
-        if (runsScored === 4) {
-          batterStats[currentBatter.name].fours++;
-        } else if (runsScored === 6) {
-          batterStats[currentBatter.name].sixes++;
-        }
-        
-        // Update strike rate
-        batterStats[currentBatter.name].strikeRate = 
-          (batterStats[currentBatter.name].runs / batterStats[currentBatter.name].balls) * 100;
-          
-        // Check for milestones
-        checkMilestones(currentBatter.name, runsScored);
-      }
-      
-      // Update bowler stats
-      if (currentBowler && !isNoBall) {
-        bowlerStats[currentBowler.name].runs += runsScored;
-        bowlerStats[currentBowler.name].balls++;
-        
+      // Handle free hit
+      if (isFreeHit) {
         if (isWicket) {
-          bowlerStats[currentBowler.name].wickets++;
+          // Wicket on free hit is not out
+          isWicket = false;
+          commentary = `Wicket on Free Hit! ${gameState.currentBatsman.name} survives!`;
         }
+        runs += 1; // +1 run for free hit
+        gameState.isFreeHit = false; // Free hit consumed
+      }
+      
+      // Handle zeros count and penalties
+      if (batsmanCard === 0) {
+        gameState.batsmanZeroCount++;
+        if (gameState.batsmanZeroCount >= 4) {
+          // Penalty for 4th zero
+          runs -= 5;
+          commentary = `Penalty! ${gameState.currentBatsman.name} has too many zeros. -5 runs!`;
+          gameState.batsmanZeroCount = 0;
+        }
+      } else {
+        gameState.batsmanZeroCount = 0;
+      }
+      
+      if (bowlerCard === 0) {
+        gameState.bowlerZeroCount++;
+        if (gameState.bowlerZeroCount >= 4) {
+          // No-ball for 4th zero
+          runs += 1;
+          isNoBall = true;
+          commentary = `No ball! Bowler has too many zeros. +1 run!`;
+          gameState.bowlerZeroCount = 0;
+        }
+      } else {
+        gameState.bowlerZeroCount = 0;
+      }
+      
+      // Update game state
+      if (!isNoBall) {
+        gameState.ballsBowled++;
+        gameState.currentBowler.ballsInOver++;
         
-        // Update economy rate
-        bowlerStats[currentBowler.name].economy = 
-          (bowlerStats[currentBowler.name].runs / bowlerStats[currentBowler.name].balls) * 6;
+        // Update over count
+        if (gameState.currentBowler.ballsInOver >= 6) {
+          gameState.currentBowler.ballsInOver = 0;
+          gameState.currentBowler.overs++;
+          gameState.overs = parseFloat((gameState.overs + 0.1).toFixed(1));
           
-        // Update overs count
-        const overs = Math.floor(bowlerStats[currentBowler.name].balls / 6);
-        const balls = bowlerStats[currentBowler.name].balls % 6;
-        bowlerStats[currentBowler.name].overs = parseFloat(`${overs}.${balls}`);
+          // End of over processing
+          endOver();
+        }
+      }
+      
+      // Update runs and wickets
+      gameState.totalRuns += runs;
+      gameState.currentBatsman.runs += runs;
+      gameState.currentBatsman.balls++;
+      gameState.currentBowler.runs += runs;
+      
+      // Update boundaries count
+      if (runs === 4) {
+        gameState.currentBatsman.fours++;
+        commentary = `FOUR! ${gameState.currentBatsman.name} finds the boundary!`;
+      } else if (runs === 6) {
+        gameState.currentBatsman.sixes++;
+        commentary = `SIX! ${gameState.currentBatsman.name} with a massive hit!`;
       }
       
       // Handle wicket
-      if (isWicket && !freeHit) {
-        wickets++;
-        
-        // Update batter status
-        if (currentBatter) {
-          batterStats[currentBatter.name].status = "out";
-          batterStats[currentBatter.name].outBy = currentBowler?.name || "";
-          batterStats[currentBatter.name].wicketType = "bowled";
-        }
-        
-        // Record fall of wicket
-        fallOfWickets.push({
-          score: runs,
-          wicket: wickets,
-          batter: currentBatter?.name || "",
-          bowler: currentBowler?.name || "",
-          over: Math.floor(legalBalls / 6) + "." + (legalBalls % 6)
-        });
-        
-        // Reset current batter
-        currentBatter = null;
+      if (isWicket) {
+        gameState.wickets++;
+        gameState.currentBowler.wickets++;
+        gameState.currentBatsman.isOut = true;
         
         // Check if all out
-        if (wickets >= currentFormat.totalWickets) {
+        if (gameState.wickets >= gameState.battingTeam.players.length - 1) {
+          endInnings();
+        } else {
+          // Show batter selection overlay
+          showBatterSelection();
+        }
+      }
+      
+      // Update UI
+      updateLiveScore();
+      updatePlayerStats();
+      addCommentary(commentary);
+      
+      // Update Firebase scoreboard
+      updateFirebaseScoreboard();
+      
+      // Check for end of day in Test matches
+      if (gameState.isTestMatch && gameState.overs >= gameState.testOversPerDay) {
+        endDay();
+      }
+      
+      // Check for milestones
+      checkMilestones();
+    }
+
+    // Update live score display
+    function updateLiveScore() {
+      const over = Math.floor(gameState.ballsBowled / 6);
+      const ball = gameState.ballsBowled % 6;
+      liveScoreEl.textContent = `${gameState.totalRuns}/${gameState.wickets} (${over}.${ball} Ov)`;
+      currentOverEl.textContent = `Over: ${over}.${ball}`;
+      
+      // Update title with live score
+      document.title = `${gameState.totalRuns}/${gameState.wickets} - HandiCricket`;
+    }
+
+    // Update player stats display
+    function updatePlayerStats() {
+      batsmanStatsEl.textContent = `${gameState.currentBatsman.runs} (${gameState.currentBatsman.balls})`;
+      bowlerStatsEl.textContent = `${gameState.currentBowler.wickets}-${gameState.currentBowler.runs} (${gameState.currentBowler.overs}.${gameState.currentBowler.ballsInOver})`;
+    }
+
+    // Add commentary
+    function addCommentary(text) {
+      const over = Math.floor(gameState.ballsBowled / 6);
+      const ball = gameState.ballsBowled % 6;
+      
+      const commentaryItem = document.createElement('li');
+      commentaryItem.className = 'commentary-item';
+      commentaryItem.innerHTML = `<span class="commentary-over">${over}.${ball}</span> ${text}`;
+      
+      commentaryListEl.appendChild(commentaryItem);
+      commentaryListEl.scrollTop = commentaryListEl.scrollHeight;
+      
+      // Try to speak the commentary if TTS is available
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // Update Firebase scoreboard
+    function updateFirebaseScoreboard() {
+      const scoreboard = {
+        totalRuns: gameState.totalRuns,
+        wickets: gameState.wickets,
+        overs: gameState.overs,
+        currentBatsman: gameState.currentBatsman,
+        currentBowler: gameState.currentBowler,
+        batsmen: gameState.batsmen,
+        bowlers: gameState.bowlers,
+        innings: gameState.innings,
+        target: gameState.target
+      };
+      
+      set(scoreboardRef, scoreboard);
+    }
+
+    // End of over processing
+    function endOver() {
+      addCommentary(`End of over ${gameState.overs}. Score: ${gameState.totalRuns}/${gameState.wickets}`);
+      
+      // Update charts
+      updateCharts();
+      
+      // Check for end of innings in limited overs matches
+      if (!gameState.isTestMatch) {
+        const maxOvers = parseInt(gameState.matchFormat);
+        if (gameState.overs >= maxOvers) {
           endInnings();
         }
       }
-      
-      // Update partnership
-      updatePartnership(runsScored, isWicket);
-      
-      // Update last 5 overs
-      updateLast5Overs(runsScored, isWicket);
-      
-      // Update form and momentum
-      updateFormAndMomentum(runsScored, isWicket, isBoundary);
-      
-      // Record ball by ball
-      ballByBall[ballNumber] = {
-        runs: runsScored,
-        wicket: isWicket,
-        noBall: isNoBall,
-        freeHit: freeHit,
-        batter: currentBatter?.name || "",
-        bowler: currentBowler?.name || "",
-        batterCard: batterCard,
-        bowlerCard: bowlerCard
-      };
-      
-      // Add commentary
-      if (commentaryText) {
-        addCommentary(commentaryText, ballNumber);
-      }
-      
-      // Check for over completion
-      if (legalBalls % 6 === 0 && !isNoBall) {
-        endOver();
-      }
-      
-      // Update UI
-      updateScoreboard();
-      updateOverProgress();
-      updatePlayerComparison();
-      updateLiveTicker();
-      
-      // Save state to Firebase
-      await saveGameState();
-      
-      // Check for innings completion
-      if (legalBalls >= currentFormat.totalOvers * 6 && currentFormat.type !== "test") {
-        endInnings();
-      }
-      
-      isProcessingSelection = false;
     }
 
-    // End over
-    async function endOver() {
-      const overNumber = Math.floor(legalBalls / 6);
-      const overRuns = runs - lastOverRuns;
-      const overWickets = wickets - lastOverWickets;
-      
-      // Create over summary
-      const overSummary = {
-        number: overNumber,
-        runs: overRuns,
-        wickets: overWickets,
-        bowler: currentBowler?.name || "",
-        balls: ballByBall
-      };
-      
-      overSummaries.push(overSummary);
-      
-      // Update last over stats
-      lastOverRuns = runs;
-      lastOverWickets = wickets;
-      
-      // Reset zeros counter
-      zerosThisOver = { player1: 0, player2: 0 };
-      
-      // Change bowler if needed (not in Test matches)
-      if (currentFormat.type !== "test") {
-        await selectNewBowler();
-      }
-      
-      // Update UI
-      updateOverSummaries();
-      
-      // Add over end commentary
-      addCommentary(`End of over ${overNumber}. ${overRuns} runs and ${overWickets} wickets.`, legalBalls);
-    }
-
-    // End innings
-    async function endInnings() {
-      gameInProgress = false;
-      
-      // Record innings data
-      const inningsData = {
-        runs: runs,
-        wickets: wickets,
-        overs: Math.floor(legalBalls / 6) + "." + (legalBalls % 6),
-        runRate: legalBalls > 0 ? (runs / (legalBalls / 6)).toFixed(2) : "0.00",
-        batterStats: batterStats,
-        bowlerStats: bowlerStats,
-        fallOfWickets: fallOfWickets,
-        overSummaries: overSummaries
-      };
-      
-      if (!firstInningsCompleted) {
-        // First innings completed
-        firstInningsCompleted = true;
-        await set(firstInningsRef, inningsData);
-        await set(firstInningsCompletedRef, true);
+    // Update charts
+    function updateCharts() {
+      if (runRateChart) {
+        const overNumber = gameState.overs;
+        const runRate = gameState.overs > 0 ? (gameState.totalRuns / gameState.overs).toFixed(2) : 0;
         
-        // Set target
-        target = runs + 1;
-        targetValue.innerText = target;
-        requiredRunRate.innerText = (target / currentFormat.totalOvers).toFixed(2);
-        
-        // Show innings summary
-        showInningsSummary(inningsData, "First Innings");
-      } else {
-        // Second innings completed - match over
-        await saveMatchResult(inningsData);
+        runRateChart.data.labels.push(overNumber.toFixed(1));
+        runRateChart.data.datasets[0].data.push(parseFloat(runRate));
+        runRateChart.update();
       }
     }
 
-    // Show innings summary
-    function showInningsSummary(inningsData, title) {
-      summaryTitle.innerText = `${title} Summary`;
-      summaryTotalRuns.innerText = inningsData.runs;
-      summaryWickets.innerText = inningsData.wickets;
-      summaryOvers.innerText = inningsData.overs;
-      summaryRunRate.innerText = inningsData.runRate;
+    // End of innings processing
+    function endInnings() {
+      addCommentary(`Innings ended! Final score: ${gameState.totalRuns}/${gameState.wickets}`);
       
-      // Set highlight text
-      if (inningsData.runs >= 300) {
-        summaryHighlight.innerText = "Massive total posted!";
-      } else if (inningsData.runs >= 200) {
-        summaryHighlight.innerText = "Competitive total on the board.";
-      } else if (inningsData.runs >= 100) {
-        summaryHighlight.innerText = "Modest total to defend.";
-      } else {
-        summaryHighlight.innerText = "Low total, bowlers need to perform.";
-      }
-      
-      // Populate batters stats
-      battersStatsBody.innerHTML = "";
-      for (const [batter, stats] of Object.entries(inningsData.batterStats)) {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${batter}</td>
-          <td>${stats.runs}</td>
-          <td>${stats.balls</td>
-          <td>${stats.strikeRate.toFixed(2)}</td>
-          <td>${stats.fours}/${stats.sixes}</td>
-        `;
-        battersStatsBody.appendChild(row);
-      }
-      
-      // Populate bowlers stats
-      bowlersStatsBody.innerHTML = "";
-      for (const [bowler, stats] of Object.entries(inningsData.bowlerStats)) {
-        const overs = Math.floor(stats.balls / 6);
-        const balls = stats.balls % 6;
-        const oversFormatted = `${overs}.${balls}`;
+      // Calculate target for second innings (if first innings)
+      if (gameState.innings === 1) {
+        gameState.target = gameState.totalRuns + 1;
         
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${bowler}</td>
-          <td>${oversFormatted}</td>
-          <td>${stats.wickets}</td>
-          <td>${stats.runs}</td>
-          <td>${stats.economy.toFixed(2)}</td>
-        `;
-        bowlersStatsBody.appendChild(row);
+        // Show innings break overlay
+        inningsBreakTitleEl.textContent = 'Innings Break';
+        inningsBreakScoreEl.textContent = `${gameState.totalRuns}/${gameState.wickets}`;
+        inningsHighlightsEl.innerHTML = generateInningsHighlights();
+        inningsBreakOverlay.style.display = 'flex';
+      } else {
+        // Match completed
+        endMatch();
       }
-      
-      // Show target for second innings
-      if (firstInningsCompleted && !secondInningsStarted) {
-        summaryTargetDisplay.style.display = "flex";
-        summaryTargetValue.innerText = target;
-      }
-      
-      summaryPopup.style.display = "block";
     }
 
-    // Save match result
-    async function saveMatchResult(secondInningsData) {
-      // Determine winner
-      let winner = null;
-      let winMargin = null;
+    // Generate innings highlights
+    function generateInningsHighlights() {
+      // Find top scorer
+      let topScorer = { runs: 0 };
+      gameState.batsmen.forEach(batsman => {
+        if (batsman.runs > topScorer.runs) {
+          topScorer = batsman;
+        }
+      });
       
-      if (runs >= target) {
-        winner = chasingTeam;
-        winMargin = `${currentFormat.totalWickets - wickets} wickets`;
-      } else {
-        winner = battingFirst;
-        winMargin = `${target - runs - 1} runs`;
+      // Find best bowler
+      let bestBowler = { wickets: 0, runs: Infinity };
+      gameState.bowlers.forEach(bowler => {
+        const economy = bowler.runs / (bowler.overs + bowler.ballsInOver / 6);
+        if (bowler.wickets > bestBowler.wickets || 
+            (bowler.wickets === bestBowler.wickets && economy < bestBowler.runs)) {
+          bestBowler = {
+            name: bowler.name,
+            wickets: bowler.wickets,
+            runs: bowler.runs,
+            economy: economy.toFixed(2)
+          };
+        }
+      });
+      
+      return `
+        <p>Top Scorer: ${topScorer.name} - ${topScorer.runs} runs</p>
+        <p>Best Bowler: ${bestBowler.name} - ${bestBowler.wickets}/${bestBowler.runs} (ER: ${bestBowler.economy})</p>
+      `;
+    }
+
+    // End of day processing (Test matches)
+    function endDay() {
+      stumpsScoreEl.textContent = `${gameState.totalRuns}/${gameState.wickets}`;
+      stumpsOversEl.textContent = gameState.overs.toFixed(1);
+      currentDayEl.textContent = gameState.currentDay;
+      stumpsSummaryEl.innerHTML = generateStumpsSummary();
+      stumpsOverlay.style.display = 'flex';
+    }
+
+    // Generate stumps summary
+    function generateStumpsSummary() {
+      return `
+        <p>Day ${gameState.currentDay} comes to a close.</p>
+        <p>Run Rate: ${(gameState.totalRuns / gameState.overs).toFixed(2)}</p>
+        <p>Required Run Rate: ${(gameState.target > 0 ? ((gameState.target - gameState.totalRuns) / (gameState.testOversPerDay * (5 - gameState.currentDay))).toFixed(2) : 'N/A')}</p>
+      `;
+    }
+
+    // End of match processing
+    function endMatch() {
+      // Calculate result
+      let resultText = '';
+      if (gameState.innings === 2) {
+        if (gameState.totalRuns >= gameState.target) {
+          const wicketsLeft = 10 - gameState.wickets;
+          resultText = `${gameState.battingTeam.name} won by ${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}!`;
+        } else {
+          const runsShort = gameState.target - gameState.totalRuns - 1;
+          resultText = `${gameState.bowlingTeam.name} won by ${runsShort} run${runsShort !== 1 ? 's' : ''}!`;
+        }
       }
       
-      // Calculate player of the match
-      const pom = calculatePlayerOfTheMatch(secondInningsData);
+      // Generate awards
+      const awards = computeAwards();
       
-      // Calculate awards
-      const awards = calculateAwards(secondInningsData);
-      
-      // Create match result
-      const matchResult = {
-        winner: winner,
-        winMargin: winMargin,
-        playerOfTheMatch: pom,
-        awards: awards,
-        firstInnings: firstInningsData,
-        secondInnings: secondInningsData,
-        timestamp: new Date().getTime()
+      // Show match summary overlay
+      matchResultEl.textContent = resultText;
+      awardsGridEl.innerHTML = generateAwardsHTML(awards);
+      fullScorecardEl.innerHTML = generateFullScorecard();
+      matchSummaryOverlay.style.display = 'flex';
+    }
+
+    // Compute awards
+    function computeAwards() {
+      // This would be a more complex function in a real implementation
+      return {
+        playerOfMatch: gameState.currentBatsman.name,
+        topScorer: gameState.currentBatsman.name,
+        bestBowler: gameState.currentBowler.name,
+        mostSixes: gameState.currentBatsman.name
       };
-      
-      // Save to Firebase
-      await set(resultRef, matchResult);
-      
-      // Show match result
-      showMatchResult(matchResult);
     }
 
-    // Calculate player of the match
-    function calculatePlayerOfTheMatch(secondInningsData) {
-      // Simple algorithm to determine player of the match
-      // In a real implementation, this would be more sophisticated
-      
-      let bestPlayer = null;
-      let bestScore = 0;
-      
-      // Check batters from both innings
-      for (const [batter, stats] of Object.entries({...firstInningsData.batterStats, ...secondInningsData.batterStats})) {
-        const score = stats.runs * (stats.strikeRate / 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestPlayer = batter;
-        }
-      }
-      
-      // Check bowlers from both innings
-      for (const [bowler, stats] of Object.entries({...firstInningsData.bowlerStats, ...secondInningsData.bowlerStats})) {
-        const score = stats.wickets * 20 - stats.economy;
-        if (score > bestScore) {
-          bestScore = score;
-          bestPlayer = bowler;
-        }
-      }
-      
-      return bestPlayer;
-    }
-
-    // Calculate awards
-    function calculateAwards(secondInningsData) {
-      const awards = {};
-      
-      // Top scorer
-      let topScorer = null;
-      let topScore = 0;
-      
-      for (const [batter, stats] of Object.entries({...firstInningsData.batterStats, ...secondInningsData.batterStats})) {
-        if (stats.runs > topScore) {
-          topScore = stats.runs;
-          topScorer = batter;
-        }
-      }
-      
-      awards.topScorer = topScorer;
-      
-      // Best bowler
-      let bestBowler = null;
-      let bestBowling = 0;
-      
-      for (const [bowler, stats] of Object.entries({...firstInningsData.bowlerStats, ...secondInningsData.bowlerStats})) {
-        const bowlingPoints = stats.wickets * 20 - stats.economy;
-        if (bowlingPoints > bestBowling) {
-          bestBowling = bowlingPoints;
-          bestBowler = bowler;
-        }
-      }
-      
-      awards.bestBowler = bestBowler;
-      
-      // Strike rate king
-      let strikeRateKing = null;
-      let bestStrikeRate = 0;
-      
-      for (const [batter, stats] of Object.entries({...firstInningsData.batterStats, ...secondInningsData.batterStats})) {
-        if (stats.balls >= 10 && stats.strikeRate > bestStrikeRate) {
-          bestStrikeRate = stats.strikeRate;
-          strikeRateKing = batter;
-        }
-      }
-      
-      awards.strikeRateKing = strikeRateKing;
-      
-      // Economy king
-      let economyKing = null;
-      let bestEconomy = 100;
-      
-      for (const [bowler, stats] of Object.entries({...firstInningsData.bowlerStats, ...secondInningsData.bowlerStats})) {
-        if (stats.balls >= 12 && stats.economy < bestEconomy) {
-          bestEconomy = stats.economy;
-          economyKing = bowler;
-        }
-      }
-      
-      awards.economyKing = economyKing;
-      
-      return awards;
-    }
-
-    // Show match result
-    function showMatchResult(matchResult) {
-      summaryTitle.innerText = "Match Result";
-      summaryTotalRuns.innerText = matchResult.secondInnings.runs;
-      summaryWickets.innerText = matchResult.secondInnings.wickets;
-      summaryOvers.innerText = matchResult.secondInnings.overs;
-      summaryRunRate.innerText = matchResult.secondInnings.runRate;
-      
-      // Set highlight text
-      summaryHighlight.innerText = `${matchResult.winner} wins by ${matchResult.winMargin}`;
-      
-      // Show player of the match
-      pomDisplay.style.display = "flex";
-      pomValue.innerText = matchResult.playerOfTheMatch;
-      
-      // Show awards
-      awardsContainer.innerHTML = "";
-      awardsContainer.style.display = "block";
-      
-      const awardsHTML = `
-        <div class="award-item">
-          <div class="award-title">🏆 Top Scorer</div>
-          <div class="award-winner">${matchResult.awards.topScorer}</div>
+    // Generate awards HTML
+    function generateAwardsHTML(awards) {
+      return `
+        <div class="award-card">
+          <div class="award-icon">🏆</div>
+          <div class="award-title">Player of the Match</div>
+          <div class="award-winner">${awards.playerOfMatch}</div>
         </div>
-        <div class="award-item">
-          <div class="award-title">🏆 Best Bowler</div>
-          <div class="award-winner">${matchResult.awards.bestBowler}</div>
+        <div class="award-card">
+          <div class="award-icon">📊</div>
+          <div class="award-title">Top Scorer</div>
+          <div class="award-winner">${awards.topScorer}</div>
         </div>
-        <div class="award-item">
-          <div class="award-title">🏆 Strike Rate King</div>
-          <div class="award-winner">${matchResult.awards.strikeRateKing}</div>
+        <div class="award-card">
+          <div class="award-icon">🎯</div>
+          <div class="award-title">Best Bowler</div>
+          <div class="award-winner">${awards.bestBowler}</div>
         </div>
-        <div class="award-item">
-          <div class="award-title">🏆 Economy King</div>
-          <div class="award-winner">${matchResult.awards.economyKing}</div>
+        <div class="award-card">
+          <div class="award-icon">💥</div>
+          <div class="award-title">Most Sixes</div>
+          <div class="award-winner">${awards.mostSixes}</div>
         </div>
       `;
-      
-      awardsContainer.innerHTML = awardsHTML;
-      
-      // Change button to go to match summary
-      startSecondInningsBtn.innerText = "View Match Summary";
-      startSecondInningsBtn.onclick = () => {
-        window.location.href = `match_summary.html?room=${room}`;
-      };
-      
-      summaryPopup.style.display = "block";
     }
 
-    // Select new batter
-    async function selectNewBatter() {
-      const availableBatters = team1Players.filter(p => 
-        batterStats[p.name].status === "not out" && p.name !== currentBatter?.name
-      );
+    // Generate full scorecard
+    function generateFullScorecard() {
+      // This would generate a complete scorecard in a real implementation
+      return `
+        <h4>${gameState.battingTeam.name} ${gameState.totalRuns}/${gameState.wickets} (${gameState.overs} Ov)</h4>
+        <p>Full scorecard would be displayed here.</p>
+      `;
+    }
+
+    // Show batter selection overlay
+    function showBatterSelection() {
+      availableBattersEl.innerHTML = '';
+      
+      // Find available batters (not out and not current)
+      const availableBatters = gameState.battingTeam.players.filter(player => {
+        const isOut = gameState.batsmen.some(b => b.name === player && b.isOut);
+        return !isOut && player !== gameState.currentBatsman.name;
+      });
       
       if (availableBatters.length === 0) {
+        // No available batters (shouldn't happen)
         endInnings();
         return;
       }
       
-      selectionTitle.innerText = "Select Next Batter";
-      selectionList.innerHTML = "";
-      
+      // Create selection options
       availableBatters.forEach(batter => {
-        const btn = document.createElement("button");
-        btn.className = "selection-btn";
-        btn.innerText = batter.name;
-        btn.onclick = () => {
-          currentBatter = batter;
-          selectionModal.style.display = "none";
-          updatePlayerComparison();
-          resultEl.innerText = isBatting ? "Select a card to bat" : "Waiting for batter to play...";
-        };
-        selectionList.appendChild(btn);
+        const label = document.createElement('label');
+        label.innerHTML = `
+          <input type="radio" name="newBatter" value="${batter}">
+          ${batter}
+        `;
+        label.addEventListener('change', () => {
+          selectedNewBatsman = batter;
+          confirmBatterBtn.disabled = false;
+        });
+        availableBattersEl.appendChild(label);
       });
       
-      selectionModal.style.display = "block";
+      batterSelectionOverlay.style.display = 'flex';
     }
 
-    // Select new bowler
-    async function selectNewBowler() {
-      const availableBowlers = team2Players.filter(p => {
-        const oversBowled = Math.floor(bowlerStats[p.name].balls / 6);
-        return oversBowled < currentFormat.bowlerMaxOvers;
-      });
+    // Confirm new batsman selection
+    function confirmNewBatsman() {
+      if (!selectedNewBatsman) return;
       
-      if (availableBowlers.length === 0) {
-        // No bowlers left, use anyone
-        currentBowler = team2Players[0];
-        return;
-      }
-      
-      // Simple rotation - just pick the next bowler
-      const currentIndex = team2Players.findIndex(p => p.name === currentBowler?.name);
-      let nextIndex = (currentIndex + 1) % team2Players.length;
-      
-      // Make sure the next bowler hasn't reached their over limit
-      let attempts = 0;
-      while (attempts < team2Players.length) {
-        const potentialBowler = team2Players[nextIndex];
-        const oversBowled = Math.floor(bowlerStats[potentialBowler.name].balls / 6);
-        
-        if (oversBowled < currentFormat.bowlerMaxOvers) {
-          currentBowler = potentialBowler;
-          break;
-        }
-        
-        nextIndex = (nextIndex + 1) % team2Players.length;
-        attempts++;
-      }
-      
-      // If we couldn't find a bowler, just pick the first one
-      if (!currentBowler) {
-        currentBowler = team2Players[0];
-      }
-      
-      updatePlayerComparison();
-    }
-
-    // Save game state to Firebase
-    async function saveGameState() {
-      const state = {
-        runs: runs,
-        wickets: wickets,
-        legalBalls: legalBalls,
-        freeHit: freeHit,
-        freeHitNextBall: freeHitNextBall,
-        isPowerplay: isPowerplay,
-        isDeadOver: isDeadOver,
-        zerosThisOver: zerosThisOver,
-        lastOverRuns: lastOverRuns,
-        lastOverWickets: lastOverWickets,
-        lastWicketScore: lastWicketScore,
-        ballByBall: ballByBall,
-        fallOfWickets: fallOfWickets,
-        batterWickets: batterWickets,
-        bowlerRuns: bowlerRuns,
-        batterPenalties: batterPenalties,
-        lastBatterRuns: lastBatterRuns,
-        overSummaries: overSummaries,
-        partnershipRuns: partnershipRuns,
-        partnershipBalls: partnershipBalls,
-        last5Runs: last5Runs,
-        last5Wickets: last5Wickets,
-        last5Balls: last5Balls,
-        lastBoundaryTime: lastBoundaryTime,
-        formRating: formRating,
-        momentum: momentum
+      // Set new batsman
+      gameState.currentBatsman = {
+        name: selectedNewBatsman,
+        runs: 0,
+        balls: 0,
+        fours: 0,
+        sixes: 0,
+        isOut: false
       };
       
-      await set(liveStateRef, state);
-      await set(batterRef, currentBatter);
-      await set(bowlerRef, currentBowler);
-      await set(ref(db, `rooms/${room}/batterStats`), batterStats);
-      await set(ref(db, `rooms/${room}/bowlerStats`), bowlerStats);
+      // Update UI
+      batsmanNameEl.textContent = gameState.currentBatsman.name;
+      batsmanStatsEl.textContent = `${gameState.currentBatsman.runs} (${gameState.currentBatsman.balls})`;
+      
+      // Hide overlay
+      batterSelectionOverlay.style.display = 'none';
+      selectedNewBatsman = null;
+      confirmBatterBtn.disabled = true;
+      
+      addCommentary(`New batter ${gameState.currentBatsman.name} comes to the crease.`);
     }
 
-    // Declare innings (Test matches only)
-    async function declareInnings() {
-      if (currentFormat.type !== "test" || !isBatting || secondInningsStarted) {
-        return;
+    // Continue to next innings
+    function continueToNextInnings() {
+      inningsBreakOverlay.style.display = 'none';
+      
+      if (gameState.innings === 1) {
+        // Switch to second innings
+        gameState.innings = 2;
+        
+        // Swap batting and bowling teams
+        const temp = gameState.battingTeam;
+        gameState.battingTeam = gameState.bowlingTeam;
+        gameState.bowlingTeam = temp;
+        
+        // Reset score but keep target
+        gameState.totalRuns = 0;
+        gameState.wickets = 0;
+        gameState.ballsBowled = 0;
+        gameState.overs = 0;
+        gameState.batsmen = [];
+        gameState.bowlers = [];
+        
+        // Update UI
+        updateMatchTitle();
+        initializeScorecard();
+        updateLiveScore();
+        
+        addCommentary(`Second innings begins. ${gameState.battingTeam.name} needs ${gameState.target} runs to win.`);
       }
+    }
+
+    // Continue to next day (Test matches)
+    function continueToNextDay() {
+      stumpsOverlay.style.display = 'none';
+      gameState.currentDay++;
+      gameState.overs = 0; // Reset overs for new day
+      updateMatchTitle();
+      addCommentary(`Day ${gameState.currentDay} begins.`);
+    }
+
+    // Declare innings (Test matches)
+    function declareInnings() {
+      if (!gameState.isTestMatch) return;
       
-      const confirmDeclare = confirm("Are you sure you want to declare the innings?");
-      if (!confirmDeclare) return;
-      
-      // Set declared flag
-      declaredInnings = true;
-      await set(declareRef, true);
-      
-      // End innings
+      gameState.declared = true;
+      addCommentary(`${gameState.battingTeam.name} has declared the innings!`);
       endInnings();
-      
-      // Add commentary
-      addCommentary("The batting captain has declared the innings!", legalBalls);
     }
 
-    // Initialize game
-    async function initGame() {
-      try {
-        loadingSpinner.style.display = "block";
-        resultEl.innerText = "Loading game...";
+    // Enable follow-on (Test matches)
+    function enableFollowOn() {
+      if (!gameState.isTestMatch) return;
+      
+      // Check if follow-on is possible (lead of 200+ runs)
+      if (gameState.totalRuns >= 200) {
+        gameState.followOnEnabled = true;
+        addCommentary(`Follow-on has been enforced!`);
         
-        // Load teams and format
-        await loadPlaying11();
-        
-        // Set up event listeners
-        buttons.forEach(btn => {
-          btn.addEventListener("click", async () => {
-            if (!isBatting || !gameInProgress || isProcessingSelection) return;
-            
-            const cardValue = parseInt(btn.dataset.value);
-            selectedCardValue = cardValue;
-            
-            // Show selected card
-            btn.classList.add("selected");
-            setTimeout(() => btn.classList.remove("selected"), 500);
-            
-            // Send play to Firebase
-            await set(playsRef, {
-              player: player,
-              card: cardValue,
-              timestamp: new Date().getTime()
-            });
-            
-            resultEl.innerText = "Waiting for bowler to play...";
-          });
-        });
-        
-        // Set up Firebase listeners
-        onValue(playsRef, async (snapshot) => {
-          if (!snapshot.exists()) return;
-          
-          const play = snapshot.val();
-          
-          // Ignore own plays
-          if (play.player === player) return;
-          
-          // If we're batting, we've already played, so process the outcome
-          if (isBatting && selectedCardValue !== null) {
-            await processBallOutcome(selectedCardValue, play.card);
-            selectedCardValue = null;
-            
-            // Reset plays
-            await set(playsRef, null);
-          } 
-          // If we're bowling, we need to play our card
-          else if (!isBatting) {
-            resultEl.innerText = "Select a card to bowl";
-            
-            // Set up button listeners for bowling
-            buttons.forEach(btn => {
-              const handler = async () => {
-                if (isProcessingSelection) return;
-                
-                const cardValue = parseInt(btn.dataset.value);
-                
-                // Show selected card
-                btn.classList.add("selected");
-                setTimeout(() => btn.classList.remove("selected"), 500);
-                
-                // Process the outcome
-                await processBallOutcome(play.card, cardValue);
-                
-                // Reset plays
-                await set(playsRef, null);
-                
-                // Remove event listeners to prevent multiple triggers
-                buttons.forEach(b => b.removeEventListener("click", handler));
-              };
-              
-              btn.addEventListener("click", handler, { once: true });
-            });
-          }
-        });
-        
-        // Listen for batter selection
-        onValue(batterRef, (snapshot) => {
-          if (snapshot.exists()) {
-            currentBatter = snapshot.val();
-            updatePlayerComparison();
-          }
-        });
-        
-        // Listen for bowler selection
-        onValue(bowlerRef, (snapshot) => {
-          if (snapshot.exists()) {
-            currentBowler = snapshot.val();
-            updatePlayerComparison();
-          }
-        });
-        
-        // Listen for declare request
-        onValue(declareRef, (snapshot) => {
-          if (snapshot.exists() && snapshot.val() === true) {
-            declaredInnings = true;
-            endInnings();
-            addCommentary("The batting captain has declared the innings!", legalBalls);
-          }
-        });
-        
-        // Set up other event listeners
-        declareBtn.addEventListener("click", declareInnings);
-        
-        showTeamsBtn.addEventListener("click", () => {
-          teamsModal.style.display = "block";
-        });
-        
-        closeTeamsBtn.addEventListener("click", () => {
-          teamsModal.style.display = "none";
-        });
-        
-        startSecondInningsBtn.addEventListener("click", async () => {
-          summaryPopup.style.display = "none";
-          
-          // Reset game state for second innings
-          runs = 0;
-          wickets = 0;
-          legalBalls = 0;
-          freeHit = false;
-          freeHitNextBall = false;
-          isPowerplay = false;
-          isDeadOver = false;
-          zerosThisOver = { player1: 0, player2: 0 };
-          lastOverRuns = 0;
-          lastOverWickets = 0;
-          lastWicketScore = 0;
-          ballByBall = {};
-          fallOfWickets = [];
-          batterWickets = {};
-          bowlerRuns = {};
-          batterPenalties = {};
-          lastBatterRuns = {};
-          overSummaries = [];
-          partnershipRuns = 0;
-          partnershipBalls = 0;
-          last5Runs = 0;
-          last5Wickets = 0;
-          last5Balls = 0;
-          lastBoundaryTime = 0;
-          formRating = 50;
-          momentum = 50;
-          
-          // Swap batting and bowling
-          isBatting = !isBatting;
-          roleText.innerText = isBatting ? "Batting" : "Bowling";
-          
-          // Reset batter stats for second innings
-          const battingTeam = isBatting ? team1Players : team2Players;
-          battingTeam.forEach(player => {
-            batterStats[player.name] = {
-              runs: 0,
-              balls: 0,
-              fours: 0,
-              sixes: 0,
-              status: "not out",
-              outBy: "",
-              wicketType: "",
-              strikeRate: 0,
-              partnershipRuns: 0,
-              partnershipBalls: 0
-            };
-          });
-          
-          // Reset bowler stats for second innings
-          const bowlingTeam = isBatting ? team2Players : team1Players;
-          bowlingTeam.forEach(player => {
-            bowlerStats[player.name] = {
-              runs: 0,
-              balls: 0,
-              maidens: 0,
-              wickets: 0,
-              economy: 0,
-              overs: 0
-            };
-          });
-          
-          // Set second innings started
-          secondInningsStarted = true;
-          await set(secondInningsStartedRef, true);
-          
-          // Update innings number
-          document.getElementById("inningsNumber").innerText = "2nd Innings";
-          
-          // Show target display
-          targetDisplay.style.display = "block";
-          chasingTeam = battingFirst === "team1" ? "team2" : "team1";
-          
-          // Select initial batter and bowler
-          if (isBatting) {
-            await selectNewBatter();
-          } else {
-            await selectNewBowler();
-          }
-          
-          // Save game state
-          await saveGameState();
-          
-          // Update UI
-          updateScoreboard();
-          updateOverProgress();
-          updateOverSummaries();
-          updatePlayerComparison();
-          updateCommentary();
-          updateLiveTicker();
-          updateMomentumBar();
-          updateFormRating();
-          
-          gameInProgress = true;
-          resultEl.innerText = isBatting ? "Select a card to bat" : "Waiting for batter to play...";
-        });
-        
-        // Set up stats navigation
-        let currentStatsSlide = 0;
-        
-        prevStatsBtn.addEventListener("click", () => {
-          if (currentStatsSlide > 0) {
-            currentStatsSlide--;
-            statsSlider.style.transform = `translateX(-${currentStatsSlide * 100}%)`;
-            updateStatsNavButtons();
-          }
-        });
-        
-        nextStatsBtn.addEventListener("click", () => {
-          if (currentStatsSlide < 1) {
-            currentStatsSlide++;
-            statsSlider.style.transform = `translateX(-${currentStatsSlide * 100}%)`;
-            updateStatsNavButtons();
-          }
-        });
-        
-        function updateStatsNavButtons() {
-          prevStatsBtn.disabled = currentStatsSlide === 0;
-          nextStatsBtn.disabled = currentStatsSlide === 1;
-          
-          // Update nav dots
-          document.querySelectorAll(".team-nav-dot").forEach((dot, index) => {
-            if (index === currentStatsSlide) {
-              dot.classList.add("active");
-            } else {
-              dot.classList.remove("active");
-            }
-          });
-        }
-        
-        // Set initial batter and bowler if not set
-        if (!currentBatter && isBatting) {
-          await selectNewBatter();
-        }
-        
-        if (!currentBowler && !isBatting) {
-          await selectNewBowler();
-        }
-        
-        loadingSpinner.style.display = "none";
-        resultEl.innerText = isBatting ? "Select a card to bat" : "Waiting for batter to play...";
-        
-      } catch (error) {
-        console.error("Error initializing game:", error);
-        resultEl.innerHTML = `
-          Failed to initialize game.<br>
-          Please check your internet connection and refresh.<br>
-          <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            Refresh Page
-          </button>
-        `;
-        resultEl.className = "error";
-        loadingSpinner.style.display = "none";
+        // Immediately start next innings
+        continueToNextInnings();
       }
     }
 
-    // Start the game
-    initGame();
+    // Undo last ball
+    function undoLastBall() {
+      // This would be implemented to revert the last event
+      addCommentary('Undo feature would be implemented here.');
+    }
+
+    // Show settings
+    function showSettings() {
+      // This would show a settings modal
+      alert('Settings would be shown here.');
+    }
+
+    // Send chat message
+    async function sendChatMessage() {
+      const message = chatInputEl.value.trim();
+      if (!message) return;
+      
+      try {
+        await push(chatRef, {
+          user: username || 'Anonymous',
+          message: message,
+          timestamp: Date.now()
+        });
+        
+        chatInputEl.value = '';
+      } catch (error) {
+        console.error('Error sending chat message:', error);
+      }
+    }
+
+    // Update chat display
+    function updateChat(messages) {
+      chatMessagesEl.innerHTML = '';
+      
+      Object.values(messages).forEach(msg => {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'chat-message';
+        messageEl.innerHTML = `<strong>${msg.user}:</strong> ${msg.message}`;
+        chatMessagesEl.appendChild(messageEl);
+      });
+      
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    // Update scoreboard from Firebase
+    function updateScoreboard(scoreboard) {
+      // This would update the local game state from Firebase
+      gameState.totalRuns = scoreboard.totalRuns || 0;
+      gameState.wickets = scoreboard.wickets || 0;
+      gameState.overs = scoreboard.overs || 0;
+      gameState.currentBatsman = scoreboard.currentBatsman || gameState.currentBatsman;
+      gameState.currentBowler = scoreboard.currentBowler || gameState.currentBowler;
+      gameState.innings = scoreboard.innings || 1;
+      gameState.target = scoreboard.target || 0;
+      
+      updateLiveScore();
+      updatePlayerStats();
+    }
+
+    // Check for milestones
+    function checkMilestones() {
+      // Check for 50
+      if (gameState.currentBatsman.runs >= 50 && gameState.currentBatsman.runs < 55) {
+        showMilestonePopup(`${gameState.currentBatsman.name} scores a FIFTY!`);
+      }
+      
+      // Check for 100
+      if (gameState.currentBatsman.runs >= 100 && gameState.currentBatsman.runs < 105) {
+        showMilestonePopup(`CENTURY for ${gameState.currentBatsman.name}! What an innings!`);
+      }
+      
+      // Check for 5 wickets
+      if (gameState.currentBowler.wickets >= 5) {
+        showMilestonePopup(`5-wicket haul for ${gameState.currentBowler.name}! Brilliant bowling!`);
+      }
+    }
+
+    // Show milestone popup
+    function showMilestonePopup(text) {
+      const popup = document.createElement('div');
+      popup.className = 'milestone-popup';
+      popup.textContent = text;
+      popup.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: gold;
+        font-size: 24px;
+        font-weight: bold;
+        padding: 20px 40px;
+        border-radius: 10px;
+        z-index: 2000;
+        animation: fadeInOut 3s ease;
+      `;
+      
+      document.body.appendChild(popup);
+      
+      setTimeout(() => {
+        document.body.removeChild(popup);
+      }, 3000);
+    }
+
+    // Export summary as PDF
+    function exportSummaryPDF() {
+      // This would use jsPDF to export the match summary
+      alert('PDF export would be implemented here.');
+    }
+
+    // Start new match
+    function startNewMatch() {
+      window.location.href = 'index.html';
+    }
+
+    // Initialize the game when the page loads
+    window.addEventListener('load', initGame);
   </script>
 </body>
 </html>
