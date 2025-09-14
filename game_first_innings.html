@@ -1441,6 +1441,11 @@
       }
     }
 </style>
+
+  <!-- Added for export features -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
 </head>
 <body>
   <div class="stadium-effects">
@@ -1573,7 +1578,13 @@
     <div id="topControls">
       <button id="saveBtn">💾 Save & Exit</button>
       <button id="exitBtn">🚪 Exit Without Saving</button>
-      <button id="resetPlaysBtn">🔄 Reset Plays</button>
+      <button id="resetPlaysBtn"
+      <button id="declareBtn" title="Declare Innings" style="background:#ffeb3b;color:#000;">📣 Declare</button>
+      <button id="enforceFollowOnBtn" title="Enforce Follow-On" style="background:#1e88e5;color:#fff;display:none;">✊ Enforce Follow-On</button>
+      <button id="superOverBtn" title="Start Super Over" style="background:#9c27b0;color:#fff;display:none;">⚡ Super Over</button>
+      <button id="exportPDFBtn" title="Export Summary (PDF)" style="background:#4caf50;color:#fff;">📄 Export PDF</button>
+      <button id="shareResultBtn" title="Share Result" style="background:#03a9f4;color:#fff;">🔗 Share</button>
+>🔄 Reset Plays</button>
     </div>
     <div id="connectionStatus" class="online">
       Opponent: Online
@@ -1786,6 +1797,13 @@
     const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
     const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
     const commentaryRef = ref(db, `rooms/${room}/commentary`);
+
+    // ======= Added persistent history & career refs =======
+    const matchHistoryRef = ref(db, `rooms/${room}/matchHistory`);
+    const careerStatsRef = ref(db, `rooms/${room}/careerStats`);
+    const matchMetaRef = ref(db, `rooms/${room}/matchMeta`);
+    // ====================================================
+
     
     // Format rules
     const formatRules = {
@@ -1829,6 +1847,18 @@
 
     // Game state variables
     let runs = 0, wickets = 0;
+    // ======= Test-match & career tracking vars (added) =======
+    let inningsNumber = 1;               // 1..4 (test)
+    let inningsData = { 1: null, 2: null, 3: null, 4: null };
+    let declaredBy = null;
+    let followOnEnforced = false;
+    let careerStats = {};
+    let matchHistoryLocal = [];
+    let superOverMode = false;
+    let superOverData = { teamA: null, teamB: null };
+    let unlimitedOversMode = false;
+    // =======================================================
+
     let legalBalls = 0;
     let freeHit = false;
     let freeHitNextBall = false;
@@ -2099,6 +2129,20 @@
           team2NameDisplay.textContent = teams.player2.name || "Team B";
           team2Players = teams.player2.players;
           team2PlayersEl.innerHTML = team2Players.map(p => `<li>${p}</li>`).join('');
+
+        // ======= initialize careerStats cache for players (auto-inserted) =======
+        try {
+          const snap = await get(careerStatsRef);
+          careerStats = snap.exists() ? snap.val() : {};
+          [...team1Players, ...team2Players].forEach(p => {
+            careerStats[p] = careerStats[p] || { matches:0, runs:0, wickets:0, balls:0, dotBalls:0, fours:0, sixes:0 };
+          });
+        } catch(e) {
+          console.warn("Could not load career stats:", e);
+          careerStats = {};
+        }
+        // ================================================================
+
         }
 
         // Validate we have players
@@ -2136,6 +2180,235 @@
         lastBatterRuns[player] = 0;
       });
     }
+
+// ================= New Test / Stats / Save / Export functions =================
+
+// ---------- 1) Utility: persist career stats (merge & write to Firebase) ----------
+async function saveCareerStatsToFirebase() {
+  try {
+    const snap = await getWithRetries(careerStatsRef, 3, 500);
+    let remote = snap.exists() ? snap.val() : {};
+    const merged = { ...remote };
+    for (const player in careerStats) {
+      merged[player] = merged[player] || { matches:0, runs:0, wickets:0, balls:0, dotBalls:0, fours:0, sixes:0 };
+      merged[player].matches += careerStats[player].matches || 0;
+      merged[player].runs += careerStats[player].runs || 0;
+      merged[player].wickets += careerStats[player].wickets || 0;
+      merged[player].balls += careerStats[player].balls || 0;
+      merged[player].dotBalls += careerStats[player].dotBalls || 0;
+      merged[player].fours += careerStats[player].fours || 0;
+      merged[player].sixes += careerStats[player].sixes || 0;
+    }
+    await set(ref(db, `rooms/${room}/careerStats`), merged);
+    console.log("Career stats saved.");
+  } catch (err) {
+    console.warn("Failed saving career stats:", err);
+  }
+}
+
+// ---------- 2) Save match result + history ----------
+async function saveMatchResultToHistory(resultObj) {
+  try {
+    const pushRef = push(matchHistoryRef);
+    await set(pushRef, resultObj);
+    matchHistoryLocal.push(resultObj);
+    try { localStorage.setItem(`handicricket_history_${room}`, JSON.stringify(matchHistoryLocal)); } catch(e){}
+    console.log("Match saved to history.");
+    await saveCareerStatsToFirebase();
+  } catch (err) {
+    console.error("Error saving match history:", err);
+  }
+}
+
+// ---------- 3) Follow-on check ----------
+function checkAndOfferFollowOn() {
+  if (currentFormat && currentFormat.name === "Test Match" && inningsData[1] && inningsData[2]) {
+    const lead = inningsData[1].runs - inningsData[2].runs;
+    if (lead >= (currentFormat.followOnLead || 200)) {
+      document.getElementById('enforceFollowOnBtn').style.display = 'inline-block';
+      showNotification(`Follow-on available: Lead ${lead} runs.`, 'info');
+    } else {
+      document.getElementById('enforceFollowOnBtn').style.display = 'none';
+    }
+  }
+}
+
+// ---------- 4) Enforce follow-on handler ----------
+function enforceFollowOn() {
+  if (followOnEnforced) return;
+  followOnEnforced = true;
+  showNotification("Follow-on enforced. Teams swapped: batting continues.", 'info');
+  document.getElementById('enforceFollowOnBtn').style.display = 'none';
+  set(ref(db, `rooms/${room}/matchMeta/followOnEnforced`), true);
+}
+
+// ---------- 5) Declaration handler ----------
+function openDeclareModalOrDeclare() {
+  if (!currentFormat || currentFormat.name !== "Test Match") {
+    showNotification("Declaration available only in Test matches.", 'error');
+    return;
+  }
+  const decBy = prompt("Declare innings? Enter your name/identifier for record (or cancel).");
+  if (!decBy) return;
+  declaredBy = { team: battingTeamName.textContent, by: decBy, atOver: `${overs}` };
+  showNotification(`${declaredBy.team} declared the innings (by ${declaredBy.by}) at ${declaredBy.atOver}`, 'info');
+  finishCurrentInnings("declared");
+}
+
+// ---------- 6) Finish current innings helper ----------
+function finishCurrentInnings(reason = "completed") {
+  inningsData[inningsNumber] = {
+    team: battingTeamName.textContent,
+    runs: runs,
+    wickets: wickets,
+    overs: document.getElementById('overs').innerText,
+    batters: JSON.parse(JSON.stringify(batterStats)),
+    bowlers: JSON.parse(JSON.stringify(bowlerStats)),
+    reason: reason,
+    declaredBy: declaredBy
+  };
+  set(ref(db, `rooms/${room}/innings/${inningsNumber}`), inningsData[inningsNumber]).catch(e=>console.warn(e));
+  inningsNumber++;
+  runs = 0; wickets = 0; legalBalls = 0; partnershipRuns = 0; partnershipBalls = 0;
+  showNotification(`Innings ${inningsNumber - 1} ended (${reason}). Preparing next innings.`, 'info');
+  if (inningsNumber === 2) {
+    firstInningsData = inningsData[1];
+    set(firstInningsRef, firstInningsData).catch(e=>console.warn(e));
+    set(firstInningsCompletedRef, true);
+  }
+  if (inningsNumber > 4) finalizeMatch();
+}
+
+// ---------- 7) Finalize match ----------
+async function finalizeMatch() {
+  let resultText = "Match completed.";
+  const pom = computeMVP();
+  const resultObj = {
+    matchId: `match_${Date.now()}`,
+    date: new Date().toISOString(),
+    format: currentFormat.name || "Unknown",
+    inningsData,
+    resultText,
+    pom
+  };
+  await saveMatchResultToHistory(resultObj);
+  populateSummaryPopup(resultObj);
+  showNotification("Match finalized and saved.", 'winner');
+}
+
+// ---------- 8) Simple MVP computation ----------
+function computeMVP() {
+  const score = {};
+  for (const inn of Object.values(inningsData)) {
+    if (!inn) continue;
+    for (const [name, bs] of Object.entries(inn.batters || {})) {
+      score[name] = score[name] || { runs:0, wickets:0, pts:0 };
+      score[name].runs += bs.runs || 0;
+      score[name].balls = (score[name].balls || 0) + (bs.balls || 0);
+    }
+    for (const [name, bws] of Object.entries(inn.bowlers || {})) {
+      score[name] = score[name] || { runs:0, wickets:0, pts:0 };
+      score[name].wickets += bws.wickets || 0;
+      score[name].runsConceded = (score[name].runsConceded || 0) + (bws.runs || 0);
+    }
+  }
+  let best = null; let bestScore = -Infinity;
+  for (const [p, val] of Object.entries(score)) {
+    const pts = (val.runs || 0) + (val.wickets || 0) * 20 - (val.runsConceded || 0) * 0.1;
+    if (pts > bestScore) { bestScore = pts; best = p; }
+  }
+  return { player: best || "-", score: Math.round(bestScore) };
+}
+
+// ---------- 9) Export summary to PDF ----------
+async function exportSummaryAsPDF() {
+  try {
+    const el = summaryPopup || document.querySelector('.container');
+    if (!el) return;
+    const canvas = await html2canvas(el, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    const fname = `HandiCricket_Summary_${Date.now()}.pdf`;
+    pdf.save(fname);
+    showNotification("Summary exported as PDF.", 'info');
+  } catch (err) {
+    console.error("Export failed:", err);
+    showNotification("Export failed.", 'error');
+  }
+}
+
+// ---------- 10) Share result via Web Share API ----------
+async function shareMatchResult() {
+  try {
+    const title = `HandiCricket - ${team1NameEl.textContent} vs ${team2NameEl.textContent}`;
+    const text = document.getElementById('result').innerText || 'Match result';
+    if (navigator.share) {
+      await navigator.share({ title, text, url: window.location.href });
+      showNotification("Shared successfully.", 'info');
+    } else {
+      await navigator.clipboard.writeText(`${title}
+${text}
+${window.location.href}`);
+      showNotification("Link copied to clipboard.", 'info');
+    }
+  } catch (err) {
+    console.error("Share failed:", err);
+    showNotification("Share failed.", 'error');
+  }
+}
+
+// ---------- 11) Super Over starter ----------
+function startSuperOver() {
+  if (superOverMode) return;
+  superOverMode = true;
+  superOverData = { teamA: {runs:0, wickets:0}, teamB: {runs:0, wickets:0} };
+  document.getElementById('superOverBtn').style.display = 'none';
+  showNotification("Super Over started!", 'info');
+}
+
+// ---------- 12) Ball/result input handler augmentation ----------
+function handleBallInput(value, options = {}) {
+  const batter = currentBatter;
+  const bowler = currentBowler;
+  if (!batter || !bowler) {
+    console.warn("No batter/bowler selected.");
+    return;
+  }
+  batterStats[batter] = batterStats[batter] || { runs:0, balls:0, fours:0, sixes:0, dotBalls:0 };
+  bowlerStats[bowler] = bowlerStats[bowler] || { runs:0, balls:0, wickets:0 };
+  if (typeof value === 'number') {
+    batterStats[batter].runs += value;
+    batterStats[batter].balls += 1;
+    bowlerStats[bowler].runs += value;
+    bowlerStats[bowler].balls = (bowlerStats[bowler].balls || 0) + 1;
+    if (value === 0) { batterStats[batter].dotBalls = (batterStats[batter].dotBalls||0) + 1; }
+    if (value === 4) batterStats[batter].fours = (batterStats[batter].fours||0) + 1;
+    if (value === 6) batterStats[batter].sixes = (batterStats[batter].sixes||0) + 1;
+    const bballs = bowlerStats[bowler].balls;
+    bowlerStats[bowler].overs = `${Math.floor(bballs/6)}.${bballs%6}`;
+    const oversAsFloat = Math.floor(bballs/6) + (bballs%6)/6;
+    bowlerStats[bowler].economy = oversAsFloat > 0 ? (bowlerStats[bowler].runs / oversAsFloat).toFixed(2) : "0.00";
+  } else if (value === 'W') {
+    batterStats[batter].balls += 1;
+    bowlerStats[bowler].wickets = (bowlerStats[bowler].wickets||0) + 1;
+    bowlerStats[bowler].balls = (bowlerStats[bowler].balls || 0) + 1;
+    const bballs = bowlerStats[bowler].balls;
+    bowlerStats[bowler].overs = `${Math.floor(bballs/6)}.${bballs%6}`;
+  }
+  careerStats[batter] = careerStats[batter] || { matches:0, runs:0, wickets:0, balls:0, dotBalls:0, fours:0, sixes:0 };
+  careerStats[batter].runs += (typeof value === 'number' ? value : 0);
+  careerStats[batter].balls += (value==='NB' ? 0 : 1);
+  if (value === 0) careerStats[batter].dotBalls++;
+  if (value === 4) careerStats[batter].fours++;
+  if (value === 6) careerStats[batter].sixes++;
+  if (typeof updateScoreboardUI === 'function') updateScoreboardUI();
+}
+
 
     // Initialize bowler stats
     function initializeBowlerStats() {
@@ -2556,6 +2829,20 @@ const formatsConfig = {
   ODI: { overs: 50, wickets: 10 },
   TEST: { overs: 90, wickets: 10 }
 };
+
+    // ======= Add Test match format (auto-inserted) =======
+    formatRules["Test"] = {
+      name: "Test Match",
+      totalOvers: Infinity,
+      totalWickets: 10,
+      followOnLead: 200,
+      wicketValue: 0.33,
+      allowDeclaration: true,
+      freeHitsAllowed: false,
+      noBallsAllowed: false
+    };
+    // =====================================================
+
 
 // ----------------------
 // 🎮 HELPERS
@@ -4464,6 +4751,79 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
-    </script>
+    
+
+
+// ======= Event listeners for new controls =======
+try {
+  document.getElementById('declareBtn').addEventListener('click', openDeclareModalOrDeclare);
+  document.getElementById('enforceFollowOnBtn').addEventListener('click', enforceFollowOn);
+  document.getElementById('superOverBtn').addEventListener('click', startSuperOver);
+  document.getElementById('exportPDFBtn').addEventListener('click', exportSummaryAsPDF);
+  document.getElementById('shareResultBtn').addEventListener('click', shareMatchResult);
+
+  // Extend Save & Exit to save match result when match over
+  if (typeof saveBtn !== 'undefined') {
+    saveBtn.addEventListener('click', async () => {
+      try {
+        const resultObj = {
+          matchId: `match_${Date.now()}`,
+          date: new Date().toISOString(),
+          format: currentFormat.name || "Unknown",
+          inningsData,
+          resultText: document.getElementById('result').innerText || "Result saved",
+          pom: computeMVP()
+        };
+        await saveMatchResultToHistory(resultObj);
+        showNotification("Saved match to history and exited.", 'info');
+      } catch (err) {
+        console.error(err);
+        showNotification("Save failed.", 'error');
+      }
+    });
+  }
+
+  // Add simple handlers for card buttons if not already present
+  const btns = document.querySelectorAll('.btn');
+  btns.forEach(b => {
+    b.addEventListener('click', (e) => {
+      const v = b.dataset.value;
+      if (v !== undefined && v !== null && v !== '') {
+        // try parse to number, fallback to string
+        const val = isNaN(Number(v)) ? v : Number(v);
+        try { handleBallInput(val); } catch(err){ console.warn(err); }
+      }
+    });
+  });
+
+} catch(e) {
+  console.warn("Event hookup failed:", e);
+}
+// =================================================
+
+
+// ======= Populate existing summaryPopup with inningsData and POM =======
+function populateSummaryPopup(resultObj) {
+  try {
+    if (!resultObj) return;
+    const totalRuns = Object.values(resultObj.inningsData || {}).filter(Boolean).reduce((s,i)=>s+i.runs,0);
+    summaryTotalRuns.innerText = totalRuns;
+    summaryWickets.innerText = Object.values(resultObj.inningsData || {}).filter(Boolean).reduce((s,i)=>s+i.wickets,0);
+    summaryOvers.innerText = Object.values(resultObj.inningsData || {}).filter(Boolean).map(i=>i.overs).join(' | ');
+    const firstOvers = summaryOvers.innerText.split('|')[0] || '0';
+    summaryRunRate.innerText = ( totalRuns / (parseFloat(firstOvers)||1) ).toFixed(2);
+    pomDisplay.style.display = 'block';
+    pomValue.innerText = (resultObj.pom?.player || '-') + (resultObj.pom?.score ? ` (${resultObj.pom.score})` : '');
+    awardsContainer.style.display = 'flex';
+    awardsContainer.innerHTML = '';
+    if (resultObj.pom && resultObj.pom.player) {
+      awardsContainer.innerHTML += `<div class="award-badge">MVP: ${resultObj.pom.player}</div>`;
+    }
+    summaryPopup.style.display = 'block';
+  } catch (e) {
+    console.warn("populateSummaryPopup failed:", e);
+  }
+}
+</script>
 </body>
 </html>
