@@ -661,10 +661,13 @@
         if (snap.exists()) {
           const roomData = snap.val();
           
-          // Set team names
-          team1NameEl.textContent = roomData.team1 || "Team A";
+          // Set team names from player data
+          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
+          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          
+          team1NameEl.textContent = team1Name;
           team1RoleEl.textContent = "";
-          team2NameEl.textContent = roomData.team2 || "Team B";
+          team2NameEl.textContent = team2Name;
           team2RoleEl.textContent = "";
           
           // Set format info
@@ -692,10 +695,18 @@
       }
 
       if (tossData.caller && !tossData.flipper) {
-        spectatorTossInfo.innerHTML = `
-          <strong>Toss Status:</strong> ${tossData.caller === "player1" ? "Team A" : "Team B"} has called ${tossData.call}.<br>
-          Waiting for coin flip...
-        `;
+        get(roomRef).then((snap) => {
+          const roomData = snap.val();
+          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
+          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          
+          const callerTeam = tossData.caller === "player1" ? team1Name : team2Name;
+          
+          spectatorTossInfo.innerHTML = `
+            <strong>Toss Status:</strong> ${callerTeam} has called ${tossData.call}.<br>
+            Waiting for coin flip...
+          `;
+        });
       } else if (tossData.result) {
         const winner = tossData.winner;
         const result = tossData.result;
@@ -703,8 +714,8 @@
         
         get(roomRef).then((snap) => {
           const roomData = snap.val();
-          const team1Name = roomData.team1 || "Team A";
-          const team2Name = roomData.team2 || "Team B";
+          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
+          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
           
           const winnerTeam = winner === "player1" ? team1Name : team2Name;
           const loserTeam = winner === "player1" ? team2Name : team1Name;
@@ -733,7 +744,7 @@
 
     // Initialize player view
     function initializePlayerView() {
-      // Set player online status
+      // Set player online status and team name
       set(playerRef, {
         name: teamName,
         connected: true,
@@ -748,16 +759,19 @@
         if (snap.exists()) {
           const roomData = snap.val();
           
-          // Set team names
+          // Set team names from player data
+          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
+          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          
           if (player === "player1") {
-            team1NameEl.textContent = roomData.team1 || "Team A";
+            team1NameEl.textContent = team1Name;
             team1RoleEl.textContent = "(You)";
-            team2NameEl.textContent = roomData.team2 || "Team B";
+            team2NameEl.textContent = team2Name;
             team2RoleEl.textContent = "(Opponent)";
           } else {
-            team1NameEl.textContent = roomData.team1 || "Team A";
+            team1NameEl.textContent = team1Name;
             team1RoleEl.textContent = "(Opponent)";
-            team2NameEl.textContent = roomData.team2 || "Team B";
+            team2NameEl.textContent = team2Name;
             team2RoleEl.textContent = "(You)";
           }
           
@@ -905,8 +919,8 @@
       // Get team names for display
       get(roomRef).then((snap) => {
         const roomData = snap.val();
-        const team1Name = roomData.team1 || "Team A";
-        const team2Name = roomData.team2 || "Team B";
+        const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
+        const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
         
         const winnerTeam = winner === "player1" ? team1Name : team2Name;
         const loserTeam = winner === "player1" ? team2Name : team1Name;
