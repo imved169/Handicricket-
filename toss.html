@@ -356,6 +356,22 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
+    .spectator-view {
+      background: rgba(13, 42, 82, 0.7);
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .spectator-info {
+      background: rgba(255, 235, 59, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 235, 59, 0.3);
+    }
+    
     .stadium-background {
       position: absolute;
       top: 0;
@@ -509,38 +525,51 @@
         </div>
       </div>
       
-      <div id="callSection" style="display: none;">
-        <h3 style="color: #ffcc00; margin-bottom: 15px;">Call Heads or Tails</h3>
-        <div class="toss-options">
-          <button class="toss-btn heads" id="headsBtn">Heads</button>
-          <button class="toss-btn tails" id="tailsBtn">Tails</button>
+      <!-- Spectator View -->
+      <div class="spectator-view" id="spectatorView" style="display: none;">
+        <div class="spectator-info">
+          <i class="fas fa-eye"></i> You are spectating this match
+        </div>
+        <div id="spectatorTossInfo">
+          Waiting for toss to begin...
         </div>
       </div>
       
-      <div id="flipSection" style="display: none;">
-        <h3 style="color: #ffcc00; margin-bottom: 15px;">Flip the Coin</h3>
-        <button class="btn" id="flipBtn" style="background: linear-gradient(145deg, #ffcc00, #ff9800);">Flip Coin</button>
+      <!-- Player View -->
+      <div id="playerView">
+        <div id="callSection" style="display: none;">
+          <h3 style="color: #ffcc00; margin-bottom: 15px;">Call Heads or Tails</h3>
+          <div class="toss-options">
+            <button class="toss-btn heads" id="headsBtn">Heads</button>
+            <button class="toss-btn tails" id="tailsBtn">Tails</button>
+          </div>
+        </div>
+        
+        <div id="flipSection" style="display: none;">
+          <h3 style="color: #ffcc00; margin-bottom: 15px;">Flip the Coin</h3>
+          <button class="btn" id="flipBtn" style="background: linear-gradient(145deg, #ffcc00, #ff9800);">Flip Coin</button>
+        </div>
+        
+        <div class="toss-result" id="tossResult">
+          Initializing toss process...
+        </div>
+        
+        <div class="batting-options" id="battingOptions">
+          <h3 style="color: #ffcc00; margin-bottom: 15px;">You won the toss!</h3>
+          <p style="margin-bottom: 15px;">Choose to bat or bowl first:</p>
+          <button class="batting-btn" id="batBtn">Bat First</button>
+          <button class="batting-btn bowl" id="bowlBtn">Bowl First</button>
+        </div>
+        
+        <div class="waiting" id="waiting">
+          <div class="loading-spinner"></div>
+          <p id="waitingText">Waiting for opponent...</p>
+        </div>
+        
+        <div class="toss-outcome" id="tossOutcome"></div>
+        
+        <button class="continue-btn" id="continueBtn">Continue to Team Selection</button>
       </div>
-      
-      <div class="toss-result" id="tossResult">
-        Initializing toss process...
-      </div>
-      
-      <div class="batting-options" id="battingOptions">
-        <h3 style="color: #ffcc00; margin-bottom: 15px;">You won the toss!</h3>
-        <p style="margin-bottom: 15px;">Choose to bat or bowl first:</p>
-        <button class="batting-btn" id="batBtn">Bat First</button>
-        <button class="batting-btn bowl" id="bowlBtn">Bowl First</button>
-      </div>
-      
-      <div class="waiting" id="waiting">
-        <div class="loading-spinner"></div>
-        <p id="waitingText">Waiting for opponent...</p>
-      </div>
-      
-      <div class="toss-outcome" id="tossOutcome"></div>
-      
-      <button class="continue-btn" id="continueBtn">Continue to Team Selection</button>
     </div>
   </div>
 
@@ -566,7 +595,7 @@
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     const player = params.get('player');
-    const teamName = decodeURIComponent(params.get('team'));
+    const teamName = decodeURIComponent(params.get('team') || '');
     const format = params.get('format');
     const opponent = player === "player1" ? "player2" : "player1";
 
@@ -592,6 +621,9 @@
     const roomCodeEl = document.getElementById('roomCode');
     const formatInfoEl = document.getElementById('formatInfo');
     const playerInfoEl = document.getElementById('playerInfo');
+    const spectatorView = document.getElementById('spectatorView');
+    const playerView = document.getElementById('playerView');
+    const spectatorTossInfo = document.getElementById('spectatorTossInfo');
 
     // Firebase references
     const roomRef = ref(db, `rooms/${room}`);
@@ -610,69 +642,159 @@
 
     // Initialize UI
     roomCodeEl.textContent = room;
-    playerInfoEl.textContent = player === "player1" ? "Player 1" : "Player 2";
     
-    // Set player online status
-    set(playerRef, {
-      name: teamName,
-      connected: true,
-      team: teamName
-    }).catch(error => {
-      console.error("Error setting player status:", error);
-      tossResult.textContent = "Connection error. Please refresh.";
-    });
+    // Handle spectator view
+    if (player === "spectator") {
+      playerInfoEl.textContent = "Spectator";
+      playerView.style.display = "none";
+      spectatorView.style.display = "block";
+      tossResult.textContent = "You are watching this match as a spectator";
+      initializeSpectatorView();
+    } else {
+      playerInfoEl.textContent = player === "player1" ? "Player 1" : "Player 2";
+      initializePlayerView();
+    }
 
-    // Load room data to get team names and format
-    onValue(roomRef, (snap) => {
-      if (snap.exists()) {
-        const roomData = snap.val();
-        
-        // Set team names
-        if (player === "player1") {
+    // Initialize spectator view
+    function initializeSpectatorView() {
+      onValue(roomRef, (snap) => {
+        if (snap.exists()) {
+          const roomData = snap.val();
+          
+          // Set team names
           team1NameEl.textContent = roomData.team1 || "Team A";
-          team1RoleEl.textContent = "(You)";
+          team1RoleEl.textContent = "";
           team2NameEl.textContent = roomData.team2 || "Team B";
-          team2RoleEl.textContent = "(Opponent)";
-        } else {
-          team1NameEl.textContent = roomData.team1 || "Team A";
-          team1RoleEl.textContent = "(Opponent)";
-          team2NameEl.textContent = roomData.team2 || "Team B";
-          team2RoleEl.textContent = "(You)";
-        }
-        
-        // Set format info
-        const roomFormat = roomData.format || format;
-        let formatDisplay = formatNames[roomFormat] || roomFormat;
-        
-        // Add test match details if applicable
-        if (roomFormat === 'test' && roomData.testOversPerDay) {
-          formatDisplay += ` (${roomData.testOversPerDay} overs/day, ${roomData.testDays || 5} days)`;
-        }
-        
-        formatInfoEl.textContent = formatDisplay;
-        
-        // Check if opponent is connected
-        if (roomData[opponent] && roomData[opponent].connected) {
-          const opponentName = roomData[opponent].name;
-          if (player === "player1") {
-            team2NameEl.textContent = opponentName || "Team B";
-          } else {
-            team1NameEl.textContent = opponentName || "Team A";
+          team2RoleEl.textContent = "";
+          
+          // Set format info
+          const roomFormat = roomData.format || format;
+          let formatDisplay = formatNames[roomFormat] || roomFormat;
+          
+          // Add test match details if applicable
+          if (roomFormat === 'test' && roomData.testOversPerDay) {
+            formatDisplay += ` (${roomData.testOversPerDay} overs/day, ${roomData.testDays || 5} days)`;
           }
           
-          waitingText.textContent = "Opponent connected!";
-          setTimeout(() => {
-            waiting.style.display = "none";
-            initializeTossProcess();
-          }, 1000);
-        } else {
-          waitingText.textContent = "Waiting for opponent to connect...";
-          waiting.style.display = "block";
-          callSection.style.display = "none";
-          flipSection.style.display = "none";
+          formatInfoEl.textContent = formatDisplay;
+          
+          // Update spectator toss info
+          updateSpectatorTossInfo(roomData.toss);
         }
+      });
+    }
+
+    // Update spectator toss information
+    function updateSpectatorTossInfo(tossData) {
+      if (!tossData) {
+        spectatorTossInfo.textContent = "Waiting for toss to begin...";
+        return;
       }
-    });
+
+      if (tossData.caller && !tossData.flipper) {
+        spectatorTossInfo.innerHTML = `
+          <strong>Toss Status:</strong> ${tossData.caller === "player1" ? "Team A" : "Team B"} has called ${tossData.call}.<br>
+          Waiting for coin flip...
+        `;
+      } else if (tossData.result) {
+        const winner = tossData.winner;
+        const result = tossData.result;
+        const call = tossData.call;
+        
+        get(roomRef).then((snap) => {
+          const roomData = snap.val();
+          const team1Name = roomData.team1 || "Team A";
+          const team2Name = roomData.team2 || "Team B";
+          
+          const winnerTeam = winner === "player1" ? team1Name : team2Name;
+          const loserTeam = winner === "player1" ? team2Name : team1Name;
+          
+          spectatorTossInfo.innerHTML = `
+            <strong>Toss Result:</strong> ${result.toUpperCase()}!<br>
+            <strong>${winnerTeam}</strong> won the toss! (${loserTeam} called ${call})
+          `;
+          
+          if (tossData.battingFirst) {
+            const battingFirst = tossData.battingFirst;
+            const battingTeam = battingFirst === 'player1' ? team1Name : team2Name;
+            const bowlingTeam = battingFirst === 'player1' ? team2Name : team1Name;
+            
+            spectatorTossInfo.innerHTML += `<br><br>
+              <strong>Toss Outcome:</strong><br>
+              <strong>${battingTeam}</strong> chose to ${tossData.battingChoice === 'bat' ? 'bat' : 'bowl'} first.<br>
+              <strong>${bowlingTeam}</strong> will ${tossData.battingChoice === 'bat' ? 'bowl' : 'bat'} first.
+            `;
+          } else {
+            spectatorTossInfo.innerHTML += `<br>Waiting for batting choice...`;
+          }
+        });
+      }
+    }
+
+    // Initialize player view
+    function initializePlayerView() {
+      // Set player online status
+      set(playerRef, {
+        name: teamName,
+        connected: true,
+        team: teamName
+      }).catch(error => {
+        console.error("Error setting player status:", error);
+        tossResult.textContent = "Connection error. Please refresh.";
+      });
+
+      // Load room data to get team names and format
+      onValue(roomRef, (snap) => {
+        if (snap.exists()) {
+          const roomData = snap.val();
+          
+          // Set team names
+          if (player === "player1") {
+            team1NameEl.textContent = roomData.team1 || "Team A";
+            team1RoleEl.textContent = "(You)";
+            team2NameEl.textContent = roomData.team2 || "Team B";
+            team2RoleEl.textContent = "(Opponent)";
+          } else {
+            team1NameEl.textContent = roomData.team1 || "Team A";
+            team1RoleEl.textContent = "(Opponent)";
+            team2NameEl.textContent = roomData.team2 || "Team B";
+            team2RoleEl.textContent = "(You)";
+          }
+          
+          // Set format info
+          const roomFormat = roomData.format || format;
+          let formatDisplay = formatNames[roomFormat] || roomFormat;
+          
+          // Add test match details if applicable
+          if (roomFormat === 'test' && roomData.testOversPerDay) {
+            formatDisplay += ` (${roomData.testOversPerDay} overs/day, ${roomData.testDays || 5} days)`;
+          }
+          
+          formatInfoEl.textContent = formatDisplay;
+          
+          // Check if opponent is connected
+          if (roomData[opponent] && roomData[opponent].connected) {
+            const opponentName = roomData[opponent].name;
+            if (player === "player1") {
+              team2NameEl.textContent = opponentName || "Team B";
+            } else {
+              team1NameEl.textContent = opponentName || "Team A";
+            }
+            
+            waitingText.textContent = "Opponent connected!";
+            setTimeout(() => {
+              waiting.style.display = "none";
+              initializeTossProcess();
+            }, 1000);
+          } else {
+            waitingText.textContent = "Waiting for opponent to connect...";
+            waiting.style.display = "block";
+            callSection.style.display = "none";
+            flipSection.style.display = "none";
+          }
+        }
+      });
+    }
 
     // Initialize toss process based on player role
     function initializeTossProcess() {
@@ -858,10 +980,12 @@
 
     // Handle page refresh/disconnect
     window.addEventListener('beforeunload', () => {
-      set(playerRef, {
-        name: teamName,
-        connected: false
-      });
+      if (player !== "spectator") {
+        set(playerRef, {
+          name: teamName,
+          connected: false
+        });
+      }
     });
   </script>
 </body>
