@@ -661,9 +661,9 @@
         if (snap.exists()) {
           const roomData = snap.val();
           
-          // Set team names from player data
-          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
-          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          // Set team names from room data
+          const team1Name = roomData.team1 || "Team A";
+          const team2Name = roomData.team2 || "Team B";
           
           team1NameEl.textContent = team1Name;
           team1RoleEl.textContent = "";
@@ -697,8 +697,8 @@
       if (tossData.caller && !tossData.flipper) {
         get(roomRef).then((snap) => {
           const roomData = snap.val();
-          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
-          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          const team1Name = roomData.team1 || "Team A";
+          const team2Name = roomData.team2 || "Team B";
           
           const callerTeam = tossData.caller === "player1" ? team1Name : team2Name;
           
@@ -714,8 +714,8 @@
         
         get(roomRef).then((snap) => {
           const roomData = snap.val();
-          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
-          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          const team1Name = roomData.team1 || "Team A";
+          const team2Name = roomData.team2 || "Team B";
           
           const winnerTeam = winner === "player1" ? team1Name : team2Name;
           const loserTeam = winner === "player1" ? team2Name : team1Name;
@@ -745,10 +745,8 @@
     // Initialize player view
     function initializePlayerView() {
       // Set player online status and team name
-      set(playerRef, {
-        name: teamName,
-        connected: true,
-        team: teamName
+      update(playerRef, {
+        connected: true
       }).catch(error => {
         console.error("Error setting player status:", error);
         tossResult.textContent = "Connection error. Please refresh.";
@@ -759,9 +757,9 @@
         if (snap.exists()) {
           const roomData = snap.val();
           
-          // Set team names from player data
-          const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
-          const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+          // Set team names from room data
+          const team1Name = roomData.team1 || "Team A";
+          const team2Name = roomData.team2 || "Team B";
           
           if (player === "player1") {
             team1NameEl.textContent = team1Name;
@@ -788,13 +786,6 @@
           
           // Check if opponent is connected
           if (roomData[opponent] && roomData[opponent].connected) {
-            const opponentName = roomData[opponent].name;
-            if (player === "player1") {
-              team2NameEl.textContent = opponentName || "Team B";
-            } else {
-              team1NameEl.textContent = opponentName || "Team A";
-            }
-            
             waitingText.textContent = "Opponent connected!";
             setTimeout(() => {
               waiting.style.display = "none";
@@ -919,8 +910,8 @@
       // Get team names for display
       get(roomRef).then((snap) => {
         const roomData = snap.val();
-        const team1Name = roomData.player1?.name || roomData.team1 || "Team A";
-        const team2Name = roomData.player2?.name || roomData.team2 || "Team B";
+        const team1Name = roomData.team1 || "Team A";
+        const team2Name = roomData.team2 || "Team B";
         
         const winnerTeam = winner === "player1" ? team1Name : team2Name;
         const loserTeam = winner === "player1" ? team2Name : team1Name;
@@ -956,12 +947,15 @@
             <strong>${bowlingTeam}</strong> will ${tossData.battingChoice === 'bat' ? 'bowl' : 'bat'} first.
           `;
           
-          // Update room data with toss outcome
+          // Update room data with toss outcome and roles
           update(roomRef, {
             tossWinner: winner,
             battingFirst: battingFirst,
             tossResult: result,
-            tossCall: call
+            tossCall: call,
+            battingTeam: battingFirst,
+            bowlingTeam: battingFirst === 'player1' ? 'player2' : 'player1',
+            status: 'team-selection'
           }).then(() => {
             continueBtn.style.display = "block";
           }).catch(error => {
@@ -995,8 +989,7 @@
     // Handle page refresh/disconnect
     window.addEventListener('beforeunload', () => {
       if (player !== "spectator") {
-        set(playerRef, {
-          name: teamName,
+        update(playerRef, {
           connected: false
         });
       }
