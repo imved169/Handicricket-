@@ -414,6 +414,146 @@
       margin: 10px 0;
     }
 
+    /* Multiplayer Options */
+    .multiplayer-options {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .multiplayer-option {
+      padding: 15px;
+      background: var(--card-bg);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 1px solid transparent;
+      text-align: center;
+    }
+
+    .multiplayer-option:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .multiplayer-option.selected {
+      border-color: var(--highlight);
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    /* User Stats */
+    .user-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--highlight);
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* Friends List */
+    .friends-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .friend-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .friend-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .friend-avatar {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .friend-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .friend-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: color 0.3s;
+    }
+
+    .friend-btn:hover {
+      color: var(--highlight);
+    }
+
+    /* Add Friend Form */
+    .add-friend-form {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .add-friend-input {
+      flex: 1;
+      padding: 12px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .add-friend-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .add-friend-btn:hover {
+      background: var(--highlight);
+    }
+
     /* Footer */
     footer {
       text-align: center;
@@ -436,6 +576,10 @@
       
       .game-cards {
         grid-template-columns: 1fr;
+      }
+      
+      .user-stats {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
   </style>
@@ -469,6 +613,10 @@
           <div class="nav-item active" data-tab="profile">
             <div class="nav-icon"><i class="fas fa-user-circle"></i></div>
             <div>PROFILE</div>
+          </div>
+          <div class="nav-item" data-tab="friends">
+            <div class="nav-icon"><i class="fas fa-user-friends"></i></div>
+            <div>FRIENDS</div>
           </div>
         </div>
 
@@ -518,6 +666,43 @@
             </div>
           </div>
           <button class="login-btn" id="loginBtn">Login / Register</button>
+
+          <!-- User Stats (shown after login) -->
+          <div id="userStats" style="display: none;">
+            <div class="form-title">Your Statistics</div>
+            <div class="user-stats">
+              <div class="stat-card">
+                <div class="stat-value" id="matchesPlayed">0</div>
+                <div class="stat-label">Matches Played</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="matchesWon">0</div>
+                <div class="stat-label">Matches Won</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="matchesLost">0</div>
+                <div class="stat-label">Matches Lost</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="winRate">0%</div>
+                <div class="stat-label">Win Rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Friends Tab -->
+        <div class="tab-content" id="friends-tab">
+          <div class="form-title">Friends</div>
+          
+          <div class="add-friend-form">
+            <input type="text" id="friendUsername" class="add-friend-input" placeholder="Enter friend's username">
+            <button class="add-friend-btn" id="addFriendBtn">Add Friend</button>
+          </div>
+          
+          <div class="friends-list" id="friendsList">
+            <!-- Friends will be dynamically added here -->
+          </div>
         </div>
 
         <!-- Home Tab -->
@@ -548,13 +733,20 @@
 
         <!-- Multiplayer Tab -->
         <div class="tab-content" id="multiplayer-tab">
-          <div class="tabs">
-            <div class="tab active" data-subtab="create">Create Game</div>
-            <div class="tab" data-subtab="join">Join Game</div>
-            <div class="tab" data-subtab="spectate">Spectate</div>
+          <div class="multiplayer-options">
+            <div class="multiplayer-option selected" data-option="create">
+              <i class="fas fa-plus-circle"></i> Create Game
+            </div>
+            <div class="multiplayer-option" data-option="join">
+              <i class="fas fa-user-friends"></i> Join Game
+            </div>
+            <div class="multiplayer-option" data-option="spectate">
+              <i class="fas fa-eye"></i> Spectate Game
+            </div>
           </div>
 
-          <div class="subtab-content active" id="create-subtab">
+          <!-- Create Game Section -->
+          <div class="multiplayer-section active" id="create-section">
             <div class="game-card">
               <div class="game-icon"><i class="fas fa-plus-circle"></i></div>
               <div class="game-title">Create Match</div>
@@ -614,11 +806,15 @@
               <div class="room-code-display" id="roomCodeDisplay">
                 <div>Share this code to join:</div>
                 <div class="room-code" id="roomCodeSpan">1234</div>
+                <div style="margin-top: 15px;">
+                  <button class="game-btn" id="inviteFriendBtn" style="background: var(--highlight);">Invite Friends</button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="subtab-content" id="join-subtab">
+          <!-- Join Game Section -->
+          <div class="multiplayer-section" id="join-section">
             <div class="game-card">
               <div class="game-icon"><i class="fas fa-user-friends"></i></div>
               <div class="game-title">Join Match</div>
@@ -633,7 +829,8 @@
             </div>
           </div>
 
-          <div class="subtab-content" id="spectate-subtab">
+          <!-- Spectate Game Section -->
+          <div class="multiplayer-section" id="spectate-section">
             <div class="game-card">
               <div class="game-icon"><i class="fas fa-eye"></i></div>
               <div class="game-title">Spectate</div>
@@ -735,6 +932,16 @@
     const tournamentsBtn = document.getElementById('tournamentsBtn');
     const roomCodeDisplay = document.getElementById('roomCodeDisplay');
     const roomCodeSpan = document.getElementById('roomCodeSpan');
+    const userStats = document.getElementById('userStats');
+    const addFriendBtn = document.getElementById('addFriendBtn');
+    const friendsList = document.getElementById('friendsList');
+    const inviteFriendBtn = document.getElementById('inviteFriendBtn');
+
+    // Multiplayer options
+    let selectedFormat = null;
+    let selectedTestOvers = null;
+    let currentUser = localStorage.getItem('hc_username');
+    let currentTeam = localStorage.getItem('hc_team');
 
     // Main tab switching
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -751,29 +958,31 @@
           } else {
             document.getElementById(`${item.dataset.tab}-tab`).classList.add('active');
           }
+
+          // Load friends list when friends tab is clicked
+          if (item.dataset.tab === 'friends' && currentUser) {
+            loadFriendsList();
+          }
         }
       });
     });
 
-    // Multiplayer subtab switching
-    document.querySelectorAll('.tab[data-subtab]').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab[data-subtab]').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.subtab-content').forEach(c => c.classList.remove('active'));
+    // Multiplayer option switching
+    document.querySelectorAll('.multiplayer-option').forEach(option => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.multiplayer-option').forEach(o => o.classList.remove('selected'));
+        document.querySelectorAll('.multiplayer-section').forEach(s => s.classList.remove('active'));
         
-        tab.classList.add('active');
-        document.getElementById(`${tab.dataset.subtab}-subtab`).classList.add('active');
+        option.classList.add('selected');
+        document.getElementById(`${option.dataset.option}-section`).classList.add('active');
       });
     });
 
     // Format selection
-    let selectedFormat = null;
-    let selectedTestOvers = null;
-    
     document.querySelectorAll('.format-card').forEach(card => {
       card.addEventListener('click', () => {
-        // Only allow selection in create game tab
-        if (!card.closest('#create-subtab')) return;
+        // Only allow selection in create game section
+        if (!card.closest('#create-section')) return;
         
         document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
@@ -807,21 +1016,11 @@
     });
 
     // Check if user is logged in
-    let currentUser = localStorage.getItem('hc_username');
-    let currentTeam = localStorage.getItem('hc_team');
-
     if (currentUser && currentTeam) {
-      profileForm.style.display = 'none';
-      userInfo.style.display = 'flex';
-      usernameDisplay.textContent = currentUser;
-      teamDisplay.textContent = currentTeam;
-      userAvatar.textContent = currentUser.charAt(0).toUpperCase();
-      
-      // Switch to home tab if logged in
-      document.querySelector('.nav-item[data-tab="home"]').click();
+      updateUIAfterLogin();
     }
 
-    // Login/Register
+    // Login/Register - Using the logic from the smaller file
     loginBtn.addEventListener('click', async function() {
       const username = document.getElementById('username').value.trim();
       const teamName = document.getElementById('teamName').value.trim();
@@ -862,7 +1061,8 @@
             matches: 0,
             wins: 0,
             losses: 0,
-            players: []
+            players: [],
+            friends: []
           });
         }
 
@@ -872,21 +1072,211 @@
         currentUser = username;
         currentTeam = teamName;
 
-        // Update UI
-        profileForm.style.display = 'none';
-        userInfo.style.display = 'flex';
-        usernameDisplay.textContent = username;
-        teamDisplay.textContent = teamName;
-        userAvatar.textContent = username.charAt(0).toUpperCase();
-        
-        // Switch to home tab
-        document.querySelector('.nav-item[data-tab="home"]').click();
+        updateUIAfterLogin();
 
       } catch (error) {
         console.error("Login error:", error);
         alert("Failed to login. Please try again.");
       }
     });
+
+    // Update UI after login
+    function updateUIAfterLogin() {
+      profileForm.style.display = 'none';
+      userInfo.style.display = 'flex';
+      usernameDisplay.textContent = currentUser;
+      teamDisplay.textContent = currentTeam;
+      userAvatar.textContent = currentUser.charAt(0).toUpperCase();
+      
+      // Show user stats
+      userStats.style.display = 'block';
+      loadUserStats();
+      
+      // Switch to home tab
+      document.querySelector('.nav-item[data-tab="home"]').click();
+    }
+
+    // Load user statistics
+    async function loadUserStats() {
+      try {
+        const userRef = ref(db, `users/${currentUser}`);
+        const userSnap = await get(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.val();
+          document.getElementById('matchesPlayed').textContent = userData.matches || 0;
+          document.getElementById('matchesWon').textContent = userData.wins || 0;
+          document.getElementById('matchesLost').textContent = userData.losses || 0;
+          
+          const winRate = userData.matches > 0 ? Math.round((userData.wins / userData.matches) * 100) : 0;
+          document.getElementById('winRate').textContent = `${winRate}%`;
+        }
+      } catch (error) {
+        console.error("Error loading user stats:", error);
+      }
+    }
+
+    // Load friends list
+    async function loadFriendsList() {
+      try {
+        const userRef = ref(db, `users/${currentUser}`);
+        const userSnap = await get(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.val();
+          const friends = userData.friends || [];
+          
+          friendsList.innerHTML = '';
+          
+          if (friends.length === 0) {
+            friendsList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No friends yet. Add some friends to play together!</div>';
+            return;
+          }
+          
+          // Load each friend's details
+          for (const friendUsername of friends) {
+            const friendRef = ref(db, `users/${friendUsername}`);
+            const friendSnap = await get(friendRef);
+            
+            if (friendSnap.exists()) {
+              const friendData = friendSnap.val();
+              const friendItem = document.createElement('div');
+              friendItem.className = 'friend-item';
+              friendItem.innerHTML = `
+                <div class="friend-info">
+                  <div class="friend-avatar">${friendUsername.charAt(0).toUpperCase()}</div>
+                  <div>
+                    <div>${friendUsername}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${friendData.team}</div>
+                  </div>
+                </div>
+                <div class="friend-actions">
+                  <button class="friend-btn invite-friend-btn" data-friend="${friendUsername}" title="Invite to Game">
+                    <i class="fas fa-gamepad"></i>
+                  </button>
+                  <button class="friend-btn remove-friend-btn" data-friend="${friendUsername}" title="Remove Friend">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              `;
+              friendsList.appendChild(friendItem);
+            }
+          }
+          
+          // Add event listeners to friend buttons
+          document.querySelectorAll('.invite-friend-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const friendUsername = this.dataset.friend;
+              inviteFriendToGame(friendUsername);
+            });
+          });
+          
+          document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const friendUsername = this.dataset.friend;
+              removeFriend(friendUsername);
+            });
+          });
+        }
+      } catch (error) {
+        console.error("Error loading friends list:", error);
+      }
+    }
+
+    // Add friend
+    addFriendBtn.addEventListener('click', async function() {
+      const friendUsername = document.getElementById('friendUsername').value.trim();
+      
+      if (!friendUsername) {
+        alert('Please enter a username');
+        return;
+      }
+      
+      if (friendUsername === currentUser) {
+        alert('You cannot add yourself as a friend');
+        return;
+      }
+      
+      try {
+        // Check if friend exists
+        const friendRef = ref(db, `users/${friendUsername}`);
+        const friendSnap = await get(friendRef);
+        
+        if (!friendSnap.exists()) {
+          alert('User not found');
+          return;
+        }
+        
+        // Check if already friends
+        const userRef = ref(db, `users/${currentUser}`);
+        const userSnap = await get(userRef);
+        const userData = userSnap.val();
+        const friends = userData.friends || [];
+        
+        if (friends.includes(friendUsername)) {
+          alert('This user is already your friend');
+          return;
+        }
+        
+        // Add friend
+        friends.push(friendUsername);
+        await update(userRef, {
+          friends: friends
+        });
+        
+        document.getElementById('friendUsername').value = '';
+        alert('Friend added successfully!');
+        loadFriendsList();
+        
+      } catch (error) {
+        console.error("Error adding friend:", error);
+        alert("Failed to add friend. Please try again.");
+      }
+    });
+
+    // Remove friend
+    async function removeFriend(friendUsername) {
+      if (!confirm(`Are you sure you want to remove ${friendUsername} from your friends?`)) {
+        return;
+      }
+      
+      try {
+        const userRef = ref(db, `users/${currentUser}`);
+        const userSnap = await get(userRef);
+        const userData = userSnap.val();
+        const friends = userData.friends || [];
+        
+        const updatedFriends = friends.filter(friend => friend !== friendUsername);
+        
+        await update(userRef, {
+          friends: updatedFriends
+        });
+        
+        alert('Friend removed successfully!');
+        loadFriendsList();
+        
+      } catch (error) {
+        console.error("Error removing friend:", error);
+        alert("Failed to remove friend. Please try again.");
+      }
+    }
+
+    // Invite friend to game
+    function inviteFriendToGame(friendUsername) {
+      const roomCode = roomCodeSpan.textContent;
+      
+      if (!roomCode || roomCode === '1234') {
+        alert('Please create a game first to invite friends');
+        return;
+      }
+      
+      // In a real implementation, you would send a notification to the friend
+      // For now, we'll just show a message
+      alert(`Invitation sent to ${friendUsername} to join room ${roomCode}`);
+      
+      // You could implement a notification system here using Firebase
+      // For example: create a notifications node in the database
+    }
 
     // Logout
     logoutBtn.addEventListener('click', function() {
@@ -896,6 +1286,7 @@
       currentTeam = null;
       profileForm.style.display = 'flex';
       userInfo.style.display = 'none';
+      userStats.style.display = 'none';
       document.querySelector('.nav-item[data-tab="profile"]').click();
     });
 
@@ -1080,17 +1471,10 @@
       window.location.href = 'tournaments.html';
     });
 
-    // Focus on room code input when join/spectate subtab is clicked
-    document.querySelector('.tab[data-subtab="join"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('roomCode').focus();
-      }, 100);
-    });
-    
-    document.querySelector('.tab[data-subtab="spectate"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('spectateRoomCode').focus();
-      }, 100);
+    // Invite friend button
+    inviteFriendBtn.addEventListener('click', function() {
+      // Switch to friends tab to allow inviting friends
+      document.querySelector('.nav-item[data-tab="friends"]').click();
     });
   </script>
 </body>
