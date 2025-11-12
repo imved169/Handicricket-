@@ -8,6 +8,7 @@
   <!-- Add Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <style>
     * {
       margin: 0;
@@ -986,18 +987,19 @@
   <script>
     // Firebase configuration
     const firebaseConfig = {
-      // Replace with your actual Firebase project configuration
-      apiKey: "your-api-key",
-      authDomain: "your-project.firebaseapp.com",
-      projectId: "your-project-id",
-      storageBucket: "your-project.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "your-app-id"
+      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+      authDomain: "handicricket-85a06.firebaseapp.com",
+      projectId: "handicricket-85a06",
+      storageBucket: "handicricket-85a06.appspot.com",
+      messagingSenderId: "599182538558",
+      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+      measurementId: "G-HSV9H4LEJQ"
     };
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const rtdb = firebase.database();
 
     // DOM Elements
     const profileForm = document.getElementById('profile-tab');
@@ -1500,14 +1502,43 @@
         inviteFriends.style.display = 'block';
       }
 
-      // Store room info in local storage
-      localStorage.setItem('hc_currentRoom', roomCode);
-      localStorage.setItem('hc_roomFormat', selectedFormat);
+      // Store room info in Firebase Realtime Database
+      const roomData = {
+        roomCode: roomCode,
+        format: selectedFormat,
+        team1: currentTeam,
+        player1: currentUser,
+        status: 'waiting',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      
+      // Add test overs if applicable
       if (selectedFormat === 'test') {
-        localStorage.setItem('hc_testOvers', selectedTestOvers);
+        roomData.testOversPerDay = selectedTestOvers;
+        roomData.testDays = 5; // Default to 5 days for test matches
       }
-
-      alert(`Room created successfully! Room code: ${roomCode}`);
+      
+      // Save to Firebase Realtime Database
+      rtdb.ref(`rooms/${roomCode}`).set(roomData)
+        .then(() => {
+          // Store room info in local storage
+          localStorage.setItem('hc_currentRoom', roomCode);
+          localStorage.setItem('hc_roomFormat', selectedFormat);
+          if (selectedFormat === 'test') {
+            localStorage.setItem('hc_testOvers', selectedTestOvers);
+          }
+          
+          alert(`Room created successfully! Room code: ${roomCode}`);
+          
+          // Redirect to toss page
+          setTimeout(() => {
+            window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}`;
+          }, 1000);
+        })
+        .catch(error => {
+          console.error("Error creating room:", error);
+          alert("Error creating room. Please try again.");
+        });
     });
 
     // Invite friend to game
@@ -1543,10 +1574,41 @@
         return;
       }
 
-      // Store room info in local storage
-      localStorage.setItem('hc_currentRoom', roomCode);
-
-      alert(`Joining room ${roomCode}...`);
+      // Check if room exists in Firebase
+      rtdb.ref(`rooms/${roomCode}`).once('value')
+        .then((snapshot) => {
+          if (snapshot.exists()) {
+            const roomData = snapshot.val();
+            
+            // Update room with player2 info
+            rtdb.ref(`rooms/${roomCode}`).update({
+              team2: currentTeam,
+              player2: currentUser,
+              status: 'full'
+            })
+            .then(() => {
+              // Store room info in local storage
+              localStorage.setItem('hc_currentRoom', roomCode);
+              
+              alert(`Joining room ${roomCode}...`);
+              
+              // Redirect to toss page
+              setTimeout(() => {
+                window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
+              }, 1000);
+            })
+            .catch(error => {
+              console.error("Error joining room:", error);
+              alert("Error joining room. Please try again.");
+            });
+          } else {
+            alert('Room not found. Please check the room code.');
+          }
+        })
+        .catch(error => {
+          console.error("Error checking room:", error);
+          alert("Error checking room. Please try again.");
+        });
     });
 
     // Spectate game
