@@ -1471,8 +1471,8 @@
       document.querySelector('.nav-item[data-tab="profile"]').click();
     });
 
-    // Create game
-    document.getElementById('createGameBtn').addEventListener('click', function() {
+    // Create game - UPDATED to match index.html redirection
+    document.getElementById('createGameBtn').addEventListener('click', async function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
         return;
@@ -1496,49 +1496,49 @@
       document.getElementById('roomCodeSpan').textContent = roomCode;
       document.getElementById('roomCodeDisplay').style.display = 'block';
 
-      // Show invite friends section if user has friends
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      if (friends.length > 0) {
-        inviteFriends.style.display = 'block';
-      }
-
-      // Store room info in Firebase Realtime Database
-      const roomData = {
-        roomCode: roomCode,
-        format: selectedFormat,
-        team1: currentTeam,
-        player1: currentUser,
-        status: 'waiting',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      
-      // Add test overs if applicable
-      if (selectedFormat === 'test') {
-        roomData.testOversPerDay = selectedTestOvers;
-        roomData.testDays = 5; // Default to 5 days for test matches
-      }
-      
-      // Save to Firebase Realtime Database
-      rtdb.ref(`rooms/${roomCode}`).set(roomData)
-        .then(() => {
-          // Store room info in local storage
-          localStorage.setItem('hc_currentRoom', roomCode);
-          localStorage.setItem('hc_roomFormat', selectedFormat);
-          if (selectedFormat === 'test') {
-            localStorage.setItem('hc_testOvers', selectedTestOvers);
-          }
-          
-          alert(`Room created successfully! Room code: ${roomCode}`);
-          
-          // Redirect to toss page
-          setTimeout(() => {
-            window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}`;
-          }, 1000);
-        })
-        .catch(error => {
-          console.error("Error creating room:", error);
-          alert("Error creating room. Please try again.");
+      try {
+        // Create room in Firebase with the selected format and team name - UPDATED to match index.html
+        const roomData = {
+          player1: {
+            username: currentUser,
+            team: currentTeam,
+            connected: true
+          },
+          format: selectedFormat,
+          team1: currentTeam, // Save team name in the room data
+          createdAt: Date.now(),
+          status: 'waiting'
+        };
+        
+        // Add test match specific data if applicable
+        if (selectedFormat === 'test') {
+          roomData.testOversPerDay = selectedTestOvers;
+          roomData.testDays = selectedTestOvers == 90 ? 5 : 
+                             selectedTestOvers == 60 ? 4 :
+                             selectedTestOvers == 50 ? 3 :
+                             selectedTestOvers == 30 ? 2 : 1;
+        }
+        
+        await rtdb.ref(`rooms/${roomCode}`).set(roomData);
+        
+        // Also update the user's data to include the room they created
+        await rtdb.ref(`users/${currentUser}`).update({
+          currentRoom: roomCode
         });
+        
+        // Store room info in local storage for quick access
+        localStorage.setItem('hc_currentRoom', roomCode);
+        localStorage.setItem('hc_roomFormat', selectedFormat);
+        if (selectedFormat === 'test') {
+          localStorage.setItem('hc_testOvers', selectedTestOvers);
+        }
+        
+        // Redirect to toss page with the selected format - UPDATED to match index.html
+        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
+      } catch (error) {
+        console.error("Error creating room:", error);
+        alert("Failed to create room. Please try again.");
+      }
     });
 
     // Invite friend to game
@@ -1560,8 +1560,8 @@
       friendSelect.value = '';
     });
 
-    // Join game
-    document.getElementById('joinGameBtn').addEventListener('click', function() {
+    // Join game - UPDATED to match index.html redirection
+    document.getElementById('joinGameBtn').addEventListener('click', async function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
         return;
@@ -1574,44 +1574,56 @@
         return;
       }
 
-      // Check if room exists in Firebase
-      rtdb.ref(`rooms/${roomCode}`).once('value')
-        .then((snapshot) => {
-          if (snapshot.exists()) {
-            const roomData = snapshot.val();
-            
-            // Update room with player2 info
-            rtdb.ref(`rooms/${roomCode}`).update({
-              team2: currentTeam,
-              player2: currentUser,
-              status: 'full'
-            })
-            .then(() => {
-              // Store room info in local storage
-              localStorage.setItem('hc_currentRoom', roomCode);
-              
-              alert(`Joining room ${roomCode}...`);
-              
-              // Redirect to toss page
-              setTimeout(() => {
-                window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
-              }, 1000);
-            })
-            .catch(error => {
-              console.error("Error joining room:", error);
-              alert("Error joining room. Please try again.");
-            });
-          } else {
-            alert('Room not found. Please check the room code.');
-          }
-        })
-        .catch(error => {
-          console.error("Error checking room:", error);
-          alert("Error checking room. Please try again.");
+      try {
+        // Check if room exists - UPDATED to match index.html
+        const roomRef = rtdb.ref(`rooms/${roomCode}`);
+        const roomSnap = await roomRef.once('value');
+        
+        if (!roomSnap.exists()) {
+          alert('Room not found. Please check the code.');
+          return;
+        }
+        
+        const roomData = roomSnap.val();
+        
+        // Check if room already has two players
+        if (roomData.player2) {
+          alert('This room is already full');
+          return;
+        }
+        
+        // Join room - UPDATED to match index.html
+        await rtdb.ref(`rooms/${roomCode}`).update({
+          player2: {
+            username: currentUser,
+            team: currentTeam,
+            connected: true
+          },
+          team2: currentTeam, // Save team name in the room data
+          status: 'ready'
         });
+        
+        // Update the user's data to include the room they joined
+        await rtdb.ref(`users/${currentUser}`).update({
+          currentRoom: roomCode
+        });
+        
+        // Store room info in local storage for quick access
+        localStorage.setItem('hc_currentRoom', roomCode);
+        localStorage.setItem('hc_roomFormat', roomData.format);
+        if (roomData.format === 'test') {
+          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
+        }
+        
+        // Redirect to toss page with the room's format - UPDATED to match index.html
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
+      } catch (error) {
+        console.error("Error joining room:", error);
+        alert("Failed to join room. Please check the room code and try again.");
+      }
     });
 
-    // Spectate game
+    // Spectate game - UPDATED to match index.html redirection
     document.getElementById('spectateBtn').addEventListener('click', function() {
       const roomCode = document.getElementById('spectateRoomCode').value.trim();
 
@@ -1620,10 +1632,11 @@
         return;
       }
 
-      // Store room info in local storage
+      // Store room info in local storage for quick access
       localStorage.setItem('hc_currentRoom', roomCode);
 
-      alert(`Spectating room ${roomCode}...`);
+      // Redirect to game page as spectator - UPDATED to match index.html
+      window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
     });
 
     // Auction button
@@ -1632,7 +1645,7 @@
         alert('Please login first');
         return;
       }
-      alert('Redirecting to Auction Room...');
+      window.location.href = 'auction.html';
     });
 
     // Manage squad
@@ -1641,12 +1654,12 @@
         alert('Please login first');
         return;
       }
-      alert(`Redirecting to Squad Management for ${currentUser}...`);
+      window.location.href = `squad.html?username=${currentUser}`;
     });
 
     // Leaderboard
     document.getElementById('leaderboardBtn').addEventListener('click', function() {
-      alert('Redirecting to Leaderboard...');
+      window.location.href = `leaderboard.html`;
     });
 
     // Tournaments
