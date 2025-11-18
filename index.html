@@ -1012,23 +1012,9 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, update, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  <script>
+    // Debug logging
+    console.log("Script loaded successfully");
 
     // DOM Elements
     const profileForm = document.getElementById('loginForm');
@@ -1048,6 +1034,16 @@
     const friendSelect = document.getElementById('friendSelect');
     const inviteFriends = document.getElementById('inviteFriends');
     const teamStatsContainer = document.getElementById('teamStatsContainer');
+
+    // Multiplayer buttons
+    const createGameBtn = document.getElementById('createGameBtn');
+    const joinGameBtn = document.getElementById('joinGameBtn');
+    const spectateBtn = document.getElementById('spectateBtn');
+
+    // Debug: Check if buttons exist
+    console.log("Create button:", createGameBtn);
+    console.log("Join button:", joinGameBtn);
+    console.log("Spectate button:", spectateBtn);
 
     // Main tab switching
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -1163,12 +1159,13 @@
       }
       
       try {
-        const userRef = ref(db, `users/${username}`);
-        const userSnap = await get(userRef);
+        // For demo purposes, we'll simulate Firebase with localStorage
+        const userKey = `hc_user_${username}`;
+        const existingUser = localStorage.getItem(userKey);
         
-        if (userSnap.exists()) {
+        if (existingUser) {
           // Existing user - verify credentials
-          const userData = userSnap.val();
+          const userData = JSON.parse(existingUser);
           if (userData.password !== password) {
             alert('Incorrect password');
             return;
@@ -1178,17 +1175,18 @@
             return;
           }
         } else {
-          // New user - register with hashed password
-          await set(userRef, {
+          // New user - register
+          const userData = {
             username: username,
             team: teamName,
-            password: password, // In production, use proper hashing
+            password: password,
             created: Date.now(),
             matches: 0,
             wins: 0,
             losses: 0,
             players: []
-          });
+          };
+          localStorage.setItem(userKey, JSON.stringify(userData));
         }
         
         // Store login info
@@ -1238,14 +1236,13 @@
       userStats.style.display = 'block';
     }
 
-    // Load team stats from Firebase
+    // Load team stats
     function loadTeamStats() {
       if (!currentUser) return;
       
       teamStatsContainer.innerHTML = '<div class="stats-section"><div class="stats-title">Loading team statistics...</div></div>';
       
       // For this demo, we'll create a default team card
-      // In a real app, you would fetch this data from Firebase
       teamStatsContainer.innerHTML = `
         <div class="team-card">
           <div class="team-header">
@@ -1317,7 +1314,6 @@
           // Switch to multiplayer create tab
           document.querySelector('.nav-item[data-tab="multiplayer"]').click();
           document.querySelector('.tab[data-subtab="create"]').click();
-          // Could pre-fill invitation here
         });
       });
       
@@ -1373,11 +1369,10 @@
         return;
       }
       
-      // In a real app, you would check if the user exists in the database
       // For this demo, we'll just add them
       friends.push({
         username: friendUsername,
-        teamName: 'Unknown Team' // In a real app, this would come from the database
+        teamName: 'Unknown Team'
       });
       
       localStorage.setItem(`hc_friends_${currentUser}`, JSON.stringify(friends));
@@ -1418,8 +1413,10 @@
       document.querySelector('.nav-item[data-tab="profile"]').click();
     });
     
-    // Create game
+    // Create game - SIMPLIFIED VERSION
     document.getElementById('createGameBtn').addEventListener('click', function() {
+      console.log("Create button clicked");
+      
       if (!currentUser || !currentTeam) {
         alert('Please login first');
         return;
@@ -1439,9 +1436,30 @@
       // Generate a random 4-digit room code
       const roomCode = Math.floor(1000 + Math.random() * 9000);
       
-      // Show room code
-      document.getElementById('roomCodeSpan').textContent = roomCode;
-      document.getElementById('roomCodeDisplay').style.display = 'block';
+      // Create room data
+      const roomData = {
+        player1: {
+          username: currentUser,
+          team: currentTeam,
+          connected: true
+        },
+        format: selectedFormat,
+        team1: currentTeam,
+        createdAt: Date.now(),
+        status: 'waiting'
+      };
+      
+      // Add test match specific data if applicable
+      if (selectedFormat === 'test') {
+        roomData.testOversPerDay = selectedTestOvers;
+        roomData.testDays = selectedTestOvers == 90 ? 5 : 
+                           selectedTestOvers == 60 ? 4 :
+                           selectedTestOvers == 50 ? 3 :
+                           selectedTestOvers == 30 ? 2 : 1;
+      }
+      
+      // Store room in localStorage (simulating Firebase)
+      localStorage.setItem(`hc_room_${roomCode}`, JSON.stringify(roomData));
       
       // Store room info in local storage for quick access
       localStorage.setItem('hc_currentRoom', roomCode);
@@ -1450,46 +1468,15 @@
         localStorage.setItem('hc_testOvers', selectedTestOvers);
       }
       
+      console.log("Redirecting to toss page...");
       // Redirect to toss page as player1
-      setTimeout(() => {
-        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
-      }, 1500);
+      window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
     });
     
-    // Join game
-    document.getElementById('joinGameBtn').addEventListener('click', async function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      
-      const roomCode = document.getElementById('roomCode').value.trim();
-      
-      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
-        alert('Please enter a valid 4-digit room code');
-        return;
-      }
-      
-      try {
-        // Check if room exists
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        const roomSnap = await get(roomRef);
-        
-        if (!roomSnap.exists()) {
-          alert('Room not found. Please check the code.');
-          return;
-        }
-        
-        const roomData = roomSnap.val();
-        
-        // Check if room already has two players
-        if (roomData.player2) {
-          alert('This room is already full');
-          return;
-        }
-        
-         // Join game
+    // Join game - SIMPLIFIED VERSION
     document.getElementById('joinGameBtn').addEventListener('click', function() {
+      console.log("Join button clicked");
+      
       if (!currentUser || !currentTeam) {
         alert('Please login first');
         return;
@@ -1501,19 +1488,49 @@
         alert('Please enter a valid 4-digit room code');
         return;
       }
+      
+      // Check if room exists
+      const roomData = JSON.parse(localStorage.getItem(`hc_room_${roomCode}`));
+      
+      if (!roomData) {
+        alert('Room not found. Please check the code.');
+        return;
+      }
+      
+      // Check if room already has two players
+      if (roomData.player2) {
+        alert('This room is already full');
+        return;
+      }
+      
+      // Update room with player2
+      roomData.player2 = {
+        username: currentUser,
+        team: currentTeam,
+        connected: true
+      };
+      roomData.team2 = currentTeam;
+      roomData.status = 'ready';
+      
+      // Update room in localStorage
+      localStorage.setItem(`hc_room_${roomCode}`, JSON.stringify(roomData));
       
       // Store room info in local storage for quick access
       localStorage.setItem('hc_currentRoom', roomCode);
+      localStorage.setItem('hc_roomFormat', roomData.format);
+      if (roomData.format === 'test') {
+        localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
+      }
       
+      console.log("Redirecting to toss page...");
       // Redirect to toss page as player2
-      setTimeout(() => {
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
-      }, 500);
+      window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
     });
-    
     
     // Spectate game
     document.getElementById('spectateBtn').addEventListener('click', function() {
+      console.log("Spectate button clicked");
+      
       const roomCode = document.getElementById('spectateRoomCode').value.trim();
       
       if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
@@ -1524,13 +1541,12 @@
       // Store room info in local storage for quick access
       localStorage.setItem('hc_currentRoom', roomCode);
       
+      console.log("Redirecting to toss page...");
       // Redirect to toss page as spectator
-      setTimeout(() => {
-        window.location.href = `toss.html?room=${roomCode}&player=spectator`;
-      }, 500);
+      window.location.href = `toss.html?room=${roomCode}&player=spectator`;
     });
 
-    // Auction button
+    // Other buttons
     document.getElementById('auctionBtn').addEventListener('click', function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
@@ -1539,7 +1555,6 @@
       window.location.href = 'auction.html';
     });
     
-    // Manage squad
     document.getElementById('manageSquadBtn').addEventListener('click', function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
@@ -1548,12 +1563,10 @@
       window.location.href = `squad.html?username=${currentUser}`;
     });
     
-    // Leaderboard
     document.getElementById('leaderboardBtn').addEventListener('click', function() {
       window.location.href = `leaderboard.html`;
     });
 
-    // Tournaments
     document.getElementById('tournamentsBtn').addEventListener('click', function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
@@ -1574,76 +1587,8 @@
         document.getElementById('spectateRoomCode').focus();
       }, 100);
     });
-    
-    // Set up real-time listener for room updates
-    function setupRoomListener(roomCode, playerType) {
-      const roomRef = ref(db, `rooms/${roomCode}`);
-      
-      // Listen for changes to the room
-      onValue(roomRef, (snapshot) => {
-        const roomData = snapshot.val();
-        
-        if (!roomData) {
-          console.log("Room no longer exists");
-          return;
-        }
-        
-        // Check if both players have joined
-        if (roomData.player1 && roomData.player2 && roomData.status === 'ready') {
-          // Both players are in, redirect to toss page
-          const teamName = playerType === 'player1' ? roomData.team1 : roomData.team2;
-          window.location.href = `toss.html?room=${roomCode}&player=${playerType}&team=${encodeURIComponent(teamName)}&format=${roomData.format}`;
-        }
-      });
-    }
-    
-    // Check if user is already in a room and redirect if needed
-    function checkExistingRoom() {
-      const currentRoom = localStorage.getItem('hc_currentRoom');
-      const currentUser = localStorage.getItem('hc_username');
-      
-      if (currentRoom && currentUser) {
-        // Check if room still exists and user is part of it
-        const roomRef = ref(db, `rooms/${currentRoom}`);
-        get(roomRef).then((snapshot) => {
-          if (snapshot.exists()) {
-            const roomData = snapshot.val();
-            
-            // Check if user is player1 or player2 in this room
-            if (roomData.player1 && roomData.player1.username === currentUser) {
-              // User is player1, set up listener for when player2 joins
-              setupRoomListener(currentRoom, 'player1');
-              // Switch to multiplayer tab and show waiting message
-              document.querySelector('.nav-item[data-tab="multiplayer"]').click();
-              document.querySelector('.tab[data-subtab="create"]').click();
-              document.getElementById('roomCodeDisplay').innerHTML = `
-                <div style="text-align: center;">
-                  <p>Share this code to join: <span class="room-code">${currentRoom}</span></p>
-                  <p style="margin-top: 10px;">Waiting for player 2 to join...</p>
-                  <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-                </div>
-              `;
-            } else if (roomData.player2 && roomData.player2.username === currentUser) {
-              // User is player2, set up listener for when game starts
-              setupRoomListener(currentRoom, 'player2');
-              // Switch to multiplayer tab and show waiting message
-              document.querySelector('.nav-item[data-tab="multiplayer"]').click();
-              document.querySelector('.tab[data-subtab="join"]').click();
-              document.getElementById('join-subtab').innerHTML = `
-                <div style="text-align: center; padding: 40px 20px;">
-                  <h3>Joined Room ${currentRoom}</h3>
-                  <p>Waiting for game to start...</p>
-                  <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-                </div>
-              `;
-            }
-          }
-        });
-      }
-    }
-    
-    // Check for existing room on page load
-    checkExistingRoom();
+
+    console.log("All event listeners attached successfully");
   </script>
 </body>
 </html>
