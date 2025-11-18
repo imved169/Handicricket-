@@ -1419,7 +1419,7 @@
     });
     
     // Create game
-    document.getElementById('createGameBtn').addEventListener('click', async function() {
+    document.getElementById('createGameBtn').addEventListener('click', function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
         return;
@@ -1443,74 +1443,17 @@
       document.getElementById('roomCodeSpan').textContent = roomCode;
       document.getElementById('roomCodeDisplay').style.display = 'block';
       
-      // Show invite friends section if user has friends
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      if (friends.length > 0) {
-        inviteFriends.style.display = 'block';
+      // Store room info in local storage for quick access
+      localStorage.setItem('hc_currentRoom', roomCode);
+      localStorage.setItem('hc_roomFormat', selectedFormat);
+      if (selectedFormat === 'test') {
+        localStorage.setItem('hc_testOvers', selectedTestOvers);
       }
       
-      try {
-        // Create room in Firebase with the selected format and team name
-        const roomData = {
-          player1: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          format: selectedFormat,
-          team1: currentTeam, // Save team name in the room data
-          createdAt: Date.now(),
-          status: 'waiting'
-        };
-        
-        // Add test match specific data if applicable
-        if (selectedFormat === 'test') {
-          roomData.testOversPerDay = selectedTestOvers;
-          roomData.testDays = selectedTestOvers == 90 ? 5 : 
-                             selectedTestOvers == 60 ? 4 :
-                             selectedTestOvers == 50 ? 3 :
-                             selectedTestOvers == 30 ? 2 : 1;
-        }
-        
-        await set(ref(db, `rooms/${roomCode}`), roomData);
-        
-        // Also update the user's data to include the room they created
-        await update(ref(db, `users/${currentUser}`), {
-          currentRoom: roomCode
-        });
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', selectedFormat);
-        if (selectedFormat === 'test') {
-          localStorage.setItem('hc_testOvers', selectedTestOvers);
-        }
-        
-        // Set up real-time listener for room updates
-        setupRoomListener(roomCode, 'player1');
-        
-        // Show waiting message
-        document.getElementById('roomCodeDisplay').innerHTML = `
-          <div style="text-align: center;">
-            <p>Share this code to join: <span class="room-code">${roomCode}</span></p>
-            <p style="margin-top: 10px;">Waiting for player 2 to join...</p>
-            <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-          </div>
-        `;
-        
-        // Add CSS for spinner
-        const style = document.createElement('style');
-        style.textContent = `
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `;
-        document.head.appendChild(style);
-        
-      } catch (error) {
-        console.error("Error creating room:", error);
-        alert("Failed to create room. Please try again.");
-      }
+      // Redirect to toss page as player1
+      setTimeout(() => {
+        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
+      }, 1500);
     });
     
     // Join game
@@ -1545,46 +1488,29 @@
           return;
         }
         
-        // Join room
-        await update(ref(db, `rooms/${roomCode}`), {
-          player2: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          team2: currentTeam, // Save team name in the room data
-          status: 'ready'
-        });
-        
-        // Update the user's data to include the room they joined
-        await update(ref(db, `users/${currentUser}`), {
-          currentRoom: roomCode
-        });
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', roomData.format);
-        if (roomData.format === 'test') {
-          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
-        }
-        
-        // Set up real-time listener for room updates
-        setupRoomListener(roomCode, 'player2');
-        
-        // Show joining message
-        document.getElementById('join-subtab').innerHTML = `
-          <div style="text-align: center; padding: 40px 20px;">
-            <h3>Joining Room ${roomCode}</h3>
-            <p>Waiting for game to start...</p>
-            <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-          </div>
-        `;
-        
-      } catch (error) {
-        console.error("Error joining room:", error);
-        alert("Failed to join room. Please check the room code and try again.");
+         // Join game
+    document.getElementById('joinGameBtn').addEventListener('click', function() {
+      if (!currentUser || !currentTeam) {
+        alert('Please login first');
+        return;
       }
+      
+      const roomCode = document.getElementById('roomCode').value.trim();
+      
+      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
+        alert('Please enter a valid 4-digit room code');
+        return;
+      }
+      
+      // Store room info in local storage for quick access
+      localStorage.setItem('hc_currentRoom', roomCode);
+      
+      // Redirect to toss page as player2
+      setTimeout(() => {
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}`;
+      }, 500);
     });
+    
     
     // Spectate game
     document.getElementById('spectateBtn').addEventListener('click', function() {
@@ -1599,7 +1525,9 @@
       localStorage.setItem('hc_currentRoom', roomCode);
       
       // Redirect to toss page as spectator
-      window.location.href = `toss.html?room=${roomCode}&player=spectator`;
+      setTimeout(() => {
+        window.location.href = `toss.html?room=${roomCode}&player=spectator`;
+      }, 500);
     });
 
     // Auction button
