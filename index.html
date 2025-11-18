@@ -1418,7 +1418,7 @@
       document.querySelector('.nav-item[data-tab="profile"]').click();
     });
     
-    // Create game
+     // Create game
     document.getElementById('createGameBtn').addEventListener('click', async function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
@@ -1442,12 +1442,6 @@
       // Show room code
       document.getElementById('roomCodeSpan').textContent = roomCode;
       document.getElementById('roomCodeDisplay').style.display = 'block';
-      
-      // Show invite friends section if user has friends
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      if (friends.length > 0) {
-        inviteFriends.style.display = 'block';
-      }
       
       try {
         // Create room in Firebase with the selected format and team name
@@ -1486,34 +1480,15 @@
           localStorage.setItem('hc_testOvers', selectedTestOvers);
         }
         
-        // Set up real-time listener for room updates
-        setupRoomListener(roomCode, 'player1');
-        
-        // Show waiting message
-        document.getElementById('roomCodeDisplay').innerHTML = `
-          <div style="text-align: center;">
-            <p>Share this code to join: <span class="room-code">${roomCode}</span></p>
-            <p style="margin-top: 10px;">Waiting for player 2 to join...</p>
-            <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-          </div>
-        `;
-        
-        // Add CSS for spinner
-        const style = document.createElement('style');
-        style.textContent = `
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `;
-        document.head.appendChild(style);
-        
+        // Redirect to toss page with the selected format
+        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
       } catch (error) {
         console.error("Error creating room:", error);
         alert("Failed to create room. Please try again.");
       }
     });
     
-    // Join game
+     // Join game
     document.getElementById('joinGameBtn').addEventListener('click', async function() {
       if (!currentUser || !currentTeam) {
         alert('Please login first');
@@ -1568,23 +1543,14 @@
           localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
         }
         
-        // Set up real-time listener for room updates
-        setupRoomListener(roomCode, 'player2');
-        
-        // Show joining message
-        document.getElementById('join-subtab').innerHTML = `
-          <div style="text-align: center; padding: 40px 20px;">
-            <h3>Joining Room ${roomCode}</h3>
-            <p>Waiting for game to start...</p>
-            <div class="spinner" style="margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;"></div>
-          </div>
-        `;
-        
+        // Redirect to toss page with the room's format
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
       } catch (error) {
         console.error("Error joining room:", error);
         alert("Failed to join room. Please check the room code and try again.");
       }
     });
+    
     
     // Spectate game
     document.getElementById('spectateBtn').addEventListener('click', function() {
