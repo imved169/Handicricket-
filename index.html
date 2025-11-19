@@ -1,752 +1,1150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HandiCricket - Home</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    body {
-      background: linear-gradient(135deg, #061e3e, #0a2a4a);
-      color: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      text-align: center;
-      padding: 20px;
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 15px;
-      padding: 30px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    h1 {
-      color: #ffeb3b;
-      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
-      margin-bottom: 30px;
-      font-size: 2.2rem;
-    }
-    
-    .logo {
-      font-size: 60px;
-      margin-bottom: 20px;
-      animation: bounce 2s infinite;
-    }
-    
-    .tabs {
-      display: flex;
-      margin-bottom: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .tab {
-      flex: 1;
-      padding: 12px;
-      cursor: pointer;
-      transition: all 0.3s;
-      border-bottom: 3px solid transparent;
-    }
-    
-    .tab.active {
-      border-bottom: 3px solid #1e88e5;
-      font-weight: bold;
-    }
-    
-    .tab-content {
-      display: none;
-    }
-    
-    .tab-content.active {
-      display: block;
-    }
-    
-    .input-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #aaa;
-    }
-    
-    input, select {
-      width: 100%;
-      padding: 12px 15px;
-      border: 1px solid #1e88e5;
-      border-radius: 8px;
-      background: rgba(30, 136, 229, 0.1);
-      color: white;
-      font-size: 16px;
-      box-sizing: border-box;
-    }
-    
-    select option {
-      background: #061e3e;
-    }
-    
-    .btn {
-      width: 100%;
-      padding: 14px;
-      margin-top: 10px;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(145deg, #1e88e5, #1565c0);
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    }
-    
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
-    }
-    
-    .btn:active {
-      transform: translateY(1px);
-    }
-    
-    .btn-create {
-      background: linear-gradient(145deg, #4CAF50, #2E7D32);
-    }
-    
-    .btn-join {
-      background: linear-gradient(145deg, #FF9800, #F57C00);
-    }
-    
-    .btn-spectate {
-      background: linear-gradient(145deg, #9C27B0, #7B1FA2);
-    }
-    
-    .btn-login {
-      background: linear-gradient(145deg, #607D8B, #455A64);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handicricket - Cricket Management Game</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-    .btn-auction {
-      background: linear-gradient(145deg, #FF5722, #E64A19);
-    }
-    
-    .btn-squad {
-      background: linear-gradient(145deg, #795548, #5D4037);
-    }
-    
-    .btn-leaderboard {
-      background: linear-gradient(145deg, #009688, #00796B);
-    }
-    
-    .format-options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin: 20px 0;
-    }
-    
-    .format-card {
-      padding: 15px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-    }
-    
-    .format-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
-    }
-    
-    .format-card.selected {
-      border-color: #ffeb3b;
-      background: rgba(30, 136, 229, 0.3);
-    }
-    
-    .format-card h3 {
-      margin-top: 0;
-      color: #ffeb3b;
-    }
-    
-    .format-card p {
-      font-size: 14px;
-      color: #aaa;
-    }
-    
-    .room-code-display {
-      margin: 20px 0;
-      padding: 15px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 10px;
-      font-size: 18px;
-      display: none;
-    }
-    
-    .room-code {
-      font-weight: bold;
-      color: #ffeb3b;
-      font-size: 24px;
-      letter-spacing: 3px;
-    }
-    
-    .user-info {
-      margin-bottom: 20px;
-      padding: 10px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 8px;
-    }
-    
-    .user-info p {
-      margin: 5px 0;
-    }
-    
-    .user-team {
-      font-weight: bold;
-      color: #ffeb3b;
-    }
-    
-    .login-form {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-    
-    .password-toggle {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      color: #aaa;
-      cursor: pointer;
-    }
-    
-    .password-container {
-      position: relative;
-    }
-    
-    .test-options {
-      display: none;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    
-    .test-option {
-      padding: 10px;
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-    }
-    
-    .test-option:hover {
-      background: rgba(30, 136, 229, 0.3);
-    }
-    
-    .test-option.selected {
-      border-color: #ffeb3b;
-      background: rgba(30, 136, 229, 0.5);
-    }
-    
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    
-    @media (max-width: 768px) {
-      .format-options {
-        grid-template-columns: 1fr;
-      }
-      
-      .test-options {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .container {
-        padding: 20px;
-      }
-      
-      h1 {
-        font-size: 1.8rem;
-      }
-      
-      .logo {
-        font-size: 50px;
-      }
-      
-      .test-options {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #1a2a6c;
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tagline {
+            color: #b21f1f;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .auth-section, .game-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .auth-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .game-section {
+            flex: 2;
+            min-width: 600px;
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #1a2a6c;
+            border-bottom: 3px solid #1a2a6c;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #1a2a6c;
+            box-shadow: 0 0 0 3px rgba(26, 42, 108, 0.2);
+        }
+
+        button {
+            background: linear-gradient(to right, #1a2a6c, #b21f1f);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .secondary-btn {
+            background: linear-gradient(to right, #fdbb2d, #b21f1f);
+        }
+
+        .format-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .format-card {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .format-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .format-card.selected {
+            border-color: #1a2a6c;
+            background-color: rgba(26, 42, 108, 0.1);
+        }
+
+        .test-options {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .test-options.active {
+            display: block;
+        }
+
+        .room-code {
+            font-size: 2.5rem;
+            text-align: center;
+            letter-spacing: 10px;
+            background: linear-gradient(to right, #1a2a6c, #b21f1f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+            font-weight: 700;
+        }
+
+        .profile-box, .friends-box {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .friends-list {
+            margin-top: 15px;
+        }
+
+        .friend-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status.waiting {
+            background: #ffeb3b;
+            color: #333;
+        }
+
+        .status.ready {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status.playing {
+            background: #f44336;
+            color: white;
+        }
+
+        .sub-tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .sub-tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .sub-tab.active {
+            color: #1a2a6c;
+            border-bottom: 2px solid #1a2a6c;
+        }
+
+        .sub-tab-content {
+            display: none;
+        }
+
+        .sub-tab-content.active {
+            display: block;
+        }
+
+        .squad-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .player-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .player-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .player-role {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        /* New styles for the updated layout */
+        .game-hub {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .profile-section {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .cricket-hub {
+            flex: 2;
+            min-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .profile-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .profile-nav-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .profile-nav-item.active {
+            background: linear-gradient(to right, #1a2a6c, #b21f1f);
+            color: white;
+        }
+
+        .profile-nav-item:hover {
+            background: rgba(26, 42, 108, 0.1);
+        }
+
+        .hub-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .hub-nav-item {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .hub-nav-item.active {
+            background: linear-gradient(to right, #1a2a6c, #b21f1f);
+            color: white;
+        }
+
+        .hub-nav-item:hover {
+            background: rgba(26, 42, 108, 0.1);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-card h4 {
+            color: #1a2a6c;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #b21f1f;
+        }
+
+        .friends-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .hub-content {
+            display: none;
+        }
+
+        .hub-content.active {
+            display: block;
+        }
+
+        .auction-players, .squad-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .auth-section, .game-section {
+                min-width: 100%;
+            }
+            
+            .game-hub {
+                flex-direction: column;
+            }
+            
+            .profile-section, .cricket-hub {
+                min-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">🏏</div>
-    <h1>HandiCricket</h1>
-    
-    <div id="userInfo" class="user-info" style="display: none;">
-      <p>Logged in as: <span id="usernameDisplay" class="user-team"></span></p>
-      <p>Team: <span id="teamDisplay" class="user-team"></span></p>
-      <button id="logoutBtn" class="btn btn-login">Logout</button>
-    </div>
-    
-    <div id="loginForm" class="login-form">
-      <div class="input-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" placeholder="Enter your username">
-      </div>
-      <div class="input-group">
-        <label for="teamName">Team Name</label>
-        <input type="text" id="teamName" placeholder="Enter your team name">
-      </div>
-      <div class="input-group">
-        <label for="password">Password</label>
-        <div class="password-container">
-          <input type="password" id="password" placeholder="Enter your password">
-          <button class="password-toggle" id="togglePassword">👁️</button>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-baseball-ball"></i> Handicricket</h1>
+            <p class="tagline">Manage your cricket team, play matches, and compete with friends!</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Authentication Section -->
+            <section class="auth-section" id="authSection">
+                <div class="tabs">
+                    <div class="tab active" data-tab="login">Login</div>
+                    <div class="tab" data-tab="register">Register</div>
+                </div>
+
+                <div class="tab-content active" id="loginContent">
+                    <div class="form-group">
+                        <label for="loginPlayerName">Player Name</label>
+                        <input type="text" id="loginPlayerName" placeholder="Enter your player name">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginTeamName">Team Name</label>
+                        <input type="text" id="loginTeamName" placeholder="Enter your team name">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter your password">
+                    </div>
+                    <button id="loginBtn">Login</button>
+                    <div class="message" id="loginMessage"></div>
+                </div>
+
+                <div class="tab-content" id="registerContent">
+                    <div class="form-group">
+                        <label for="regPlayerName">Player Name</label>
+                        <input type="text" id="regPlayerName" placeholder="Enter your player name">
+                    </div>
+                    <div class="form-group">
+                        <label for="regTeamName">Team Name</label>
+                        <input type="text" id="regTeamName" placeholder="Enter your team name">
+                    </div>
+                    <div class="form-group">
+                        <label for="regPassword">Password</label>
+                        <input type="password" id="regPassword" placeholder="Create a password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" placeholder="Confirm your password">
+                    </div>
+                    <button id="registerBtn">Register</button>
+                    <div class="message" id="registerMessage"></div>
+                </div>
+            </section>
+
+            <!-- Game Section (shown after login) -->
+            <section class="game-section" id="gameSection">
+                <div class="game-hub">
+                    <!-- Profile Section -->
+                    <div class="profile-section">
+                        <div class="profile-nav">
+                            <div class="profile-nav-item active" data-profile="profile">PROFILE</div>
+                            <div class="profile-nav-item" data-profile="stats">STATS</div>
+                            <div class="profile-nav-item" data-profile="friends">FRIENDS</div>
+                        </div>
+                        
+                        <!-- Profile Content -->
+                        <div class="profile-content active" id="profileContent">
+                            <h3>Your Profile</h3>
+                            <div class="form-group">
+                                <label for="profilePlayerName">Player Name</label>
+                                <input type="text" id="profilePlayerName">
+                            </div>
+                            <div class="form-group">
+                                <label for="profileTeamName">Team Name</label>
+                                <input type="text" id="profileTeamName">
+                            </div>
+                            <div class="form-group">
+                                <label for="profilePassword">New Password (leave blank to keep current)</label>
+                                <input type="password" id="profilePassword">
+                            </div>
+                            <button id="updateProfileBtn">Update Profile</button>
+                            <div class="message" id="profileMessage"></div>
+                            
+                            <div class="friends-box">
+                                <h3>Your Friends</h3>
+                                <div class="form-group">
+                                    <input type="text" id="friendSearch" placeholder="Search for friends by player name">
+                                    <button id="addFriendBtn" class="secondary-btn">Add Friend</button>
+                                </div>
+                                <div class="friends-list" id="friendsList">
+                                    <!-- Friends will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Content -->
+                        <div class="profile-content" id="statsContent">
+                            <h3>Team Statistics</h3>
+                            <div class="stats-container" id="statsContainer">
+                                <!-- Stats will be populated from Firebase -->
+                            </div>
+                        </div>
+                        
+                        <!-- Friends Content -->
+                        <div class="profile-content" id="friendsContent">
+                            <h3>Friends & Teams</h3>
+                            <div class="friends-container" id="friendsContainer">
+                                <!-- Friends will be populated from Firebase -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cricket Hub Section -->
+                    <div class="cricket-hub">
+                        <div class="hub-nav">
+                            <div class="hub-nav-item active" data-hub="home">HOME</div>
+                            <div class="hub-nav-item" data-hub="multiplayer">MULTIPLAYER</div>
+                            <div class="hub-nav-item" data-hub="tournaments">TOURNAMENTS</div>
+                            <div class="hub-nav-item" data-hub="modes">MODES</div>
+                        </div>
+                        
+                        <!-- Home Hub Content -->
+                        <div class="hub-content active" id="homeContent">
+                            <div class="sub-tabs">
+                                <div class="sub-tab active" data-homesubtab="auction">Auction</div>
+                                <div class="sub-tab" data-homesubtab="manage">Manage Squad</div>
+                            </div>
+
+                            <div class="sub-tab-content active" id="auctionContent">
+                                <h3>Player Auction</h3>
+                                <p>Bid for players to strengthen your squad. Current auction pool:</p>
+                                <div class="auction-players">
+                                    <!-- Auction players will be listed here -->
+                                </div>
+                            </div>
+
+                            <div class="sub-tab-content" id="manageContent">
+                                <h3>Manage Your Squad</h3>
+                                <p>Your current squad of 15 players:</p>
+                                <div class="squad-list">
+                                    <!-- Squad players will be listed here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Multiplayer Hub Content -->
+                        <div class="hub-content" id="multiplayerContent">
+                            <div class="sub-tabs">
+                                <div class="sub-tab active" data-multisubtab="create">Create Room</div>
+                                <div class="sub-tab" data-multisubtab="join">Join Room</div>
+                                <div class="sub-tab" data-multisubtab="spectate">Spectate</div>
+                            </div>
+
+                            <!-- Create Room Content -->
+                            <div class="sub-tab-content active" id="createContent">
+                                <h3>Create a New Match</h3>
+                                <p>Select match format:</p>
+                                <div class="format-cards">
+                                    <div class="format-card" data-format="t5">T5</div>
+                                    <div class="format-card" data-format="t10">T10</div>
+                                    <div class="format-card" data-format="t20">T20</div>
+                                    <div class="format-card" data-format="odi">ODI (50 overs)</div>
+                                    <div class="format-card" data-format="test">Test Match</div>
+                                </div>
+
+                                <div class="test-options" id="testOptions">
+                                    <h4>Test Match Options</h4>
+                                    <p>Select overs per day:</p>
+                                    <div class="form-group">
+                                        <select id="testOversPerDay">
+                                            <option value="">Select overs per day</option>
+                                            <option value="20">20 overs (1 day - Very small test)</option>
+                                            <option value="30">30 overs (2 days - Short test)</option>
+                                            <option value="50">50 overs (3 days - Medium test)</option>
+                                            <option value="60">60 overs (4 days - Long test)</option>
+                                            <option value="90">90 overs (5 days - Real test match)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button id="createMatchBtn">Create New Match</button>
+                                <div class="room-code" id="roomCodeDisplay" style="display: none;"></div>
+                            </div>
+
+                            <!-- Join Room Content -->
+                            <div class="sub-tab-content" id="joinContent">
+                                <h3>Join a Match</h3>
+                                <p>Enter the 4-digit room code provided by your friend:</p>
+                                <div class="form-group">
+                                    <input type="text" id="joinRoomCode" placeholder="Enter room code (e.g., 4839)" maxlength="4">
+                                </div>
+                                <button id="joinMatchBtn">Join Match</button>
+                                <div class="message" id="joinMessage"></div>
+                            </div>
+
+                            <!-- Spectate Content -->
+                            <div class="sub-tab-content" id="spectateContent">
+                                <h3>Spectate a Match</h3>
+                                <p>Enter the 4-digit room code of the match you want to watch:</p>
+                                <div class="form-group">
+                                    <input type="text" id="spectateRoomCode" placeholder="Enter room code (e.g., 4839)" maxlength="4">
+                                </div>
+                                <button id="spectateBtn">Spectate Match</button>
+                                <div class="message" id="spectateMessage"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tournaments Hub Content -->
+                        <div class="hub-content" id="tournamentsContent">
+                            <h3>Tournaments</h3>
+                            <p>Join or create tournaments to compete with other teams.</p>
+                            <div class="format-cards">
+                                <div class="format-card">
+                                    <h4>World Cup</h4>
+                                    <p>International tournament</p>
+                                    <button class="secondary-btn">Join</button>
+                                </div>
+                                <div class="format-card">
+                                    <h4>Champions League</h4>
+                                    <p>Club championship</p>
+                                    <button class="secondary-btn">Join</button>
+                                </div>
+                                <div class="format-card">
+                                    <h4>Domestic League</h4>
+                                    <p>National competition</p>
+                                    <button class="secondary-btn">Join</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Modes Hub Content -->
+                        <div class="hub-content" id="modesContent">
+                            <h3>Game Modes</h3>
+                            <p>Choose your preferred way to play.</p>
+                            <div class="format-cards">
+                                <div class="format-card">
+                                    <h4>Quick Match</h4>
+                                    <p>Play a single match</p>
+                                    <button class="secondary-btn">Play</button>
+                                </div>
+                                <div class="format-card">
+                                    <h4>Career Mode</h4>
+                                    <p>Build your team over seasons</p>
+                                    <button class="secondary-btn">Play</button>
+                                </div>
+                                <div class="format-card">
+                                    <h4>Challenge Mode</h4>
+                                    <p>Complete specific objectives</p>
+                                    <button class="secondary-btn">Play</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
-      </div>
-      <button id="loginBtn" class="btn btn-login">Login / Register</button>
-    </div>
-    
-    <div class="tabs">
-      <div class="tab active" data-tab="create">Create Game</div>
-      <div class="tab" data-tab="join">Join Game</div>
-      <div class="tab" data-tab="spectate">Spectate</div>
-    </div>
-    
-    <div class="tab-content active" id="create-tab">
-      <div class="input-group">
-        <label>Match Format</label>
-        <div class="format-options">
-          <div class="format-card" data-format="5">
-            <h3>T5 (5 Overs)</h3>
-            <p>Quick 30-minute match</p>
-          </div>
-          <div class="format-card" data-format="10">
-            <h3>T10 (10 Overs)</h3>
-            <p>Standard 1-hour match</p>
-          </div>
-          <div class="format-card" data-format="20">
-            <h3>T20 (20 Overs)</h3>
-            <p>Classic 2-hour match</p>
-          </div>
-          <div class="format-card" data-format="50">
-            <h3>ODI (50 Overs)</h3>
-            <p>Full day challenge</p>
-          </div>
-          <div class="format-card" data-format="test" id="testFormat">
-            <h3>Test Match</h3>
-            <p>Multi-day challenge</p>
-          </div>
-        </div>
-        
-        <div id="testOptions" class="test-options">
-          <div class="test-option" data-overs="20">
-            <h4>20 Overs/Day</h4>
-            <p>1-2 day match</p>
-          </div>
-          <div class="test-option" data-overs="30">
-            <h4>30 Overs/Day</h4>
-            <p>2-3 day match</p>
-          </div>
-          <div class="test-option" data-overs="50">
-            <h4>50 Overs/Day</h4>
-            <p>3-4 day match</p>
-          </div>
-          <div class="test-option" data-overs="60">
-            <h4>60 Overs/Day</h4>
-            <p>4-5 day match</p>
-          </div>
-          <div class="test-option" data-overs="90">
-            <h4>90 Overs/Day</h4>
-            <p>Traditional 5-day test</p>
-          </div>
-        </div>
-      </div>
-      
-      <button id="createGameBtn" class="btn btn-create">Create New Match</button>
-      <div class="room-code-display" id="roomCodeDisplay">
-        Share this code to join: <span class="room-code" id="roomCodeSpan"></span>
-      </div>
-    </div>
-    
-    <div class="tab-content" id="join-tab">
-      <div class="input-group">
-        <label for="roomCode">Room Code</label>
-        <input type="text" id="roomCode" placeholder="Enter 4-digit room code" maxlength="4">
-      </div>
-      <button id="joinGameBtn" class="btn btn-join">Join Match</button>
-    </div>
-    
-    <div class="tab-content" id="spectate-tab">
-      <div class="input-group">
-        <label for="spectateRoomCode">Room Code</label>
-        <input type="text" id="spectateRoomCode" placeholder="Enter 4-digit room code" maxlength="4">
-      </div>
-      <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
-    </div>
-    
-    <button id="auctionBtn" class="btn btn-auction" style="margin-top: 20px;">Auction Room</button>
-    <button id="manageSquadBtn" class="btn btn-squad" style="margin-top: 20px;">Manage Squad</button>
-    <button id="leaderboardBtn" class="btn btn-leaderboard">Leaderboard</button>
-  </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, set, update, get, child } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+        <footer>
+            <p>Handicricket &copy; 2023 | Manage your cricket team and compete with friends!</p>
+        </footer>
+    </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
-        tab.classList.add('active');
-        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
-      });
-    });
-    
-    // Format selection
-    let selectedFormat = null;
-    let selectedTestOvers = null;
-    
-    document.querySelectorAll('.format-card').forEach(card => {
-      card.addEventListener('click', () => {
-        document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedFormat = card.dataset.format;
-        
-        // Show test options if Test Match is selected
-        if (selectedFormat === 'test') {
-          document.getElementById('testOptions').style.display = 'grid';
-        } else {
-          document.getElementById('testOptions').style.display = 'none';
-          selectedTestOvers = null;
-        }
-      });
-    });
-    
-    // Test match overs selection
-    document.querySelectorAll('.test-option').forEach(option => {
-      option.addEventListener('click', () => {
-        document.querySelectorAll('.test-option').forEach(o => o.classList.remove('selected'));
-        option.classList.add('selected');
-        selectedTestOvers = option.dataset.overs;
-      });
-    });
-    
-    // Password toggle
-    document.getElementById('togglePassword').addEventListener('click', function() {
-      const passwordInput = document.getElementById('password');
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      this.textContent = type === 'password' ? '👁️' : '👁️‍🗨️';
-    });
-    
-    // Check if user is logged in
-    let currentUser = localStorage.getItem('hc_username');
-    let currentTeam = localStorage.getItem('hc_team');
-    
-    if (currentUser && currentTeam) {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('userInfo').style.display = 'block';
-      document.getElementById('usernameDisplay').textContent = currentUser;
-      document.getElementById('teamDisplay').textContent = currentTeam;
-    }
-    
-    // Login/Register
-    document.getElementById('loginBtn').addEventListener('click', async function() {
-      const username = document.getElementById('username').value.trim();
-      const teamName = document.getElementById('teamName').value.trim();
-      const password = document.getElementById('password').value;
-      
-      if (!username || !teamName || !password) {
-        alert('Please enter all fields');
-        return;
-      }
-      
-      if (password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return;
-      }
-      
-      try {
-        const userRef = ref(db, `users/${username}`);
-        const userSnap = await get(userRef);
-        
-        if (userSnap.exists()) {
-          // Existing user - verify credentials
-          const userData = userSnap.val();
-          if (userData.password !== password) {
-            alert('Incorrect password');
-            return;
-          }
-          if (userData.team !== teamName) {
-            alert('This username is already registered with a different team');
-            return;
-          }
-        } else {
-          // New user - register with hashed password
-          await set(userRef, {
-            username: username,
-            team: teamName,
-            password: password, // In production, use proper hashing
-            created: Date.now(),
-            matches: 0,
-            wins: 0,
-            losses: 0,
-            players: []
-          });
-        }
-        
-        // Store login info
-        localStorage.setItem('hc_username', username);
-        localStorage.setItem('hc_team', teamName);
-        currentUser = username;
-        currentTeam = teamName;
-        
-        // Update UI
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('userInfo').style.display = 'block';
-        document.getElementById('usernameDisplay').textContent = username;
-        document.getElementById('teamDisplay').textContent = teamName;
-        
-      } catch (error) {
-        console.error("Login error:", error);
-        alert("Failed to login. Please try again.");
-      }
-    });
-    
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.removeItem('hc_username');
-      localStorage.removeItem('hc_team');
-      currentUser = null;
-      currentTeam = null;
-      document.getElementById('loginForm').style.display = 'flex';
-      document.getElementById('userInfo').style.display = 'none';
-    });
-    
-    // Create game
-    document.getElementById('createGameBtn').addEventListener('click', async function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      
-      if (!selectedFormat) {
-        alert('Please select a match format');
-        return;
-      }
-      
-      // For Test matches, check if overs are selected
-      if (selectedFormat === 'test' && !selectedTestOvers) {
-        alert('Please select overs per day for the Test match');
-        return;
-      }
-      
-      // Generate a random 4-digit room code
-      const roomCode = Math.floor(1000 + Math.random() * 9000);
-      
-      // Show room code
-      document.getElementById('roomCodeSpan').textContent = roomCode;
-      document.getElementById('roomCodeDisplay').style.display = 'block';
-      
-      try {
-        // Create room in Firebase with the selected format and team name
-        const roomData = {
-          player1: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          format: selectedFormat,
-          team1: currentTeam, // Save team name in the room data
-          createdAt: Date.now(),
-          status: 'waiting'
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+            authDomain: "handicricket-85a06.firebaseapp.com",
+            projectId: "handicricket-85a06",
+            storageBucket: "handicricket-85a06.firebasestorage.app",
+            messagingSenderId: "599182538558",
+            appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+            measurementId: "G-HSV9H4LEJQ"
         };
-        
-        // Add test match specific data if applicable
-        if (selectedFormat === 'test') {
-          roomData.testOversPerDay = selectedTestOvers;
-          roomData.testDays = selectedTestOvers == 90 ? 5 : 
-                             selectedTestOvers == 60 ? 4 :
-                             selectedTestOvers == 50 ? 3 :
-                             selectedTestOvers == 30 ? 2 : 1;
-        }
-        
-        await set(ref(db, `rooms/${roomCode}`), roomData);
-        
-        // Also update the user's data to include the room they created
-        await update(ref(db, `users/${currentUser}`), {
-          currentRoom: roomCode
-        });
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', selectedFormat);
-        if (selectedFormat === 'test') {
-          localStorage.setItem('hc_testOvers', selectedTestOvers);
-        }
-        
-        // Redirect to toss page with the selected format
-        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
-      } catch (error) {
-        console.error("Error creating room:", error);
-        alert("Failed to create room. Please try again.");
-      }
-    });
-    
-    // Join game
-    document.getElementById('joinGameBtn').addEventListener('click', async function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      
-      const roomCode = document.getElementById('roomCode').value.trim();
-      
-      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
-        alert('Please enter a valid 4-digit room code');
-        return;
-      }
-      
-      try {
-        // Check if room exists
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        const roomSnap = await get(roomRef);
-        
-        if (!roomSnap.exists()) {
-          alert('Room not found. Please check the code.');
-          return;
-        }
-        
-        const roomData = roomSnap.val();
-        
-        // Check if room already has two players
-        if (roomData.player2) {
-          alert('This room is already full');
-          return;
-        }
-        
-        // Join room
-        await update(ref(db, `rooms/${roomCode}`), {
-          player2: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          team2: currentTeam, // Save team name in the room data
-          status: 'ready'
-        });
-        
-        // Update the user's data to include the room they joined
-        await update(ref(db, `users/${currentUser}`), {
-          currentRoom: roomCode
-        });
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', roomData.format);
-        if (roomData.format === 'test') {
-          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
-        }
-        
-        // Redirect to toss page with the room's format
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
-      } catch (error) {
-        console.error("Error joining room:", error);
-        alert("Failed to join room. Please check the room code and try again.");
-      }
-    });
-    
-    // Spectate game
-    document.getElementById('spectateBtn').addEventListener('click', function() {
-      const roomCode = document.getElementById('spectateRoomCode').value.trim();
-      
-      if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
-        alert('Please enter a valid 4-digit room code');
-        return;
-      }
-      
-      // Store room info in local storage for quick access
-      localStorage.setItem('hc_currentRoom', roomCode);
-      
-      // Redirect to game page as spectator
-      window.location.href = `game_first_innings.html?room=${roomCode}&player=spectator`;
-    });
 
-    // Auction button
-    document.getElementById('auctionBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      window.location.href = 'auction.html';
-    });
-    
-    // Manage squad
-    document.getElementById('manageSquadBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
-        alert('Please login first');
-        return;
-      }
-      window.location.href = `squad.html?username=${currentUser}`;
-    });
-    
-    // Leaderboard
-    document.getElementById('leaderboardBtn').addEventListener('click', function() {
-      window.location.href = `leaderboard.html`;
-    });
-    
-    // Focus on room code input when join/spectate tab is clicked
-    document.querySelector('.tab[data-tab="join"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('roomCode').focus();
-      }, 100);
-    });
-    
-    document.querySelector('.tab[data-tab="spectate"]').addEventListener('click', () => {
-      setTimeout(() => {
-        document.getElementById('spectateRoomCode').focus();
-      }, 100);
-    });
-  </script>
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // DOM Elements
+        const authSection = document.getElementById('authSection');
+        const gameSection = document.getElementById('gameSection');
+        
+        // Authentication elements
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const loginMessage = document.getElementById('loginMessage');
+        const registerMessage = document.getElementById('registerMessage');
+        
+        // Profile elements
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
+        const profileMessage = document.getElementById('profileMessage');
+        
+        // Game elements
+        const createMatchBtn = document.getElementById('createMatchBtn');
+        const joinMatchBtn = document.getElementById('joinMatchBtn');
+        const spectateBtn = document.getElementById('spectateBtn');
+        const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+        const testOptions = document.getElementById('testOptions');
+        
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabId + 'Content').classList.add('active');
+            });
+        });
+        
+        // Profile navigation functionality
+        document.querySelectorAll('.profile-nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const profileId = item.getAttribute('data-profile');
+                
+                // Update active profile nav item
+                document.querySelectorAll('.profile-nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Show corresponding content
+                document.querySelectorAll('.profile-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(profileId + 'Content').classList.add('active');
+                
+                // Load data from Firebase if needed
+                if (profileId === 'stats') {
+                    loadStatsFromFirebase();
+                } else if (profileId === 'friends') {
+                    loadFriendsFromFirebase();
+                }
+            });
+        });
+        
+        // Hub navigation functionality
+        document.querySelectorAll('.hub-nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const hubId = item.getAttribute('data-hub');
+                
+                // Update active hub nav item
+                document.querySelectorAll('.hub-nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Show corresponding content
+                document.querySelectorAll('.hub-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(hubId + 'Content').classList.add('active');
+            });
+        });
+        
+        // Sub-tab functionality
+        document.querySelectorAll('.sub-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const parentId = tab.closest('.sub-tab-content').id;
+                const subtabId = tab.getAttribute('data-' + parentId.replace('Content', 'subtab'));
+                
+                // Update active sub-tab
+                tab.closest('.sub-tabs').querySelectorAll('.sub-tab').forEach(t => {
+                    t.classList.remove('active');
+                });
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                tab.closest('.sub-tab-content').querySelectorAll('.sub-tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(subtabId + 'Content').classList.add('active');
+                
+                // Special handling for test match options
+                if (subtabId === 'create') {
+                    document.querySelectorAll('.format-card').forEach(card => {
+                        if (card.getAttribute('data-format') === 'test') {
+                            card.addEventListener('click', () => {
+                                testOptions.classList.add('active');
+                            });
+                        }
+                    });
+                    
+                    document.querySelectorAll('.format-card').forEach(card => {
+                        if (card.getAttribute('data-format') !== 'test') {
+                            card.addEventListener('click', () => {
+                                testOptions.classList.remove('active');
+                            });
+                        }
+                    });
+                }
+            });
+        });
+        
+        // Format selection
+        document.querySelectorAll('.format-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.format-card').forEach(c => {
+                    c.classList.remove('selected');
+                });
+                card.classList.add('selected');
+                
+                if (card.getAttribute('data-format') === 'test') {
+                    testOptions.classList.add('active');
+                } else {
+                    testOptions.classList.remove('active');
+                }
+            });
+        });
+        
+        // Register functionality
+        registerBtn.addEventListener('click', () => {
+            const playerName = document.getElementById('regPlayerName').value;
+            const teamName = document.getElementById('regTeamName').value;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (!playerName || !teamName || !password) {
+                showMessage(registerMessage, 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showMessage(registerMessage, 'Passwords do not match', 'error');
+                return;
+            }
+            
+            // In a real implementation, we would use Firebase Auth
+            // For this demo, we'll simulate registration
+            showMessage(registerMessage, 'Registration successful! Please login.', 'success');
+            
+            // Switch to login tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                if (tab.getAttribute('data-tab') === 'login') {
+                    tab.click();
+                }
+            });
+            
+            // Pre-fill login form
+            document.getElementById('loginPlayerName').value = playerName;
+            document.getElementById('loginTeamName').value = teamName;
+        });
+        
+        // Login functionality
+        loginBtn.addEventListener('click', () => {
+            const playerName = document.getElementById('loginPlayerName').value;
+            const teamName = document.getElementById('loginTeamName').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!playerName || !teamName || !password) {
+                showMessage(loginMessage, 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            // In a real implementation, we would use Firebase Auth
+            // For this demo, we'll simulate login
+            showMessage(loginMessage, 'Login successful!', 'success');
+            
+            // Show game section after a short delay
+            setTimeout(() => {
+                authSection.style.display = 'none';
+                gameSection.style.display = 'block';
+                
+                // Pre-fill profile information
+                document.getElementById('profilePlayerName').value = playerName;
+                document.getElementById('profileTeamName').value = teamName;
+                
+                // Load data from Firebase
+                loadStatsFromFirebase();
+                loadFriendsFromFirebase();
+            }, 1000);
+        });
+        
+        // Update profile functionality
+        updateProfileBtn.addEventListener('click', () => {
+            const playerName = document.getElementById('profilePlayerName').value;
+            const teamName = document.getElementById('profileTeamName').value;
+            const password = document.getElementById('profilePassword').value;
+            
+            if (!playerName || !teamName) {
+                showMessage(profileMessage, 'Player name and team name are required', 'error');
+                return;
+            }
+            
+            // In a real implementation, we would update Firebase
+            showMessage(profileMessage, 'Profile updated successfully!', 'success');
+        });
+        
+        // Create match functionality
+        createMatchBtn.addEventListener('click', () => {
+            const selectedFormat = document.querySelector('.format-card.selected');
+            
+            if (!selectedFormat) {
+                alert('Please select a match format');
+                return;
+            }
+            
+            const format = selectedFormat.getAttribute('data-format');
+            
+            if (format === 'test') {
+                const oversPerDay = document.getElementById('testOversPerDay').value;
+                if (!oversPerDay) {
+                    alert('Please select overs per day for test match');
+                    return;
+                }
+            }
+            
+            // Generate a random 4-digit room code
+            const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            // Display the room code
+            roomCodeDisplay.textContent = roomCode;
+            roomCodeDisplay.style.display = 'block';
+            
+            // In a real implementation, we would save to Firebase
+            // For now, we'll just show a success message and simulate redirect
+            setTimeout(() => {
+                alert(`Match created! Room code: ${roomCode}. Redirecting to toss page...`);
+                // In a real implementation: window.location.href = 'toss.html';
+            }, 1500);
+        });
+        
+        // Join match functionality
+        joinMatchBtn.addEventListener('click', () => {
+            const roomCode = document.getElementById('joinRoomCode').value;
+            
+            if (!roomCode || roomCode.length !== 4) {
+                showMessage(document.getElementById('joinMessage'), 'Please enter a valid 4-digit room code', 'error');
+                return;
+            }
+            
+            // In a real implementation, we would check Firebase if room exists
+            // For now, we'll simulate a successful join
+            showMessage(document.getElementById('joinMessage'), 'Joining match...', 'success');
+            
+            setTimeout(() => {
+                alert(`Successfully joined room ${roomCode}. Redirecting to toss page...`);
+                // In a real implementation: window.location.href = 'toss.html';
+            }, 1500);
+        });
+        
+        // Spectate functionality
+        spectateBtn.addEventListener('click', () => {
+            const roomCode = document.getElementById('spectateRoomCode').value;
+            
+            if (!roomCode || roomCode.length !== 4) {
+                showMessage(document.getElementById('spectateMessage'), 'Please enter a valid 4-digit room code', 'error');
+                return;
+            }
+            
+            // In a real implementation, we would check Firebase if room exists
+            // For now, we'll simulate a successful spectate
+            showMessage(document.getElementById('spectateMessage'), 'Entering spectator mode...', 'success');
+            
+            setTimeout(() => {
+                alert(`Now spectating room ${roomCode}. Redirecting to toss page...`);
+                // In a real implementation: window.location.href = 'toss.html';
+            }, 1500);
+        });
+        
+        // Helper function to show messages
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = 'message ' + type;
+            element.style.display = 'block';
+            
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Function to load stats from Firebase
+        function loadStatsFromFirebase() {
+            const statsContainer = document.getElementById('statsContainer');
+            
+            // In a real implementation, we would fetch from Firebase
+            // For this demo, we'll simulate data
+            const statsData = [
+                { title: 'Matches Played', value: '12' },
+                { title: 'Matches Won', value: '8' },
+                { title: 'Win Percentage', value: '66.7%' },
+                { title: 'Top Batsman', value: 'R. Sharma (452 runs)' },
+                { title: 'Top Bowler', value: 'J. Bumrah (18 wickets)' },
+                { title: 'Highest Score', value: '156/4' },
+                { title: 'Best Bowling', value: '5/23' },
+                { title: 'Current Rank', value: '#24' }
+            ];
+            
+            // Clear existing content
+            statsContainer.innerHTML = '';
+            
+            // Add stats cards
+            statsData.forEach(stat => {
+                const statCard = document.createElement('div');
+                statCard.className = 'stat-card';
+                statCard.innerHTML = `
+                    <h4>${stat.title}</h4>
+                    <p class="stat-value">${stat.value}</p>
+                `;
+                statsContainer.appendChild(statCard);
+            });
+        }
+        
+        // Function to load friends from Firebase
+        function loadFriendsFromFirebase() {
+            const friendsContainer = document.getElementById('friendsContainer');
+            
+            // In a real implementation, we would fetch from Firebase
+            // For this demo, we'll simulate data
+            const friendsData = [
+                { name: 'Amit Sharma', team: 'Delhi Daredevils', status: 'online' },
+                { name: 'Priya Patel', team: 'Mumbai Indians', status: 'offline' },
+                { name: 'Rahul Kumar', team: 'Chennai Super Kings', status: 'playing' },
+                { name: 'Sneha Gupta', team: 'Royal Challengers', status: 'online' },
+                { name: 'Vikram Singh', team: 'Kolkata Knight Riders', status: 'online' },
+                { name: 'Anjali Reddy', team: 'Sunrisers Hyderabad', status: 'offline' }
+            ];
+            
+            // Clear existing content
+            friendsContainer.innerHTML = '';
+            
+            // Add friend cards
+            friendsData.forEach(friend => {
+                const friendCard = document.createElement('div');
+                friendCard.className = 'player-card';
+                friendCard.innerHTML = `
+                    <div class="player-name">${friend.name}</div>
+                    <div class="player-role">${friend.team}</div>
+                    <div class="status ${friend.status === 'online' ? 'ready' : 
+                                      friend.status === 'offline' ? 'waiting' : 
+                                      'playing'}">${friend.status}</div>
+                `;
+                friendsContainer.appendChild(friendCard);
+            });
+        }
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add some sample players to auction and squad for demo purposes
+            const auctionPlayers = document.querySelector('.auction-players');
+            const squadList = document.querySelector('.squad-list');
+            
+            const samplePlayers = [
+                { name: 'Virat Kohli', role: 'Batsman' },
+                { name: 'Jasprit Bumrah', role: 'Bowler' },
+                { name: 'MS Dhoni', role: 'Wicketkeeper' },
+                { name: 'Hardik Pandya', role: 'All-rounder' },
+                { name: 'Rohit Sharma', role: 'Batsman' },
+                { name: 'Ravindra Jadeja', role: 'All-rounder' }
+            ];
+            
+            samplePlayers.forEach(player => {
+                // Add to auction
+                const auctionPlayer = document.createElement('div');
+                auctionPlayer.className = 'player-card';
+                auctionPlayer.innerHTML = `
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-role">${player.role}</div>
+                    <button class="secondary-btn" style="margin-top: 10px;">Bid</button>
+                `;
+                auctionPlayers.appendChild(auctionPlayer);
+                
+                // Add to squad (first 4 players)
+                if (samplePlayers.indexOf(player) < 4) {
+                    const squadPlayer = document.createElement('div');
+                    squadPlayer.className = 'player-card';
+                    squadPlayer.innerHTML = `
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-role">${player.role}</div>
+                    `;
+                    squadList.appendChild(squadPlayer);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
