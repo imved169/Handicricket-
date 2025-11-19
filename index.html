@@ -5,9 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HandiCricket - Home</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics-compat.js"></script>
+  
   <style>
     * {
       box-sizing: border-box;
@@ -652,20 +656,6 @@
       color: var(--text);
       margin: 10px 0;
     }
-
-    .loading {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255,255,255,.3);
-      border-radius: 50%;
-      border-top-color: var(--highlight);
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
     
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
@@ -797,6 +787,10 @@
             <div class="input-group">
               <label for="teamName">Team Name</label>
               <input type="text" id="teamName" placeholder="Enter your team name">
+            </div>
+            <div class="input-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" placeholder="Enter your email">
             </div>
             <div class="input-group">
               <label for="password">Password</label>
@@ -950,10 +944,7 @@
               </div>
             </div>
             
-            <button id="createGameBtn" class="btn btn-create">
-              <span id="createBtnText">Create New Match</span>
-              <span id="createBtnLoading" class="loading" style="display: none;"></span>
-            </button>
+            <button id="createGameBtn" class="btn btn-create">Create New Match</button>
             
             <div class="room-code-display" id="roomCodeDisplay">
               Share this code to join: <span class="room-code" id="roomCodeSpan"></span>
@@ -975,10 +966,7 @@
               <label for="roomCode">Room Code</label>
               <input type="text" id="roomCode" placeholder="Enter 4-digit room code" maxlength="4">
             </div>
-            <button id="joinGameBtn" class="btn btn-join">
-              <span id="joinBtnText">Join Match</span>
-              <span id="joinBtnLoading" class="loading" style="display: none;"></span>
-            </button>
+            <button id="joinGameBtn" class="btn btn-join">Join Match</button>
           </div>
 
           <div class="subtab-content" id="spectate-subtab">
@@ -986,10 +974,7 @@
               <label for="spectateRoomCode">Room Code</label>
               <input type="text" id="spectateRoomCode" placeholder="Enter 4-digit room code" maxlength="4">
             </div>
-            <button id="spectateBtn" class="btn btn-spectate">
-              <span id="spectateBtnText">Spectate Match</span>
-              <span id="spectateBtnLoading" class="loading" style="display: none;"></span>
-            </button>
+            <button id="spectateBtn" class="btn btn-spectate">Spectate Match</button>
           </div>
         </div>
 
@@ -1039,7 +1024,7 @@
   </div>
 
   <script>
-    // Firebase configuration - UPDATED WITH YOUR CONFIG
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
       authDomain: "handicricket-85a06.firebaseapp.com",
@@ -1047,13 +1032,14 @@
       storageBucket: "handicricket-85a06.firebasestorage.app",
       messagingSenderId: "599182538558",
       appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ",
-      databaseURL: "https://handicricket-85a06-default-rtdb.firebaseio.com/" // Added databaseURL
+      measurementId: "G-HSV9H4LEJQ"
     };
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const analytics = firebase.analytics();
 
     // Debug logging
     console.log("Script loaded successfully");
@@ -1081,12 +1067,6 @@
     const createGameBtn = document.getElementById('createGameBtn');
     const joinGameBtn = document.getElementById('joinGameBtn');
     const spectateBtn = document.getElementById('spectateBtn');
-    const createBtnText = document.getElementById('createBtnText');
-    const createBtnLoading = document.getElementById('createBtnLoading');
-    const joinBtnText = document.getElementById('joinBtnText');
-    const joinBtnLoading = document.getElementById('joinBtnLoading');
-    const spectateBtnText = document.getElementById('spectateBtnText');
-    const spectateBtnLoading = document.getElementById('spectateBtnLoading');
 
     // Debug: Check if buttons exist
     console.log("Create button:", createGameBtn);
@@ -1173,30 +1153,53 @@
     });
     
     // Check if user is logged in
-    let currentUser = localStorage.getItem('hc_username');
-    let currentTeam = localStorage.getItem('hc_team');
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        // User is signed in
+        loadUserData(user.uid);
+      } else {
+        // User is signed out
+        profileForm.style.display = 'flex';
+        userInfo.style.display = 'none';
+        userStats.style.display = 'none';
+        document.querySelector('.nav-item[data-tab="profile"]').click();
+      }
+    });
     
-    if (currentUser && currentTeam) {
-      profileForm.style.display = 'none';
-      userInfo.style.display = 'flex';
-      usernameDisplay.textContent = currentUser;
-      teamDisplay.textContent = currentTeam;
-      userAvatar.textContent = currentUser.charAt(0).toUpperCase();
-      
-      // Load user stats
-      loadUserStats();
-      
-      // Switch to home tab if logged in
-      document.querySelector('.nav-item[data-tab="home"]').click();
+    // Load user data from Firestore
+    function loadUserData(userId) {
+      db.collection('users').doc(userId).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const userData = doc.data();
+            profileForm.style.display = 'none';
+            userInfo.style.display = 'flex';
+            usernameDisplay.textContent = userData.username;
+            teamDisplay.textContent = userData.teamName;
+            userAvatar.textContent = userData.username.charAt(0).toUpperCase();
+            
+            // Load user stats
+            loadUserStats(userId);
+            
+            // Switch to home tab if logged in
+            document.querySelector('.nav-item[data-tab="home"]').click();
+          } else {
+            console.error("No user data found");
+          }
+        })
+        .catch((error) => {
+          console.error("Error getting user data:", error);
+        });
     }
     
     // Login/Register
     document.getElementById('loginBtn').addEventListener('click', async function() {
       const username = document.getElementById('username').value.trim();
       const teamName = document.getElementById('teamName').value.trim();
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       
-      if (!username || !teamName || !password) {
+      if (!username || !teamName || !email || !password) {
         alert('Please enter all fields');
         return;
       }
@@ -1207,191 +1210,195 @@
       }
       
       try {
-        // For demo purposes, we'll simulate Firebase with localStorage
-        const userKey = `hc_user_${username}`;
-        const existingUser = localStorage.getItem(userKey);
+        // Try to create a new user
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
         
-        if (existingUser) {
-          // Existing user - verify credentials
-          const userData = JSON.parse(existingUser);
-          if (userData.password !== password) {
-            alert('Incorrect password');
-            return;
-          }
-          if (userData.team !== teamName) {
-            alert('This username is already registered with a different team');
-            return;
-          }
-        } else {
-          // New user - register
-          const userData = {
-            username: username,
-            team: teamName,
-            password: password,
-            created: Date.now(),
-            matches: 0,
-            wins: 0,
-            losses: 0,
-            players: []
-          };
-          localStorage.setItem(userKey, JSON.stringify(userData));
-        }
+        // Create user document in Firestore
+        await db.collection('users').doc(user.uid).set({
+          username: username,
+          teamName: teamName,
+          email: email,
+          created: firebase.firestore.FieldValue.serverTimestamp(),
+          matches: 0,
+          wins: 0,
+          losses: 0,
+          players: []
+        });
         
-        // Store login info
-        localStorage.setItem('hc_username', username);
-        localStorage.setItem('hc_team', teamName);
-        currentUser = username;
-        currentTeam = teamName;
-        
-        // Update UI
-        profileForm.style.display = 'none';
-        userInfo.style.display = 'flex';
-        usernameDisplay.textContent = username;
-        teamDisplay.textContent = teamName;
-        userAvatar.textContent = username.charAt(0).toUpperCase();
-        
-        // Load user stats
-        loadUserStats();
-        
-        // Switch to home tab
-        document.querySelector('.nav-item[data-tab="home"]').click();
+        console.log("User registered successfully");
         
       } catch (error) {
-        console.error("Login error:", error);
-        alert("Failed to login. Please try again.");
+        // If user already exists, try to sign in
+        if (error.code === 'auth/email-already-in-use') {
+          try {
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            console.log("User signed in successfully");
+          } catch (signInError) {
+            console.error("Sign in error:", signInError);
+            alert("Failed to sign in: " + signInError.message);
+          }
+        } else {
+          console.error("Registration error:", error);
+          alert("Failed to register: " + error.message);
+        }
       }
     });
     
-    // Load user stats
-    function loadUserStats() {
-      if (!currentUser) return;
-      
-      // Get stats from localStorage or set defaults
-      const userStatsData = JSON.parse(localStorage.getItem(`hc_stats_${currentUser}`)) || {
-        matches: 0,
-        wins: 0,
-        losses: 0
-      };
-      
-      matchesPlayed.textContent = userStatsData.matches;
-      matchesWon.textContent = userStatsData.wins;
-      matchesLost.textContent = userStatsData.losses;
-      
-      const winRateValue = userStatsData.matches > 0 ? 
-        Math.round((userStatsData.wins / userStatsData.matches) * 100) : 0;
-      winRate.textContent = `${winRateValue}%`;
-      
-      userStats.style.display = 'block';
+    // Load user stats from Firestore
+    function loadUserStats(userId) {
+      db.collection('users').doc(userId).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const userData = doc.data();
+            
+            matchesPlayed.textContent = userData.matches || 0;
+            matchesWon.textContent = userData.wins || 0;
+            matchesLost.textContent = userData.losses || 0;
+            
+            const winRateValue = userData.matches > 0 ? 
+              Math.round((userData.wins / userData.matches) * 100) : 0;
+            winRate.textContent = `${winRateValue}%`;
+            
+            userStats.style.display = 'block';
+          }
+        })
+        .catch((error) => {
+          console.error("Error getting user stats:", error);
+        });
     }
 
-    // Load team stats
+    // Load team stats from Firestore
     function loadTeamStats() {
-      if (!currentUser) return;
+      const user = auth.currentUser;
+      if (!user) return;
       
       teamStatsContainer.innerHTML = '<div class="stats-section"><div class="stats-title">Loading team statistics...</div></div>';
       
-      // For this demo, we'll create a default team card
-      teamStatsContainer.innerHTML = `
-        <div class="team-card">
-          <div class="team-header">
-            <div class="team-icon"><i class="fas fa-users"></i></div>
-            <div>
-              <div class="team-name">${currentTeam}</div>
-              <div class="team-rank">Rank: N/A</div>
-            </div>
-          </div>
-          <div class="stats-section">
-            <div class="stats-title">Team Statistics</div>
-            <div class="stats-row">
-              <div class="stats-label">Matches Played</div>
-              <div class="stats-value">0</div>
-            </div>
-            <div class="stats-row">
-              <div class="stats-label">Matches Won</div>
-              <div class="stats-value">0</div>
-            </div>
-            <div class="stats-row">
-              <div class="stats-label">Matches Lost</div>
-              <div class="stats-value">0</div>
-            </div>
-            <div class="stats-row">
-              <div class="stats-label">Win Percentage</div>
-              <div class="stats-value">0%</div>
-            </div>
-          </div>
-        </div>
-      `;
+      db.collection('users').doc(user.uid).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const userData = doc.data();
+            
+            teamStatsContainer.innerHTML = `
+              <div class="team-card">
+                <div class="team-header">
+                  <div class="team-icon"><i class="fas fa-users"></i></div>
+                  <div>
+                    <div class="team-name">${userData.teamName}</div>
+                    <div class="team-rank">Rank: N/A</div>
+                  </div>
+                </div>
+                <div class="stats-section">
+                  <div class="stats-title">Team Statistics</div>
+                  <div class="stats-row">
+                    <div class="stats-label">Matches Played</div>
+                    <div class="stats-value">${userData.matches || 0}</div>
+                  </div>
+                  <div class="stats-row">
+                    <div class="stats-label">Matches Won</div>
+                    <div class="stats-value">${userData.wins || 0}</div>
+                  </div>
+                  <div class="stats-row">
+                    <div class="stats-label">Matches Lost</div>
+                    <div class="stats-value">${userData.losses || 0}</div>
+                  </div>
+                  <div class="stats-row">
+                    <div class="stats-label">Win Percentage</div>
+                    <div class="stats-value">${userData.matches > 0 ? Math.round((userData.wins / userData.matches) * 100) : 0}%</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading team stats:", error);
+        });
     }
     
-    // Load friends list
+    // Load friends list from Firestore
     function loadFriendsList() {
-      if (!currentUser) return;
+      const user = auth.currentUser;
+      if (!user) return;
       
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      
-      friendsList.innerHTML = '';
-      
-      if (friends.length === 0) {
-        friendsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No friends added yet</p>';
-        return;
-      }
-      
-      friends.forEach(friend => {
-        const friendItem = document.createElement('div');
-        friendItem.className = 'friend-item';
-        friendItem.innerHTML = `
-          <div class="friend-info">
-            <div class="friend-avatar">${friend.username.charAt(0).toUpperCase()}</div>
-            <div>
-              <div>${friend.username}</div>
-              <div style="font-size: 0.8rem; color: var(--text-secondary);">${friend.teamName}</div>
-            </div>
-          </div>
-          <div class="friend-actions">
-            <button class="friend-btn invite-game-btn" data-username="${friend.username}">Invite to Game</button>
-            <button class="friend-btn remove-friend-btn" data-username="${friend.username}">Remove</button>
-          </div>
-        `;
-        friendsList.appendChild(friendItem);
-      });
-      
-      // Add event listeners to buttons
-      document.querySelectorAll('.invite-game-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const friendUsername = this.dataset.username;
-          // Switch to multiplayer create tab
-          document.querySelector('.nav-item[data-tab="multiplayer"]').click();
-          document.querySelector('.tab[data-subtab="create"]').click();
+      db.collection('users').doc(user.uid).collection('friends').get()
+        .then((querySnapshot) => {
+          friendsList.innerHTML = '';
+          
+          if (querySnapshot.empty) {
+            friendsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No friends added yet</p>';
+            return;
+          }
+          
+          querySnapshot.forEach((doc) => {
+            const friend = doc.data();
+            const friendItem = document.createElement('div');
+            friendItem.className = 'friend-item';
+            friendItem.innerHTML = `
+              <div class="friend-info">
+                <div class="friend-avatar">${friend.username.charAt(0).toUpperCase()}</div>
+                <div>
+                  <div>${friend.username}</div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary);">${friend.teamName}</div>
+                </div>
+              </div>
+              <div class="friend-actions">
+                <button class="friend-btn invite-game-btn" data-username="${friend.username}">Invite to Game</button>
+                <button class="friend-btn remove-friend-btn" data-uid="${doc.id}">Remove</button>
+              </div>
+            `;
+            friendsList.appendChild(friendItem);
+          });
+          
+          // Add event listeners to buttons
+          document.querySelectorAll('.invite-game-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const friendUsername = this.dataset.username;
+              // Switch to multiplayer create tab
+              document.querySelector('.nav-item[data-tab="multiplayer"]').click();
+              document.querySelector('.tab[data-subtab="create"]').click();
+            });
+          });
+          
+          document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const friendId = this.dataset.uid;
+              removeFriend(friendId);
+            });
+          });
+        })
+        .catch((error) => {
+          console.error("Error loading friends list:", error);
         });
-      });
-      
-      document.querySelectorAll('.remove-friend-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const friendUsername = this.dataset.username;
-          removeFriend(friendUsername);
-        });
-      });
     }
     
     // Load friends for invitation dropdown
     function loadFriendsForInvitation() {
-      if (!currentUser) return;
+      const user = auth.currentUser;
+      if (!user) return;
       
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      
-      friendSelect.innerHTML = '<option value="">Select a friend to invite</option>';
-      
-      friends.forEach(friend => {
-        const option = document.createElement('option');
-        option.value = friend.username;
-        option.textContent = `${friend.username} (${friend.teamName})`;
-        friendSelect.appendChild(option);
-      });
+      db.collection('users').doc(user.uid).collection('friends').get()
+        .then((querySnapshot) => {
+          friendSelect.innerHTML = '<option value="">Select a friend to invite</option>';
+          
+          querySnapshot.forEach((doc) => {
+            const friend = doc.data();
+            const option = document.createElement('option');
+            option.value = friend.username;
+            option.textContent = `${friend.username} (${friend.teamName})`;
+            friendSelect.appendChild(option);
+          });
+        })
+        .catch((error) => {
+          console.error("Error loading friends for invitation:", error);
+        });
     }
     
     // Add friend
     document.getElementById('addFriendBtn').addEventListener('click', function() {
-      if (!currentUser) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
@@ -1403,69 +1410,94 @@
         return;
       }
       
-      if (friendUsername === currentUser) {
-        alert('You cannot add yourself as a friend');
-        return;
-      }
-      
-      // Get existing friends
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      
-      // Check if already friends
-      if (friends.some(f => f.username === friendUsername)) {
-        alert('This user is already in your friends list');
-        return;
-      }
-      
-      // For this demo, we'll just add them
-      friends.push({
-        username: friendUsername,
-        teamName: 'Unknown Team'
-      });
-      
-      localStorage.setItem(`hc_friends_${currentUser}`, JSON.stringify(friends));
-      
-      document.getElementById('friendUsername').value = '';
-      alert(`Friend ${friendUsername} added successfully!`);
-      
-      // Reload friends list
-      loadFriendsList();
-      loadFriendsForInvitation();
+      // Check if trying to add self
+      db.collection('users').doc(user.uid).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const userData = doc.data();
+            if (friendUsername === userData.username) {
+              alert('You cannot add yourself as a friend');
+              return;
+            }
+            
+            // Search for user with this username
+            db.collection('users').where('username', '==', friendUsername).get()
+              .then((querySnapshot) => {
+                if (querySnapshot.empty) {
+                  alert('User not found');
+                  return;
+                }
+                
+                querySnapshot.forEach((doc) => {
+                  const friendData = doc.data();
+                  
+                  // Add friend to current user's friends list
+                  db.collection('users').doc(user.uid).collection('friends').add({
+                    username: friendData.username,
+                    teamName: friendData.teamName,
+                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  })
+                  .then(() => {
+                    document.getElementById('friendUsername').value = '';
+                    alert(`Friend ${friendUsername} added successfully!`);
+                    
+                    // Reload friends list
+                    loadFriendsList();
+                    loadFriendsForInvitation();
+                  })
+                  .catch((error) => {
+                    console.error("Error adding friend:", error);
+                    alert("Failed to add friend");
+                  });
+                });
+              })
+              .catch((error) => {
+                console.error("Error searching for user:", error);
+                alert("Failed to search for user");
+              });
+          }
+        })
+        .catch((error) => {
+          console.error("Error getting user data:", error);
+        });
     });
     
     // Remove friend
-    function removeFriend(friendUsername) {
-      if (!currentUser) return;
+    function removeFriend(friendId) {
+      const user = auth.currentUser;
+      if (!user) return;
       
-      const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-      const updatedFriends = friends.filter(f => f.username !== friendUsername);
-      
-      localStorage.setItem(`hc_friends_${currentUser}`, JSON.stringify(updatedFriends));
-      
-      alert(`Friend ${friendUsername} removed`);
-      
-      // Reload friends list
-      loadFriendsList();
-      loadFriendsForInvitation();
+      db.collection('users').doc(user.uid).collection('friends').doc(friendId).delete()
+        .then(() => {
+          alert('Friend removed');
+          
+          // Reload friends list
+          loadFriendsList();
+          loadFriendsForInvitation();
+        })
+        .catch((error) => {
+          console.error("Error removing friend:", error);
+          alert("Failed to remove friend");
+        });
     }
     
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.removeItem('hc_username');
-      localStorage.removeItem('hc_team');
-      currentUser = null;
-      currentTeam = null;
-      profileForm.style.display = 'flex';
-      userInfo.style.display = 'none';
-      userStats.style.display = 'none';
-      document.querySelector('.nav-item[data-tab="profile"]').click();
+      auth.signOut()
+        .then(() => {
+          console.log("User signed out");
+        })
+        .catch((error) => {
+          console.error("Sign out error:", error);
+        });
     });
     
-    // Create game - FIREBASE VERSION
-    document.getElementById('createGameBtn').addEventListener('click', async function() {
+    // Create game - SIMPLIFIED VERSION
+    document.getElementById('createGameBtn').addEventListener('click', function() {
       console.log("Create button clicked");
       
-      if (!currentUser || !currentTeam) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
@@ -1481,67 +1513,71 @@
         return;
       }
       
-      // Show loading state
-      createBtnText.style.display = 'none';
-      createBtnLoading.style.display = 'inline-block';
-      createGameBtn.disabled = true;
+      // Generate a random 4-digit room code
+      const roomCode = Math.floor(1000 + Math.random() * 9000);
       
-      try {
-        // Generate a random 4-digit room code
-        const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-        
-        // Create room data
-        const roomData = {
-          player1: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          teamA: currentTeam, // Store the team name as Team A
-          format: selectedFormat,
-          createdAt: Date.now(),
-          status: 'waiting'
-        };
-        
-        // Add test match specific data if applicable
-        if (selectedFormat === 'test') {
-          roomData.testOversPerDay = selectedTestOvers;
-          roomData.testDays = selectedTestOvers == 90 ? 5 : 
-                             selectedTestOvers == 60 ? 4 :
-                             selectedTestOvers == 50 ? 3 :
-                             selectedTestOvers == 30 ? 2 : 1;
-        }
-        
-        // Store room in Firebase
-        await database.ref(`rooms/${roomCode}`).set(roomData);
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', selectedFormat);
-        if (selectedFormat === 'test') {
-          localStorage.setItem('hc_testOvers', selectedTestOvers);
-        }
-        
-        console.log("Room created successfully, redirecting to toss page...");
-        // Redirect to toss page as player1
-        window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
-        
-      } catch (error) {
-        console.error("Error creating room:", error);
-        alert("Failed to create room. Please try again.");
-      } finally {
-        // Reset button state
-        createBtnText.style.display = 'inline-block';
-        createBtnLoading.style.display = 'none';
-        createGameBtn.disabled = false;
-      }
+      // Get user data
+      db.collection('users').doc(user.uid).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const userData = doc.data();
+            
+            // Create room data
+            const roomData = {
+              player1: {
+                uid: user.uid,
+                username: userData.username,
+                team: userData.teamName,
+                connected: true
+              },
+              format: selectedFormat,
+              team1: userData.teamName,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              status: 'waiting'
+            };
+            
+            // Add test match specific data if applicable
+            if (selectedFormat === 'test') {
+              roomData.testOversPerDay = selectedTestOvers;
+              roomData.testDays = selectedTestOvers == 90 ? 5 : 
+                                 selectedTestOvers == 60 ? 4 :
+                                 selectedTestOvers == 50 ? 3 :
+                                 selectedTestOvers == 30 ? 2 : 1;
+            }
+            
+            // Store room in Firestore
+            db.collection('rooms').doc(roomCode.toString()).set(roomData)
+              .then(() => {
+                console.log("Room created successfully");
+                
+                // Store room info in local storage for quick access
+                localStorage.setItem('hc_currentRoom', roomCode);
+                localStorage.setItem('hc_roomFormat', selectedFormat);
+                if (selectedFormat === 'test') {
+                  localStorage.setItem('hc_testOvers', selectedTestOvers);
+                }
+                
+                console.log("Redirecting to toss page...");
+                // Redirect to toss page as player1
+                window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(userData.teamName)}&format=${selectedFormat}`;
+              })
+              .catch((error) => {
+                console.error("Error creating room:", error);
+                alert("Failed to create room");
+              });
+          }
+        })
+        .catch((error) => {
+          console.error("Error getting user data:", error);
+        });
     });
     
-    // Join game - FIREBASE VERSION
-    document.getElementById('joinGameBtn').addEventListener('click', async function() {
+    // Join game - FIXED VERSION
+    document.getElementById('joinGameBtn').addEventListener('click', function() {
       console.log("Join button clicked");
       
-      if (!currentUser || !currentTeam) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
@@ -1553,66 +1589,62 @@
         return;
       }
       
-      // Show loading state
-      joinBtnText.style.display = 'none';
-      joinBtnLoading.style.display = 'inline-block';
-      joinGameBtn.disabled = true;
-      
-      try {
-        // Check if room exists in Firebase
-        const roomRef = database.ref(`rooms/${roomCode}`);
-        const snapshot = await roomRef.once('value');
-        
-        if (!snapshot.exists()) {
-          alert('Room not found. Please check the code.');
-          return;
-        }
-        
-        const roomData = snapshot.val();
-        
-        // Check if room already has two players
-        if (roomData.player2) {
-          alert('This room is already full');
-          return;
-        }
-        
-        // Update room with player2
-        const updates = {
-          player2: {
-            username: currentUser,
-            team: currentTeam,
-            connected: true
-          },
-          teamB: currentTeam, // Store the team name as Team B
-          status: 'ready'
-        };
-        
-        await roomRef.update(updates);
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        localStorage.setItem('hc_roomFormat', roomData.format);
-        if (roomData.format === 'test') {
-          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
-        }
-        
-        console.log("Joined room successfully, redirecting to toss page...");
-        // Redirect to toss page as player2
-        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
-        
-      } catch (error) {
-        console.error("Error joining room:", error);
-        alert("Failed to join room. Please try again.");
-      } finally {
-        // Reset button state
-        joinBtnText.style.display = 'inline-block';
-        joinBtnLoading.style.display = 'none';
-        joinGameBtn.disabled = false;
-      }
+      // Check if room exists
+      db.collection('rooms').doc(roomCode).get()
+        .then((doc) => {
+          if (!doc.exists) {
+            alert('Room not found. Please check the code.');
+            return;
+          }
+          
+          const roomData = doc.data();
+          
+          // Check if room already has two players
+          if (roomData.player2) {
+            alert('This room is already full');
+            return;
+          }
+          
+          // Get user data
+          return db.collection('users').doc(user.uid).get()
+            .then((userDoc) => {
+              if (userDoc.exists) {
+                const userData = userDoc.data();
+                
+                // Update room with player2
+                return db.collection('rooms').doc(roomCode).update({
+                  player2: {
+                    uid: user.uid,
+                    username: userData.username,
+                    team: userData.teamName,
+                    connected: true
+                  },
+                  team2: userData.teamName,
+                  status: 'ready'
+                })
+                .then(() => {
+                  // Store room info in local storage for quick access
+                  localStorage.setItem('hc_currentRoom', roomCode);
+                  localStorage.setItem('hc_roomFormat', roomData.format);
+                  if (roomData.format === 'test') {
+                    localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
+                  }
+                  
+                  console.log("Redirecting to toss page...");
+                  // Redirect to toss page as player2
+                  window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(userData.teamName)}&format=${roomData.format}`;
+                });
+              }
+            });
+        })
+        .catch((error) => {
+          console.error("Error joining room:", error);
+          alert('Error joining room. Please try again.');
+        });
     });
     
-    // Spectate game - FIREBASE VERSION
-    document.getElementById('spectateBtn').addEventListener('click', async function() {
+    // Spectate game - FIXED VERSION
+    document.getElementById('spectateBtn').addEventListener('click', function() {
       console.log("Spectate button clicked");
       
       const roomCode = document.getElementById('spectateRoomCode').value.trim();
@@ -1622,44 +1654,31 @@
         return;
       }
       
-      // Show loading state
-      spectateBtnText.style.display = 'none';
-      spectateBtnLoading.style.display = 'inline-block';
-      spectateBtn.disabled = true;
-      
-      try {
-        // Check if room exists in Firebase
-        const roomRef = database.ref(`rooms/${roomCode}`);
-        const snapshot = await roomRef.once('value');
-        
-        if (!snapshot.exists()) {
-          alert('Room not found. Please check the code.');
-          return;
-        }
-        
-        const roomData = snapshot.val();
-        
-        // Store room info in local storage for quick access
-        localStorage.setItem('hc_currentRoom', roomCode);
-        
-        console.log("Room found, redirecting to toss page...");
-        // Redirect to toss page as spectator
-        window.location.href = `toss.html?room=${roomCode}&player=spectator`;
-        
-      } catch (error) {
-        console.error("Error finding room:", error);
-        alert("Failed to find room. Please try again.");
-      } finally {
-        // Reset button state
-        spectateBtnText.style.display = 'inline-block';
-        spectateBtnLoading.style.display = 'none';
-        spectateBtn.disabled = false;
-      }
+      // Check if room exists
+      db.collection('rooms').doc(roomCode).get()
+        .then((doc) => {
+          if (!doc.exists) {
+            alert('Room not found. Please check the code.');
+            return;
+          }
+          
+          // Store room info in local storage for quick access
+          localStorage.setItem('hc_currentRoom', roomCode);
+          
+          console.log("Redirecting to toss page...");
+          // Redirect to toss page as spectator
+          window.location.href = `toss.html?room=${roomCode}&player=spectator`;
+        })
+        .catch((error) => {
+          console.error("Error finding room:", error);
+          alert('Error finding room. Please try again.');
+        });
     });
 
     // Other buttons
     document.getElementById('auctionBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
@@ -1667,11 +1686,12 @@
     });
     
     document.getElementById('manageSquadBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
-      window.location.href = `squad.html?username=${currentUser}`;
+      window.location.href = `squad.html?uid=${user.uid}`;
     });
     
     document.getElementById('leaderboardBtn').addEventListener('click', function() {
@@ -1679,7 +1699,8 @@
     });
 
     document.getElementById('tournamentsBtn').addEventListener('click', function() {
-      if (!currentUser || !currentTeam) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login first');
         return;
       }
