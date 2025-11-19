@@ -1473,7 +1473,7 @@
       window.location.href = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(currentTeam)}&format=${selectedFormat}`;
     });
     
-    // Join game - SIMPLIFIED VERSION
+    // Join game - FIXED VERSION
     document.getElementById('joinGameBtn').addEventListener('click', function() {
       console.log("Join button clicked");
       
@@ -1490,44 +1490,52 @@
       }
       
       // Check if room exists
-      const roomData = JSON.parse(localStorage.getItem(`hc_room_${roomCode}`));
+      const roomKey = `hc_room_${roomCode}`;
+      const roomDataString = localStorage.getItem(roomKey);
       
-      if (!roomData) {
+      if (!roomDataString) {
         alert('Room not found. Please check the code.');
         return;
       }
       
-      // Check if room already has two players
-      if (roomData.player2) {
-        alert('This room is already full');
-        return;
+      try {
+        const roomData = JSON.parse(roomDataString);
+        
+        // Check if room already has two players
+        if (roomData.player2) {
+          alert('This room is already full');
+          return;
+        }
+        
+        // Update room with player2
+        roomData.player2 = {
+          username: currentUser,
+          team: currentTeam,
+          connected: true
+        };
+        roomData.team2 = currentTeam;
+        roomData.status = 'ready';
+        
+        // Update room in localStorage
+        localStorage.setItem(roomKey, JSON.stringify(roomData));
+        
+        // Store room info in local storage for quick access
+        localStorage.setItem('hc_currentRoom', roomCode);
+        localStorage.setItem('hc_roomFormat', roomData.format);
+        if (roomData.format === 'test') {
+          localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
+        }
+        
+        console.log("Redirecting to toss page...");
+        // Redirect to toss page as player2
+        window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
+      } catch (error) {
+        console.error("Error parsing room data:", error);
+        alert('Error joining room. Please try again.');
       }
-      
-      // Update room with player2
-      roomData.player2 = {
-        username: currentUser,
-        team: currentTeam,
-        connected: true
-      };
-      roomData.team2 = currentTeam;
-      roomData.status = 'ready';
-      
-      // Update room in localStorage
-      localStorage.setItem(`hc_room_${roomCode}`, JSON.stringify(roomData));
-      
-      // Store room info in local storage for quick access
-      localStorage.setItem('hc_currentRoom', roomCode);
-      localStorage.setItem('hc_roomFormat', roomData.format);
-      if (roomData.format === 'test') {
-        localStorage.setItem('hc_testOvers', roomData.testOversPerDay);
-      }
-      
-      console.log("Redirecting to toss page...");
-      // Redirect to toss page as player2
-      window.location.href = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(currentTeam)}&format=${roomData.format}`;
     });
     
-    // Spectate game
+    // Spectate game - FIXED VERSION
     document.getElementById('spectateBtn').addEventListener('click', function() {
       console.log("Spectate button clicked");
       
@@ -1535,6 +1543,15 @@
       
       if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
         alert('Please enter a valid 4-digit room code');
+        return;
+      }
+      
+      // Check if room exists
+      const roomKey = `hc_room_${roomCode}`;
+      const roomDataString = localStorage.getItem(roomKey);
+      
+      if (!roomDataString) {
+        alert('Room not found. Please check the code.');
         return;
       }
       
