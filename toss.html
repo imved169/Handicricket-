@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HandiCricket - Toss</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       --primary: #1e88e5;
@@ -45,7 +46,7 @@
     
     .container {
       width: 100%;
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 20px;
@@ -64,39 +65,55 @@
       letter-spacing: 1px;
     }
     
-    .info-box {
+    .match-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    
+    .info-card {
       background: rgba(13, 42, 82, 0.6);
       padding: 18px;
       border-radius: 12px;
-      margin-bottom: 25px;
       text-align: left;
       border-left: 4px solid var(--primary);
     }
     
-    .room-code {
-      font-weight: 600;
-      color: var(--secondary);
-      font-size: 18px;
+    .info-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 5px;
     }
     
-    .team-info {
+    .info-value {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--secondary);
+    }
+    
+    .teams-container {
       display: flex;
       justify-content: space-between;
       margin-bottom: 30px;
       background: rgba(13, 42, 82, 0.6);
-      padding: 20px;
-      border-radius: 12px;
-      border-left: 4px solid var(--primary);
+      padding: 25px;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .team {
       flex: 1;
-      padding: 10px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     
     .team-name {
       font-weight: 600;
-      font-size: 18px;
+      font-size: 20px;
       margin-bottom: 8px;
       color: var(--secondary);
     }
@@ -104,18 +121,31 @@
     .team-role {
       color: #ccc;
       font-size: 14px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: rgba(30, 136, 229, 0.3);
     }
     
     .vs {
       display: flex;
       align-items: center;
-      padding: 0 15px;
+      padding: 0 20px;
       font-weight: bold;
       color: var(--secondary);
-      font-size: 20px;
+      font-size: 24px;
     }
     
     .toss-section {
+      margin: 30px 0;
+    }
+    
+    .toss-instruction {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: var(--secondary);
+    }
+    
+    .coin-container {
       margin: 30px 0;
     }
     
@@ -124,7 +154,7 @@
       height: 140px;
       background: linear-gradient(145deg, #ffd700, #daa520);
       border-radius: 50%;
-      margin: 0 auto 30px;
+      margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -200,6 +230,13 @@
     
     .toss-btn.tails {
       background: linear-gradient(145deg, var(--purple), var(--purple-dark));
+    }
+    
+    .toss-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     
     .toss-result {
@@ -315,7 +352,7 @@
       border-radius: 0;
     }
     
-    @media (max-width: 576px) {
+    @media (max-width: 768px) {
       .container {
         padding: 20px;
       }
@@ -324,8 +361,9 @@
         font-size: 1.8rem;
       }
       
-      .team-info {
+      .teams-container {
         flex-direction: column;
+        gap: 15px;
       }
       
       .vs {
@@ -346,6 +384,10 @@
         height: 120px;
         font-size: 40px;
       }
+      
+      .match-info {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -353,13 +395,22 @@
   <div class="container">
     <h1>🏏 Match Toss</h1>
     
-    <div class="info-box">
-      <div>Room Code: <span class="room-code" id="roomCode"></span></div>
-      <div>Match Format: <span id="formatInfo"></span></div>
-      <div>You are: <span id="playerInfo"></span></div>
+    <div class="match-info">
+      <div class="info-card">
+        <div class="info-label">Room Code</div>
+        <div class="info-value" id="roomCode"></div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Match Format</div>
+        <div class="info-value" id="formatInfo"></div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Your Role</div>
+        <div class="info-value" id="playerInfo"></div>
+      </div>
     </div>
     
-    <div class="team-info">
+    <div class="teams-container">
       <div class="team">
         <div class="team-name" id="team1Name">Team A</div>
         <div class="team-role" id="team1Role"></div>
@@ -372,9 +423,13 @@
     </div>
     
     <div class="toss-section">
-      <div class="coin" id="coin">
-        <div class="heads">H</div>
-        <div class="tails">T</div>
+      <div class="toss-instruction" id="tossInstruction">Waiting for opponent to connect...</div>
+      
+      <div class="coin-container">
+        <div class="coin" id="coin">
+          <div class="heads">H</div>
+          <div class="tails">T</div>
+        </div>
       </div>
       
       <div id="callSection" style="display: none;">
@@ -436,6 +491,8 @@
     const player = params.get('player');
     const teamName = decodeURIComponent(params.get('team'));
     const format = params.get('format');
+    const testOvers = params.get('testOvers');
+    const testDays = params.get('testDays');
     const opponent = player === "player1" ? "player2" : "player1";
 
     // DOM elements
@@ -460,6 +517,7 @@
     const roomCodeEl = document.getElementById('roomCode');
     const formatInfoEl = document.getElementById('formatInfo');
     const playerInfoEl = document.getElementById('playerInfo');
+    const tossInstruction = document.getElementById('tossInstruction');
 
     // Firebase references
     const roomRef = ref(db, `rooms/${room}`);
@@ -497,14 +555,14 @@
         
         // Set team names
         if (player === "player1") {
-          team1NameEl.textContent = roomData.team1 || "Team A";
+          team1NameEl.textContent = roomData.team1 || teamName;
           team1RoleEl.textContent = "(You)";
           team2NameEl.textContent = roomData.team2 || "Team B";
           team2RoleEl.textContent = "(Opponent)";
         } else {
           team1NameEl.textContent = roomData.team1 || "Team A";
           team1RoleEl.textContent = "(Opponent)";
-          team2NameEl.textContent = roomData.team2 || "Team B";
+          team2NameEl.textContent = roomData.team2 || teamName;
           team2RoleEl.textContent = "(You)";
         }
         
@@ -513,8 +571,10 @@
         let formatDisplay = formatNames[roomFormat] || roomFormat;
         
         // Add test match details if applicable
-        if (roomFormat === 'test' && roomData.testOversPerDay) {
-          formatDisplay += ` (${roomData.testOversPerDay} overs/day, ${roomData.testDays || 5} days)`;
+        if (roomFormat === 'test' && (roomData.testOversPerDay || testOvers)) {
+          const overs = roomData.testOversPerDay || testOvers;
+          const days = roomData.testDays || testDays || 5;
+          formatDisplay += ` (${overs} overs/day, ${days} days)`;
         }
         
         formatInfoEl.textContent = formatDisplay;
@@ -547,13 +607,15 @@
       onValue(tossRef, (snap) => {
         const tossData = snap.exists() ? snap.val() : {};
         
-        // Player 1 calls, Player 2 flips
+        // Player 1 (room creator) calls, Player 2 flips
         if (player === "player1" && !tossData.caller) {
+          tossInstruction.textContent = "Call Heads or Tails for the toss";
           tossResult.textContent = "Please call Heads or Tails";
           callSection.style.display = "block";
           flipSection.style.display = "none";
         } 
         else if (player === "player2" && tossData.caller === "player1" && !tossData.flipper) {
+          tossInstruction.textContent = "Flip the coin to determine toss result";
           tossResult.textContent = "Opponent has called. Please flip the coin.";
           callSection.style.display = "none";
           flipSection.style.display = "block";
@@ -658,17 +720,19 @@
         const loserTeam = winner === "player1" ? team2Name : team1Name;
         
         if (player === winner) {
+          tossInstruction.textContent = "You won the toss! Choose to bat or bowl first";
           tossResult.innerHTML = `
             <strong>Toss Result:</strong> ${result.toUpperCase()}!<br>
             <strong>${winnerTeam}</strong> won the toss! (${loserTeam} called ${call})
           `;
           battingOptions.style.display = "flex";
         } else {
+          tossInstruction.textContent = "Toss complete - waiting for opponent's decision";
           tossResult.innerHTML = `
             <strong>Toss Result:</strong> ${result.toUpperCase()}!<br>
             <strong>${winnerTeam}</strong> won the toss. (They called ${call})
           `;
-          waitingText.textContent = "Waiting for opponent to choose...";
+          waitingText.textContent = "Waiting for opponent to choose bat or bowl...";
           waiting.style.display = "block";
         }
         
@@ -693,7 +757,8 @@
             tossWinner: winner,
             battingFirst: battingFirst,
             tossResult: result,
-            tossCall: call
+            tossCall: call,
+            tossComplete: true
           }).then(() => {
             continueBtn.style.display = "block";
           }).catch(error => {
