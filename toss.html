@@ -538,11 +538,16 @@
     roomCodeEl.textContent = room;
     playerInfoEl.textContent = player === "player1" ? "Player 1" : "Player 2";
     
+    // Track if we've already initialized the toss process
+    let tossInitialized = false;
+    let opponentConnected = false;
+
     // Set player online status
     set(playerRef, {
       name: teamName,
       connected: true,
-      team: teamName
+      team: teamName,
+      timestamp: Date.now()
     }).catch(error => {
       console.error("Error setting player status:", error);
       tossResult.textContent = "Connection error. Please refresh.";
@@ -579,52 +584,99 @@
         
         formatInfoEl.textContent = formatDisplay;
         
-        // Check if opponent is connected
-        if (roomData[opponent] && roomData[opponent].connected) {
-          const opponentName = roomData[opponent].name;
+        // Check if opponent is connected - FIXED LOGIC
+        const opponentData = roomData[opponent];
+        const isOpponentConnected = opponentData && opponentData.connected === true;
+        
+        if (isOpponentConnected && !opponentConnected) {
+          opponentConnected = true;
+          const opponentName = opponentData.name || (opponent === "player1" ? "Team A" : "Team B");
+          
           if (player === "player1") {
-            team2NameEl.textContent = opponentName || "Team B";
+            team2NameEl.textContent = opponentName;
           } else {
-            team1NameEl.textContent = opponentName || "Team A";
+            team1NameEl.textContent = opponentName;
           }
           
           waitingText.textContent = "Opponent connected!";
+          tossInstruction.textContent = "Opponent connected! Starting toss...";
+          
           setTimeout(() => {
             waiting.style.display = "none";
-            initializeTossProcess();
-          }, 1000);
-        } else {
+            if (!tossInitialized) {
+              tossInitialized = true;
+              initializeTossProcess();
+            }
+          }, 1500);
+        } else if (!isOpponentConnected) {
+          opponentConnected = false;
           waitingText.textContent = "Waiting for opponent to connect...";
+          tossInstruction.textContent = "Waiting for opponent to connect...";
           waiting.style.display = "block";
           callSection.style.display = "none";
           flipSection.style.display = "none";
+          
+          // Reset toss initialization if opponent disconnects
+          tossInitialized = false;
         }
+      } else {
+        // Room doesn't exist
+        tossResult.textContent = "Room not found. Please check the room code.";
+        waiting.style.display = "none";
       }
     });
 
     // Initialize toss process based on player role
     function initializeTossProcess() {
+      console.log("Initializing toss process for:", player);
+      
       onValue(tossRef, (snap) => {
         const tossData = snap.exists() ? snap.val() : {};
+        console.log("Toss data:", tossData);
+        
+        // Reset UI first
+        callSection.style.display = "none";
+        flipSection.style.display = "none";
+        battingOptions.style.display = "none";
+        waiting.style.display = "none";
         
         // Player 1 (room creator) calls, Player 2 flips
-        if (player === "player1" && !tossData.caller) {
-          tossInstruction.textContent = "Call Heads or Tails for the toss";
-          tossResult.textContent = "Please call Heads or Tails";
-          callSection.style.display = "block";
-          flipSection.style.display = "none";
+        if (player === "player1") {
+          if (!tossData.caller) {
+            // Player 1 needs to call
+            tossInstruction.textContent = "Call Heads or Tails for the toss";
+            tossResult.textContent = "Please call Heads or Tails";
+            callSection.style.display = "block";
+          } else if (tossData.caller === "player1" && !tossData.flipper) {
+            // Player 1 called, waiting for player 2 to flip
+            tossInstruction.textContent = "Waiting for opponent to flip the coin...";
+            tossResult.textContent = `You called ${tossData.call}. Waiting for coin flip...`;
+            waiting.style.display = "block";
+            waitingText.textContent = "Opponent is flipping the coin...";
+          } else if (tossData.result) {
+            // Toss is complete
+            handleTossResult(tossData);
+          }
         } 
-        else if (player === "player2" && tossData.caller === "player1" && !tossData.flipper) {
-          tossInstruction.textContent = "Flip the coin to determine toss result";
-          tossResult.textContent = "Opponent has called. Please flip the coin.";
-          callSection.style.display = "none";
-          flipSection.style.display = "block";
+        else if (player === "player2") {
+          if (tossData.caller === "player1" && !tossData.flipper) {
+            // Player 1 has called, player 2 needs to flip
+            tossInstruction.textContent = "Flip the coin to determine toss result";
+            tossResult.textContent = `Opponent called ${tossData.call}. Please flip the coin.`;
+            callSection.style.display = "none";
+            flipSection.style.display = "block";
+          } else if (tossData.caller && !tossData.flipper) {
+            // Waiting for player 1 to call
+            tossInstruction.textContent = "Waiting for opponent to call...";
+            tossResult.textContent = "Please wait for opponent to call Heads or Tails";
+            waiting.style.display = "block";
+            waitingText.textContent = "Waiting for opponent to call...";
+          } else if (tossData.result) {
+            // Toss is complete
+            handleTossResult(tossData);
+          }
         }
-        // If toss is complete, show result
-        else if (tossData.result) {
-          handleTossResult(tossData);
-        }
-      });
+      }, { onlyOnce: false });
     }
 
     // Handle toss selection (Player 1 calls)
@@ -638,7 +690,8 @@
       
       update(tossRef, {
         caller: player,
-        call: choice
+        call: choice,
+        timestamp: Date.now()
       }).catch(error => {
         console.error("Error setting toss call:", error);
         tossResult.textContent = "Error submitting call. Please try again.";
@@ -662,7 +715,7 @@
       setTimeout(() => {
         coin.classList.remove('flipping');
         determineTossResult();
-      }, 1500); // Matches the animation duration
+      }, 1500);
     }
 
     function determineTossResult() {
@@ -683,7 +736,8 @@
         update(tossRef, {
           flipper: player,
           result: result,
-          winner: winner
+          winner: winner,
+          timestamp: Date.now()
         }).catch(error => {
           console.error("Error setting toss result:", error);
           tossResult.textContent = "Error processing toss. Please try again.";
@@ -745,11 +799,12 @@
           const battingFirst = tossData.battingFirst;
           const battingTeam = battingFirst === 'player1' ? team1Name : team2Name;
           const bowlingTeam = battingFirst === 'player1' ? team2Name : team1Name;
+          const battingChoice = tossData.battingChoice;
           
           tossOutcome.innerHTML = `
             <strong>Toss Outcome:</strong><br>
-            <strong>${battingTeam}</strong> chose to ${tossData.battingChoice === 'bat' ? 'bat' : 'bowl'} first.<br>
-            <strong>${bowlingTeam}</strong> will ${tossData.battingChoice === 'bat' ? 'bowl' : 'bat'} first.
+            <strong>${battingTeam}</strong> chose to ${battingChoice === 'bat' ? 'bat' : 'bowl'} first.<br>
+            <strong>${bowlingTeam}</strong> will ${battingChoice === 'bat' ? 'bowl' : 'bat'} first.
           `;
           
           // Update room data with toss outcome
@@ -777,7 +832,8 @@
       
       update(tossRef, {
         battingFirst: battingFirst,
-        battingChoice: choice
+        battingChoice: choice,
+        timestamp: Date.now()
       }).catch(error => {
         console.error("Error setting batting choice:", error);
         tossResult.textContent = "Error submitting choice. Please try again.";
@@ -793,7 +849,8 @@
     window.addEventListener('beforeunload', () => {
       set(playerRef, {
         name: teamName,
-        connected: false
+        connected: false,
+        timestamp: Date.now()
       });
     });
   </script>
