@@ -1027,19 +1027,19 @@
                         <div class="input-group">
                             <label>Match Format</label>
                             <div class="format-options">
-                                <div class="format-card" data-format="t5">
+                                <div class="format-card" data-format="5">
                                     <h3>T5 (5 Overs)</h3>
                                     <p>Quick 30-minute match</p>
                                 </div>
-                                <div class="format-card" data-format="t10">
+                                <div class="format-card" data-format="10">
                                     <h3>T10 (10 Overs)</h3>
                                     <p>Standard 1-hour match</p>
                                 </div>
-                                <div class="format-card" data-format="t20">
+                                <div class="format-card" data-format="20">
                                     <h3>T20 (20 Overs)</h3>
                                     <p>Classic 2-hour match</p>
                                 </div>
-                                <div class="format-card" data-format="odi">
+                                <div class="format-card" data-format="50">
                                     <h3>ODI (50 Overs)</h3>
                                     <p>Full day challenge</p>
                                 </div>
@@ -1116,10 +1116,10 @@
                             <label for="tournamentMatchFormat">Match Format</label>
                             <select id="tournamentMatchFormat">
                                 <option value="">Select match format</option>
-                                <option value="t5">T5 (5 Overs)</option>
-                                <option value="t10">T10 (10 Overs)</option>
-                                <option value="t20">T20 (20 Overs)</option>
-                                <option value="odi">ODI (50 Overs)</option>
+                                <option value="5">T5 (5 Overs)</option>
+                                <option value="10">T10 (10 Overs)</option>
+                                <option value="20">T20 (20 Overs)</option>
+                                <option value="50">ODI (50 Overs)</option>
                             </select>
                         </div>
                         <div class="input-group">
@@ -1187,6 +1187,11 @@
         const availableTournaments = document.getElementById('availableTournaments');
         const myTournaments = document.getElementById('myTournaments');
         const createTournamentBtn = document.getElementById('createTournamentBtn');
+
+        // Check for URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUsername = urlParams.get('username');
+        const urlTeam = urlParams.get('team');
 
         // Main tab switching
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -1291,20 +1296,17 @@
             this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
         });
 
-        // Check if user is logged in
-        let currentUser = localStorage.getItem('hc_username');
-        let currentTeam = localStorage.getItem('hc_team');
-
-        if (currentUser && currentTeam) {
+        // Check if user is logged in via URL parameters
+        if (urlUsername && urlTeam) {
             profileForm.style.display = 'none';
             userInfo.style.display = 'flex';
             userInfoSection.style.display = 'block';
-            usernameDisplay.textContent = currentUser;
-            teamDisplay.textContent = currentTeam;
-            userAvatar.textContent = currentUser.charAt(0).toUpperCase();
-            profileUsername.textContent = currentUser;
-            profileTeamName.textContent = currentTeam;
-            profileEmail.textContent = localStorage.getItem('hc_email') || 'Not set';
+            usernameDisplay.textContent = urlUsername;
+            teamDisplay.textContent = urlTeam;
+            userAvatar.textContent = urlUsername.charAt(0).toUpperCase();
+            profileUsername.textContent = urlUsername;
+            profileTeamName.textContent = urlTeam;
+            profileEmail.textContent = `${urlUsername}@handicricket.com`;
 
             // Switch to home tab if logged in
             document.querySelector('.nav-item[data-tab="home"]').click();
@@ -1326,34 +1328,8 @@
                 return;
             }
 
-            try {
-                // For this demo, we'll simulate registration/login
-                // In a real implementation, we would use Firebase Auth
-                localStorage.setItem('hc_username', username);
-                localStorage.setItem('hc_team', teamName);
-                localStorage.setItem('hc_password', password);
-                localStorage.setItem('hc_email', `${username}@handicricket.com`);
-                currentUser = username;
-                currentTeam = teamName;
-
-                // Update UI
-                profileForm.style.display = 'none';
-                userInfo.style.display = 'flex';
-                userInfoSection.style.display = 'block';
-                usernameDisplay.textContent = username;
-                teamDisplay.textContent = teamName;
-                userAvatar.textContent = username.charAt(0).toUpperCase();
-                profileUsername.textContent = username;
-                profileTeamName.textContent = teamName;
-                profileEmail.textContent = `${username}@handicricket.com`;
-
-                // Switch to home tab
-                document.querySelector('.nav-item[data-tab="home"]').click();
-
-            } catch (error) {
-                console.error("Login error:", error);
-                alert("Failed to login. Please try again.");
-            }
+            // Redirect to same page with user info in URL
+            window.location.href = `index.html?username=${encodeURIComponent(username)}&team=${encodeURIComponent(teamName)}`;
         });
 
         // Update profile
@@ -1368,51 +1344,18 @@
                 return;
             }
 
-            // Verify current password
-            const storedPassword = localStorage.getItem('hc_password');
-            if (currentPassword !== storedPassword) {
-                alert('Current password is incorrect');
-                return;
-            }
+            // In a real implementation, we would verify the password with Firebase
+            // For this demo, we'll just redirect with new user info
+            const finalUsername = newUsername || urlUsername;
+            const finalTeamName = newTeamName || urlTeam;
 
-            // Update username if provided
-            if (newUsername) {
-                localStorage.setItem('hc_username', newUsername);
-                currentUser = newUsername;
-                usernameDisplay.textContent = newUsername;
-                userAvatar.textContent = newUsername.charAt(0).toUpperCase();
-                profileUsername.textContent = newUsername;
-                document.getElementById('newUsername').value = '';
-            }
-
-            // Update team name if provided
-            if (newTeamName) {
-                localStorage.setItem('hc_team', newTeamName);
-                currentTeam = newTeamName;
-                teamDisplay.textContent = newTeamName;
-                profileTeamName.textContent = newTeamName;
-                document.getElementById('newTeamName').value = '';
-            }
-
-            // Update password if provided
-            if (newPassword) {
-                if (newPassword.length < 6) {
-                    alert('New password must be at least 6 characters');
-                    return;
-                }
-                localStorage.setItem('hc_password', newPassword);
-                document.getElementById('newPassword').value = '';
-            }
-
-            // Clear current password field
-            document.getElementById('currentPassword').value = '';
-
-            alert('Profile updated successfully!');
+            // Redirect with updated user info
+            window.location.href = `index.html?username=${encodeURIComponent(finalUsername)}&team=${encodeURIComponent(finalTeamName)}`;
         });
 
         // Load team stats
         function loadTeamStats() {
-            if (!currentUser) return;
+            if (!urlUsername) return;
 
             teamStatsContainer.innerHTML = '<div class="stats-section"><div class="stats-title">Loading team statistics...</div></div>';
 
@@ -1422,7 +1365,7 @@
                     <div class="team-header">
                         <div class="team-icon"><i class="fas fa-users"></i></div>
                         <div>
-                            <div class="team-name">${currentTeam}</div>
+                            <div class="team-name">${urlTeam}</div>
                             <div class="team-rank">Rank: 12</div>
                         </div>
                     </div>
@@ -1487,15 +1430,19 @@
             `;
         }
 
-        // Load friends list from Firebase
+        // Load friends list
         function loadFriendsList() {
-            if (!currentUser) return;
+            if (!urlUsername) return;
 
             friendsList.innerHTML = '<div class="stats-section"><div class="stats-title">Loading friends...</div></div>';
 
             // In a real implementation, we would fetch from Firebase
-            // For this demo, we'll use localStorage
-            const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
+            // For this demo, we'll create sample friends
+            const friends = [
+                { username: "cricketfan1", teamName: "Mumbai Indians" },
+                { username: "bowlingking", teamName: "Chennai Super Kings" },
+                { username: "battingstar", teamName: "Royal Challengers" }
+            ];
 
             friendsList.innerHTML = '';
 
@@ -1544,7 +1491,7 @@
 
         // Load tournaments
         function loadTournaments() {
-            if (!currentUser) return;
+            if (!urlUsername) return;
 
             // For this demo, we'll create sample tournaments
             const tournaments = [
@@ -1615,7 +1562,7 @@
                 availableTournaments.appendChild(tournamentCard);
                 
                 // Add to my tournaments if user is participating
-                if (tournament.teamsJoined.includes(currentTeam)) {
+                if (tournament.teamsJoined.includes(urlTeam)) {
                     const myTournamentCard = tournamentCard.cloneNode(true);
                     myTournaments.appendChild(myTournamentCard);
                 }
@@ -1632,18 +1579,18 @@
 
         // Join tournament
         function joinTournament(tournamentId) {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
             
-            alert(`Successfully joined tournament! Your team ${currentTeam} has been registered.`);
+            alert(`Successfully joined tournament! Your team ${urlTeam} has been registered.`);
             loadTournaments(); // Reload to update UI
         }
 
         // Create tournament
         createTournamentBtn.addEventListener('click', function() {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
@@ -1673,7 +1620,7 @@
 
         // Add friend
         document.getElementById('addFriendBtn').addEventListener('click', function() {
-            if (!currentUser) {
+            if (!urlUsername) {
                 alert('Please login first');
                 return;
             }
@@ -1685,30 +1632,15 @@
                 return;
             }
 
-            if (friendUsername === currentUser) {
+            if (friendUsername === urlUsername) {
                 alert('You cannot add yourself as a friend');
                 return;
             }
 
-            // Get existing friends
-            const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-
-            // Check if already friends
-            if (friends.some(f => f.username === friendUsername)) {
-                alert('This user is already in your friends list');
-                return;
-            }
-
-            // For this demo, we'll just add them
-            friends.push({
-                username: friendUsername,
-                teamName: 'Unknown Team'
-            });
-
-            localStorage.setItem(`hc_friends_${currentUser}`, JSON.stringify(friends));
-
+            // In a real implementation, we would add to Firebase
+            // For this demo, we'll just show a message
             document.getElementById('friendUsername').value = '';
-            alert(`Friend ${friendUsername} added successfully!`);
+            alert(`Friend request sent to ${friendUsername}!`);
 
             // Reload friends list
             loadFriendsList();
@@ -1716,13 +1648,10 @@
 
         // Remove friend
         function removeFriend(friendUsername) {
-            if (!currentUser) return;
+            if (!urlUsername) return;
 
-            const friends = JSON.parse(localStorage.getItem(`hc_friends_${currentUser}`)) || [];
-            const updatedFriends = friends.filter(f => f.username !== friendUsername);
-
-            localStorage.setItem(`hc_friends_${currentUser}`, JSON.stringify(updatedFriends));
-
+            // In a real implementation, we would remove from Firebase
+            // For this demo, we'll just show a message
             alert(`Friend ${friendUsername} removed`);
 
             // Reload friends list
@@ -1731,21 +1660,13 @@
 
         // Logout
         document.getElementById('logoutBtn').addEventListener('click', function() {
-            localStorage.removeItem('hc_username');
-            localStorage.removeItem('hc_team');
-            localStorage.removeItem('hc_password');
-            localStorage.removeItem('hc_email');
-            currentUser = null;
-            currentTeam = null;
-            profileForm.style.display = 'flex';
-            userInfo.style.display = 'none';
-            userInfoSection.style.display = 'none';
-            document.querySelector('.nav-item[data-tab="profile"]').click();
+            // Redirect to index.html without user parameters
+            window.location.href = 'index.html';
         });
 
-        // Create game - redirect to toss.html
+        // Create game - redirect to toss.html with URL parameters
         document.getElementById('createGameBtn').addEventListener('click', async function() {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
@@ -1764,25 +1685,21 @@
             // Generate a random 4-digit room code
             const roomCode = Math.floor(1000 + Math.random() * 9000);
 
-            // Store room info in local storage for quick access
-            localStorage.setItem('hc_currentRoom', roomCode);
-            localStorage.setItem('hc_roomFormat', selectedFormat);
-            localStorage.setItem('hc_player1', currentTeam);
-            localStorage.setItem('hc_player1Name', currentUser);
-            localStorage.setItem('hc_player2', '');
-            localStorage.setItem('hc_player2Name', '');
+            // Build URL with all parameters
+            let url = `toss.html?room=${roomCode}&player=player1&team=${encodeURIComponent(urlTeam)}&format=${selectedFormat}`;
             
+            // Add test match specific parameters if applicable
             if (selectedFormat === 'test') {
-                localStorage.setItem('hc_testOvers', selectedTestOvers);
+                url += `&testOvers=${selectedTestOvers}&testDays=5`;
             }
 
-            // Redirect to toss page
-            window.location.href = 'toss.html';
+            // Redirect to toss page with all data in URL
+            window.location.href = url;
         });
 
-        // Join game - redirect to toss.html
+        // Join game - redirect to toss.html with URL parameters
         document.getElementById('joinGameBtn').addEventListener('click', async function() {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
@@ -1794,16 +1711,14 @@
                 return;
             }
 
-            // Store room info in local storage for quick access
-            localStorage.setItem('hc_currentRoom', roomCode);
-            localStorage.setItem('hc_player2', currentTeam);
-            localStorage.setItem('hc_player2Name', currentUser);
-
-            // Redirect to toss page
-            window.location.href = 'toss.html';
+            // Build URL with all parameters
+            const url = `toss.html?room=${roomCode}&player=player2&team=${encodeURIComponent(urlTeam)}`;
+            
+            // Redirect to toss page with all data in URL
+            window.location.href = url;
         });
 
-        // Spectate game - redirect to toss.html
+        // Spectate game - redirect to toss.html with URL parameters
         document.getElementById('spectateBtn').addEventListener('click', function() {
             const roomCode = document.getElementById('spectateRoomCode').value.trim();
 
@@ -1812,17 +1727,16 @@
                 return;
             }
 
-            // Store room info in local storage for quick access
-            localStorage.setItem('hc_currentRoom', roomCode);
-            localStorage.setItem('hc_spectator', 'true');
-
-            // Redirect to toss page
-            window.location.href = 'toss.html';
+            // Build URL with all parameters
+            const url = `toss.html?room=${roomCode}&spectator=true`;
+            
+            // Redirect to toss page with all data in URL
+            window.location.href = url;
         });
 
         // Auction button
         document.getElementById('auctionBtn').addEventListener('click', function() {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
@@ -1831,7 +1745,7 @@
 
         // Manage squad
         document.getElementById('manageSquadBtn').addEventListener('click', function() {
-            if (!currentUser || !currentTeam) {
+            if (!urlUsername || !urlTeam) {
                 alert('Please login first');
                 return;
             }
