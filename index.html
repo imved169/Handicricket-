@@ -267,7 +267,19 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            getDocs, 
+            query, 
+            where, 
+            serverTimestamp,
+            orderBy,
+            limit 
+        } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
@@ -334,8 +346,27 @@
         function displayUserDashboard(user) {
             document.getElementById('dashboardUsername').textContent = user.username;
             document.getElementById('dashboardTeamName').textContent = user.teamName;
-            const date = user.createdAt?.toDate ? user.createdAt.toDate() : new Date(user.createdAt);
-            document.getElementById('dashboardCreatedAt').textContent = date.toLocaleDateString();
+            
+            // Handle timestamp conversion
+            let createdAt;
+            if (user.createdAt && typeof user.createdAt === 'object' && user.createdAt.toDate) {
+                // Firebase Timestamp object
+                createdAt = user.createdAt.toDate();
+            } else if (user.createdAt && user.createdAt.seconds) {
+                // Firebase Timestamp in seconds
+                createdAt = new Date(user.createdAt.seconds * 1000);
+            } else if (user.createdAt) {
+                // Regular date string or timestamp
+                createdAt = new Date(user.createdAt);
+            } else {
+                createdAt = new Date();
+            }
+            
+            document.getElementById('dashboardCreatedAt').textContent = createdAt.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
         }
 
         // Register User
@@ -352,21 +383,31 @@
                 return;
             }
 
+            if (username.length < 3) {
+                showError(registerError, 'Username must be at least 3 characters long');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError(registerError, 'Password must be at least 6 characters long');
+                return;
+            }
+
             try {
                 registerBtn.textContent = 'Registering';
                 registerBtn.classList.add('loading');
 
-                // Check if username already exists
+                // Check if username already exists using Firestore query
                 const usersRef = collection(db, 'users');
                 const q = query(usersRef, where('username', '==', username));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    showError(registerError, 'Username already exists');
+                    showError(registerError, 'Username already exists. Please choose a different one.');
                     return;
                 }
 
-                // Create user in Firestore
+                // Create user in Firestore with proper data structure
                 const userData = {
                     username: username,
                     teamName: teamName,
@@ -377,17 +418,23 @@
                 // Use username as document ID for easy lookup
                 await setDoc(doc(db, 'users', username), userData);
 
+                // Get the created document to include the timestamp
+                const userDoc = await getDoc(doc(db, 'users', username));
+                const userWithData = {
+                    uid: username,
+                    ...userDoc.data()
+                };
+
                 // Save user to localStorage and show dashboard
-                const userWithId = { ...userData, uid: username };
-                localStorage.setItem('handicricket_user', JSON.stringify(userWithId));
+                localStorage.setItem('handicricket_user', JSON.stringify(userWithData));
                 
-                registerSuccess.textContent = 'Registration successful!';
+                registerSuccess.textContent = 'Registration successful! Redirecting...';
                 registerSuccess.classList.remove('hidden');
                 
                 setTimeout(() => {
-                    displayUserDashboard(userWithId);
+                    displayUserDashboard(userWithData);
                     showDashboard();
-                }, 1000);
+                }, 1500);
 
             } catch (error) {
                 console.error('Registration error:', error);
@@ -398,7 +445,7 @@
             }
         });
 
-        // Login User
+        // Login User - Reading from Firebase Firestore
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -415,8 +462,9 @@
                 loginBtn.textContent = 'Logging in';
                 loginBtn.classList.add('loading');
 
-                // Get user from Firestore
-                const userDoc = await getDoc(doc(db, 'users', username));
+                // Read user data directly from Firestore using the username as document ID
+                const userDocRef = doc(db, 'users', username);
+                const userDoc = await getDoc(userDocRef);
 
                 if (!userDoc.exists()) {
                     showError(loginError, 'Invalid username or password');
@@ -425,32 +473,70 @@
 
                 const userData = userDoc.data();
 
-                // Check password (in production, compare hashed passwords)
+                // Check if password matches (plain text comparison for demo)
                 if (userData.password !== password) {
                     showError(loginError, 'Invalid username or password');
                     return;
                 }
 
-                // Login successful
-                const userWithId = { ...userData, uid: username };
-                localStorage.setItem('handicricket_user', JSON.stringify(userWithId));
-                displayUserDashboard(userWithId);
+                // Login successful - create user object with all data from Firestore
+                const userWithData = {
+                    uid: username,
+                    ...userData
+                };
+
+                // Save complete user data to localStorage
+                localStorage.setItem('handicricket_user', JSON.stringify(userWithData));
+                
+                // Display dashboard with user data
+                displayUserDashboard(userWithData);
                 showDashboard();
 
             } catch (error) {
                 console.error('Login error:', error);
-                showError(loginError, 'Login failed. Please try again.');
+                showError(loginError, 'Login failed. Please check your connection and try again.');
             } finally {
                 loginBtn.textContent = 'Login';
                 loginBtn.classList.remove('loading');
             }
         });
 
+        // Alternative login method using query (commented out but available)
+        async function loginWithQuery(username, password) {
+            try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('username', '==', username));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    return null;
+                }
+
+                let userData = null;
+                querySnapshot.forEach((doc) => {
+                    userData = doc.data();
+                });
+
+                if (userData && userData.password === password) {
+                    return {
+                        uid: username,
+                        ...userData
+                    };
+                }
+
+                return null;
+            } catch (error) {
+                console.error('Query login error:', error);
+                return null;
+            }
+        }
+
         // Logout
         function logout() {
             localStorage.removeItem('handicricket_user');
             loginForm.reset();
             registerForm.reset();
+            clearMessages();
             showLogin();
         }
 
@@ -461,7 +547,18 @@
         }
 
         // Initialize app
-        checkAutoLogin();
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAutoLogin();
+            
+            // Clear forms when switching between login/register
+            document.querySelectorAll('.toggle-link').forEach(link => {
+                link.addEventListener('click', function() {
+                    loginForm.reset();
+                    registerForm.reset();
+                    clearMessages();
+                });
+            });
+        });
     </script>
 </body>
 </html>
