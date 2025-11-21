@@ -1206,8 +1206,6 @@
 
         // Current user data
         let currentUser = null;
-        let selectedFormat = null;
-        let selectedTestOvers = null;
 
         // Check if user is logged in
         function checkLoggedInUser() {
@@ -1553,28 +1551,9 @@
 
         // Create game room
         async function createGameRoom(format, testOvers = null) {
-            if (!currentUser) {
-                alert('Please login first');
-                return;
-            }
-
-            if (!selectedFormat) {
-                alert('Please select a match format');
-                return;
-            }
-
-            // For Test matches, check if overs are selected
-            if (selectedFormat === 'test' && !selectedTestOvers) {
-                alert('Please select overs per day for the Test match');
-                return;
-            }
+            if (!currentUser) return;
 
             try {
-                // Disable button during creation
-                const createBtn = document.getElementById('createGameBtn');
-                createBtn.disabled = true;
-                createBtn.textContent = 'Creating Room...';
-
                 // Generate a random 4-digit room code
                 const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
                 
@@ -1584,15 +1563,18 @@
                     hostTeam: currentUser.teamName,
                     format: format,
                     status: 'waiting',
-                    created: Date.now(),
-                    testOvers: testOvers
+                    created: Date.now()
                 };
+                
+                // Add test match specific data if applicable
+                if (format === 'test') {
+                    roomData.testOvers = testOvers;
+                    roomData.testDays = 5;
+                }
                 
                 // Save room to database
                 const roomRef = ref(database, 'rooms/' + roomCode);
                 await set(roomRef, roomData);
-                
-                console.log('Room created successfully:', roomCode);
                 
                 // Show room code to user
                 roomCodeValue.textContent = roomCode;
@@ -1615,29 +1597,15 @@
                 });
                 
             } catch (error) {
-                console.error('Error creating room:', error);
                 alert('Error creating room: ' + error.message);
-            } finally {
-                // Re-enable button
-                const createBtn = document.getElementById('createGameBtn');
-                createBtn.disabled = false;
-                createBtn.textContent = 'Create New Match';
             }
         }
 
         // Join game room
         async function joinGameRoom(roomCode) {
-            if (!currentUser) {
-                alert('Please login first');
-                return;
-            }
+            if (!currentUser) return;
 
             try {
-                // Disable button during join process
-                const joinBtn = document.getElementById('joinGameBtn');
-                joinBtn.disabled = true;
-                joinBtn.textContent = 'Joining...';
-
                 // Check if room exists
                 const roomRef = ref(database, 'rooms/' + roomCode);
                 const snapshot = await get(roomRef);
@@ -1667,49 +1635,6 @@
                 
             } catch (error) {
                 alert('Error joining room: ' + error.message);
-            } finally {
-                // Re-enable button
-                const joinBtn = document.getElementById('joinGameBtn');
-                joinBtn.disabled = false;
-                joinBtn.textContent = 'Join Match';
-            }
-        }
-
-        // Spectate game room
-        async function spectateGameRoom(roomCode) {
-            if (!currentUser) {
-                alert('Please login first');
-                return;
-            }
-
-            try {
-                // Disable button during process
-                const spectateBtn = document.getElementById('spectateBtn');
-                spectateBtn.disabled = true;
-                spectateBtn.textContent = 'Joining as Spectator...';
-
-                // Check if room exists
-                const roomRef = ref(database, 'rooms/' + roomCode);
-                const snapshot = await get(roomRef);
-                
-                if (!snapshot.exists()) {
-                    alert('Room not found');
-                    return;
-                }
-                
-                const room = snapshot.val();
-                
-                // Redirect to toss page as spectator
-                const url = `toss.html?room=${roomCode}&spectator=true&format=${room.format}`;
-                window.location.href = url;
-                
-            } catch (error) {
-                alert('Error joining as spectator: ' + error.message);
-            } finally {
-                // Re-enable button
-                const spectateBtn = document.getElementById('spectateBtn');
-                spectateBtn.disabled = false;
-                spectateBtn.textContent = 'Spectate Match';
             }
         }
 
@@ -1847,17 +1772,9 @@
 
         // Create tournament
         async function createTournament(name, matchFormat, teams) {
-            if (!currentUser) {
-                alert('Please login first');
-                return;
-            }
+            if (!currentUser) return;
 
             try {
-                // Disable button during creation
-                const createBtn = document.getElementById('createTournamentBtn');
-                createBtn.disabled = true;
-                createBtn.textContent = 'Creating Tournament...';
-
                 // Generate a random ID for the tournament
                 const tournamentId = Math.floor(1000 + Math.random() * 9000).toString();
                 
@@ -1906,11 +1823,6 @@
                 
             } catch (error) {
                 alert('Error creating tournament: ' + error.message);
-            } finally {
-                // Re-enable button
-                const createBtn = document.getElementById('createTournamentBtn');
-                createBtn.disabled = false;
-                createBtn.textContent = 'Create Tournament';
             }
         }
 
@@ -1964,6 +1876,9 @@
         });
 
         // Format selection
+        let selectedFormat = null;
+        let selectedTestOvers = null;
+
         document.querySelectorAll('.format-card').forEach(card => {
             card.addEventListener('click', () => {
                 // Only allow selection in create game tab
@@ -2065,11 +1980,32 @@
 
         // Create game
         document.getElementById('createGameBtn').addEventListener('click', async function() {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+
+            if (!selectedFormat) {
+                alert('Please select a match format');
+                return;
+            }
+
+            // For Test matches, check if overs are selected
+            if (selectedFormat === 'test' && !selectedTestOvers) {
+                alert('Please select overs per day for the Test match');
+                return;
+            }
+
             await createGameRoom(selectedFormat, selectedTestOvers);
         });
 
         // Join game
         document.getElementById('joinGameBtn').addEventListener('click', async function() {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+
             const roomCode = document.getElementById('roomCode').value.trim();
 
             if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
@@ -2089,11 +2025,20 @@
                 return;
             }
 
-            spectateGameRoom(roomCode);
+            // Build URL with all parameters
+            const url = `toss.html?room=${roomCode}&spectator=true`;
+            
+            // Redirect to toss page with all data in URL
+            window.location.href = url;
         });
 
         // Create tournament
         createTournamentBtn.addEventListener('click', function() {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+
             const tournamentName = document.getElementById('tournamentName').value.trim();
             const tournamentMatchFormat = document.getElementById('tournamentMatchFormat').value;
             const tournamentTeams = document.getElementById('tournamentTeams').value;
