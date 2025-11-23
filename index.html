@@ -208,6 +208,14 @@
             display: block;
         }
 
+        .subtab-content {
+            display: none;
+        }
+
+        .subtab-content.active {
+            display: block;
+        }
+
         .input-group {
             margin-bottom: 20px;
             text-align: left;
@@ -293,6 +301,10 @@
 
         .btn-invite {
             background: linear-gradient(145deg, #FF9800, #F57C00);
+        }
+
+        .btn-update {
+            background: linear-gradient(145deg, #009688, #00796B);
         }
 
         .format-options {
@@ -564,6 +576,78 @@
             margin-bottom: 5px;
         }
 
+        .online-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .online {
+            background-color: var(--success);
+        }
+
+        .offline {
+            background-color: var(--error);
+        }
+
+        .game-item {
+            background: rgba(13, 42, 82, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .game-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .test-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .test-option {
+            padding: 15px;
+            background: rgba(13, 42, 82, 0.5);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .test-option:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .test-option.selected {
+            border-color: var(--highlight);
+            background: rgba(30, 136, 229, 0.3);
+        }
+
+        .test-option h4 {
+            margin-top: 0;
+            color: var(--highlight);
+        }
+
+        .test-option p {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
         .spinner {
             width: 20px;
             height: 20px;
@@ -676,6 +760,10 @@
                         <div class="nav-icon"><i class="fas fa-trophy"></i></div>
                         <div>TOURNAMENTS</div>
                     </div>
+                    <div class="nav-item" data-tab="series">
+                        <div class="nav-icon"><i class="fas fa-list-ol"></i></div>
+                        <div>SERIES</div>
+                    </div>
                 </div>
             </div>
 
@@ -710,6 +798,35 @@
                             <p><strong>Username:</strong> <span id="profileUsername"></span></p>
                             <p><strong>Team Name:</strong> <span id="profileTeamName"></span></p>
                         </div>
+                        
+                        <div class="section-title">Update Profile</div>
+                        <div class="input-group">
+                            <label for="newUsername">New Username</label>
+                            <input type="text" id="newUsername" placeholder="Enter new username">
+                        </div>
+                        <div class="input-group">
+                            <label for="newTeamName">New Team Name</label>
+                            <input type="text" id="newTeamName" placeholder="Enter new team name">
+                        </div>
+                        <div class="input-group">
+                            <label for="currentPassword">Current Password</label>
+                            <div class="password-container">
+                                <input type="password" id="currentPassword" placeholder="Enter current password">
+                                <button class="password-toggle" id="toggleCurrentPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="newPassword">New Password</label>
+                            <div class="password-container">
+                                <input type="password" id="newPassword" placeholder="Enter new password">
+                                <button class="password-toggle" id="toggleNewPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button id="updateProfileBtn" class="btn btn-update">Update Profile</button>
                     </div>
                 </div>
 
@@ -755,17 +872,17 @@
                 <div class="tab-content" id="gamehub-tab">
                     <div class="section-title">Game Hub</div>
                     <div class="hub-grid">
-                        <div class="hub-card" onclick="redirectTo('auction.html')">
+                        <div class="hub-card" id="auctionHubCard">
                             <div class="hub-icon"><i class="fas fa-gavel"></i></div>
                             <div class="hub-title">Auction Room</div>
                             <div class="hub-description">Build your dream team through player auctions</div>
                         </div>
-                        <div class="hub-card" onclick="redirectTo('squad.html')">
+                        <div class="hub-card" id="squadHubCard">
                             <div class="hub-icon"><i class="fas fa-users"></i></div>
                             <div class="hub-title">Manage Squad</div>
                             <div class="hub-description">Organize your team lineup and strategy</div>
                         </div>
-                        <div class="hub-card" onclick="redirectTo('leaderboard.html')">
+                        <div class="hub-card" id="leaderboardHubCard">
                             <div class="hub-icon"><i class="fas fa-trophy"></i></div>
                             <div class="hub-title">Leaderboard</div>
                             <div class="hub-description">Check rankings and compete with others</div>
@@ -779,6 +896,7 @@
                         <div class="tab active" data-subtab="create">Create Game</div>
                         <div class="tab" data-subtab="join">Join Game</div>
                         <div class="tab" data-subtab="spectate">Spectate</div>
+                        <div class="tab" data-subtab="mygames">My Games</div>
                     </div>
 
                     <div class="message" id="message"></div>
@@ -803,7 +921,41 @@
                                     <h3>ODI (50 Overs)</h3>
                                     <p>Full day challenge</p>
                                 </div>
+                                <div class="format-card" data-format="test" id="testFormat">
+                                    <h3>Test Match</h3>
+                                    <p>Multi-day challenge</p>
+                                </div>
                             </div>
+                            
+                            <div id="testOptions" class="test-options">
+                                <div class="test-option" data-overs="20">
+                                    <h4>20 Overs/Day</h4>
+                                    <p>1-2 day match</p>
+                                </div>
+                                <div class="test-option" data-overs="30">
+                                    <h4>30 Overs/Day</h4>
+                                    <p>2-3 day match</p>
+                                </div>
+                                <div class="test-option" data-overs="50">
+                                    <h4>50 Overs/Day</h4>
+                                    <p>3-4 day match</p>
+                                </div>
+                                <div class="test-option" data-overs="60">
+                                    <h4>60 Overs/Day</h4>
+                                    <p>4-5 day match</p>
+                                </div>
+                                <div class="test-option" data-overs="90">
+                                    <h4>90 Overs/Day</h4>
+                                    <p>Traditional 5-day test</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="inviteFriend">Invite Friend (Optional)</label>
+                            <select id="inviteFriend">
+                                <option value="">Select a friend to invite</option>
+                            </select>
                         </div>
 
                         <div class="room-code-display" id="roomCodeDisplay">
@@ -836,6 +988,13 @@
                             <span>Spectate Match</span>
                         </button>
                     </div>
+
+                    <div class="subtab-content" id="mygames-subtab">
+                        <div class="section-title">Your Active Games</div>
+                        <div id="myGamesList">
+                            <!-- Active games will be populated here -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tournaments Tab -->
@@ -854,19 +1013,8 @@
                         <button id="joinTournamentBtn" class="btn btn-join">Join Tournament</button>
                         
                         <div class="section-title" style="margin-top: 30px;">Available Tournaments</div>
-                        <div class="tournament-grid">
-                            <div class="tournament-card" onclick="joinTournament('T001')">
-                                <h3>Weekend Blast</h3>
-                                <p>Format: T10</p>
-                                <p>Teams: 8</p>
-                                <p>Prize: 5000 Coins</p>
-                            </div>
-                            <div class="tournament-card" onclick="joinTournament('T002')">
-                                <h3>Champions League</h3>
-                                <p>Format: T20</p>
-                                <p>Teams: 16</p>
-                                <p>Prize: 15000 Coins</p>
-                            </div>
+                        <div class="tournament-grid" id="availableTournamentsList">
+                            <!-- Tournaments will be populated here -->
                         </div>
                     </div>
 
@@ -886,11 +1034,7 @@
                         </div>
                         <div class="input-group">
                             <label for="maxTeams">Maximum Teams</label>
-                            <select id="maxTeams">
-                                <option value="4">4 Teams</option>
-                                <option value="8">8 Teams</option>
-                                <option value="16">16 Teams</option>
-                            </select>
+                            <input type="number" id="maxTeams" min="4" max="16" value="8">
                         </div>
                         <button id="createTournamentBtn" class="btn btn-create">Create Tournament</button>
                     </div>
@@ -899,6 +1043,67 @@
                         <div class="section-title">Your Tournaments</div>
                         <div class="tournament-grid" id="myTournamentsList">
                             <!-- Tournaments will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Series Tab -->
+                <div class="tab-content" id="series-tab">
+                    <div class="tabs">
+                        <div class="tab active" data-subtab="create-series">Create Series</div>
+                        <div class="tab" data-subtab="join-series">Join Series</div>
+                        <div class="tab" data-subtab="my-series">My Series</div>
+                    </div>
+
+                    <div class="subtab-content active" id="create-series-subtab">
+                        <div class="input-group">
+                            <label for="seriesName">Series Name</label>
+                            <input type="text" id="seriesName" placeholder="Enter series name">
+                        </div>
+                        <div class="input-group">
+                            <label for="seriesFormat">Series Format</label>
+                            <select id="seriesFormat">
+                                <option value="1">1 Match</option>
+                                <option value="3">3 Matches</option>
+                                <option value="5">5 Matches</option>
+                                <option value="7">7 Matches</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="seriesMatchFormat">Match Format</label>
+                            <select id="seriesMatchFormat">
+                                <option value="5">T5 (5 Overs)</option>
+                                <option value="10">T10 (10 Overs)</option>
+                                <option value="20">T20 (20 Overs)</option>
+                                <option value="50">ODI (50 Overs)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="inviteFriendSeries">Invite Friend</label>
+                            <select id="inviteFriendSeries">
+                                <option value="">Select a friend to invite</option>
+                            </select>
+                        </div>
+                        <button id="createSeriesBtn" class="btn btn-create">Create Series</button>
+                    </div>
+
+                    <div class="subtab-content" id="join-series-subtab">
+                        <div class="input-group">
+                            <label for="seriesCode">Series Code</label>
+                            <input type="text" id="seriesCode" placeholder="Enter series code">
+                        </div>
+                        <button id="joinSeriesBtn" class="btn btn-join">Join Series</button>
+                        
+                        <div class="section-title" style="margin-top: 30px;">Available Series</div>
+                        <div class="tournament-grid" id="availableSeriesList">
+                            <!-- Series will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="subtab-content" id="my-series-subtab">
+                        <div class="section-title">Your Series</div>
+                        <div class="tournament-grid" id="mySeriesList">
+                            <!-- Series will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -934,7 +1139,7 @@
 
         // Import Firebase modules
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, update, get, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getDatabase, ref, set, update, get, onValue, push, remove, onChildAdded, onChildChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         // Initialize Firebase
@@ -951,9 +1156,12 @@
         const logoutBtn = document.getElementById('logoutBtn');
         const loginBtn = document.getElementById('loginBtn');
         const togglePassword = document.getElementById('togglePassword');
+        const toggleCurrentPassword = document.getElementById('toggleCurrentPassword');
+        const toggleNewPassword = document.getElementById('toggleNewPassword');
         const userInfoSection = document.getElementById('userInfoSection');
         const profileUsername = document.getElementById('profileUsername');
         const profileTeamName = document.getElementById('profileTeamName');
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
         const createGameBtn = document.getElementById('createGameBtn');
         const joinGameBtn = document.getElementById('joinGameBtn');
         const spectateBtn = document.getElementById('spectateBtn');
@@ -965,14 +1173,27 @@
         const createTournamentBtn = document.getElementById('createTournamentBtn');
         const joinTournamentBtn = document.getElementById('joinTournamentBtn');
         const myTournamentsList = document.getElementById('myTournamentsList');
+        const availableTournamentsList = document.getElementById('availableTournamentsList');
+        const auctionHubCard = document.getElementById('auctionHubCard');
+        const squadHubCard = document.getElementById('squadHubCard');
+        const leaderboardHubCard = document.getElementById('leaderboardHubCard');
+        const inviteFriendSelect = document.getElementById('inviteFriend');
+        const myGamesList = document.getElementById('myGamesList');
+        const createSeriesBtn = document.getElementById('createSeriesBtn');
+        const joinSeriesBtn = document.getElementById('joinSeriesBtn');
+        const inviteFriendSeriesSelect = document.getElementById('inviteFriendSeries');
+        const availableSeriesList = document.getElementById('availableSeriesList');
+        const mySeriesList = document.getElementById('mySeriesList');
 
         // State variables
         let selectedFormat = '5';
+        let selectedTestOvers = null;
         let currentUser = null;
         let isCreatingRoom = false;
         let isJoiningRoom = false;
         let currentRoomCode = null;
         let roomListener = null;
+        let gameInvitationsListener = null;
 
         // Initialize the application
         async function initApp() {
@@ -987,6 +1208,7 @@
                 if (savedUsername && savedTeam) {
                     showUserInfo(savedUsername, savedTeam);
                     loadUserData(savedUsername);
+                    setupOnlineStatus(savedUsername);
                 }
                 
                 console.log('Handicricket initialized successfully');
@@ -994,6 +1216,25 @@
                 console.error('Error initializing app:', error);
                 showMessage('error', 'Failed to initialize game. Please refresh the page.');
             }
+        }
+
+        // Set up online status tracking
+        function setupOnlineStatus(username) {
+            const userStatusRef = ref(db, `users/${username}/status`);
+            
+            // Set user as online
+            set(userStatusRef, {
+                online: true,
+                lastSeen: Date.now()
+            });
+            
+            // Update last seen when user leaves
+            window.addEventListener('beforeunload', () => {
+                set(userStatusRef, {
+                    online: false,
+                    lastSeen: Date.now()
+                });
+            });
         }
 
         // Load user data from Firebase
@@ -1010,6 +1251,7 @@
             onValue(friendsRef, (snapshot) => {
                 const friends = snapshot.val() || {};
                 updateFriendsList(friends);
+                updateFriendSelects(friends);
             });
 
             // Load tournaments
@@ -1018,6 +1260,102 @@
                 const tournaments = snapshot.val() || {};
                 updateTournamentsList(tournaments);
             });
+
+            // Load available tournaments
+            const availableTournamentsRef = ref(db, 'tournaments');
+            onValue(availableTournamentsRef, (snapshot) => {
+                const tournaments = snapshot.val() || {};
+                updateAvailableTournamentsList(tournaments);
+            });
+
+            // Load active games
+            const activeGamesRef = ref(db, `users/${username}/activeGames`);
+            onValue(activeGamesRef, (snapshot) => {
+                const games = snapshot.val() || {};
+                updateMyGamesList(games);
+            });
+
+            // Load series
+            const seriesRef = ref(db, `users/${username}/series`);
+            onValue(seriesRef, (snapshot) => {
+                const series = snapshot.val() || {};
+                updateMySeriesList(series);
+            });
+
+            // Load available series
+            const availableSeriesRef = ref(db, 'series');
+            onValue(availableSeriesRef, (snapshot) => {
+                const series = snapshot.val() || {};
+                updateAvailableSeriesList(series);
+            });
+
+            // Listen for game invitations
+            setupGameInvitationsListener(username);
+        }
+
+        // Set up listener for game invitations
+        function setupGameInvitationsListener(username) {
+            const invitationsRef = ref(db, `users/${username}/invitations`);
+            
+            if (gameInvitationsListener) {
+                gameInvitationsListener();
+            }
+            
+            gameInvitationsListener = onChildAdded(invitationsRef, (snapshot) => {
+                const invitation = snapshot.val();
+                if (invitation && !invitation.responded) {
+                    showGameInvitation(invitation, snapshot.key);
+                }
+            });
+        }
+
+        // Show game invitation popup
+        function showGameInvitation(invitation, invitationId) {
+            if (confirm(`${invitation.fromUsername} has invited you to a ${getFormatName(invitation.format)} match! Room code: ${invitation.roomCode}. Do you want to join?`)) {
+                // Accept invitation
+                acceptGameInvitation(invitationId, invitation);
+            } else {
+                // Decline invitation
+                declineGameInvitation(invitationId);
+            }
+        }
+
+        // Accept game invitation
+        async function acceptGameInvitation(invitationId, invitation) {
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Mark invitation as accepted
+                const invitationRef = ref(db, `users/${username}/invitations/${invitationId}`);
+                await update(invitationRef, {
+                    responded: true,
+                    accepted: true
+                });
+                
+                // Join the room
+                document.getElementById('roomCode').value = invitation.roomCode;
+                joinRoom(invitation.roomCode);
+                
+            } catch (error) {
+                console.error('Error accepting invitation:', error);
+                showMessage('error', 'Failed to accept invitation');
+            }
+        }
+
+        // Decline game invitation
+        async function declineGameInvitation(invitationId) {
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Mark invitation as declined
+                const invitationRef = ref(db, `users/${username}/invitations/${invitationId}`);
+                await update(invitationRef, {
+                    responded: true,
+                    accepted: false
+                });
+            } catch (error) {
+                console.error('Error declining invitation:', error);
+            }
         }
 
         // Update stats display
@@ -1032,7 +1370,7 @@
             document.getElementById('winPercentage').textContent = `${winPercentage}%`;
         }
 
-        // Update friends list
+        // Update friends list with online status
         function updateFriendsList(friends) {
             friendsList.innerHTML = '';
             
@@ -1045,15 +1383,30 @@
                 const friend = friends[friendId];
                 const friendItem = document.createElement('div');
                 friendItem.className = 'friend-item';
+                
+                // Get online status
+                const statusRef = ref(db, `users/${friend.username}/status`);
+                onValue(statusRef, (snapshot) => {
+                    const status = snapshot.val() || { online: false };
+                    const statusElement = friendItem.querySelector('.friend-status');
+                    if (statusElement) {
+                        statusElement.className = `online-status ${status.online ? 'online' : 'offline'}`;
+                        statusElement.title = status.online ? 'Online' : 'Offline';
+                    }
+                });
+                
                 friendItem.innerHTML = `
                     <div class="friend-info">
                         <div class="friend-avatar">${friend.username.charAt(0).toUpperCase()}</div>
                         <div>
-                            <div>${friend.username}</div>
+                            <div>${friend.username} <span class="online-status offline" class="friend-status"></span></div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary);">${friend.team}</div>
                         </div>
                     </div>
                     <div class="friend-actions">
+                        <button class="action-btn view-stats" data-username="${friend.username}" title="View Stats">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
                         <button class="action-btn invite-friend" data-username="${friend.username}" title="Invite to Game">
                             <i class="fas fa-gamepad"></i>
                         </button>
@@ -1066,6 +1419,12 @@
             });
             
             // Add event listeners for friend actions
+            document.querySelectorAll('.view-stats').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    viewFriendStats(this.dataset.username);
+                });
+            });
+            
             document.querySelectorAll('.invite-friend').forEach(btn => {
                 btn.addEventListener('click', function() {
                     inviteFriend(this.dataset.username);
@@ -1077,6 +1436,28 @@
                     removeFriend(this.dataset.username);
                 });
             });
+        }
+
+        // Update friend select dropdowns
+        function updateFriendSelects(friends) {
+            inviteFriendSelect.innerHTML = '<option value="">Select a friend to invite</option>';
+            inviteFriendSeriesSelect.innerHTML = '<option value="">Select a friend to invite</option>';
+            
+            Object.keys(friends).forEach(friendId => {
+                const friend = friends[friendId];
+                const option = document.createElement('option');
+                option.value = friend.username;
+                option.textContent = `${friend.username} (${friend.team})`;
+                
+                inviteFriendSelect.appendChild(option.cloneNode(true));
+                inviteFriendSeriesSelect.appendChild(option);
+            });
+        }
+
+        // View friend stats
+        function viewFriendStats(friendUsername) {
+            // In a real implementation, you would fetch and display friend's stats
+            alert(`Stats for ${friendUsername} would be displayed here`);
         }
 
         // Update tournaments list
@@ -1097,8 +1478,136 @@
                     <p>Format: ${getFormatName(tournament.format)}</p>
                     <p>Teams: ${tournament.currentTeams || 1}/${tournament.maxTeams}</p>
                     <p>Status: ${tournament.status || 'Registration'}</p>
+                    ${tournament.matches ? `<p>Next Match: Room ${tournament.matches[0]?.roomCode || 'TBD'}</p>` : ''}
                 `;
                 myTournamentsList.appendChild(tournamentCard);
+            });
+        }
+
+        // Update available tournaments list
+        function updateAvailableTournamentsList(tournaments) {
+            availableTournamentsList.innerHTML = '';
+            
+            if (Object.keys(tournaments).length === 0) {
+                availableTournamentsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No tournaments available</p>';
+                return;
+            }
+            
+            Object.keys(tournaments).forEach(tournamentId => {
+                const tournament = tournaments[tournamentId];
+                if (tournament.status === 'registration') {
+                    const tournamentCard = document.createElement('div');
+                    tournamentCard.className = 'tournament-card';
+                    tournamentCard.innerHTML = `
+                        <h3>${tournament.name}</h3>
+                        <p>Format: ${getFormatName(tournament.format)}</p>
+                        <p>Teams: ${Object.keys(tournament.participants || {}).length}/${tournament.maxTeams}</p>
+                        <p>Creator: ${tournament.creator}</p>
+                        <button class="btn btn-join join-tournament-btn" data-id="${tournamentId}">Join Tournament</button>
+                    `;
+                    availableTournamentsList.appendChild(tournamentCard);
+                }
+            });
+            
+            // Add event listeners for join tournament buttons
+            document.querySelectorAll('.join-tournament-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    joinTournament(this.dataset.id);
+                });
+            });
+        }
+
+        // Update my games list
+        function updateMyGamesList(games) {
+            myGamesList.innerHTML = '';
+            
+            if (Object.keys(games).length === 0) {
+                myGamesList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No active games</p>';
+                return;
+            }
+            
+            Object.keys(games).forEach(gameId => {
+                const game = games[gameId];
+                const gameItem = document.createElement('div');
+                gameItem.className = 'game-item';
+                gameItem.innerHTML = `
+                    <div class="game-info">
+                        <div>
+                            <strong>Room: ${game.roomCode}</strong><br>
+                            <span>Format: ${getFormatName(game.format)}</span><br>
+                            <span>Status: ${game.status}</span>
+                        </div>
+                        <div class="game-actions">
+                            <button class="btn btn-join continue-game-btn" data-room="${game.roomCode}">Continue</button>
+                        </div>
+                    </div>
+                `;
+                myGamesList.appendChild(gameItem);
+            });
+            
+            // Add event listeners for continue game buttons
+            document.querySelectorAll('.continue-game-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    continueGame(this.dataset.room);
+                });
+            });
+        }
+
+        // Update my series list
+        function updateMySeriesList(series) {
+            mySeriesList.innerHTML = '';
+            
+            if (Object.keys(series).length === 0) {
+                mySeriesList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No series joined yet</p>';
+                return;
+            }
+            
+            Object.keys(series).forEach(seriesId => {
+                const seriesItem = series[seriesId];
+                const seriesCard = document.createElement('div');
+                seriesCard.className = 'tournament-card';
+                seriesCard.innerHTML = `
+                    <h3>${seriesItem.name}</h3>
+                    <p>Format: ${seriesItem.matches} matches</p>
+                    <p>Match Format: ${getFormatName(seriesItem.matchFormat)}</p>
+                    <p>Opponent: ${seriesItem.players.find(p => p !== localStorage.getItem('hc_username'))}</p>
+                    <p>Status: ${seriesItem.status || 'Active'}</p>
+                    ${seriesItem.currentMatch ? `<p>Current Match: Room ${seriesItem.currentMatch.roomCode}</p>` : ''}
+                `;
+                mySeriesList.appendChild(seriesCard);
+            });
+        }
+
+        // Update available series list
+        function updateAvailableSeriesList(series) {
+            availableSeriesList.innerHTML = '';
+            
+            if (Object.keys(series).length === 0) {
+                availableSeriesList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No series available</p>';
+                return;
+            }
+            
+            Object.keys(series).forEach(seriesId => {
+                const seriesItem = series[seriesId];
+                if (seriesItem.status === 'pending' && !seriesItem.players.includes(localStorage.getItem('hc_username'))) {
+                    const seriesCard = document.createElement('div');
+                    seriesCard.className = 'tournament-card';
+                    seriesCard.innerHTML = `
+                        <h3>${seriesItem.name}</h3>
+                        <p>Format: ${seriesItem.matches} matches</p>
+                        <p>Match Format: ${getFormatName(seriesItem.matchFormat)}</p>
+                        <p>Created by: ${seriesItem.creator}</p>
+                        <button class="btn btn-join join-series-btn" data-id="${seriesId}">Join Series</button>
+                    `;
+                    availableSeriesList.appendChild(seriesCard);
+                }
+            });
+            
+            // Add event listeners for join series buttons
+            document.querySelectorAll('.join-series-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    joinSeries(this.dataset.id);
+                });
             });
         }
 
@@ -1108,7 +1617,8 @@
                 '5': 'T5 (5 Overs)',
                 '10': 'T10 (10 Overs)',
                 '20': 'T20 (20 Overs)',
-                '50': 'ODI (50 Overs)'
+                '50': 'ODI (50 Overs)',
+                'test': 'Test Match'
             };
             return formats[format] || 'Unknown Format';
         }
@@ -1147,6 +1657,16 @@
             return Math.floor(1000 + Math.random() * 9000).toString();
         }
 
+        // Generate a random tournament/series code
+        function generateTournamentCode() {
+            return 'T' + Math.floor(100 + Math.random() * 900).toString();
+        }
+
+        // Generate a random series code
+        function generateSeriesCode() {
+            return 'S' + Math.floor(100 + Math.random() * 900).toString();
+        }
+
         // Register or login user
         async function registerOrLogin(username, team, password) {
             try {
@@ -1181,7 +1701,14 @@
                         team,
                         password, // Hash this in production!
                         created: Date.now(),
-                        friends: {}
+                        friends: {},
+                        tournaments: {},
+                        series: {},
+                        activeGames: {},
+                        status: {
+                            online: true,
+                            lastSeen: Date.now()
+                        }
                     });
                     
                     // Initialize stats
@@ -1200,6 +1727,7 @@
                 // Update UI
                 showUserInfo(username, team);
                 loadUserData(username);
+                setupOnlineStatus(username);
                 showMessage('success', `Welcome back, ${username}!`);
                 
                 return true;
@@ -1207,6 +1735,87 @@
                 console.error('Login error:', error);
                 showMessage('error', error.message);
                 return false;
+            }
+        }
+
+        // Update user profile
+        async function updateProfile() {
+            const newUsername = document.getElementById('newUsername').value.trim();
+            const newTeamName = document.getElementById('newTeamName').value.trim();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            
+            const currentUsername = localStorage.getItem('hc_username');
+            const currentTeam = localStorage.getItem('hc_team');
+            
+            if (!currentPassword) {
+                showMessage('error', 'Please enter your current password to make changes');
+                return;
+            }
+            
+            try {
+                updateButtonState(updateProfileBtn, true, 'Updating...');
+                
+                // Verify current password
+                const userRef = ref(db, `users/${currentUsername}`);
+                const snapshot = await get(userRef);
+                
+                if (!snapshot.exists()) {
+                    throw new Error('User not found');
+                }
+                
+                const userData = snapshot.val();
+                
+                if (userData.password !== currentPassword) {
+                    throw new Error('Current password is incorrect');
+                }
+                
+                // Prepare update data
+                const updateData = {};
+                
+                if (newUsername && newUsername !== currentUsername) {
+                    updateData.username = newUsername;
+                    // In a real implementation, you would need to update all references to the username
+                }
+                
+                if (newTeamName && newTeamName !== currentTeam) {
+                    updateData.team = newTeamName;
+                }
+                
+                if (newPassword) {
+                    updateData.password = newPassword;
+                }
+                
+                // Update user data
+                await update(userRef, updateData);
+                
+                // Update localStorage if username changed
+                if (newUsername && newUsername !== currentUsername) {
+                    localStorage.setItem('hc_username', newUsername);
+                    usernameDisplay.textContent = newUsername;
+                    profileUsername.textContent = newUsername;
+                    userAvatar.textContent = newUsername.charAt(0).toUpperCase();
+                }
+                
+                if (newTeamName && newTeamName !== currentTeam) {
+                    localStorage.setItem('hc_team', newTeamName);
+                    teamDisplay.textContent = newTeamName;
+                    profileTeamName.textContent = newTeamName;
+                }
+                
+                // Clear form
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newTeamName').value = '';
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                
+                showMessage('success', 'Profile updated successfully!');
+                
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                showMessage('error', error.message);
+            } finally {
+                updateButtonState(updateProfileBtn, false, 'Update Profile');
             }
         }
 
@@ -1289,9 +1898,29 @@
         }
 
         // Invite a friend to game
-        function inviteFriend(friendUsername) {
-            showMessage('info', `Invitation sent to ${friendUsername}`);
-            // In a real implementation, you would send a notification to the friend
+        async function inviteFriend(friendUsername) {
+            const currentUsername = localStorage.getItem('hc_username');
+            const currentTeam = localStorage.getItem('hc_team');
+            
+            try {
+                // Create invitation
+                const invitationRef = ref(db, `users/${friendUsername}/invitations`);
+                const newInvitationRef = push(invitationRef);
+                
+                await set(newInvitationRef, {
+                    fromUsername: currentUsername,
+                    fromTeam: currentTeam,
+                    roomCode: currentRoomCode,
+                    format: selectedFormat,
+                    responded: false,
+                    timestamp: Date.now()
+                });
+                
+                showMessage('success', `Invitation sent to ${friendUsername}!`);
+            } catch (error) {
+                console.error('Error sending invitation:', error);
+                showMessage('error', 'Failed to send invitation');
+            }
         }
 
         // Create a new game room
@@ -1327,14 +1956,35 @@
                     createdAt: Date.now()
                 };
                 
+                // Add test match specific data if applicable
+                if (selectedFormat === 'test' && selectedTestOvers) {
+                    roomData.testOvers = selectedTestOvers;
+                    roomData.testDays = 5; // Default to 5 days for test matches
+                }
+                
                 // Write to database
                 const roomRef = ref(db, `rooms/${roomCode}`);
                 await set(roomRef, roomData);
+                
+                // Add to user's active games
+                const userGameRef = ref(db, `users/${username}/activeGames/${roomCode}`);
+                await set(userGameRef, {
+                    roomCode,
+                    format: selectedFormat,
+                    status: 'waiting',
+                    createdAt: Date.now()
+                });
                 
                 // Show room code and set up listener for player2
                 roomCodeValue.textContent = roomCode;
                 roomCodeDisplay.style.display = 'block';
                 showMessage('success', 'Room created successfully! Waiting for opponent...');
+                
+                // Send invitation to friend if selected
+                const invitedFriend = inviteFriendSelect.value;
+                if (invitedFriend) {
+                    await inviteFriend(invitedFriend);
+                }
                 
                 // Set up real-time listener for room changes
                 setupRoomListener(roomCode, username);
@@ -1422,6 +2072,15 @@
                     status: 'ready'
                 });
                 
+                // Add to user's active games
+                const userGameRef = ref(db, `users/${username}/activeGames/${roomCode}`);
+                await set(userGameRef, {
+                    roomCode,
+                    format: roomData.format,
+                    status: 'ready',
+                    createdAt: Date.now()
+                });
+                
                 showMessage('success', 'Successfully joined the game!');
                 
                 // Redirect to toss page
@@ -1435,6 +2094,14 @@
                 isJoiningRoom = false;
                 updateButtonState(joinGameBtn, false, 'Join Match');
             }
+        }
+
+        // Continue an existing game
+        function continueGame(roomCode) {
+            const username = localStorage.getItem('hc_username');
+            
+            // Redirect to game page
+            redirectToToss(roomCode, username, '', '');
         }
 
         // Spectate a game
@@ -1455,6 +2122,7 @@
             const tournamentFormat = document.getElementById('tournamentFormat').value;
             const maxTeams = document.getElementById('maxTeams').value;
             const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
             
             if (!tournamentName) {
                 showMessage('error', 'Please enter a tournament name');
@@ -1465,7 +2133,7 @@
                 updateButtonState(createTournamentBtn, true, 'Creating...');
                 
                 // Generate tournament code
-                const tournamentCode = 'T' + Math.floor(100 + Math.random() * 900).toString();
+                const tournamentCode = generateTournamentCode();
                 
                 // Create tournament object
                 const tournamentData = {
@@ -1478,7 +2146,7 @@
                     participants: {
                         [username]: {
                             username: username,
-                            team: localStorage.getItem('hc_team')
+                            team: team
                         }
                     }
                 };
@@ -1495,7 +2163,8 @@
                     name: tournamentName,
                     format: tournamentFormat,
                     maxTeams: parseInt(maxTeams),
-                    status: 'registration'
+                    status: 'registration',
+                    currentTeams: 1
                 });
                 
                 // Clear form
@@ -1578,6 +2247,152 @@
                 showMessage('error', error.message);
             } finally {
                 updateButtonState(joinTournamentBtn, false, 'Join Tournament');
+            }
+        }
+
+        // Create a series
+        async function createSeries() {
+            const seriesName = document.getElementById('seriesName').value.trim();
+            const seriesFormat = document.getElementById('seriesFormat').value;
+            const seriesMatchFormat = document.getElementById('seriesMatchFormat').value;
+            const invitedFriend = inviteFriendSeriesSelect.value;
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            if (!seriesName) {
+                showMessage('error', 'Please enter a series name');
+                return;
+            }
+            
+            if (!invitedFriend) {
+                showMessage('error', 'Please select a friend to invite');
+                return;
+            }
+            
+            try {
+                updateButtonState(createSeriesBtn, true, 'Creating...');
+                
+                // Generate series code
+                const seriesCode = generateSeriesCode();
+                
+                // Create series object
+                const seriesData = {
+                    name: seriesName,
+                    matches: parseInt(seriesFormat),
+                    matchFormat: seriesMatchFormat,
+                    creator: username,
+                    status: 'pending',
+                    createdAt: Date.now(),
+                    players: [username, invitedFriend],
+                    currentMatch: 1,
+                    scores: {
+                        [username]: 0,
+                        [invitedFriend]: 0
+                    }
+                };
+                
+                // Write to database
+                const seriesRef = ref(db, `series/${seriesCode}`);
+                await set(seriesRef, seriesData);
+                
+                // Add series to user's series list
+                const userSeriesRef = ref(db, `users/${username}/series`);
+                const newSeriesRef = push(userSeriesRef);
+                await set(newSeriesRef, {
+                    code: seriesCode,
+                    name: seriesName,
+                    matches: parseInt(seriesFormat),
+                    matchFormat: seriesMatchFormat,
+                    status: 'pending',
+                    players: [username, invitedFriend]
+                });
+                
+                // Add series to friend's series list
+                const friendSeriesRef = ref(db, `users/${invitedFriend}/series`);
+                const newFriendSeriesRef = push(friendSeriesRef);
+                await set(newFriendSeriesRef, {
+                    code: seriesCode,
+                    name: seriesName,
+                    matches: parseInt(seriesFormat),
+                    matchFormat: seriesMatchFormat,
+                    status: 'pending',
+                    players: [username, invitedFriend]
+                });
+                
+                // Clear form
+                document.getElementById('seriesName').value = '';
+                
+                showMessage('success', `Series "${seriesName}" created and invitation sent to ${invitedFriend}!`);
+                
+            } catch (error) {
+                console.error('Error creating series:', error);
+                showMessage('error', 'Failed to create series');
+            } finally {
+                updateButtonState(createSeriesBtn, false, 'Create Series');
+            }
+        }
+
+        // Join a series
+        async function joinSeries(seriesCode = null) {
+            const code = seriesCode || document.getElementById('seriesCode').value.trim();
+            const username = localStorage.getItem('hc_username');
+            
+            if (!code) {
+                showMessage('error', 'Please enter a series code');
+                return;
+            }
+            
+            try {
+                updateButtonState(joinSeriesBtn, true, 'Joining...');
+                
+                // Check if series exists
+                const seriesRef = ref(db, `series/${code}`);
+                const snapshot = await get(seriesRef);
+                
+                if (!snapshot.exists()) {
+                    throw new Error('Series not found. Please check the code.');
+                }
+                
+                const seriesData = snapshot.val();
+                
+                // Check if user is already in the series
+                if (seriesData.players.includes(username)) {
+                    throw new Error('You are already in this series');
+                }
+                
+                // Update series status to active
+                await update(seriesRef, {
+                    status: 'active'
+                });
+                
+                // Update user's series status
+                const userSeriesRef = ref(db, `users/${username}/series`);
+                const snapshot2 = await get(userSeriesRef);
+                
+                if (snapshot2.exists()) {
+                    const userSeries = snapshot2.val();
+                    Object.keys(userSeries).forEach(key => {
+                        if (userSeries[key].code === code) {
+                            const userSeriesItemRef = ref(db, `users/${username}/series/${key}`);
+                            update(userSeriesItemRef, {
+                                status: 'active'
+                            });
+                        }
+                    });
+                }
+                
+                // Clear form if joining by code
+                if (!seriesCode) {
+                    document.getElementById('seriesCode').value = '';
+                }
+                
+                showMessage('success', `Joined series "${seriesData.name}"!`);
+                
+            } catch (error) {
+                console.error('Error joining series:', error);
+                showMessage('error', error.message);
+            } finally {
+                updateButtonState(joinSeriesBtn, false, 'Join Series');
             }
         }
 
@@ -1671,18 +2486,73 @@
             });
         });
 
+        // Series subtab switching
+        document.querySelectorAll('.tab[data-subtab]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Handle series subtabs
+                if (tab.dataset.subtab && tab.dataset.subtab.includes('series')) {
+                    document.querySelectorAll('.tab[data-subtab]').forEach(t => {
+                        if (t.dataset.subtab.includes('series')) {
+                            t.classList.remove('active');
+                        }
+                    });
+                    document.querySelectorAll('.subtab-content').forEach(c => {
+                        if (c.id.includes('series')) {
+                            c.classList.remove('active');
+                        }
+                    });
+
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.subtab}-subtab`).classList.add('active');
+                }
+            });
+        });
+
         // Format selection
         document.querySelectorAll('.format-card').forEach(card => {
             card.addEventListener('click', () => {
                 document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
                 card.classList.add('selected');
                 selectedFormat = card.dataset.format;
+
+                // Show test options if Test Match is selected
+                if (selectedFormat === 'test') {
+                    document.getElementById('testOptions').style.display = 'grid';
+                } else {
+                    document.getElementById('testOptions').style.display = 'none';
+                    selectedTestOvers = null;
+                }
+            });
+        });
+
+        // Test match overs selection
+        document.querySelectorAll('.test-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.test-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedTestOvers = option.dataset.overs;
             });
         });
 
         // Password toggle
         document.getElementById('togglePassword').addEventListener('click', function() {
             const passwordInput = document.getElementById('password');
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+
+        // Current password toggle
+        document.getElementById('toggleCurrentPassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('currentPassword');
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+
+        // New password toggle
+        document.getElementById('toggleNewPassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('newPassword');
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
             this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
@@ -1703,6 +2573,9 @@
             await registerOrLogin(username, teamName, password);
             updateButtonState(loginBtn, false, 'Login / Register');
         });
+
+        // Update profile
+        document.getElementById('updateProfileBtn').addEventListener('click', updateProfile);
 
         // Add friend
         document.getElementById('addFriendBtn').addEventListener('click', addFriend);
@@ -1730,11 +2603,48 @@
             joinTournament();
         });
 
+        // Create series
+        document.getElementById('createSeriesBtn').addEventListener('click', createSeries);
+
+        // Join series
+        document.getElementById('joinSeriesBtn').addEventListener('click', () => {
+            joinSeries();
+        });
+
+        // Hub card redirects
+        document.getElementById('auctionHubCard').addEventListener('click', () => {
+            redirectTo('auction.html');
+        });
+
+        document.getElementById('squadHubCard').addEventListener('click', () => {
+            redirectTo('squad.html');
+        });
+
+        document.getElementById('leaderboardHubCard').addEventListener('click', () => {
+            redirectTo('leaderboard.html');
+        });
+
         // Logout
         document.getElementById('logoutBtn').addEventListener('click', function() {
+            const username = localStorage.getItem('hc_username');
+            
             // Remove room listener if active
             if (roomListener) {
                 roomListener();
+            }
+            
+            // Remove game invitations listener if active
+            if (gameInvitationsListener) {
+                gameInvitationsListener();
+            }
+            
+            // Set user as offline
+            if (username) {
+                const userStatusRef = ref(db, `users/${username}/status`);
+                set(userStatusRef, {
+                    online: false,
+                    lastSeen: Date.now()
+                });
             }
             
             localStorage.removeItem('hc_username');
@@ -1776,6 +2686,18 @@
         document.getElementById('tournamentName').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('createTournamentBtn').click();
+            }
+        });
+
+        document.getElementById('seriesCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('joinSeriesBtn').click();
+            }
+        });
+
+        document.getElementById('seriesName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('createSeriesBtn').click();
             }
         });
 
