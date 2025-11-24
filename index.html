@@ -969,17 +969,17 @@
                 <div class="tab-content" id="gamehub-tab">
                     <div class="section-title">Game Hub</div>
                     <div class="hub-grid">
-                        <div class="hub-card" onclick="redirectTo('auction.html')">
+                        <div class="hub-card" data-page="auction.html">
                             <div class="hub-icon"><i class="fas fa-gavel"></i></div>
                             <div class="hub-title">Auction Room</div>
                             <div class="hub-description">Build your dream team through player auctions</div>
                         </div>
-                        <div class="hub-card" onclick="redirectTo('squad.html')">
+                        <div class="hub-card" data-page="squad.html">
                             <div class="hub-icon"><i class="fas fa-users"></i></div>
                             <div class="hub-title">Manage Squad</div>
                             <div class="hub-description">Organize your team lineup and strategy</div>
                         </div>
-                        <div class="hub-card" onclick="redirectTo('leaderboard.html')">
+                        <div class="hub-card" data-page="leaderboard.html">
                             <div class="hub-icon"><i class="fas fa-trophy"></i></div>
                             <div class="hub-title">Leaderboard</div>
                             <div class="hub-description">Check rankings and compete with others</div>
@@ -1696,9 +1696,17 @@
                     <p>Opponent: ${opponent}</p>
                     <p>Format: ${getFormatName(game.format)}</p>
                     <p>Status: ${game.status || 'In Progress'}</p>
-                    <button class="btn btn-join" style="margin-top: 10px;" onclick="resumeGame('${game.roomCode}')">Resume Game</button>
+                    <button class="btn btn-join resume-game-btn" style="margin-top: 10px;" data-room="${game.roomCode}">Resume Game</button>
                 `;
                 ongoingGamesList.appendChild(gameCard);
+            });
+            
+            // Add event listeners to resume game buttons
+            document.querySelectorAll('.resume-game-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const roomCode = this.getAttribute('data-room');
+                    resumeGame(roomCode);
+                });
             });
         }
 
@@ -1737,7 +1745,7 @@
                                     </div>
                                 ` : `
                                     <div class="match-actions">
-                                        <button class="btn btn-play" onclick="playSeriesMatch('${seriesId}', '${matchId}')">
+                                        <button class="btn btn-play play-series-match-btn" data-series="${seriesId}" data-match="${matchId}">
                                             Play Match
                                         </button>
                                     </div>
@@ -1756,6 +1764,15 @@
                     ${matchesHtml}
                 `;
                 mySeriesList.appendChild(seriesCard);
+            });
+            
+            // Add event listeners to play series match buttons
+            document.querySelectorAll('.play-series-match-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const seriesId = this.getAttribute('data-series');
+                    const matchId = this.getAttribute('data-match');
+                    playSeriesMatch(seriesId, matchId);
+                });
             });
         }
 
@@ -2974,6 +2991,16 @@
                 document.querySelectorAll('.test-option').forEach(o => o.classList.remove('selected'));
                 option.classList.add('selected');
                 selectedTestOvers = option.dataset.overs;
+            });
+        });
+
+        // Game Hub navigation
+        document.querySelectorAll('.hub-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const page = this.getAttribute('data-page');
+                if (page) {
+                    window.location.href = page;
+                }
             });
         });
 
