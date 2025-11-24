@@ -240,12 +240,12 @@
 
     <div class="team-info">
       <div class="team">
-        <div class="team-name" id="team1Name">Team A</div>
+        <div class="team-name" id="team1Name">Loading...</div>
         <div class="team-role" id="team1Role"></div>
       </div>
       <div class="vs">VS</div>
       <div class="team">
-        <div class="team-name" id="team2Name">Team B</div>
+        <div class="team-name" id="team2Name">Loading...</div>
         <div class="team-role" id="team2Role"></div>
       </div>
     </div>
@@ -341,8 +341,8 @@
     /* Firebase Refs */
     const roomRef = ref(db, `rooms/${room}`);
     const tossRef = ref(db, `rooms/${room}/toss`);
-    const playerRef = ref(db, `rooms/${room}/${player}`);
-    const opponentRef = ref(db, `rooms/${room}/${opponent}`);
+    const player1Ref = ref(db, `rooms/${room}/player1`);
+    const player2Ref = ref(db, `rooms/${room}/player2`);
 
     /* Format names */
     const formatNames = {
@@ -352,30 +352,65 @@
       "50": "ODI (50 Overs)",
     };
 
+    /* Variables to store team names */
+    let player1Team = "Team A";
+    let player2Team = "Team B";
+
     /* INIT UI */
     roomCodeEl.textContent = room;
     formatInfoEl.textContent = formatNames[format] || format;
     playerInfoEl.textContent = player.toUpperCase();
 
-    if (player === "player1") {
-      team1NameEl.textContent = teamName;
-      team1RoleEl.textContent = "(You)";
-      team2RoleEl.textContent = "(Opponent)";
-    } else {
-      team2NameEl.textContent = teamName;
-      team2RoleEl.textContent = "(You)";
-      team1RoleEl.textContent = "(Opponent)";
-    }
-
     /* SET PLAYER CONNECTED */
-    update(playerRef, {
+    update(ref(db, `rooms/${room}/${player}`), {
       connected: true,
       team: teamName,
     });
 
+    /* UPDATE TEAM NAMES FROM FIREBASE */
+    function updateTeamNames() {
+      // Get player1 data
+      get(player1Ref).then((snap) => {
+        if (snap.exists()) {
+          player1Team = snap.val().team || "Team A";
+          updateUI();
+        }
+      });
+
+      // Get player2 data
+      get(player2Ref).then((snap) => {
+        if (snap.exists()) {
+          player2Team = snap.val().team || "Team B";
+          updateUI();
+        }
+      });
+    }
+
+    /* UPDATE UI WITH TEAM NAMES */
+    function updateUI() {
+      team1NameEl.textContent = player1Team;
+      team2NameEl.textContent = player2Team;
+
+      if (player === "player1") {
+        team1RoleEl.textContent = "(You)";
+        team2RoleEl.textContent = "(Opponent)";
+      } else {
+        team1RoleEl.textContent = "(Opponent)";
+        team2RoleEl.textContent = "(You)";
+      }
+    }
+
     /* OPPONENT CONNECT */
-    onValue(opponentRef, (snap) => {
+    onValue(ref(db, `rooms/${room}/${opponent}`), (snap) => {
       if (snap.exists() && snap.val().connected) {
+        // Update opponent team name when they connect
+        if (opponent === "player1") {
+          player1Team = snap.val().team || "Team A";
+        } else {
+          player2Team = snap.val().team || "Team B";
+        }
+        updateUI();
+
         waitingText.textContent = "Opponent connected!";
         setTimeout(() => {
           waiting.style.display = "none";
@@ -386,6 +421,9 @@
         waitingText.textContent = "Waiting for opponent...";
       }
     });
+
+    /* INITIAL TEAM NAME SETUP */
+    updateTeamNames();
 
     /* MAIN TOSS FLOW */
     function startTossLogic() {
@@ -495,13 +533,14 @@
       waiting.style.display = "none";
       battingOptions.style.display = "none";
 
-      const team =
-        t.battingFirst === "player1"
-          ? team1NameEl.textContent
-          : team2NameEl.textContent;
+      const battingTeamName = t.battingFirst === "player1" ? player1Team : player2Team;
+      const bowlingTeamName = t.battingFirst === "player1" ? player2Team : player1Team;
 
       tossOutcome.style.display = "block";
-      tossOutcome.innerHTML = `<b>${team}</b> will <b>${t.battingChoice === "bat" ? "bat" : "bowl"}</b> first.`;
+      tossOutcome.innerHTML = `
+        <b>${battingTeamName}</b> will <b>bat</b> first.<br>
+        <b>${bowlingTeamName}</b> will <b>bowl</b> first.
+      `;
 
       continueBtn.style.display = "block";
     }
