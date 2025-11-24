@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HandiCricket - Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { 
+      background: #061e3e;
+      color: white; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      text-align: center; 
+      padding: 8px;
+      margin: 0;
+    }
+    
+    h1 { 
+      margin: 8px 0 12px;
+      color: #ffeb3b;
+      font-size: 1.5rem;
+    }
+    
+    .container {
+      max-width: 100%;
+      width: 100%;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    
+    /* Enhanced Scoreboard */
+    .scorebox-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px;
+      background: rgba(13, 42, 82, 0.8);
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .team-score {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .score-large {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+
+    .score-details {
+      text-align: right;
+      font-size: 0.85rem;
+    }
+
+    /* Over Progress */
+    .over-progress {
+      background: rgba(13, 42, 82, 0.5);
+      padding: 6px;
+      border-radius: 6px;
+      margin: 6px 0;
+    }
+
+    .over-title {
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    .balls-container {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .ball {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+
+    .ball.dot {
+      background: #333;
+      color: white;
+    }
+
+    .ball.run {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .ball.wicket {
+      background: #F44336;
+      color: white;
+    }
+
+    .ball.wide {
+      background: #FF9800;
+      color: white;
+    }
+
+    .ball.noball {
+      background: #9C27B0;
+      color: white;
+    }
+
+    .ball.empty {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .over-number {
+      text-align: center;
+      font-size: 0.75rem;
+      margin-top: 4px;
+      color: #aaa;
+    }
+
+    /* Card Buttons */
+    .card-btns { 
+      margin: 10px auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+    }
+    
+    .card-btns button { 
+      width: 50px;
+      height: 50px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(145deg, #1e88e5, #1565c0);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .card-btns button:hover {
+      transform: translateY(-3px);
+    }
+    
+    .card-btns button:active {
+      transform: translateY(1px);
+    }
+    
+    .card-btns button:disabled { 
+      background: #607d8b;
+      color: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .card-btns button.selected {
+      background: #4caf50;
+      border: 2px solid #ffeb3b;
+      transform: scale(1.05);
+    }
+    
+    /* Result Display */
+    #result {
+      font-size: 15px;
+      margin: 8px 0;
+      padding: 6px;
+      min-height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.5);
+      border-radius: 6px;
+    }
+    
+    #result.error {
+      color: #ff4444;
+      background: rgba(255, 0, 0, 0.1);
+    }
+    
+    /* Selection Modal */
+    .selection-modal { 
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 350px;
+      background: linear-gradient(145deg, #123456, #0a1f3a);
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      display: none;
+    }
+    
+    .selection-list { 
+      max-height: 50vh;
+      overflow-y: auto;
+      margin: 6px 0;
+    }
+    
+    .player-item, .batter-item {
+      padding: 6px;
+      margin: 3px 0;
+      background: rgba(30, 136, 229, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .player-item:hover, .batter-item:hover {
+      background: rgba(30, 136, 229, 0.4);
+    }
+    
+    .player-item.selected, .batter-item.selected {
+      background: rgba(13, 71, 161, 0.6);
+      border-left: 3px solid #ffeb3b;
+    }
+    
+    /* Status Indicators */
+    #statusIndicators {
+      margin: 6px 0;
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    
+    .free-hit-indicator,
+    .powerplay-indicator {
+      padding: 3px 6px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    
+    .free-hit-indicator {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .powerplay-indicator {
+      background: #ffeb3b;
+      color: #000;
+    }
+    
+    /* Connection Status */
+    #connectionStatus {
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+      margin: 8px auto;
+      max-width: 250px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    
+    .online { 
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .offline { 
+      background: #F44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>HandiCricket</h1>
+    
+    <!-- Enhanced Scoreboard -->
+    <div class="scorebox">
+      <div class="scorebox-main">
+        <div class="team-score">
+          <span id="battingTeamName">Team A</span>
+          <span class="score-large"><span id="runs">0</span>/<span id="wickets">0</span></span>
+        </div>
+        <div class="score-details">
+          <div>Overs: <strong id="overs">0.0</strong></div>
+          <div>Run Rate: <strong id="runRate">0.00</strong></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Over Progress -->
+    <div class="over-progress">
+      <div class="over-title">Current Over</div>
+      <div class="balls-container" id="ballsContainer">
+        <!-- Balls will be added dynamically -->
+      </div>
+      <div class="over-number">Over <span id="currentOverNumber">1</span></div>
+    </div>
+    
+    <div id="statusIndicators">
+      <span id="powerplayIndicator" class="powerplay-indicator" style="display: none;">Powerplay</span>
+      <span id="freeHitIndicator" class="free-hit-indicator" style="display: none;">Free Hit</span>
+    </div>
+    
+    <div id="result">Initializing game...</div>
+    
+    <div class="card-btns" id="cardButtons">
+      <button class="btn" data-value="0">0</button>
+      <button class="btn" data-value="1">1</button>
+      <button class="btn" data-value="2">2</button>
+      <button class="btn" data-value="3">3</button>
+      <button class="btn" data-value="4">4</button>
+      <button class="btn" data-value="5">5</button>
+      <button class="btn" data-value="6">6</button>
+    </div>
+
+    <div id="connectionStatus" class="online">
+      Opponent: Online
+    </div>
+  </div>
+  
+  <div id="selectionModal" class="selection-modal">
+    <h3 id="selectionTitle">Select Next Batter</h3>
+    <div id="selectionList" class="selection-list"></div>
+    <button id="confirmSelection">Confirm Selection</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    // New Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyD8kSmj_HRdxfKZhYUYq_H0A1r2C5VN5cA",
+      authDomain: "handicricket-392da.firebaseapp.com",
+      databaseURL: "https://handicricket-392da-default-rtdb.firebaseio.com",
+      projectId: "handicricket-392da",
+      storageBucket: "handicricket-392da.firebasestorage.app",
+      messagingSenderId: "398034348468",
+      appId: "1:398034348468:web:d1a61a4d5b586a4dd22ae1",
+      measurementId: "G-8NNMWYZ6NB"
+    };
+
+    // Initialize Firebase
+    let app;
+    let db;
+
+    try {
+      console.log("Initializing Firebase...");
+      app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      console.log("Firebase initialized successfully");
+    } catch (error) {
+      console.error("Firebase initialization failed:", error);
+      document.getElementById("result").innerHTML = `
+        Failed to connect to game server.<br>
+        Please check your internet connection and refresh.<br>
+        <button onclick="location.reload()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+          Refresh Page
+        </button>
+      `;
+      document.getElementById("result").className = "error";
+      throw error;
+    }
+
+    // Get URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const player = params.get('player') || 'player1';
+    
+    if (!room) {
+      document.getElementById("result").innerHTML = `
+        Missing required room parameter in URL.<br>
+        Please return to the main page and join the game again.<br>
+        <button onclick="window.location.href='index.html'" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+          Return to Main Page
+        </button>
+      `;
+      document.getElementById("result").className = "error";
+      throw new Error("Missing room parameter");
+    }
+
+    const opponent = player === "player1" ? "player2" : "player1";
+
+    // Firebase references
+    const roomRef = ref(db, `rooms/${room}`);
+    const playerRef = ref(db, `rooms/${room}/${player}`);
+    const opponentRef = ref(db, `rooms/${room}/${opponent}`);
+    const playsRef = ref(db, `rooms/${room}/currentPlays`);
+    const batterRef = ref(db, `rooms/${room}/currentBatter`);
+    const bowlerRef = ref(db, `rooms/${room}/currentBowler`);
+    const teamsRef = ref(db, `rooms/${room}/teams`);
+
+    // Game state variables
+    let runs = 0, wickets = 0;
+    let legalBalls = 0;
+    let freeHit = false;
+    let freeHitNextBall = false;
+    let currentBatter = null;
+    let currentBowler = null;
+    let isBatting = false;
+    let isPowerplay = false;
+    let gameInProgress = true;
+    let batterSelected = false;
+    let bowlerSelected = false;
+    let team1Players = [];
+    let team2Players = [];
+    let selectedCardValue = null;
+    let isProcessingSelection = false;
+
+    // DOM elements
+    const resultEl = document.getElementById("result");
+    const buttons = document.querySelectorAll(".btn");
+    const selectionModal = document.getElementById("selectionModal");
+    const selectionTitle = document.getElementById("selectionTitle");
+    const selectionList = document.getElementById("selectionList");
+    const confirmSelection = document.getElementById("confirmSelection");
+    const connectionStatus = document.getElementById("connectionStatus");
+    const powerplayIndicator = document.getElementById("powerplayIndicator");
+    const freeHitIndicator = document.getElementById("freeHitIndicator");
+
+    // Update scoreboard
+    function updateScoreboard() {
+      document.getElementById("runs").textContent = runs;
+      document.getElementById("wickets").textContent = wickets;
+      document.getElementById("overs").textContent = 
+        `${Math.floor(legalBalls/6)}.${legalBalls%6}`;
+    }
+
+    // Update player stats display
+    function updatePlayerStats() {
+      const completedOvers = Math.floor(legalBalls / 6) + (legalBalls % 6) / 10;
+      const rr = completedOvers > 0 ? (runs / completedOvers).toFixed(2) : '0.00';
+      document.getElementById('runRate').textContent = rr;
+    }
+
+    // Update over progress display
+    function updateOverProgress() {
+      const ballsContainer = document.getElementById('ballsContainer');
+      ballsContainer.innerHTML = '';
+      
+      const ballsThisOver = legalBalls % 6;
+      for (let i = 0; i < 6; i++) {
+        const ballEl = document.createElement('div');
+        ballEl.className = 'ball empty';
+        ballsContainer.appendChild(ballEl);
+      }
+      
+      document.getElementById('currentOverNumber').textContent = Math.floor(legalBalls / 6) + 1;
+    }
+
+    // Update all displays
+    function updateAllDisplays() {
+      updateScoreboard();
+      updatePlayerStats();
+      updateOverProgress();
+    }
+
+    // Update free hit display
+    function updateFreeHitDisplay() {
+      freeHitIndicator.style.display = freeHit ? "inline-block" : "none";
+    }
+
+    // Process the outcome of a ball
+    async function handleResult() {
+      try {
+        selectedCardValue = null;
+        isProcessingSelection = false;
+        
+        const playsSnap = await get(playsRef);
+        if (!playsSnap.exists()) return;
+        
+        const plays = playsSnap.val();
+        if (!plays || typeof plays.player1 === 'undefined' || typeof plays.player2 === 'undefined') return;
+
+        const card1 = plays.player1;
+        const card2 = plays.player2;
+        const battingPlayer = player === "player1" ? "player1" : "player2";
+        const batterCard = battingPlayer === "player1" ? card1 : card2;
+        const bowlerCard = battingPlayer === "player1" ? card2 : card1;
+
+        let outcome = "";
+        let isLegalBall = false;
+        let isWicket = false;
+        let runsScored = 0;
+
+        // Handle free hit for next ball
+        if (freeHitNextBall) {
+          freeHit = true;
+          freeHitNextBall = false;
+          updateFreeHitDisplay();
+        }
+
+        // 1. Check for no ball (both 0)
+        if (batterCard === 0 && bowlerCard === 0) {
+          outcome = "NO BALL! +1 run (Free Hit next ball)";
+          runs += 1;
+          freeHitNextBall = true;
+          isLegalBall = false;
+        } 
+        // 2. Handle free hit balls
+        else if (freeHit) {
+          if (batterCard === bowlerCard && batterCard > 0) {
+            outcome = "Wicket on Free Hit (not out)";
+            isWicket = false;
+          } else {
+            runsScored = batterCard;
+            runs += batterCard;
+            outcome = `${batterCard} Run(s)! (Free Hit)`;
+          }
+          freeHit = false;
+          updateFreeHitDisplay();
+          isLegalBall = true;
+        }
+        // 3. Handle wickets (same number > 0)
+        else if (batterCard === bowlerCard && batterCard > 0) {
+          wickets += 1;
+          isWicket = true;
+          outcome = "WICKET!";
+          isLegalBall = true;
+        }
+        // 4. Normal runs
+        else {
+          runsScored = batterCard;
+          runs += batterCard;
+          outcome = `${batterCard} Run(s)!`;
+          isLegalBall = true;
+        }
+
+        // Handle legal balls
+        if (isLegalBall) {
+          legalBalls++;
+        }
+
+        // Update all displays
+        updateAllDisplays();
+        
+        // Update UI
+        resultEl.innerText = outcome;
+
+        // Check for innings end conditions
+        if (wickets >= 10 || legalBalls >= 60) { // 10 overs max
+          gameInProgress = false;
+          resultEl.innerText = `Innings ended! Final Score: ${runs}/${wickets}`;
+          disableButtons();
+          return;
+        }
+
+        // Prepare for next ball
+        setTimeout(async () => {
+          try {
+            await set(playsRef, {});
+            enableButtons();
+            clearCardSelection();
+          } catch (error) {
+            console.error("Error in post-ball processing:", error);
+            resultEl.innerText = "Error processing next ball state";
+            enableButtons();
+            clearCardSelection();
+          }
+        }, 1500);
+      } catch (error) {
+        console.error("Error processing ball outcome:", error);
+        resultEl.innerText = "Error processing ball outcome";
+        enableButtons();
+        clearCardSelection();
+      }
+    }
+
+    // Show batter selection modal
+    async function showBatterSelection() {
+      disableButtons();
+      
+      const currentPlayers = player === "player1" ? team1Players : team2Players;
+      
+      selectionTitle.textContent = "Select Next Batter";
+      selectionList.innerHTML = "";
+      
+      currentPlayers.forEach(player => {
+        const batterEl = document.createElement("div");
+        batterEl.className = "batter-item";
+        batterEl.dataset.name = player;
+        batterEl.textContent = player;
+        
+        batterEl.addEventListener("click", function() {
+          document.querySelectorAll(".batter-item").forEach(el => el.classList.remove("selected"));
+          this.classList.add("selected");
+        });
+        
+        selectionList.appendChild(batterEl);
+      });
+
+      selectionModal.style.display = "block";
+      resultEl.innerText = "Select your next batter...";
+    }
+
+    // Show bowler selection modal
+    async function showBowlerSelection() {
+      disableButtons();
+
+      const currentPlayers = player === "player1" ? team1Players : team2Players;
+      
+      selectionTitle.textContent = "Select Next Bowler";
+      selectionList.innerHTML = "";
+      
+      currentPlayers.forEach(player => {
+        const playerEl = document.createElement("div");
+        playerEl.className = "player-item";
+        playerEl.dataset.name = player;
+        playerEl.textContent = player;
+        
+        playerEl.addEventListener("click", function() {
+          document.querySelectorAll(".player-item").forEach(el => el.classList.remove("selected"));
+          this.classList.add("selected");
+        });
+        
+        selectionList.appendChild(playerEl);
+      });
+
+      selectionModal.style.display = "block";
+      resultEl.innerText = "Select your next bowler...";
+    }
+
+    // Setup player role (batting/bowling)
+    async function setupRole() {
+      batterSelected = false;
+      bowlerSelected = false;
+      currentBatter = null;
+      currentBowler = null;
+
+      // For simplicity, player1 bats first
+      isBatting = (player === "player1");
+      
+      // Clear all Firebase selections
+      await Promise.all([
+        set(batterRef, null),
+        set(bowlerRef, null),
+        update(playsRef, { player1: null, player2: null })
+      ]);
+      
+      // Show appropriate selection UI
+      if (isBatting) {
+        await showBatterSelection();
+      } else {
+        await showBowlerSelection();
+      }
+    }
+
+    // Setup selection modal
+    function setupSelectionModal() {
+      confirmSelection.addEventListener("click", async () => {
+        const selected = document.querySelector(".batter-item.selected, .player-item.selected");
+        if (!selected) {
+          alert("Please select a player");
+          return;
+        }
+
+        const playerName = selected.dataset.name;
+        selectionModal.style.display = "none";
+
+        if (selectionTitle.textContent.includes("Batter")) {
+          await set(batterRef, playerName);
+          batterSelected = true;
+          resultEl.innerText = `${playerName} selected as batter`;
+        } else {
+          await set(bowlerRef, playerName);
+          bowlerSelected = true;
+          resultEl.innerText = `${playerName} selected as bowler`;
+        }
+
+        updateButtonStates();
+      });
+    }
+
+    // Enable/disable card buttons based on game state
+    function updateButtonStates() {
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
+      });
+    }
+
+    // Disable all card buttons
+    function disableButtons() {
+      buttons.forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+
+    // Enable all card buttons
+    function enableButtons() {
+      const canPlay = (isBatting && batterSelected) || (!isBatting && bowlerSelected);
+      buttons.forEach(btn => {
+        btn.disabled = !canPlay;
+      });
+      
+      if (canPlay) {
+        resultEl.innerText = isBatting ? "Select your shot" : "Select your delivery";
+      }
+    }
+
+    // Setup connection monitoring
+    function setupConnectionMonitoring() {
+      onValue(opponentRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          connectionStatus.textContent = "Opponent: Online";
+          connectionStatus.className = "online";
+          updateButtonStates();
+        } else {
+          connectionStatus.textContent = "Opponent: Offline";
+          connectionStatus.className = "offline";
+          resultEl.innerText = "Waiting for opponent to connect...";
+          disableButtons();
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        set(playerRef, false);
+      });
+    }
+
+    // Setup Firebase listeners
+    function setupFirebaseListeners() {
+      onValue(playsRef, (snap) => {
+        if (!snap.exists() || (snap.val().player1 === null && snap.val().player2 === null)) {
+          clearCardSelection();
+          enableButtons();
+        }
+      });
+
+      onValue(batterRef, (snap) => {
+        if (!snap.exists()) {
+          currentBatter = null;
+          batterSelected = false;
+          if (isBatting) {
+            showBatterSelection();
+          }
+        } else if (snap.val()) {
+          currentBatter = snap.val();
+          batterSelected = true;
+          updateButtonStates();
+          updateAllDisplays();
+        }
+      });
+
+      onValue(bowlerRef, (snap) => {
+        if (!snap.exists()) {
+          currentBowler = null;
+          bowlerSelected = false;
+          if (!isBatting) {
+            showBowlerSelection();
+          }
+        } else if (snap.val()) {
+          currentBowler = snap.val();
+          bowlerSelected = true;
+          updateButtonStates();
+          updateAllDisplays();
+        }
+      });
+
+      onValue(playsRef, (snap) => {
+        if (snap.exists() && typeof snap.val().player1 !== 'undefined' && typeof snap.val().player2 !== 'undefined') {
+          handleResult();
+        }
+      });
+
+      onValue(teamsRef, (snap) => {
+        if (snap.exists()) {
+          const teams = snap.val();
+          if (teams.player1) {
+            team1Players = teams.player1.players || [];
+            document.getElementById('battingTeamName').textContent = teams.player1.name || "Team 1";
+          }
+          if (teams.player2) {
+            team2Players = teams.player2.players || [];
+          }
+        }
+      });
+    }
+
+    // Clear card selection highlights
+    function clearCardSelection() {
+      buttons.forEach(btn => {
+        btn.classList.remove("selected");
+      });
+      selectedCardValue = null;
+      isProcessingSelection = false;
+    }
+
+    // Highlight selected card
+    function highlightSelectedCard(value) {
+      buttons.forEach(btn => {
+        const val = parseInt(btn.dataset.value);
+        btn.classList.toggle("selected", val === value);
+      });
+    }
+
+    // Setup card buttons functionality
+    function setupCardButtons() {
+      buttons.forEach(btn => {
+        btn.addEventListener("click", async function() {
+          if (btn.disabled || isProcessingSelection) return;
+          
+          const cardValue = parseInt(btn.dataset.value);
+          selectedCardValue = cardValue;
+          isProcessingSelection = true;
+
+          disableButtons();
+          highlightSelectedCard(cardValue);
+          
+          resultEl.innerText = `${isBatting ? 'Batting' : 'Bowling'} selection: ${cardValue}`;
+
+          try {
+            await update(playsRef, {
+              [player]: cardValue
+            });
+          } catch (error) {
+            console.error("Selection failed:", error);
+            resultEl.innerText = "Selection failed, please try again";
+            enableButtons();
+            clearCardSelection();
+          } finally {
+            isProcessingSelection = false;
+          }
+        });
+      });
+    }
+
+    // Initialize the game
+    async function initGame() {
+      try {
+        resultEl.innerText = "Initializing game...";
+
+        if (!room) {
+          throw new Error("Missing room parameter in URL");
+        }
+
+        await set(playerRef, true);
+
+        const roomSnap = await get(roomRef);
+        if (!roomSnap.exists()) {
+          throw new Error(`Room ${room} not found`);
+        }
+
+        const roomData = roomSnap.val();
+        
+        if (!roomData.teams?.player1 || !roomData.teams?.player2) {
+          throw new Error("Teams not set up");
+        }
+
+        team1Players = roomData.teams.player1.players || [];
+        team2Players = roomData.teams.player2.players || [];
+        
+        document.getElementById('battingTeamName').textContent = roomData.teams.player1.name || "Team 1";
+
+        setupConnectionMonitoring();
+        await setupRole();
+        setupSelectionModal();
+        setupCardButtons();
+        setupFirebaseListeners();
+
+        updateAllDisplays();
+        resultEl.innerText = "Game ready!";
+      } catch (error) {
+        console.error("Initialization failed:", error);
+        resultEl.innerHTML = `Initialization failed: ${error.message}<br>
+                         <button onclick="initGame()" style="margin-top:10px; padding: 8px 15px; background: #1e88e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                           Retry Initialization
+                         </button>`;
+        resultEl.className = "error";
+      }
+    }
+
+    // Start the game
+    initGame();
+  </script>
+</body>
+</html>
