@@ -303,6 +303,10 @@
             background: linear-gradient(145deg, #FF9800, #F57C00);
         }
 
+        .btn-play {
+            background: linear-gradient(145deg, #4CAF50, #2E7D32);
+        }
+
         .format-options {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -613,6 +617,7 @@
             height: 10px;
             border-radius: 50%;
             margin-right: 5px;
+            display: inline-block;
         }
 
         .online {
@@ -683,6 +688,62 @@
             color: var(--text-secondary);
             font-size: 0.9rem;
             margin-bottom: 5px;
+        }
+
+        .match-item {
+            background: rgba(13, 42, 82, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .match-teams {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .match-result {
+            text-align: center;
+            font-weight: bold;
+            color: var(--highlight);
+            margin: 10px 0;
+        }
+
+        .match-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .tournament-bracket {
+            background: rgba(13, 42, 82, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .bracket-round {
+            margin-bottom: 20px;
+        }
+
+        .bracket-round h4 {
+            color: var(--highlight);
+            margin-bottom: 10px;
+        }
+
+        .bracket-match {
+            background: rgba(13, 42, 82, 0.7);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .bracket-match.winner {
+            border-color: var(--success);
         }
 
         @keyframes spin {
@@ -1039,6 +1100,7 @@
                         <div class="tab active" data-subtab="join-tournament">Join Tournament</div>
                         <div class="tab" data-subtab="create-tournament">Create Tournament</div>
                         <div class="tab" data-subtab="my-tournaments">My Tournaments</div>
+                        <div class="tab" data-subtab="tournament-brackets">Tournament Brackets</div>
                     </div>
 
                     <div class="subtab-content active" id="join-tournament-subtab">
@@ -1079,6 +1141,13 @@
                         <div class="section-title">Your Tournaments</div>
                         <div class="tournament-grid" id="myTournamentsList">
                             <!-- Tournaments will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="subtab-content" id="tournament-brackets-subtab">
+                        <div class="section-title">Tournament Brackets</div>
+                        <div id="tournamentBracketsContainer">
+                            <!-- Tournament brackets will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -1185,6 +1254,7 @@
         const createSeriesBtn = document.getElementById('createSeriesBtn');
         const seriesInvitationsList = document.getElementById('seriesInvitationsList');
         const mySeriesList = document.getElementById('mySeriesList');
+        const tournamentBracketsContainer = document.getElementById('tournamentBracketsContainer');
 
         // State variables
         let selectedFormat = '5';
@@ -1277,6 +1347,7 @@
             tournamentsListener = onValue(tournamentsRef, (snapshot) => {
                 const tournaments = snapshot.val() || {};
                 updateAvailableTournamentsList(tournaments, username);
+                updateTournamentBrackets(tournaments, username);
             });
         }
 
@@ -1321,13 +1392,13 @@
             
             // Clear previous status listeners
             Object.keys(statusListeners).forEach(friendId => {
-                statusListeners[friendId]();
+                if (statusListeners[friendId]) statusListeners[friendId]();
             });
             statusListeners = {};
             
             // Clear previous stats listeners
             Object.keys(statsListeners).forEach(friendId => {
-                statsListeners[friendId]();
+                if (statsListeners[friendId]) statsListeners[friendId]();
             });
             statsListeners = {};
             
@@ -1342,6 +1413,7 @@
                             <div>
                                 <span class="online-status" id="status-${friend.username}"></span>
                                 ${friend.username}
+                                <span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 5px;" id="status-text-${friend.username}">(Checking...)</span>
                             </div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary);">${friend.team}</div>
                             <div class="friend-stats">
@@ -1368,9 +1440,12 @@
                 statusListeners[friend.username] = onValue(statusRef, (snapshot) => {
                     const status = snapshot.val();
                     const statusElement = document.getElementById(`status-${friend.username}`);
-                    if (statusElement) {
-                        statusElement.className = `online-status ${status && status.online ? 'online' : 'offline'}`;
-                        statusElement.title = status && status.online ? 'Online' : 'Offline';
+                    const statusTextElement = document.getElementById(`status-text-${friend.username}`);
+                    if (statusElement && statusTextElement) {
+                        const isOnline = status && status.online;
+                        statusElement.className = `online-status ${isOnline ? 'online' : 'offline'}`;
+                        statusElement.title = isOnline ? 'Online' : 'Offline';
+                        statusTextElement.textContent = isOnline ? '(Online)' : '(Offline)';
                     }
                 });
                 
@@ -1518,6 +1593,83 @@
             });
         }
 
+        // Update tournament brackets
+        function updateTournamentBrackets(tournaments, username) {
+            tournamentBracketsContainer.innerHTML = '';
+            
+            if (Object.keys(tournaments).length === 0) {
+                tournamentBracketsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No tournaments available</p>';
+                return;
+            }
+            
+            Object.keys(tournaments).forEach(tournamentCode => {
+                const tournament = tournaments[tournamentCode];
+                
+                // Only show brackets for tournaments in progress
+                if (tournament.status === 'in progress' && tournament.matches) {
+                    const bracketSection = document.createElement('div');
+                    bracketSection.className = 'tournament-bracket';
+                    bracketSection.innerHTML = `
+                        <h3>${tournament.name} - Brackets</h3>
+                        <p>Format: ${getFormatName(tournament.format)} | Code: ${tournamentCode}</p>
+                    `;
+                    
+                    // Group matches by round
+                    const rounds = {};
+                    Object.keys(tournament.matches).forEach(matchId => {
+                        const match = tournament.matches[matchId];
+                        if (!rounds[match.round]) {
+                            rounds[match.round] = [];
+                        }
+                        rounds[match.round].push({ id: matchId, ...match });
+                    });
+                    
+                    // Sort rounds and display
+                    Object.keys(rounds).sort().forEach(roundNum => {
+                        const roundDiv = document.createElement('div');
+                        roundDiv.className = 'bracket-round';
+                        roundDiv.innerHTML = `<h4>Round ${roundNum}</h4>`;
+                        
+                        rounds[roundNum].forEach(match => {
+                            const matchDiv = document.createElement('div');
+                            matchDiv.className = `bracket-match ${match.winner ? 'winner' : ''}`;
+                            
+                            let matchContent = `
+                                <div class="match-teams">
+                                    <span>${match.player1}</span>
+                                    <span>vs</span>
+                                    <span>${match.player2}</span>
+                                </div>
+                            `;
+                            
+                            if (match.winner) {
+                                matchContent += `
+                                    <div class="match-result">
+                                        Winner: ${match.winner}
+                                    </div>
+                                `;
+                            } else {
+                                matchContent += `
+                                    <div class="match-actions">
+                                        <button class="btn btn-play" onclick="playTournamentMatch('${tournamentCode}', '${match.id}')">
+                                            Play Match
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                            
+                            matchDiv.innerHTML = matchContent;
+                            roundDiv.appendChild(matchDiv);
+                        });
+                        
+                        bracketSection.appendChild(roundDiv);
+                    });
+                    
+                    tournamentBracketsContainer.appendChild(bracketSection);
+                }
+            });
+        }
+
         // Update ongoing games list
         function updateOngoingGamesList(games) {
             ongoingGamesList.innerHTML = '';
@@ -1550,7 +1702,7 @@
             });
         }
 
-        // Update my series list
+        // Update my series list with enhanced features
         function updateMySeriesList(series) {
             mySeriesList.innerHTML = '';
             
@@ -1563,13 +1715,45 @@
                 const seriesData = series[seriesId];
                 const seriesCard = document.createElement('div');
                 seriesCard.className = 'series-card';
+                
+                const currentUsername = localStorage.getItem('hc_username');
+                const userTeam = localStorage.getItem('hc_team');
+                const opponentTeam = seriesData.opponentTeam || 'Unknown Team';
+                
+                let matchesHtml = '';
+                if (seriesData.matches) {
+                    Object.keys(seriesData.matches).forEach(matchId => {
+                        const match = seriesData.matches[matchId];
+                        matchesHtml += `
+                            <div class="match-item">
+                                <div class="match-teams">
+                                    <span>${userTeam}</span>
+                                    <span>vs</span>
+                                    <span>${opponentTeam}</span>
+                                </div>
+                                ${match.winner ? `
+                                    <div class="match-result">
+                                        Winner: ${match.winner}
+                                    </div>
+                                ` : `
+                                    <div class="match-actions">
+                                        <button class="btn btn-play" onclick="playSeriesMatch('${seriesId}', '${matchId}')">
+                                            Play Match
+                                        </button>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    });
+                }
+                
                 seriesCard.innerHTML = `
                     <h3>${seriesData.name}</h3>
                     <p>Format: ${seriesData.format} Matches</p>
-                    <p>Opponent: ${seriesData.opponent}</p>
+                    <p>Opponent: ${seriesData.opponent} (${opponentTeam})</p>
                     <p>Status: ${seriesData.status || 'In Progress'}</p>
                     <p>Current Score: ${seriesData.userScore || 0} - ${seriesData.opponentScore || 0}</p>
-                    <button class="btn btn-join" style="margin-top: 10px;" onclick="viewSeries('${seriesId}')">View Series</button>
+                    ${matchesHtml}
                 `;
                 mySeriesList.appendChild(seriesCard);
             });
@@ -1964,10 +2148,11 @@
                     name: invite.seriesName,
                     format: invite.format,
                     opponent: invite.from,
+                    opponentTeam: invite.team,
                     userScore: 0,
                     opponentScore: 0,
                     status: 'In Progress',
-                    matches: {}
+                    matches: generateSeriesMatches(invite.format, currentUsername, invite.from)
                 });
                 
                 // Also add to the opponent's series list
@@ -1978,10 +2163,11 @@
                     name: invite.seriesName,
                     format: invite.format,
                     opponent: currentUsername,
+                    opponentTeam: currentTeam,
                     userScore: 0,
                     opponentScore: 0,
                     status: 'In Progress',
-                    matches: {}
+                    matches: generateSeriesMatches(invite.format, invite.from, currentUsername)
                 });
                 
                 showMessage('success', `Series "${invite.seriesName}" started!`);
@@ -1992,6 +2178,23 @@
                     accepted: false
                 });
             }
+        }
+
+        // Generate series matches
+        function generateSeriesMatches(format, player1, player2) {
+            const numMatches = parseInt(format);
+            const matches = {};
+            
+            for (let i = 1; i <= numMatches; i++) {
+                matches[`match${i}`] = {
+                    player1: player1,
+                    player2: player2,
+                    status: 'scheduled',
+                    winner: null
+                };
+            }
+            
+            return matches;
         }
 
         // Create a new game room
@@ -2213,6 +2416,150 @@
             });
         }
 
+        // Play a series match
+        async function playSeriesMatch(seriesId, matchId) {
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            try {
+                // Get series data
+                const seriesRef = ref(db, `users/${username}/series/${seriesId}`);
+                const snapshot = await get(seriesRef);
+                
+                if (!snapshot.exists()) {
+                    showMessage('error', 'Series not found');
+                    return;
+                }
+                
+                const seriesData = snapshot.val();
+                
+                // Create a room for the match
+                const roomCode = generateRoomCode();
+                
+                // Create room object
+                const roomData = {
+                    player1: {
+                        username: username,
+                        team: team,
+                        connected: true
+                    },
+                    player2: {
+                        username: seriesData.opponent,
+                        team: seriesData.opponentTeam,
+                        connected: false
+                    },
+                    format: '20', // Default to T20 for series matches
+                    status: 'waiting',
+                    seriesId: seriesId,
+                    matchId: matchId,
+                    createdAt: Date.now()
+                };
+                
+                // Write to database
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                await set(roomRef, roomData);
+                
+                // Update series match status
+                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
+                    roomCode: roomCode,
+                    status: 'in progress'
+                });
+                
+                // Also update opponent's series
+                await update(ref(db, `users/${seriesData.opponent}/series/${seriesId}/matches/${matchId}`), {
+                    roomCode: roomCode,
+                    status: 'in progress'
+                });
+                
+                showMessage('success', `Match room created! Code: ${roomCode}`);
+                
+                // Redirect to toss page
+                setTimeout(() => {
+                    redirectToToss(roomCode, 'player1', team, '20');
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error creating series match:', error);
+                showMessage('error', 'Failed to create match room');
+            }
+        }
+
+        // Play a tournament match
+        async function playTournamentMatch(tournamentCode, matchId) {
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            try {
+                // Get tournament data
+                const tournamentRef = ref(db, `tournaments/${tournamentCode}`);
+                const snapshot = await get(tournamentRef);
+                
+                if (!snapshot.exists()) {
+                    showMessage('error', 'Tournament not found');
+                    return;
+                }
+                
+                const tournamentData = snapshot.val();
+                const match = tournamentData.matches[matchId];
+                
+                // Check if user is part of this match
+                if (match.player1 !== username && match.player2 !== username) {
+                    showMessage('error', 'You are not part of this match');
+                    return;
+                }
+                
+                // Create a room for the match
+                const roomCode = generateRoomCode();
+                const playerRole = match.player1 === username ? 'player1' : 'player2';
+                
+                // Get opponent details
+                const opponentUsername = playerRole === 'player1' ? match.player2 : match.player1;
+                const opponentRef = ref(db, `users/${opponentUsername}`);
+                const opponentSnapshot = await get(opponentRef);
+                const opponentData = opponentSnapshot.val();
+                
+                // Create room object
+                const roomData = {
+                    player1: {
+                        username: match.player1,
+                        team: tournamentData.participants[match.player1].team,
+                        connected: playerRole === 'player1'
+                    },
+                    player2: {
+                        username: match.player2,
+                        team: tournamentData.participants[match.player2].team,
+                        connected: playerRole === 'player2'
+                    },
+                    format: tournamentData.format,
+                    status: 'waiting',
+                    tournamentCode: tournamentCode,
+                    matchId: matchId,
+                    createdAt: Date.now()
+                };
+                
+                // Write to database
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                await set(roomRef, roomData);
+                
+                // Update tournament match status
+                await update(ref(db, `tournaments/${tournamentCode}/matches/${matchId}`), {
+                    roomCode: roomCode,
+                    status: 'in progress'
+                });
+                
+                showMessage('success', `Tournament match room created! Code: ${roomCode}`);
+                
+                // Redirect to toss page
+                setTimeout(() => {
+                    redirectToToss(roomCode, playerRole, team, tournamentData.format);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error creating tournament match:', error);
+                showMessage('error', 'Failed to create match room');
+            }
+        }
+
         // Create a tournament
         async function createTournament() {
             const tournamentName = document.getElementById('tournamentName').value.trim();
@@ -2367,26 +2714,28 @@
         async function generateTournamentFixtures(tournamentCode, tournamentData) {
             try {
                 const participants = Object.keys(tournamentData.participants);
+                const matches = {};
+                let matchCount = 1;
                 
                 // Simple round-robin for demonstration
                 // In a real implementation, you would create a proper tournament bracket
                 for (let i = 0; i < participants.length; i++) {
                     for (let j = i + 1; j < participants.length; j++) {
-                        const matchId = `${participants[i]}_vs_${participants[j]}`;
-                        const matchRef = ref(db, `tournaments/${tournamentCode}/matches/${matchId}`);
-                        
-                        await set(matchRef, {
+                        const matchId = `match${matchCount}`;
+                        matches[matchId] = {
                             player1: participants[i],
                             player2: participants[j],
                             status: 'scheduled',
                             round: 1,
-                            matchNumber: i * participants.length + j
-                        });
+                            matchNumber: matchCount
+                        };
+                        matchCount++;
                     }
                 }
                 
-                // Update tournament status
+                // Update tournament with matches and status
                 await update(ref(db, `tournaments/${tournamentCode}`), {
+                    matches: matches,
                     status: 'in progress'
                 });
                 
@@ -2399,7 +2748,8 @@
                             Object.keys(userTournaments).forEach(key => {
                                 if (userTournaments[key].code === tournamentCode) {
                                     update(ref(db, `users/${username}/tournaments/${key}`), {
-                                        status: 'in progress'
+                                        status: 'in progress',
+                                        currentTeams: participants.length
                                     });
                                 }
                             });
@@ -2408,6 +2758,8 @@
                 });
                 
                 console.log(`Fixtures generated for tournament ${tournamentCode}`);
+                showMessage('success', `Tournament "${tournamentData.name}" is now full! Fixtures generated.`);
+                
             } catch (error) {
                 console.error('Error generating fixtures:', error);
             }
@@ -2438,6 +2790,15 @@
             
             try {
                 updateButtonState(createSeriesBtn, true, 'Creating...');
+                
+                // Get opponent's team name
+                const opponentRef = ref(db, `users/${seriesOpponent}`);
+                const opponentSnapshot = await get(opponentRef);
+                const opponentData = opponentSnapshot.val();
+                
+                if (!opponentData) {
+                    throw new Error('Opponent not found');
+                }
                 
                 // Send series invitation
                 const seriesInviteRef = ref(db, `seriesInvites/${seriesOpponent}`);
@@ -2726,11 +3087,11 @@
             }
             
             Object.keys(statusListeners).forEach(friendId => {
-                statusListeners[friendId]();
+                if (statusListeners[friendId]) statusListeners[friendId]();
             });
             
             Object.keys(statsListeners).forEach(friendId => {
-                statsListeners[friendId]();
+                if (statsListeners[friendId]) statsListeners[friendId]();
             });
             
             localStorage.removeItem('hc_username');
