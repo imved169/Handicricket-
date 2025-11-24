@@ -1045,13 +1045,7 @@
                     </div>
 
                     <div class="subtab-content active" id="join-tournament-subtab">
-                        <div class="input-group">
-                            <label for="tournamentCode">Tournament Code</label>
-                            <input type="text" id="tournamentCode" placeholder="Enter tournament code">
-                        </div>
-                        <button id="joinTournamentBtn" class="btn btn-join">Join Tournament</button>
-                        
-                        <div class="section-title" style="margin-top: 30px;">Available Tournaments</div>
+                        <div class="section-title">Available Tournaments</div>
                         <div class="tournament-grid" id="availableTournaments">
                             <!-- Available tournaments will be populated here -->
                         </div>
@@ -1201,6 +1195,7 @@
         let currentRoomCode = null;
         let roomListener = null;
         let friends = {};
+        let onlineUsers = {};
 
         // Initialize the application
         async function initApp() {
@@ -1217,12 +1212,80 @@
                     loadUserData(savedUsername);
                     // Load friends for dropdowns
                     loadFriendsForDropdowns(savedUsername);
+                    // Set user as online
+                    setUserOnlineStatus(savedUsername, true);
                 }
+                
+                // Set up online status tracking
+                setupOnlineStatusTracking();
                 
                 console.log('Handicricket initialized successfully');
             } catch (error) {
                 console.error('Error initializing app:', error);
                 showMessage('error', 'Failed to initialize game. Please refresh the page.');
+            }
+        }
+
+        // Set up online status tracking
+        function setupOnlineStatusTracking() {
+            const onlineUsersRef = ref(db, 'onlineUsers');
+            
+            // Listen for online users changes
+            onValue(onlineUsersRef, (snapshot) => {
+                onlineUsers = snapshot.val() || {};
+                
+                // Update friends list with online status
+                updateFriendsList(friends);
+            });
+            
+            // Set user as online when they're active
+            window.addEventListener('focus', () => {
+                const username = localStorage.getItem('hc_username');
+                if (username) {
+                    setUserOnlineStatus(username, true);
+                }
+            });
+            
+            // Set user as offline when they leave
+            window.addEventListener('beforeunload', () => {
+                const username = localStorage.getItem('hc_username');
+                if (username) {
+                    setUserOnlineStatus(username, false);
+                }
+            });
+        }
+
+        // Set user online status
+        function setUserOnlineStatus(username, isOnline) {
+            if (!username) return;
+            
+            const onlineUsersRef = ref(db, `onlineUsers/${username}`);
+            
+            if (isOnline) {
+                set(onlineUsersRef, {
+                    username: username,
+                    lastSeen: Date.now(),
+                    status: 'online'
+                });
+                
+                // Set up a heartbeat to keep user online
+                const heartbeat = setInterval(() => {
+                    if (document.hasFocus()) {
+                        update(onlineUsersRef, {
+                            lastSeen: Date.now()
+                        });
+                    } else {
+                        clearInterval(heartbeat);
+                    }
+                }, 30000); // Update every 30 seconds
+                
+                // Clear heartbeat when user goes offline
+                window.addEventListener('beforeunload', () => {
+                    clearInterval(heartbeat);
+                    setUserOnlineStatus(username, false);
+                });
+            } else {
+                remove(onlineUsersRef);
             }
         }
 
@@ -1276,6 +1339,107 @@
                 const pending = snapshot.val() || {};
                 updatePendingSeries(pending);
             });
+
+            // Load pending game invitations
+            const pendingInvitationsRef = ref(db, `users/${username}/pendingInvitations`);
+            onValue(pendingInvitationsRef, (snapshot) => {
+                const invitations = snapshot.val() || {};
+                checkForPendingInvitations(invitations);
+            });
+        }
+
+        // Check for pending game invitations
+        function checkForPendingInvitations(invitations) {
+            Object.keys(invitations).forEach(invitationId => {
+                const invitation = invitations[invitationId];
+                
+                // Show invitation popup
+                if (invitation.type === 'game' && !invitation.responded) {
+                    showInvitationPopup(invitation);
+                }
+            });
+        }
+
+        // Show invitation popup
+        function showInvitationPopup(invitation) {
+            const popup = document.createElement('div');
+            popup.style.position = 'fixed';
+            popup.style.top = '0';
+            popup.style.left = '0';
+            popup.style.width = '100%';
+            popup.style.height = '100%';
+            popup.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            popup.style.display = 'flex';
+            popup.style.justifyContent = 'center';
+            popup.style.alignItems = 'center';
+            popup.style.zIndex = '1000';
+            
+            popup.innerHTML = `
+                <div style="background: var(--card-bg); padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; border: 1px solid var(--border);">
+                    <h3 style="color: var(--highlight); margin-bottom: 15px;">Game Invitation</h3>
+                    <p>${invitation.from} (${invitation.team}) has invited you to a game!</p>
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button id="acceptInvite" class="btn btn-join" style="width: auto; padding: 10px 20px;">Accept</button>
+                        <button id="declineInvite" class="btn btn-remove" style="width: auto; padding: 10px 20px;">Decline</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // Add event listeners
+            document.getElementById('acceptInvite').addEventListener('click', () => {
+                handleInvitationResponse(invitationId, true, invitation);
+                document.body.removeChild(popup);
+            });
+            
+            document.getElementById('declineInvite').addEventListener('click', () => {
+                handleInvitationResponse(invitationId, false, invitation);
+                document.body.removeChild(popup);
+            });
+        }
+
+        // Handle invitation response
+        async function handleInvitationResponse(invitationId, accepted, invitation) {
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Mark invitation as responded
+                const invitationRef = ref(db, `users/${username}/pendingInvitations/${invitationId}`);
+                await update(invitationRef, {
+                    responded: true,
+                    accepted: accepted
+                });
+                
+                if (accepted) {
+                    // Find the room created by the inviter
+                    const roomsRef = ref(db, 'rooms');
+                    const snapshot = await get(roomsRef);
+                    
+                    if (snapshot.exists()) {
+                        const rooms = snapshot.val();
+                        let targetRoom = null;
+                        
+                        Object.keys(rooms).forEach(roomCode => {
+                            const room = rooms[roomCode];
+                            if (room.player1 && room.player1.username === invitation.from && 
+                                room.status === 'waiting' && !room.player2) {
+                                targetRoom = roomCode;
+                            }
+                        });
+                        
+                        if (targetRoom) {
+                            // Join the room
+                            await joinRoom(targetRoom);
+                        } else {
+                            showMessage('error', 'Could not find the game room. It may have expired.');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling invitation:', error);
+                showMessage('error', 'Failed to respond to invitation');
+            }
         }
 
         // Load friends for dropdowns
@@ -1330,8 +1494,9 @@
                 const friendItem = document.createElement('div');
                 friendItem.className = 'friend-item';
                 
-                // Generate random online status (for demo purposes)
-                const isOnline = Math.random() > 0.3;
+                // Check if friend is online
+                const isOnline = onlineUsers[friend.username] && 
+                    (Date.now() - onlineUsers[friend.username].lastSeen) < 60000; // Online if seen in last minute
                 
                 friendItem.innerHTML = `
                     <div class="friend-info">
@@ -1383,6 +1548,10 @@
                 const tournament = tournaments[tournamentId];
                 const tournamentCard = document.createElement('div');
                 tournamentCard.className = 'tournament-card';
+                
+                // Generate fixtures for the tournament
+                const fixtures = generateTournamentFixtures(tournament);
+                
                 tournamentCard.innerHTML = `
                     <h3>${tournament.name}</h3>
                     <p>Format: ${getFormatName(tournament.format)}</p>
@@ -1390,12 +1559,37 @@
                     <p>Status: ${tournament.status || 'Registration'}</p>
                     <p>Your Matches:</p>
                     <ul>
-                        <li>Match 1: ${tournament.name} vs Team A - Room: ${tournament.roomCode || 'TBD'}</li>
-                        <li>Match 2: ${tournament.name} vs Team B - Room: ${tournament.roomCode2 || 'TBD'}</li>
+                        ${fixtures.map(fixture => `
+                            <li>${fixture.team1} vs ${fixture.team2} - Room: ${fixture.roomCode || 'TBD'}</li>
+                        `).join('')}
                     </ul>
                 `;
                 myTournamentsList.appendChild(tournamentCard);
             });
+        }
+
+        // Generate tournament fixtures
+        function generateTournamentFixtures(tournament) {
+            // This is a simplified fixture generator
+            // In a real implementation, you would generate proper round-robin or knockout fixtures
+            const fixtures = [];
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            // Generate 2 sample fixtures for the user
+            fixtures.push({
+                team1: team,
+                team2: 'Team A',
+                roomCode: tournament.roomCode || 'TBD'
+            });
+            
+            fixtures.push({
+                team1: team,
+                team2: 'Team B',
+                roomCode: tournament.roomCode2 || 'TBD'
+            });
+            
+            return fixtures;
         }
 
         // Update available tournaments
@@ -1411,15 +1605,47 @@
                 const tournament = tournaments[tournamentId];
                 const tournamentCard = document.createElement('div');
                 tournamentCard.className = 'tournament-card';
+                
+                // Generate fixtures for display
+                const fixtures = generateTournamentFixturesDisplay(tournament);
+                
                 tournamentCard.innerHTML = `
                     <h3>${tournament.name}</h3>
                     <p>Format: ${getFormatName(tournament.format)}</p>
                     <p>Teams: ${Object.keys(tournament.participants || {}).length}/${tournament.maxTeams}</p>
                     <p>Status: ${tournament.status || 'Registration'}</p>
+                    <p>Fixtures:</p>
+                    <ul style="font-size: 0.8rem; max-height: 100px; overflow-y: auto;">
+                        ${fixtures.map(fixture => `
+                            <li>${fixture.team1} vs ${fixture.team2} - Room: ${fixture.roomCode || 'TBD'}</li>
+                        `).join('')}
+                    </ul>
                     <button class="btn btn-join" onclick="joinTournament('${tournamentId}')">Join Tournament</button>
                 `;
                 availableTournaments.appendChild(tournamentCard);
             });
+        }
+
+        // Generate tournament fixtures for display
+        function generateTournamentFixturesDisplay(tournament) {
+            const fixtures = [];
+            const participants = tournament.participants || {};
+            const participantList = Object.values(participants);
+            
+            // Generate a few sample fixtures
+            for (let i = 0; i < Math.min(3, participantList.length); i++) {
+                for (let j = i + 1; j < Math.min(4, participantList.length); j++) {
+                    if (i !== j) {
+                        fixtures.push({
+                            team1: participantList[i].team,
+                            team2: participantList[j].team,
+                            roomCode: 'T' + Math.floor(1000 + Math.random() * 9000).toString()
+                        });
+                    }
+                }
+            }
+            
+            return fixtures;
         }
 
         // Update games list
@@ -1594,7 +1820,8 @@
                         tournaments: {},
                         activeGames: {},
                         series: {},
-                        pendingSeries: {}
+                        pendingSeries: {},
+                        pendingInvitations: {}
                     });
                     
                     // Initialize stats
@@ -1614,6 +1841,7 @@
                 showUserInfo(username, team);
                 loadUserData(username);
                 loadFriendsForDropdowns(username);
+                setUserOnlineStatus(username, true);
                 showMessage('success', `Welcome back, ${username}!`);
                 
                 return true;
@@ -1802,7 +2030,6 @@
                 
                 showMessage('success', `Invitation sent to ${friendUsername}!`);
                 
-                // In a real implementation, you would use Firebase Cloud Messaging for push notifications
             } catch (error) {
                 console.error('Error inviting friend:', error);
                 showMessage('error', 'Failed to send invitation');
@@ -1837,6 +2064,7 @@
                         connected: true
                     },
                     player2: null,
+                    spectators: {},
                     format: selectedFormat,
                     testOvers: selectedTestOvers,
                     status: 'waiting',
@@ -1989,15 +2217,45 @@
         }
 
         // Spectate a game
-        function spectateGame(roomCode) {
+        async function spectateGame(roomCode) {
             // Validate room code
             if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
                 showMessage('error', 'Please enter a valid 4-digit room code');
                 return;
             }
             
-            // Redirect to game page as spectator
-            redirectToToss(roomCode, 'spectator');
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Check if room exists
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                const snapshot = await get(roomRef);
+                
+                if (!snapshot.exists()) {
+                    throw new Error('Room not found. Please check the code.');
+                }
+                
+                const roomData = snapshot.val();
+                
+                // Add spectator to room
+                await update(roomRef, {
+                    [`spectators/${username}`]: {
+                        username,
+                        joinedAt: Date.now()
+                    }
+                });
+                
+                showMessage('success', 'Joining as spectator...');
+                
+                // Redirect to game page as spectator
+                setTimeout(() => {
+                    redirectToToss(roomCode, 'spectator');
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error spectating game:', error);
+                showMessage('error', error.message);
+            }
         }
 
         // Create a tournament
@@ -2067,12 +2325,12 @@
 
         // Join a tournament
         async function joinTournament(tournamentCode = null) {
-            const code = tournamentCode || document.getElementById('tournamentCode').value.trim();
+            const code = tournamentCode;
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
             
             if (!code) {
-                showMessage('error', 'Please enter a tournament code');
+                showMessage('error', 'Please select a tournament to join');
                 return;
             }
             
@@ -2119,11 +2377,6 @@
                     status: tournamentData.status,
                     currentTeams: currentTeams + 1
                 });
-                
-                // Clear form if joining by code
-                if (!tournamentCode) {
-                    document.getElementById('tournamentCode').value = '';
-                }
                 
                 showMessage('success', `Joined tournament "${tournamentData.name}"!`);
                 
@@ -2522,11 +2775,6 @@
         // Create tournament
         document.getElementById('createTournamentBtn').addEventListener('click', createTournament);
 
-        // Join tournament
-        document.getElementById('joinTournamentBtn').addEventListener('click', () => {
-            joinTournament();
-        });
-
         // Create series
         document.getElementById('createSeriesBtn').addEventListener('click', createSeries);
 
@@ -2535,6 +2783,12 @@
             // Remove room listener if active
             if (roomListener) {
                 roomListener();
+            }
+            
+            // Set user offline
+            const username = localStorage.getItem('hc_username');
+            if (username) {
+                setUserOnlineStatus(username, false);
             }
             
             localStorage.removeItem('hc_username');
@@ -2564,12 +2818,6 @@
         document.getElementById('spectateRoomCode').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('spectateBtn').click();
-            }
-        });
-
-        document.getElementById('tournamentCode').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('joinTournamentBtn').click();
             }
         });
 
