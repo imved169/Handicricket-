@@ -2162,8 +2162,8 @@
             // In a real implementation, you would send a notification to the friend
         }
 
-        // Send room invite to friend
-        async function sendRoomInvite(friendUsername, roomCode) {
+        // Send room invite to friend - UPDATED
+        async function sendRoomInvite(friendUsername, roomCode, isAutoInvite = false, context = '', matchId = '') {
             try {
                 const currentUsername = localStorage.getItem('hc_username');
                 const currentTeam = localStorage.getItem('hc_team');
@@ -2171,42 +2171,110 @@
                 const inviteRef = ref(db, `invites/${friendUsername}`);
                 const newInviteRef = push(inviteRef);
                 
-                await set(newInviteRef, {
+                const inviteData = {
                     from: currentUsername,
                     team: currentTeam,
                     roomCode: roomCode,
                     timestamp: Date.now(),
                     responded: false
-                });
+                };
                 
-                showMessage('success', `Invitation sent to ${friendUsername}!`);
+                // Add additional context for automatic invites
+                if (isAutoInvite) {
+                    inviteData.isAutoInvite = true;
+                    inviteData.context = context;
+                    inviteData.matchId = matchId;
+                }
+                
+                await set(newInviteRef, inviteData);
+                
+                if (!isAutoInvite) {
+                    showMessage('success', `Invitation sent to ${friendUsername}!`);
+                }
             } catch (error) {
                 console.error('Error sending invite:', error);
-                showMessage('error', 'Failed to send invitation');
+                if (!isAutoInvite) {
+                    showMessage('error', 'Failed to send invitation');
+                }
             }
         }
 
-        // Show invite notification
+        // Show invite notification - UPDATED
         function showInviteNotification(invite, inviteId) {
-            if (confirm(`${invite.from} (${invite.team}) invited you to join room ${invite.roomCode}. Accept?`)) {
+            const message = invite.isAutoInvite ? 
+                `${invite.from} (${invite.team}) invited you to ${invite.context}. Accept?` :
+                `${invite.from} (${invite.team}) invited you to join room ${invite.roomCode}. Accept?`;
+            
+            if (confirm(message)) {
                 // Accept invite
                 update(ref(db, `invites/${localStorage.getItem('hc_username')}/${inviteId}`), {
                     responded: true,
                     accepted: true
                 });
                 
-                // Redirect to join the room
-                document.querySelector('.nav-item[data-tab="multiplayer"]').click();
-                document.querySelector('.tab[data-subtab="join"]').click();
-                document.getElementById('roomCode').value = invite.roomCode;
+                // Automatically join the room
+                joinRoomAutomatically(invite.roomCode, invite);
                 
-                showMessage('success', `Joining room ${invite.roomCode}...`);
             } else {
                 // Decline invite
                 update(ref(db, `invites/${localStorage.getItem('hc_username')}/${inviteId}`), {
                     responded: true,
                     accepted: false
                 });
+            }
+        }
+
+        // Automatically join room - NEW FUNCTION
+        async function joinRoomAutomatically(roomCode, invite) {
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            try {
+                // Check if room exists
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                const snapshot = await get(roomRef);
+                
+                if (!snapshot.exists()) {
+                    throw new Error('Room not found');
+                }
+                
+                const roomData = snapshot.val();
+                
+                // Add player2 to room
+                await update(roomRef, {
+                    player2: {
+                        username,
+                        team,
+                        connected: true
+                    },
+                    status: 'ready'
+                });
+                
+                // Add to ongoing games for the user
+                const ongoingGameRef = ref(db, `ongoingGames/${username}/${roomCode}`);
+                await set(ongoingGameRef, {
+                    roomCode: roomCode,
+                    format: roomData.format,
+                    status: 'in progress',
+                    player1: roomData.player1,
+                    player2: { username, team }
+                });
+                
+                showMessage('success', 'Successfully joined the game!');
+                
+                // Wait a moment for the room to update, then check game state
+                setTimeout(() => {
+                    resumeGame(roomCode);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error joining room automatically:', error);
+                showMessage('error', 'Failed to join game automatically');
+                
+                // Fallback to manual join
+                document.querySelector('.nav-item[data-tab="multiplayer"]').click();
+                document.querySelector('.tab[data-subtab="join"]').click();
+                document.getElementById('roomCode').value = roomCode;
             }
         }
 
@@ -2391,6 +2459,55 @@
             });
         }
 
+        // Setup series room listener - NEW FUNCTION
+        function setupSeriesRoomListener(roomCode, username, seriesId, matchId) {
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            
+            const listener = onValue(roomRef, (snapshot) => {
+                const roomData = snapshot.val();
+                
+                if (roomData && roomData.player2 && roomData.player2.connected) {
+                    // Player2 has joined, redirect to toss
+                    showMessage('success', 'Opponent has joined! Redirecting to game...');
+                    
+                    // Remove listener
+                    listener();
+                    
+                    // Redirect to toss page
+                    setTimeout(() => {
+                        redirectToToss(roomCode, 'player1', roomData.player1.team, roomData.format);
+                    }, 1500);
+                }
+            });
+        }
+
+        // Setup tournament room listener - NEW FUNCTION
+        function setupTournamentRoomListener(roomCode, username, tournamentCode, matchId, playerRole) {
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            
+            const listener = onValue(roomRef, (snapshot) => {
+                const roomData = snapshot.val();
+                
+                const isPlayer1 = playerRole === 'player1';
+                const opponentConnected = isPlayer1 ? 
+                    (roomData.player2 && roomData.player2.connected) : 
+                    (roomData.player1 && roomData.player1.connected);
+                
+                if (roomData && opponentConnected) {
+                    // Opponent has joined, redirect to toss
+                    showMessage('success', 'Opponent has joined! Redirecting to game...');
+                    
+                    // Remove listener
+                    listener();
+                    
+                    // Redirect to toss page
+                    setTimeout(() => {
+                        redirectToToss(roomCode, playerRole, roomData[playerRole].team, roomData.format);
+                    }, 1500);
+                }
+            });
+        }
+
         // Join an existing game room
         async function joinRoom(roomCode) {
             if (isJoiningRoom) return;
@@ -2468,7 +2585,7 @@
             }
         }
 
-        // Spectate a game - NEW FUNCTIONALITY
+        // Spectate a game
         async function spectateGame(roomCode) {
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
@@ -2525,29 +2642,50 @@
             }
         }
 
-        // Resume a game
-        function resumeGame(roomCode) {
+        // Resume a game - UPDATED
+        async function resumeGame(roomCode) {
             const username = localStorage.getItem('hc_username');
             
-            // Check if user is player1 or player2 in this room
-            const ongoingGameRef = ref(db, `ongoingGames/${username}/${roomCode}`);
-            get(ongoingGameRef).then(snapshot => {
-                if (snapshot.exists()) {
-                    const game = snapshot.val();
-                    let playerRole = 'player1';
-                    
-                    if (game.player2 && game.player2.username === username) {
-                        playerRole = 'player2';
-                    }
-                    
-                    redirectToToss(roomCode, playerRole, game[playerRole].team, game.format);
-                } else {
-                    showMessage('error', 'Game not found or you are not a participant');
+            try {
+                // Check room status first
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                const roomSnapshot = await get(roomRef);
+                
+                if (!roomSnapshot.exists()) {
+                    showMessage('error', 'Game room not found');
+                    return;
                 }
-            });
+                
+                const roomData = roomSnapshot.val();
+                
+                // Determine player role
+                let playerRole = 'player1';
+                if (roomData.player2 && roomData.player2.username === username) {
+                    playerRole = 'player2';
+                } else if (roomData.player1 && roomData.player1.username !== username) {
+                    showMessage('error', 'You are not a participant in this game');
+                    return;
+                }
+                
+                // Check if game has progress data
+                if (roomData.gameState && roomData.gameState.inProgress) {
+                    // Game is in progress, redirect to the actual game
+                    redirectToGameDirectly(roomCode, playerRole, roomData.format, roomData.gameState);
+                } else if (roomData.tossCompleted) {
+                    // Toss completed but game not started, redirect to game
+                    redirectToGameDirectly(roomCode, playerRole, roomData.format);
+                } else {
+                    // No progress, redirect to toss
+                    redirectToToss(roomCode, playerRole, roomData[playerRole].team, roomData.format);
+                }
+                
+            } catch (error) {
+                console.error('Error resuming game:', error);
+                showMessage('error', 'Failed to resume game');
+            }
         }
 
-        // Play a series match
+        // Play a series match - UPDATED
         async function playSeriesMatch(seriesId, matchId, matchFormat = '20') {
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
@@ -2590,6 +2728,9 @@
                 const roomRef = ref(db, `rooms/${roomCode}`);
                 await set(roomRef, roomData);
                 
+                // Send automatic invite to opponent
+                await sendRoomInvite(seriesData.opponent, roomCode, true, seriesData.name, matchId);
+                
                 // Update series match status
                 await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
                     roomCode: roomCode,
@@ -2602,12 +2743,10 @@
                     status: 'in progress'
                 });
                 
-                showMessage('success', `Match room created! Code: ${roomCode}`);
+                showMessage('success', `Match room created! Code: ${roomCode}. Invitation sent to ${seriesData.opponent}`);
                 
-                // Redirect to toss page
-                setTimeout(() => {
-                    redirectToToss(roomCode, 'player1', team, matchFormat);
-                }, 1000);
+                // Set up listener for when opponent joins
+                setupSeriesRoomListener(roomCode, username, seriesId, matchId);
                 
             } catch (error) {
                 console.error('Error creating series match:', error);
@@ -2615,7 +2754,7 @@
             }
         }
 
-        // Play a tournament match
+        // Play a tournament match - UPDATED
         async function playTournamentMatch(tournamentCode, matchId) {
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
@@ -2642,9 +2781,9 @@
                 // Create a room for the match
                 const roomCode = generateRoomCode();
                 const playerRole = match.player1 === username ? 'player1' : 'player2';
+                const opponentUsername = playerRole === 'player1' ? match.player2 : match.player1;
                 
                 // Get opponent details
-                const opponentUsername = playerRole === 'player1' ? match.player2 : match.player1;
                 const opponentRef = ref(db, `users/${opponentUsername}`);
                 const opponentSnapshot = await get(opponentRef);
                 const opponentData = opponentSnapshot.val();
@@ -2672,18 +2811,19 @@
                 const roomRef = ref(db, `rooms/${roomCode}`);
                 await set(roomRef, roomData);
                 
+                // Send automatic invite to opponent
+                await sendRoomInvite(opponentUsername, roomCode, true, `${tournamentData.name} - Match`, matchId);
+                
                 // Update tournament match status
                 await update(ref(db, `tournaments/${tournamentCode}/matches/${matchId}`), {
                     roomCode: roomCode,
                     status: 'in progress'
                 });
                 
-                showMessage('success', `Tournament match room created! Code: ${roomCode}`);
+                showMessage('success', `Tournament match room created! Code: ${roomCode}. Invitation sent to ${opponentUsername}`);
                 
-                // Redirect to toss page
-                setTimeout(() => {
-                    redirectToToss(roomCode, playerRole, team, tournamentData.format);
-                }, 1000);
+                // Set up listener for when opponent joins
+                setupTournamentRoomListener(roomCode, username, tournamentCode, matchId, playerRole);
                 
             } catch (error) {
                 console.error('Error creating tournament match:', error);
@@ -3044,9 +3184,15 @@
             window.location.href = url;
         }
 
-        // NEW: Redirect directly to game based on format for spectators
-        function redirectToGameDirectly(roomCode, role, format) {
+        // NEW: Redirect directly to game based on format and state
+        function redirectToGameDirectly(roomCode, role, format, gameState = null) {
             let gameFile = '';
+            let params = `?room=${roomCode}&player=${role}`;
+            
+            // Add game state if available
+            if (gameState) {
+                params += `&resume=true&inning=${gameState.currentInning || 1}&overs=${gameState.currentOver || 0}&balls=${gameState.currentBall || 0}`;
+            }
             
             switch(format) {
                 case '5':
@@ -3068,7 +3214,7 @@
                     gameFile = 'game_T20.html'; // Default fallback
             }
             
-            window.location.href = `${gameFile}?room=${roomCode}&player=${role}`;
+            window.location.href = gameFile + params;
         }
 
         // Redirect to other pages
@@ -3262,7 +3408,7 @@
             joinRoom(roomCode);
         });
 
-        // Spectate game - NEW
+        // Spectate game
         document.getElementById('spectateBtn').addEventListener('click', () => {
             const roomCode = document.getElementById('spectateRoomCode').value.trim();
             spectateGame(roomCode);
@@ -3386,6 +3532,7 @@
         window.joinTournamentFromList = joinTournamentFromList;
         window.viewTournament = viewTournament;
         window.playTournamentMatch = playTournamentMatch;
+        window.playSeriesMatch = playSeriesMatch;
     </script>
 </body>
 </html>
