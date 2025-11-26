@@ -1,3 +1,5 @@
+[file name]: game_T5.html
+[file content begin]
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1602,6 +1604,11 @@
     const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
     const spectatorRef = ref(db, `rooms/${room}/spectator`);
     
+    // Stats references
+    const playerStatsRef = ref(db, 'playerStats');
+    const teamStatsRef = ref(db, 'teamStats');
+    const matchHistoryRef = ref(db, 'matchHistory');
+    
     // T5 Format rules
     const currentFormat = {
       name: "T5", 
@@ -1664,6 +1671,10 @@
     let team1ViceCaptain = null;
     let team2Captain = null;
     let team2ViceCaptain = null;
+    let team1Name = "Team A";
+    let team2Name = "Team B";
+    let chasingTeamWon = false;
+    let pom = null;
 
     // DOM elements
     const resultEl = document.getElementById("result");
@@ -1770,9 +1781,10 @@
 
         // Load Team 1
         if (teams.player1?.players) {
-          team1NameEl.textContent = teams.player1.name || "Team A";
-          team1NameDisplay.textContent = teams.player1.name || "Team A";
-          battingTeamName.textContent = teams.player1.name || "Team A";
+          team1Name = teams.player1.name || "Team A";
+          team1NameEl.textContent = team1Name;
+          team1NameDisplay.textContent = team1Name;
+          battingTeamName.textContent = team1Name;
           team1Players = teams.player1.players;
           team1Captain = teams.player1.captain;
           team1ViceCaptain = teams.player1.viceCaptain;
@@ -1789,8 +1801,9 @@
 
         // Load Team 2
         if (teams.player2?.players) {
-          team2NameEl.textContent = teams.player2.name || "Team B";
-          team2NameDisplay.textContent = teams.player2.name || "Team B";
+          team2Name = teams.player2.name || "Team B";
+          team2NameEl.textContent = team2Name;
+          team2NameDisplay.textContent = team2Name;
           team2Players = teams.player2.players;
           team2Captain = teams.player2.captain;
           team2ViceCaptain = teams.player2.viceCaptain;
@@ -2757,8 +2770,8 @@
         bowlerStats: bowlerStats,
         ballByBall: ballByBall,
         fallOfWickets: fallOfWickets,
-        team1Name: team1NameDisplay.textContent,
-        team2Name: team2NameDisplay.textContent,
+        team1Name: team1Name,
+        team2Name: team2Name,
         format: currentFormat.name,
         timestamp: Date.now()
       };
@@ -2835,7 +2848,7 @@
         isBatting = (player === battingFirst);
         
         // Update UI
-        battingTeamName.textContent = battingFirst === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+        battingTeamName.textContent = battingFirst === "player1" ? team1Name : team2Name;
         roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
         document.getElementById('inningsNumber').textContent = "2nd Innings";
         
@@ -2864,14 +2877,190 @@
       }
     }
 
+    // NEW: Update individual player stats in Firebase
+    async function updatePlayerStatsInFirebase() {
+      try {
+        console.log("Updating player stats in Firebase...");
+        
+        // Update all players' stats
+        const allPlayers = [...team1Players, ...team2Players];
+        
+        for (const playerName of allPlayers) {
+          const playerStatRef = ref(db, `playerStats/${playerName}`);
+          const currentStatsSnap = await get(playerStatRef);
+          const currentStats = currentStatsSnap.exists() ? currentStatsSnap.val() : {
+            matches: 0,
+            runs: 0,
+            wickets: 0,
+            centuries: 0,
+            halfCenturies: 0,
+            fours: 0,
+            sixes: 0,
+            bestBowling: { wickets: 0, runs: 0 },
+            economy: 0,
+            strikeRate: 0
+          };
+
+          const batterStat = batterStats[playerName] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+          const bowlerStat = bowlerStats[playerName] || { wickets: 0, runs: 0, overs: 0 };
+
+          // Calculate new stats
+          const newStats = {
+            matches: currentStats.matches + 1,
+            runs: currentStats.runs + batterStat.runs,
+            wickets: currentStats.wickets + bowlerStat.wickets,
+            fours: currentStats.fours + batterStat.fours,
+            sixes: currentStats.sixes + batterStat.sixes,
+            // Update best bowling if current is better
+            bestBowling: (bowlerStat.wickets > currentStats.bestBowling.wickets || 
+                         (bowlerStat.wickets === currentStats.bestBowling.wickets && 
+                          bowlerStat.runs < currentStats.bestBowling.runs)) ? 
+                        { wickets: bowlerStat.wickets, runs: bowlerStat.runs } : 
+                        currentStats.bestBowling,
+            // Update centuries and half-centuries
+            centuries: currentStats.centuries + (batterStat.runs >= 100 ? 1 : 0),
+            halfCenturies: currentStats.halfCenturies + (batterStat.runs >= 50 && batterStat.runs < 100 ? 1 : 0),
+            // Update economy rate
+            economy: bowlerStat.overs > 0 ? 
+                    ((currentStats.economy * currentStats.matches + (bowlerStat.runs / bowlerStat.overs)) / (currentStats.matches + 1)) : 
+                    currentStats.economy,
+            // Update strike rate
+            strikeRate: batterStat.balls > 0 ? 
+                       ((currentStats.strikeRate * currentStats.matches + ((batterStat.runs / batterStat.balls) * 100)) / (currentStats.matches + 1)) : 
+                       currentStats.strikeRate
+          };
+
+          await set(playerStatRef, newStats);
+        }
+        
+        console.log("Player stats updated successfully");
+      } catch (error) {
+        console.error("Error updating player stats:", error);
+      }
+    }
+
+    // NEW: Update team stats in Firebase
+    async function updateTeamStatsInFirebase() {
+      try {
+        console.log("Updating team stats in Firebase...");
+        
+        const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
+        const loser = winner === "player1" ? "player2" : "player1";
+        
+        const winningTeamName = winner === "player1" ? team1Name : team2Name;
+        const losingTeamName = winner === "player1" ? team2Name : team1Name;
+
+        // Update winning team stats
+        const winnerTeamRef = ref(db, `teamStats/${winningTeamName}`);
+        const winnerStatsSnap = await get(winnerTeamRef);
+        const winnerStats = winnerStatsSnap.exists() ? winnerStatsSnap.val() : {
+          matches: 0,
+          wins: 0,
+          losses: 0,
+          totalRuns: 0,
+          totalWickets: 0
+        };
+
+        await set(winnerTeamRef, {
+          matches: winnerStats.matches + 1,
+          wins: winnerStats.wins + 1,
+          losses: winnerStats.losses,
+          totalRuns: winnerStats.totalRuns + (winner === "player1" ? firstInningsData.totalRuns : runs),
+          totalWickets: winnerStats.totalWickets + (winner === "player1" ? firstInningsData.totalWickets : wickets)
+        });
+
+        // Update losing team stats
+        const loserTeamRef = ref(db, `teamStats/${losingTeamName}`);
+        const loserStatsSnap = await get(loserTeamRef);
+        const loserStats = loserStatsSnap.exists() ? loserStatsSnap.val() : {
+          matches: 0,
+          wins: 0,
+          losses: 0,
+          totalRuns: 0,
+          totalWickets: 0
+        };
+
+        await set(loserTeamRef, {
+          matches: loserStats.matches + 1,
+          wins: loserStats.wins,
+          losses: loserStats.losses + 1,
+          totalRuns: loserStats.totalRuns + (loser === "player1" ? firstInningsData.totalRuns : runs),
+          totalWickets: loserStats.totalWickets + (loser === "player1" ? firstInningsData.totalWickets : wickets)
+        });
+
+        console.log("Team stats updated successfully");
+      } catch (error) {
+        console.error("Error updating team stats:", error);
+      }
+    }
+
+    // NEW: Save match to history and close room
+    async function saveMatchToHistoryAndCloseRoom() {
+      try {
+        console.log("Saving match to history and closing room...");
+        
+        const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
+        const winningMargin = chasingTeamWon 
+          ? `${currentFormat.totalWickets - wickets} wickets` 
+          : `${target - runs - 1} runs`;
+
+        const matchData = {
+          roomId: room,
+          team1: {
+            name: team1Name,
+            players: team1Players,
+            runs: battingFirst === "player1" ? firstInningsData.totalRuns : runs,
+            wickets: battingFirst === "player1" ? firstInningsData.totalWickets : wickets
+          },
+          team2: {
+            name: team2Name,
+            players: team2Players,
+            runs: battingFirst === "player1" ? runs : firstInningsData.totalRuns,
+            wickets: battingFirst === "player1" ? wickets : firstInningsData.totalWickets
+          },
+          winner: winner === "player1" ? team1Name : team2Name,
+          winningMargin: winningMargin,
+          playerOfTheMatch: pom,
+          format: currentFormat.name,
+          timestamp: Date.now(),
+          firstInnings: firstInningsData,
+          secondInnings: {
+            totalRuns: runs,
+            totalWickets: wickets,
+            balls: legalBalls,
+            batterStats: batterStats,
+            bowlerStats: bowlerStats,
+            fallOfWickets: fallOfWickets
+          }
+        };
+
+        // Save to match history
+        const matchHistoryKey = `${room}_${Date.now()}`;
+        await set(ref(db, `matchHistory/${matchHistoryKey}`), matchData);
+
+        // Close the room - set a flag to prevent new joins
+        await update(roomRef, {
+          matchCompleted: true,
+          completedAt: Date.now(),
+          finalResult: matchData
+        });
+
+        console.log("Match saved to history and room closed");
+      } catch (error) {
+        console.error("Error saving match history:", error);
+      }
+    }
+
     // Handle match end
-    async function endMatch(chasingTeamWon) {
+    async function endMatch(isChasingTeamWon) {
       disableButtons();
+      
+      chasingTeamWon = isChasingTeamWon;
       
       // Correct winner determination
       const winner = chasingTeamWon ? chasingTeam : (battingFirst === "player1" ? "player2" : "player1");
-      const winnerName = winner === "player1" ? team1NameDisplay.textContent : team2NameDisplay.textContent;
-      const loserName = winner === "player1" ? team2NameDisplay.textContent : team1NameDisplay.textContent;
+      const winnerName = winner === "player1" ? team1Name : team2Name;
+      const loserName = winner === "player1" ? team2Name : team1Name;
       
       // Update result
       const winningMargin = chasingTeamWon 
@@ -2881,7 +3070,7 @@
       resultEl.innerHTML = `<strong>${winnerName} won by ${winningMargin}</strong>`;
       
       // Determine player of the match
-      let pom = null;
+      pom = null;
       let pomStats = null;
       
       // Check batters first
@@ -3002,7 +3191,7 @@
       // Show popup
       summaryPopup.style.display = 'block';
       
-      // Save match result
+      // Save match result and update stats
       await set(resultRef, {
         winner: winner,
         winningMargin: winningMargin,
@@ -3017,9 +3206,16 @@
         playerOfTheMatch: pom,
         timestamp: Date.now()
       });
+
+      // Update player and team stats
+      await updatePlayerStatsInFirebase();
+      await updateTeamStatsInFirebase();
+      
+      // Save match to history and close room
+      await saveMatchToHistoryAndCloseRoom();
     }
 
-    // Save match data function
+    // Save match data function - UPDATED to redirect to home page
     async function saveMatchData() {
       try {
         resultEl.innerText = "Saving match data...";
@@ -3045,10 +3241,10 @@
         // Save to Firebase
         await set(ref(db, `savedMatches/${room}`), matchData);
         
-        showNotification("Match data saved successfully!", 'info');
+        showNotification("Match data saved successfully! Redirecting...", 'info');
         resultEl.innerText = "Match data saved";
         
-        // Redirect to home after a delay
+        // Redirect to home page after a delay
         setTimeout(() => {
           window.location.href = "index.html";
         }, 2000);
@@ -3233,13 +3429,15 @@
         if (snap.exists()) {
           const teams = snap.val();
           if (teams.player1) {
-            team1NameEl.textContent = teams.player1.name || "Team 1";
-            team1NameDisplay.textContent = teams.player1.name || "Team 1";
-            battingTeamName.textContent = teams.player1.name || "Team 1";
+            team1Name = teams.player1.name || "Team 1";
+            team1NameEl.textContent = team1Name;
+            team1NameDisplay.textContent = team1Name;
+            battingTeamName.textContent = team1Name;
           }
           if (teams.player2) {
-            team2NameEl.textContent = teams.player2.name || "Team 2";
-            team2NameDisplay.textContent = teams.player2.name || "Team 2";
+            team2Name = teams.player2.name || "Team 2";
+            team2NameEl.textContent = team2Name;
+            team2NameDisplay.textContent = team2Name;
           }
         }
       });
@@ -3267,7 +3465,7 @@
                   // Set up for second innings
                   isBatting = (player === chasingTeam);
                   roleText.textContent = isBatting ? "You are Batting" : "You are Bowling";
-                  battingTeamName.textContent = isBatting ? team1NameDisplay.textContent : team2NameDisplay.textContent;
+                  battingTeamName.textContent = isBatting ? team1Name : team2Name;
                 } else {
                   // Show summary popup to start second innings
                   showSummaryPopup();
@@ -3285,6 +3483,15 @@
         if (snap.exists() && snap.val()) {
           isSpectator = true;
           setupSpectatorMode();
+        }
+      });
+
+      // NEW: Listen for match completion to prevent new joins
+      onValue(roomRef, (snap) => {
+        if (snap.exists() && snap.val().matchCompleted) {
+          showNotification("This match has been completed. Room is closed.", 'info');
+          // Optionally disable further interactions
+          disableButtons();
         }
       });
     }
@@ -3349,6 +3556,12 @@
         console.log("Checking URL parameters...");
         if (!room) {
           throw new Error("Missing room parameter in URL");
+        }
+
+        // Check if room is already completed
+        const roomSnapCheck = await get(roomRef);
+        if (roomSnapCheck.exists() && roomSnapCheck.val().matchCompleted) {
+          throw new Error("This match has been completed. Room is closed.");
         }
 
         // Check if spectator mode from Firebase
@@ -3666,3 +3879,4 @@
   </script>
 </body>
 </html>
+[file content end]
