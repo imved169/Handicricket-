@@ -307,6 +307,13 @@
             background: linear-gradient(145deg, #4CAF50, #2E7D32);
         }
 
+        .btn-delete {
+            background: linear-gradient(145deg, #f44336, #c62828);
+            width: auto;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
         .format-options {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -658,6 +665,12 @@
             margin-bottom: 5px;
         }
 
+        .game-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
         .series-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -744,6 +757,15 @@
 
         .bracket-match.winner {
             border-color: var(--success);
+        }
+
+        .series-match-format {
+            margin: 10px 0;
+        }
+
+        .series-match-format select {
+            width: 100%;
+            margin-top: 5px;
         }
 
         @keyframes spin {
@@ -1180,6 +1202,16 @@
                                 <!-- Friends will be populated here -->
                             </select>
                         </div>
+                        <div class="series-match-format">
+                            <label for="seriesMatchFormat">Match Format</label>
+                            <select id="seriesMatchFormat">
+                                <option value="5">T5 (5 Overs)</option>
+                                <option value="10">T10 (10 Overs)</option>
+                                <option value="20" selected>T20 (20 Overs)</option>
+                                <option value="50">ODI (50 Overs)</option>
+                                <option value="test">Test Match</option>
+                            </select>
+                        </div>
                         <button id="createSeriesBtn" class="btn btn-create">Create Series</button>
                     </div>
 
@@ -1255,6 +1287,7 @@
         const seriesInvitationsList = document.getElementById('seriesInvitationsList');
         const mySeriesList = document.getElementById('mySeriesList');
         const tournamentBracketsContainer = document.getElementById('tournamentBracketsContainer');
+        const seriesMatchFormatSelect = document.getElementById('seriesMatchFormat');
 
         // State variables
         let selectedFormat = '5';
@@ -1553,7 +1586,9 @@
                     <p>Teams: ${tournament.currentTeams || 1}/${tournament.maxTeams}</p>
                     <p>Status: ${tournament.status || 'Registration'}</p>
                     <p>Code: ${tournament.code}</p>
-                    <button class="btn btn-join" style="margin-top: 10px;" onclick="viewTournament('${tournament.code}')">View Tournament</button>
+                    <div class="game-actions">
+                        <button class="btn btn-join" onclick="viewTournament('${tournament.code}')">View Tournament</button>
+                    </div>
                 `;
                 myTournamentsList.appendChild(tournamentCard);
             });
@@ -1586,7 +1621,9 @@
                         <p>Format: ${getFormatName(tournament.format)}</p>
                         <p>Teams: ${tournament.participants ? Object.keys(tournament.participants).length : 0}/${tournament.maxTeams}</p>
                         <p>Code: ${tournamentCode}</p>
-                        <button class="btn btn-join" style="margin-top: 10px;" onclick="joinTournamentFromList('${tournamentCode}')">Join Tournament</button>
+                        <div class="game-actions">
+                            <button class="btn btn-join" onclick="joinTournamentFromList('${tournamentCode}')">Join Tournament</button>
+                        </div>
                     `;
                     availableTournamentsList.appendChild(tournamentCard);
                 }
@@ -1670,7 +1707,7 @@
             });
         }
 
-        // Update ongoing games list
+        // Update ongoing games list with delete option
         function updateOngoingGamesList(games) {
             ongoingGamesList.innerHTML = '';
             
@@ -1696,7 +1733,10 @@
                     <p>Opponent: ${opponent}</p>
                     <p>Format: ${getFormatName(game.format)}</p>
                     <p>Status: ${game.status || 'In Progress'}</p>
-                    <button class="btn btn-join resume-game-btn" style="margin-top: 10px;" data-room="${game.roomCode}">Resume Game</button>
+                    <div class="game-actions">
+                        <button class="btn btn-join resume-game-btn" data-room="${game.roomCode}">Resume Game</button>
+                        <button class="btn btn-delete delete-game-btn" data-room="${game.roomCode}">Delete</button>
+                    </div>
                 `;
                 ongoingGamesList.appendChild(gameCard);
             });
@@ -1708,9 +1748,17 @@
                     resumeGame(roomCode);
                 });
             });
+            
+            // Add event listeners to delete game buttons
+            document.querySelectorAll('.delete-game-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const roomCode = this.getAttribute('data-room');
+                    deleteGame(roomCode);
+                });
+            });
         }
 
-        // Update my series list with enhanced features
+        // Update my series list with enhanced features and better buttons
         function updateMySeriesList(series) {
             mySeriesList.innerHTML = '';
             
@@ -1732,6 +1780,7 @@
                 if (seriesData.matches) {
                     Object.keys(seriesData.matches).forEach(matchId => {
                         const match = seriesData.matches[matchId];
+                        const matchFormat = match.format || seriesData.matchFormat || '20';
                         matchesHtml += `
                             <div class="match-item">
                                 <div class="match-teams">
@@ -1739,13 +1788,14 @@
                                     <span>vs</span>
                                     <span>${opponentTeam}</span>
                                 </div>
+                                <p>Format: ${getFormatName(matchFormat)}</p>
                                 ${match.winner ? `
                                     <div class="match-result">
                                         Winner: ${match.winner}
                                     </div>
                                 ` : `
                                     <div class="match-actions">
-                                        <button class="btn btn-play play-series-match-btn" data-series="${seriesId}" data-match="${matchId}">
+                                        <button class="btn btn-play play-series-match-btn" data-series="${seriesId}" data-match="${matchId}" data-format="${matchFormat}">
                                             Play Match
                                         </button>
                                     </div>
@@ -1758,10 +1808,14 @@
                 seriesCard.innerHTML = `
                     <h3>${seriesData.name}</h3>
                     <p>Format: ${seriesData.format} Matches</p>
+                    <p>Match Format: ${getFormatName(seriesData.matchFormat || '20')}</p>
                     <p>Opponent: ${seriesData.opponent} (${opponentTeam})</p>
                     <p>Status: ${seriesData.status || 'In Progress'}</p>
                     <p>Current Score: ${seriesData.userScore || 0} - ${seriesData.opponentScore || 0}</p>
                     ${matchesHtml}
+                    <div class="game-actions" style="margin-top: 15px;">
+                        <button class="btn btn-delete delete-series-btn" data-series="${seriesId}">Delete Series</button>
+                    </div>
                 `;
                 mySeriesList.appendChild(seriesCard);
             });
@@ -1771,7 +1825,18 @@
                 btn.addEventListener('click', function() {
                     const seriesId = this.getAttribute('data-series');
                     const matchId = this.getAttribute('data-match');
-                    playSeriesMatch(seriesId, matchId);
+                    const matchFormat = this.getAttribute('data-format');
+                    playSeriesMatch(seriesId, matchId, matchFormat);
+                });
+            });
+            
+            // Add event listeners to delete series buttons
+            document.querySelectorAll('.delete-series-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const seriesId = this.getAttribute('data-series');
+                    if (confirm('Are you sure you want to delete this series?')) {
+                        deleteSeries(seriesId);
+                    }
                 });
             });
         }
@@ -2164,12 +2229,13 @@
                 set(newSeriesRef, {
                     name: invite.seriesName,
                     format: invite.format,
+                    matchFormat: invite.matchFormat || '20',
                     opponent: invite.from,
                     opponentTeam: invite.team,
                     userScore: 0,
                     opponentScore: 0,
                     status: 'In Progress',
-                    matches: generateSeriesMatches(invite.format, currentUsername, invite.from)
+                    matches: generateSeriesMatches(invite.format, currentUsername, invite.from, invite.matchFormat || '20')
                 });
                 
                 // Also add to the opponent's series list
@@ -2179,12 +2245,13 @@
                 set(newOpponentSeriesRef, {
                     name: invite.seriesName,
                     format: invite.format,
+                    matchFormat: invite.matchFormat || '20',
                     opponent: currentUsername,
                     opponentTeam: currentTeam,
                     userScore: 0,
                     opponentScore: 0,
                     status: 'In Progress',
-                    matches: generateSeriesMatches(invite.format, invite.from, currentUsername)
+                    matches: generateSeriesMatches(invite.format, invite.from, currentUsername, invite.matchFormat || '20')
                 });
                 
                 showMessage('success', `Series "${invite.seriesName}" started!`);
@@ -2197,8 +2264,8 @@
             }
         }
 
-        // Generate series matches
-        function generateSeriesMatches(format, player1, player2) {
+        // Generate series matches with specific format
+        function generateSeriesMatches(format, player1, player2, matchFormat) {
             const numMatches = parseInt(format);
             const matches = {};
             
@@ -2206,6 +2273,7 @@
                 matches[`match${i}`] = {
                     player1: player1,
                     player2: player2,
+                    format: matchFormat,
                     status: 'scheduled',
                     winner: null
                 };
@@ -2242,6 +2310,7 @@
                         connected: true
                     },
                     player2: null,
+                    spectators: {},
                     format: selectedFormat,
                     status: 'waiting',
                     createdAt: Date.now()
@@ -2399,16 +2468,61 @@
             }
         }
 
-        // Spectate a game
-        function spectateGame(roomCode) {
+        // Spectate a game - NEW FUNCTIONALITY
+        async function spectateGame(roomCode) {
+            const username = localStorage.getItem('hc_username');
+            const team = localStorage.getItem('hc_team');
+            
+            if (!username || !team) {
+                showMessage('error', 'Please login first');
+                return;
+            }
+            
             // Validate room code
             if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
                 showMessage('error', 'Please enter a valid 4-digit room code');
                 return;
             }
             
-            // Redirect to game page as spectator
-            redirectToToss(roomCode, 'spectator');
+            try {
+                updateButtonState(spectateBtn, true, 'Joining as Spectator...');
+                
+                // Check if room exists
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                const snapshot = await get(roomRef);
+                
+                if (!snapshot.exists()) {
+                    throw new Error('Room not found. Please check the code.');
+                }
+                
+                const roomData = snapshot.val();
+                
+                // Check if game has started
+                if (!roomData.player1 || !roomData.player2) {
+                    throw new Error('Game has not started yet. Please wait for both players to join.');
+                }
+                
+                // Add spectator to room
+                await update(roomRef, {
+                    [`spectators/${username}`]: {
+                        username,
+                        team,
+                        joinedAt: Date.now()
+                    }
+                });
+                
+                showMessage('success', 'Successfully joined as spectator!');
+                
+                // Redirect directly to game based on format
+                setTimeout(() => {
+                    redirectToGameDirectly(roomCode, 'spectator', roomData.format);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error spectating game:', error);
+                showMessage('error', error.message);
+                updateButtonState(spectateBtn, false, 'Spectate Match');
+            }
         }
 
         // Resume a game
@@ -2434,7 +2548,7 @@
         }
 
         // Play a series match
-        async function playSeriesMatch(seriesId, matchId) {
+        async function playSeriesMatch(seriesId, matchId, matchFormat = '20') {
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
             
@@ -2465,7 +2579,7 @@
                         team: seriesData.opponentTeam,
                         connected: false
                     },
-                    format: '20', // Default to T20 for series matches
+                    format: matchFormat,
                     status: 'waiting',
                     seriesId: seriesId,
                     matchId: matchId,
@@ -2492,7 +2606,7 @@
                 
                 // Redirect to toss page
                 setTimeout(() => {
-                    redirectToToss(roomCode, 'player1', team, '20');
+                    redirectToToss(roomCode, 'player1', team, matchFormat);
                 }, 1000);
                 
             } catch (error) {
@@ -2792,6 +2906,7 @@
             const seriesName = document.getElementById('seriesName').value.trim();
             const seriesFormat = document.getElementById('seriesFormat').value;
             const seriesOpponent = document.getElementById('seriesOpponent').value;
+            const matchFormat = document.getElementById('seriesMatchFormat').value;
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
             
@@ -2826,6 +2941,7 @@
                     team: team,
                     seriesName: seriesName,
                     format: seriesFormat,
+                    matchFormat: matchFormat,
                     timestamp: Date.now(),
                     responded: false
                 });
@@ -2834,6 +2950,7 @@
                 document.getElementById('seriesName').value = '';
                 document.getElementById('seriesFormat').value = '3';
                 document.getElementById('seriesOpponent').value = '';
+                document.getElementById('seriesMatchFormat').value = '20';
                 
                 showMessage('success', `Series invitation sent to ${seriesOpponent}!`);
                 
@@ -2842,6 +2959,56 @@
                 showMessage('error', 'Failed to create series');
             } finally {
                 updateButtonState(createSeriesBtn, false, 'Create Series');
+            }
+        }
+
+        // Delete a game
+        async function deleteGame(roomCode) {
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Remove from ongoing games
+                await remove(ref(db, `ongoingGames/${username}/${roomCode}`));
+                
+                // Check if room exists and remove if user is the creator
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                const snapshot = await get(roomRef);
+                
+                if (snapshot.exists()) {
+                    const roomData = snapshot.val();
+                    if (roomData.player1 && roomData.player1.username === username) {
+                        // User is the creator, remove the room
+                        await remove(roomRef);
+                    } else if (roomData.player2 && roomData.player2.username === username) {
+                        // User is player2, remove themselves from the room
+                        await update(roomRef, {
+                            player2: null,
+                            status: 'waiting'
+                        });
+                    }
+                }
+                
+                showMessage('success', 'Game deleted successfully');
+                
+            } catch (error) {
+                console.error('Error deleting game:', error);
+                showMessage('error', 'Failed to delete game');
+            }
+        }
+
+        // Delete a series
+        async function deleteSeries(seriesId) {
+            const username = localStorage.getItem('hc_username');
+            
+            try {
+                // Remove from user's series
+                await remove(ref(db, `users/${username}/series/${seriesId}`));
+                
+                showMessage('success', 'Series deleted successfully');
+                
+            } catch (error) {
+                console.error('Error deleting series:', error);
+                showMessage('error', 'Failed to delete series');
             }
         }
 
@@ -2875,6 +3042,33 @@
             }
             
             window.location.href = url;
+        }
+
+        // NEW: Redirect directly to game based on format for spectators
+        function redirectToGameDirectly(roomCode, role, format) {
+            let gameFile = '';
+            
+            switch(format) {
+                case '5':
+                    gameFile = 'game_T5.html';
+                    break;
+                case '10':
+                    gameFile = 'game_T10.html';
+                    break;
+                case '20':
+                    gameFile = 'game_T20.html';
+                    break;
+                case '50':
+                    gameFile = 'game_Odi.html';
+                    break;
+                case 'test':
+                    gameFile = 'game_Test.html';
+                    break;
+                default:
+                    gameFile = 'game_T20.html'; // Default fallback
+            }
+            
+            window.location.href = `${gameFile}?room=${roomCode}&player=${role}`;
         }
 
         // Redirect to other pages
@@ -3068,7 +3262,7 @@
             joinRoom(roomCode);
         });
 
-        // Spectate game
+        // Spectate game - NEW
         document.getElementById('spectateBtn').addEventListener('click', () => {
             const roomCode = document.getElementById('spectateRoomCode').value.trim();
             spectateGame(roomCode);
@@ -3187,6 +3381,11 @@
                 updateOnlineStatus(username, false);
             }
         });
+
+        // Make functions available globally for onclick handlers
+        window.joinTournamentFromList = joinTournamentFromList;
+        window.viewTournament = viewTournament;
+        window.playTournamentMatch = playTournamentMatch;
     </script>
 </body>
 </html>
