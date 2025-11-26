@@ -2208,12 +2208,8 @@
                     accepted: true
                 });
                 
-                // Redirect to join the room
-                document.querySelector('.nav-item[data-tab="multiplayer"]').click();
-                document.querySelector('.tab[data-subtab="join"]').click();
-                document.getElementById('roomCode').value = invite.roomCode;
-                
-                showMessage('success', `Joining room ${invite.roomCode}...`);
+                // Auto-join the room directly without needing to click join again
+                joinRoom(invite.roomCode);
             } else {
                 // Decline invite
                 update(ref(db, `invites/${localStorage.getItem('hc_username')}/${inviteId}`), {
@@ -2578,7 +2574,7 @@
             }
         }
 
-        // Play a series match - FIXED: Auto-invite opponent
+        // Play a series match - FIXED: Only create room with player1, wait for opponent to join
         async function playSeriesMatch(seriesId, matchId, matchFormat = '20') {
             const username = localStorage.getItem('hc_username');
             const team = localStorage.getItem('hc_team');
@@ -2596,21 +2592,17 @@
                 const seriesData = snapshot.val();
                 const opponentUsername = seriesData.opponent;
                 
-                // Create a room for the match
+                // Create a room for the match - ONLY with player1, leave player2 empty
                 const roomCode = generateRoomCode();
                 
-                // Create room object
+                // Create room object with only player1
                 const roomData = {
                     player1: {
                         username: username,
                         team: team,
                         connected: true
                     },
-                    player2: {
-                        username: opponentUsername,
-                        team: seriesData.opponentTeam,
-                        connected: false
-                    },
+                    player2: null, // Keep player2 empty for opponent to join
                     format: matchFormat,
                     status: 'waiting',
                     seriesId: seriesId,
@@ -2628,26 +2620,50 @@
                 // Update series match status
                 await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
                     roomCode: roomCode,
-                    status: 'in progress'
+                    status: 'waiting for opponent'
                 });
                 
                 // Also update opponent's series
                 await update(ref(db, `users/${opponentUsername}/series/${seriesId}/matches/${matchId}`), {
                     roomCode: roomCode,
-                    status: 'in progress'
+                    status: 'waiting for opponent'
                 });
                 
-                showMessage('success', `Match room created! Code: ${roomCode}. Invitation sent to ${opponentUsername}`);
+                showMessage('success', `Match room created! Code: ${roomCode}. Invitation sent to ${opponentUsername}. Waiting for opponent to join...`);
                 
-                // Redirect to toss page
-                setTimeout(() => {
-                    redirectToToss(roomCode, 'player1', team, matchFormat);
-                }, 1000);
+                // Set up listener for when opponent joins
+                setupSeriesRoomListener(roomCode, username, seriesId, matchId);
                 
             } catch (error) {
                 console.error('Error creating series match:', error);
                 showMessage('error', 'Failed to create match room');
             }
+        }
+
+        // Set up listener for series room
+        function setupSeriesRoomListener(roomCode, username, seriesId, matchId) {
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            
+            const seriesRoomListener = onValue(roomRef, (snapshot) => {
+                const roomData = snapshot.val();
+                
+                if (roomData && roomData.player2) {
+                    // Player2 has joined, redirect to toss
+                    showMessage('success', 'Opponent has joined! Redirecting to game...');
+                    
+                    // Update series match status
+                    update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
+                        status: 'in progress'
+                    });
+                    
+                    // Remove the listener
+                    seriesRoomListener();
+                    
+                    setTimeout(() => {
+                        redirectToToss(roomCode, 'player1', roomData.player1.team, roomData.format);
+                    }, 1500);
+                }
+            });
         }
 
         // Play a tournament match - FIXED: Auto-invite opponent
@@ -2684,18 +2700,22 @@
                 const opponentSnapshot = await get(opponentRef);
                 const opponentData = opponentSnapshot.val();
                 
-                // Create room object
+                // Create room object with only the current player
                 const roomData = {
-                    player1: {
+                    player1: playerRole === 'player1' ? {
+                        username: username,
+                        team: tournamentData.participants[username].team,
+                        connected: true
+                    } : {
                         username: match.player1,
                         team: tournamentData.participants[match.player1].team,
-                        connected: playerRole === 'player1'
+                        connected: false
                     },
-                    player2: {
-                        username: match.player2,
-                        team: tournamentData.participants[match.player2].team,
-                        connected: playerRole === 'player2'
-                    },
+                    player2: playerRole === 'player2' ? {
+                        username: username,
+                        team: tournamentData.participants[username].team,
+                        connected: true
+                    } : null,
                     format: tournamentData.format,
                     status: 'waiting',
                     tournamentCode: tournamentCode,
