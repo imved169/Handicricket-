@@ -1519,7 +1519,6 @@
       </div>
     </div>
     <button id="startSecondInningsBtn">🏏 Start Second Innings</button>
-    <button id="savePlayerStatsBtn" style="display: none; margin-top: 8px; background: #9C27B0;">💾 Save My Player Stats</button>
   </div>
 
   <script type="module">
@@ -1605,7 +1604,6 @@
     const closedRoomsRef = ref(db, 'closedRooms');
     const playerStatsRef = ref(db, 'playerStats');
     const teamStatsRef = ref(db, 'teamStats');
-    const lastMatchRef = ref(db, `playerStats/${player}/lastMatch/${room}`);
     
     // T5 Format rules
     const currentFormat = {
@@ -1706,7 +1704,6 @@
     const summaryPopup = document.getElementById("summaryPopup");
     const summaryCountdown = document.getElementById("summaryCountdown");
     const startSecondInningsBtn = document.getElementById("startSecondInningsBtn");
-    const savePlayerStatsBtn = document.getElementById("savePlayerStatsBtn");
     const summaryTotalRuns = document.getElementById("summaryTotalRuns");
     const summaryWickets = document.getElementById("summaryWickets");
     const summaryOvers = document.getElementById("summaryOvers");
@@ -1820,58 +1817,6 @@
           throw new Error("Both teams must have at least 1 player");
         }
 
-        // Load match state if exists
-        const matchStatsSnap = await get(matchStatsRef);
-        if (matchStatsSnap.exists()) {
-          const matchStats = matchStatsSnap.val();
-          console.log("Resuming from saved match state:", matchStats);
-          
-          // Hydrate game state
-          runs = matchStats.runs || 0;
-          wickets = matchStats.wickets || 0;
-          legalBalls = matchStats.legalBalls || 0;
-          ballByBall = matchStats.ballByBall || {};
-          batterStats = matchStats.batterStats || {};
-          bowlerStats = matchStats.bowlerStats || {};
-          fallOfWickets = matchStats.fallOfWickets || [];
-          
-          // Hydrate zerosThisOver from ballByBall
-          zerosThisOver = { player1: 0, player2: 0 };
-          const currentOverStart = legalBalls - (legalBalls % 6);
-          for (let i = currentOverStart; i < legalBalls; i++) {
-            if (ballByBall[i]) {
-              if (ballByBall[i].runs === 0 && !ballByBall[i].noball && !ballByBall[i].wicket) {
-                // Count zeros for current over
-                // Note: This is simplified - in production you'd track which player
-                zerosThisOver.player1++; // Simplified tracking
-              }
-            }
-          }
-          
-          // Check first innings status
-          const firstInningsCompletedSnap = await get(firstInningsCompletedRef);
-          firstInningsCompleted = firstInningsCompletedSnap.exists() && firstInningsCompletedSnap.val();
-          
-          if (firstInningsCompleted) {
-            const firstInningsSnap = await get(firstInningsRef);
-            if (firstInningsSnap.exists()) {
-              firstInningsData = firstInningsSnap.val();
-              target = firstInningsData.totalRuns + 1;
-              chasingTeam = battingFirst === "player1" ? "player2" : "player1";
-            }
-          }
-          
-          // Check second innings status
-          const secondInningsStartedSnap = await get(secondInningsStartedRef);
-          secondInningsStarted = secondInningsStartedSnap.exists() && secondInningsStartedSnap.val();
-          
-          console.log("Game state hydrated:", {
-            runs, wickets, legalBalls,
-            firstInningsCompleted, secondInningsStarted,
-            target, chasingTeam
-          });
-        }
-
         return true;
       } catch (error) {
         console.error("Error loading teams:", error);
@@ -1972,7 +1917,7 @@
       document.getElementById('runRate').textContent = rr;
     }
 
-    // Update over progress display with no-ball handling - UPDATED FOR NO-BALL DISPLAY
+    // Update over progress display with no-ball handling
     function updateOverProgress() {
       const ballsContainer = document.getElementById('ballsContainer');
       ballsContainer.innerHTML = '';
@@ -1996,17 +1941,17 @@
         if (i < displayBalls) {
           const ballData = ballByBall[legalBalls - ballsThisOver + i];
           if (ballData) {
-            if (ballData.noball) {
+            if (ballData.wicket) {
+              ballEl.className += ' wicket';
+              ballEl.textContent = 'W';
+            } else if (ballData.noball) {
               ballEl.className += ' noball';
-              // Display '4NB' if runs scored on no-ball, otherwise just 'NB'
+              // Show runs with NB if runs > 0
               if (ballData.runs > 0) {
                 ballEl.textContent = `${ballData.runs}NB`;
               } else {
                 ballEl.textContent = 'NB';
               }
-            } else if (ballData.wicket) {
-              ballEl.className += ' wicket';
-              ballEl.textContent = 'W';
             } else if (ballData.runs > 0) {
               ballEl.className += ' run';
               ballEl.textContent = ballData.runs;
@@ -2027,7 +1972,7 @@
         for (let i = 6; i < displayBalls; i++) {
           const ballEl = document.createElement('div');
           ballEl.className = 'ball noball';
-          const ballData = ballByBall[legalBalls - ballsThisOver + (i - (displayBalls - ballsThisOver))];
+          const ballData = ballByBall[legalBalls - ballsThisOver + i];
           if (ballData && ballData.runs > 0) {
             ballEl.textContent = `${ballData.runs}NB`;
           } else {
@@ -2309,10 +2254,9 @@
           }
           isLegalBall = true;
         }
-        // 5. Handle bowler playing 0 - UPDATED FOR 4TH DOT NO-BALL RULE
+        // 5. Handle bowler playing 0
         else if (bowlerCard === 0 && batterCard > 0) {
           if (zerosThisOver[battingPlayer === "player1" ? "player2" : "player1"] > 3) {
-            // 4th dot from bowler = no-ball
             outcome = "4th 0 in over! No ball";
             runs += 1;
             freeHitNextBall = true;
@@ -2440,26 +2384,29 @@
           document.querySelector('.scorebox-main').classList.remove("wicket-flash");
         }, 2000);
 
-        // BALL PERSISTENCE & 1S BUTTON BLOCK - Save match state immediately
-        await updateMatchStats();
+        // === CRITICAL UPDATE: Save match state to Firebase and enforce 1-second button lock ===
+        await updateMatchStats(); // Save full state to Firebase
         
-        // Disable all buttons for 1 second
+        // Immediately disable all buttons
         disableButtons();
         
-        // Clear card selection immediately
-        clearCardSelection();
-        
-        // Set playsRef to empty after 1 second
+        // Wait exactly 1000ms before enabling buttons and resetting plays
         setTimeout(async () => {
           try {
+            // Clear card selection
+            clearCardSelection();
+            
+            // Reset plays in Firebase so both clients are synchronized
             await set(playsRef, {});
+            
+            // Enable buttons
             enableButtons();
             
-            // Check for next actions
+            // Handle post-ball logic
             if (isPlayerOut && player === battingPlayer) {
               batterSelected = false;
               await showBatterSelection();
-            } else if (isLegalBall && !isNoBall && legalBalls % 6 === 0) {
+            } else if (isLegalBall && legalBalls % 6 === 0) {
               bowlerSelected = false;
               if (player === (battingPlayer === "player1" ? "player2" : "player1")) {
                 await showBowlerSelection();
@@ -2473,8 +2420,9 @@
             console.error("Error in post-ball processing:", error);
             resultEl.innerText = "Error processing next ball state";
             enableButtons();
+            clearCardSelection();
           }
-        }, 1000);
+        }, 1000); // Exactly 1000ms delay
 
         // Check for innings end conditions
         if (wickets >= currentFormat.totalWickets || legalBalls >= currentFormat.totalOvers * 6) {
@@ -2506,6 +2454,7 @@
             return;
           }
         }
+        
       } catch (error) {
         console.error("Error processing ball outcome:", error);
         resultEl.innerText = "Error processing ball outcome";
@@ -2525,6 +2474,10 @@
           runs: runs,
           wickets: wickets,
           legalBalls: legalBalls,
+          firstInningsCompleted: firstInningsCompleted,
+          secondInningsStarted: secondInningsStarted,
+          target: target,
+          chasingTeam: chasingTeam,
           timestamp: Date.now()
         };
         
@@ -2811,9 +2764,9 @@
       }
     }
 
-    // Update batter and bowler stats tables - UPDATED FOR SUMMARY UI FILTERING
+    // Update batter and bowler stats tables
     function updateStatsTables() {
-      // Update batters stats - only include players who batted
+      // Update batters stats - FILTERED: only players who actually batted
       battersStatsBody.innerHTML = '';
       const battingTeam = battingFirst === "player1" ? team1Players : team2Players;
       
@@ -2836,15 +2789,15 @@
         }
       });
       
-      // Update bowlers stats - only include players who bowled
+      // Update bowlers stats - FILTERED: only players who actually bowled
       bowlersStatsBody.innerHTML = '';
       const bowlingTeam = battingFirst === "player1" ? team2Players : team1Players;
       
       bowlingTeam.forEach(player => {
-        const stats = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, noballs: 0 };
+        const stats = bowlerStats[player] || { wickets: 0, runs: 0, overs: 0, noballs: 0, balls: 0 };
         
-        // Only include players who actually bowled (overs > 0 or wickets > 0)
-        if (stats.overs > 0 || stats.wickets > 0) {
+        // Only include players who actually bowled (balls > 0 or wickets > 0)
+        if (stats.balls > 0 || stats.wickets > 0) {
           const er = stats.overs > 0 ? (stats.runs / stats.overs).toFixed(2) : '0.00';
           
           const row = document.createElement('tr');
@@ -2883,7 +2836,7 @@
       target = runs + 1;
       chasingTeam = battingFirst === "player1" ? "player2" : "player1";
 
-      // Update stats tables
+      // Update stats tables with filtering
       updateStatsTables();
 
       // Update UI
@@ -3047,41 +3000,87 @@
       }
     }
 
-    // Save player's personal stats
-    async function savePlayerStats() {
+    // Save current player's stats to their personal record
+    async function saveMyPlayerStats(matchData) {
       try {
         resultEl.innerText = "Saving your player stats...";
+        disableButtons();
         
-        // Filter to include only players who actually batted or bowled
+        // Filter stats to include only players who actually played
         const filteredBatterStats = {};
         const filteredBowlerStats = {};
         
-        for (const [playerName, stats] of Object.entries(batterStats)) {
+        // Filter batter stats (only players with balls > 0 or runs > 0)
+        for (const [playerName, stats] of Object.entries(matchData.firstInnings.batterStats)) {
           if (stats.balls > 0 || stats.runs > 0) {
             filteredBatterStats[playerName] = stats;
           }
         }
         
-        for (const [playerName, stats] of Object.entries(bowlerStats)) {
-          if (stats.overs > 0 || stats.wickets > 0) {
+        // Filter bowler stats (only players with balls > 0 or wickets > 0)
+        for (const [playerName, stats] of Object.entries(matchData.firstInnings.bowlerStats)) {
+          if (stats.balls > 0 || stats.wickets > 0) {
             filteredBowlerStats[playerName] = stats;
           }
         }
         
-        // Save filtered stats to lastMatch
-        const playerStatsData = {
-          batterStats: filteredBatterStats,
-          bowlerStats: filteredBowlerStats,
-          matchId: room,
-          timestamp: Date.now(),
-          player: player,
-          innings: secondInningsStarted ? "both" : "first"
+        // Process second innings if available
+        if (matchData.secondInnings) {
+          for (const [playerName, stats] of Object.entries(matchData.secondInnings.batterStats)) {
+            if (stats.balls > 0 || stats.runs > 0) {
+              if (!filteredBatterStats[playerName]) {
+                filteredBatterStats[playerName] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+              }
+              filteredBatterStats[playerName].runs += stats.runs;
+              filteredBatterStats[playerName].balls += stats.balls;
+              filteredBatterStats[playerName].fours += stats.fours;
+              filteredBatterStats[playerName].sixes += stats.sixes;
+            }
+          }
+          
+          for (const [playerName, stats] of Object.entries(matchData.secondInnings.bowlerStats)) {
+            if (stats.balls > 0 || stats.wickets > 0) {
+              if (!filteredBowlerStats[playerName]) {
+                filteredBowlerStats[playerName] = { wickets: 0, runs: 0, overs: 0, balls: 0, noballs: 0 };
+              }
+              filteredBowlerStats[playerName].wickets += stats.wickets;
+              filteredBowlerStats[playerName].runs += stats.runs;
+              filteredBowlerStats[playerName].overs += stats.overs;
+              filteredBowlerStats[playerName].balls += stats.balls;
+              filteredBowlerStats[playerName].noballs += (stats.noballs || 0);
+            }
+          }
+        }
+        
+        // Save filtered stats to current player's record
+        const playerKey = player;
+        const playerStatsPath = `playerStats/${playerKey}/lastMatch/${room}`;
+        
+        const playerMatchStats = {
+          room: room,
+          matchData: {
+            firstInnings: {
+              batterStats: filteredBatterStats,
+              bowlerStats: filteredBowlerStats,
+              totalRuns: matchData.firstInnings.totalRuns,
+              totalWickets: matchData.firstInnings.totalWickets
+            },
+            secondInnings: matchData.secondInnings ? {
+              totalRuns: matchData.secondInnings.totalRuns,
+              totalWickets: matchData.secondInnings.totalWickets
+            } : null,
+            winner: matchData.winner,
+            winningMargin: matchData.winningMargin,
+            playerOfTheMatch: matchData.playerOfTheMatch,
+            timestamp: Date.now()
+          },
+          savedAt: Date.now()
         };
         
-        await set(lastMatchRef, playerStatsData);
+        await set(ref(db, playerStatsPath), playerMatchStats);
         
         // Increment matches count using transaction
-        const matchesCountRef = ref(db, `playerStats/${player}/matchesCount`);
+        const matchesCountRef = ref(db, `playerStats/${playerKey}/matchesCount`);
         await runTransaction(matchesCountRef, (currentCount) => {
           return (currentCount || 0) + 1;
         });
@@ -3092,6 +3091,9 @@
       } catch (error) {
         console.error("Error saving player stats:", error);
         showNotification("Failed to save player stats", 'error');
+        resultEl.innerText = "Error saving player stats";
+      } finally {
+        enableButtons();
       }
     }
 
@@ -3181,16 +3183,12 @@
       document.getElementById('summaryTitle').textContent = "Match Result";
       document.getElementById('summaryHighlight').textContent = `${winnerName} won the match by ${winningMargin}!`;
       document.getElementById('startSecondInningsBtn').style.display = 'none';
-      document.getElementById('savePlayerStatsBtn').style.display = 'block';
-      
-      // Set up save player stats button
-      savePlayerStatsBtn.onclick = savePlayerStats;
       
       // Calculate run rates
       const firstInningsRR = (firstInningsData.totalRuns / (firstInningsData.balls / 6)).toFixed(2);
       const secondInningsRR = (runs / (legalBalls / 6)).toFixed(2);
       
-      // Update stats tables
+      // Update stats tables with filtering
       updateStatsTables();
       
       // Update summary content
@@ -3268,7 +3266,7 @@
         }
       }
       
-      // Add save match button
+      // Add save match button AND save my player stats button
       const saveMatchBtn = document.createElement('button');
       saveMatchBtn.textContent = '💾 Save Match Data & Return Home';
       saveMatchBtn.style.marginTop = '10px';
@@ -3277,6 +3275,17 @@
         window.location.href = 'index.html';
       });
       summaryContent.appendChild(saveMatchBtn);
+      
+      // Add "Save My Player Stats" button
+      const saveMyStatsBtn = document.createElement('button');
+      saveMyStatsBtn.textContent = '📊 Save My Player Stats';
+      saveMyStatsBtn.style.marginTop = '10px';
+      saveMyStatsBtn.style.width = '100%';
+      saveMyStatsBtn.style.background = '#9C27B0';
+      saveMyStatsBtn.addEventListener('click', async () => {
+        await saveMyPlayerStats(matchData);
+      });
+      summaryContent.appendChild(saveMyStatsBtn);
       
       // Show popup
       summaryPopup.style.display = 'block';
@@ -3576,6 +3585,53 @@
       });
     }
 
+    // Hydrate game state from Firebase
+    async function hydrateGameState() {
+      try {
+        const matchStatsSnap = await get(matchStatsRef);
+        if (matchStatsSnap.exists()) {
+          const matchStats = matchStatsSnap.val();
+          
+          // Restore core game state
+          runs = matchStats.runs || 0;
+          wickets = matchStats.wickets || 0;
+          legalBalls = matchStats.legalBalls || 0;
+          batterStats = matchStats.batterStats || {};
+          bowlerStats = matchStats.bowlerStats || {};
+          ballByBall = matchStats.ballByBall || {};
+          fallOfWickets = matchStats.fallOfWickets || [];
+          firstInningsCompleted = matchStats.firstInningsCompleted || false;
+          secondInningsStarted = matchStats.secondInningsStarted || false;
+          target = matchStats.target || 0;
+          chasingTeam = matchStats.chasingTeam || null;
+          
+          // Restore derived state
+          if (currentBatter && batterStats[currentBatter]) {
+            batterWickets[currentBatter] = batterStats[currentBatter].wicketsUsed || 0;
+          }
+          
+          // Update bowler overs count
+          for (const bowler in bowlerStats) {
+            if (bowlerStats[bowler].balls > 0) {
+              bowlerOvers[bowler] = bowlerStats[bowler].overs || 0;
+            }
+          }
+          
+          console.log("Game state hydrated from Firebase:", {
+            runs, wickets, legalBalls, 
+            firstInningsCompleted, secondInningsStarted,
+            target, chasingTeam
+          });
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Error hydrating game state:", error);
+        return false;
+      }
+    }
+
     // Initialize the game
     async function initGame() {
       try {
@@ -3661,10 +3717,19 @@
           }
         }
 
+        // === CRITICAL: Hydrate game state from Firebase after loading teams ===
+        console.log("Hydrating game state from Firebase...");
+        const hydrated = await hydrateGameState();
+        if (hydrated) {
+          console.log("Game state successfully hydrated");
+          // Update all displays with hydrated state
+          updateAllDisplays();
+        }
+
         // Set game format
         formatDisplay.innerText = `${currentFormat.name}`;
         
-        // Initialize stats
+        // Initialize stats (will merge with hydrated stats)
         initializeBatterStats();
         initializeBowlerStats();
 
@@ -3695,9 +3760,9 @@
         // Setup second innings button
         startSecondInningsBtn.addEventListener('click', startSecondInnings);
 
-        // Initial UI update with hydrated state
+        // Initial UI update
         updateAllDisplays();
-        resultEl.innerText = "Game ready!";
+        resultEl.innerText = hydrated ? "Game resumed successfully!" : "Game ready!";
         loadingSpinner.style.display = "none";
       } catch (error) {
         console.error("Initialization failed:", error);
