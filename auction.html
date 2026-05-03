@@ -11,15 +11,12 @@
       box-sizing: border-box;
       font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
-
     body {
       background: #0b1120;
       color: #eef2ff;
       padding: 16px;
       min-height: 100vh;
     }
-
-    /* GLASS CARD MODERN */
     .glass-card {
       background: rgba(15, 25, 45, 0.7);
       backdrop-filter: blur(12px);
@@ -29,7 +26,6 @@
       padding: 1.5rem;
       transition: 0.2s;
     }
-
     .btn {
       border: none;
       padding: 10px 20px;
@@ -42,7 +38,6 @@
       color: white;
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
-
     .btn-primary { background: #2c7da0; }
     .btn-success { background: #2b7a3e; }
     .btn-warning { background: #e67e22; }
@@ -50,19 +45,9 @@
     .btn-gold { background: #f5bc42; color: #0f172a; font-weight: bold; }
     .btn-outline { background: transparent; border: 1px solid #f5bc42; color: #f5bc42; }
     .btn-sm { padding: 6px 12px; font-size: 0.7rem; }
-
-    .section {
-      display: none;
-      animation: fadeIn 0.25s ease;
-    }
+    .section { display: none; animation: fadeIn 0.25s ease; }
     .section.active { display: block; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-
-    /* top bar */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
     .top-bar {
       display: flex;
       justify-content: space-between;
@@ -75,7 +60,6 @@
       border-radius: 80px;
       backdrop-filter: blur(8px);
     }
-
     .badge {
       background: #2c3e50;
       border-radius: 40px;
@@ -83,7 +67,6 @@
       font-size: 0.75rem;
       font-weight: 500;
     }
-
     .player-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -92,7 +75,6 @@
       overflow-y: auto;
       padding: 8px 4px;
     }
-
     .player-card {
       background: #11212e;
       border-radius: 1.2rem;
@@ -103,49 +85,337 @@
     }
     .player-card.selected { border: 2px solid #ffc107; background: #1f3f55; }
     .player-card.captain { border: 2px solid #ff9f00; background: #2f2a1a; }
-
-    .bid-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin: 15px 0;
-    }
-    .timer-big {
-      font-family: monospace;
-      font-size: 2.5rem;
-      font-weight: bold;
-      background: #00000055;
-      display: inline-block;
-      padding: 4px 18px;
-      border-radius: 60px;
-      letter-spacing: 4px;
-      color: #ffdd88;
-    }
+    .bid-group { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 15px 0; }
+    .timer-big { font-family: monospace; font-size: 2.5rem; font-weight: bold; background: #00000055; display: inline-block; padding: 4px 18px; border-radius: 60px; letter-spacing: 4px; color: #ffdd88; }
     .toast-msg {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1a2f3e;
-      backdrop-filter: blur(16px);
-      padding: 10px 22px;
-      border-radius: 60px;
-      display: none;
-      z-index: 999;
-      border-left: 5px solid #ffb347;
-      font-weight: 500;
-      white-space: nowrap;
-      max-width: 90vw;
-      white-space: normal;
-      text-align: center;
-      font-size: 0.85rem;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #1a2f3e; backdrop-filter: blur(16px); padding: 10px 22px; border-radius: 60px;
+      display: none; z-index: 999; border-left: 5px solid #ffb347; font-weight: 500;
+      max-width: 90vw; text-align: center; font-size: 0.85rem;
     }
-    input, select, textarea {
-      background: #0f1f2c;
-      border: 1px solid #2c7da0;
-      border-radius: 40px;
-      padding: 10px 16px;
+    input, select, textarea { background: #0f1f2c; border: 1px solid #2c7da0; border-radius: 40px; padding: 10px 16px; color: white; width: 100%; font-size: 0.85rem; }
+    hr { border-color: #2c5a74; margin: 12px 0; }
+    .room-code-display { background: #00000066; padding: 10px; border-radius: 60px; font-family: monospace; font-size: 1.6rem; letter-spacing: 4px; text-align: center; }
+    @media (max-width: 640px) { .player-grid { grid-template-columns: 1fr; } .top-bar { flex-direction: column; align-items: stretch; text-align: center; } }
+  </style>
+</head>
+<body>
+<div class="container" style="max-width: 1400px; margin: 0 auto;">
+  <div class="top-bar">
+    <div>🏏 <strong id="teamNameDisplay">Team</strong> <span class="badge" id="roleBadge">PLAYER</span></div>
+    <div>💰 Budget: <strong id="globalBudget">₹0 Cr</strong> | 🎫 RTM: <span id="globalRtm">0</span></div>
+    <div>🔄 <span id="modeLabel">MEGA AUCTION</span></div>
+  </div>
+
+  <div id="lobbySection" class="section active">
+    <div class="glass-card">
+      <h2>🔐 IPL AUCTION ROOM</h2>
+      <p>Enter room code to join live auction or create room as admin</p>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <input type="text" id="joinRoomInput" placeholder="4-digit code" maxlength="4" style="flex:2;">
+        <button id="joinRoomBtn" class="btn btn-primary">🔗 Join Room</button>
+        <button id="showAdminCreateBtn" class="btn btn-gold">👑 Admin Create Room</button>
+      </div>
+      <div id="adminCreatePanel" style="display: none; margin-top: 24px;">
+        <hr><h3>⚡ Admin Auction Setup</h3>
+        <select id="auctionTypeSelect">
+          <option value="mega">🏆 MEGA AUCTION (Retain up to 6, Captain ₹4Cr)</option>
+          <option value="mini">🔄 MINI AUCTION (Release players → cashback + open auction)</option>
+        </select>
+        <button id="createRoomFinalBtn" class="btn btn-success">🚀 Create & Launch Room</button>
+        <div id="createdRoomInfo" style="margin-top: 18px; display:none;">
+          <div class="room-code-display">🔑 CODE: <strong id="roomCodeValue">----</strong> <button id="copyRoomCodeBtn" class="btn btn-sm btn-outline">Copy</button></div>
+          <button id="loadFullPlayerDatabaseBtn" class="btn btn-warning">📋 Load 300+ IPL Players + Team Rosters</button>
+          <button id="startAuctionNowBtn" class="btn btn-gold" style="margin-top: 16px; width:100%;">▶️ START AUCTION NOW</button>
+          <div id="poolStatusBadge" class="badge" style="margin-top: 8px;">📦 Pool: 0 players</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="retentionPhaseSection" class="section">
+    <div class="glass-card">
+      <h2>📌 RETAIN / RELEASE PLAYERS</h2>
+      <div id="retentionModeDesc" class="badge" style="margin: 12px 0;"></div>
+      <div class="player-grid" id="retentionPlayersGrid"></div>
+      <div style="background:#0f1e2b; margin-top: 16px; border-radius: 1.5rem; padding: 16px;">
+        <p>👑 Captain: <strong id="captainPickSpan">None</strong></p>
+        <p>🔒 Retention count: <span id="retainCountSpan">0</span> / <span id="maxRetainSpan">6</span></p>
+        <p>💸 Total retention cost: <span id="retentionCostSpan">₹0 Cr</span> | Remaining budget: <span id="remainingBudgetSpan">₹150 Cr</span></p>
+        <p>🎴 RTM cards earned: <span id="rtmEarnedSpan">0</span></p>
+        <button id="confirmRetentionFinalBtn" class="btn btn-success">✅ Confirm & Enter Auction Lobby</button>
+        <button id="skipRetentionBtn" class="btn btn-outline" style="margin-left: 8px;">⏩ Skip (No retention)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="auctionLiveSection" class="section">
+    <div class="glass-card">
+      <div id="auctionNotStartedMsg" style="display:none;">⏳ Admin will start the auction soon...</div>
+      <div id="liveAuctionContent" style="display:none;">
+        <div class="glass-card" style="text-align: center; margin-bottom: 20px;">
+          <h2 id="currentPlayerName">---</h2>
+          <span class="badge" id="currentPlayerRole">Role</span>
+          <p>Base Price: <strong id="basePriceSpan">₹0 Cr</strong></p>
+          <div class="timer-big" id="timerLive">30s</div>
+          <div>💰 Highest Bid: <span id="highestBidSpan">No bid</span> by <span id="highestBidderSpan">-</span></div>
+          <div class="bid-group">
+            <button class="btn btn-primary inc-bid" data-inc="0.25">+0.25 Cr</button>
+            <button class="btn btn-primary inc-bid" data-inc="0.5">+0.5 Cr</button>
+            <button class="btn btn-primary inc-bid" data-inc="1">+1 Cr</button>
+            <button class="btn btn-warning" id="passBidBtn">⏸️ Pass</button>
+            <button class="btn btn-danger" id="withdrawBidBtn">🚫 Withdraw (no more bids)</button>
+            <button class="btn btn-gold" id="rtmActionBtn" style="display:none;">🃏 RTM Card</button>
+          </div>
+          <div id="bidHistoryMini" style="font-size:12px; max-height:70px; overflow-y:auto;"></div>
+        </div>
+        <div id="adminControlsLive" style="display:none; gap:12px; justify-content:center; margin:12px 0; flex-wrap:wrap;">
+          <button id="adminSellBtn" class="btn btn-danger">💰 Sell to highest bidder</button>
+          <button id="adminSkipPlayerBtn" class="btn btn-warning">⏭️ Skip (Unsold)</button>
+          <button id="adminNextPlayerBtn" class="btn btn-success">⏩ Next Player</button>
+        </div>
+        <div class="glass-card">
+          <h3>🏠 YOUR SQUAD (<span id="squadCount">0</span>/25)</h3>
+          <ul id="liveSquadList" style="max-height:150px; overflow-y:auto;"></ul>
+          <p>💰 <span id="liveBudgetVal">₹0 Cr</span> | 🎫 RTM: <span id="liveRtmVal">0</span> | 🚪 <button id="leaveAuctionBtn" class="btn btn-sm btn-outline">Leave / Spectate</button></p>
+        </div>
+        <div class="glass-card"><h3>👥 OTHER TEAMS</h3><div id="otherTeamsLive"></div></div>
+      </div>
+      <button id="exitAuctionBtn" class="btn btn-outline" style="margin-top: 16px;">← Exit to Lobby</button>
+    </div>
+  </div>
+</div>
+<div class="toast-msg" id="toastMsg"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+  import { getDatabase, ref, set, update, get, onValue, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD8kSmj_HRdxfKZhYUYq_H0A1r2C5VN5cA",
+    authDomain: "handicricket-392da.firebaseapp.com",
+    databaseURL: "https://handicricket-392da-default-rtdb.firebaseio.com",
+    projectId: "handicricket-392da",
+    storageBucket: "handicricket-392da.firebasestorage.app",
+    messagingSenderId: "398034348468",
+    appId: "1:398034348468:web:d1a61a4d5b586a4dd22ae1"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const username = localStorage.getItem('hc_username');
+  const team = localStorage.getItem('hc_team');
+  if (!username || !team) window.location.href = 'index.html';
+  const isAdmin = (username === 'imved169');
+
+  let currentRoomCode = null, auctionFormat = 'mega', originalSquad = [], selectedCaptain = null, selectedRetainPlayers = [], maxRetain = 6, captainPriceVal = 4, otherPriceVal = 2;
+  let currentAuctionData = null, timerInterval = null, withdrawnTeams = new Set();
+  let isSpectator = false;
+
+  // -------- FULL PLAYER POOL (including all 8 team rosters + 300+ base) --------
+  function buildCompletePlayerPool() {
+    const rawPlayers = [
+      // CSK
+      "Ruturaj Gaikwad,Batter,0.5","MS Dhoni,Wicketkeeper,0.5","Dewald Brevis,Batter,0.5","Akash Madhwal,Bowler,0.5","Urvil Patel,Wicketkeeper,0.5","Anshul Kamboj,All-Rounder,0.5","Jamie Overton,Bowler,0.5","Ramakrishna Ghosh,All-Rounder,0.5","Shivam Dube,All-Rounder,0.5","Khaleel Ahmed,Bowler,0.5","Noor Ahmad,Bowler,0.5","Mukesh Choudhary,Bowler,0.5","Spencer Johnson,Bowler,0.5","Shreyas Gopal,Bowler,0.5","Gurjapneet Singh,Bowler,0.5","Sanju Samson,Wicketkeeper,0.5","Akeal Hosein,Bowler,0.5","Prashant Veer,All-Rounder,0.5","Kartik Sharma,Wicketkeeper,0.5","Matthew Short,All-Rounder,0.5","Aman Khan,All-Rounder,0.5","Sarfaraz Khan,Batter,0.5","Rahul Chahar,Bowler,0.5","Matt Henry,Bowler,0.5","Zak Foulkes,All-Rounder,0.5",
+      // DC
+      "KL Rahul,Wicketkeeper,0.5","Karun Nair,Batter,0.5","Abishek Porel,Wicketkeeper,0.5","Tristan Stubbs,Batter,0.5","Axar Patel,All-Rounder,0.5","Sameer Rizvi,Batter,0.5","Ashutosh Sharma,Batter,0.5","Vipraj Nigam,All-Rounder,0.5","Ajay Mandal,All-Rounder,0.5","Tripurana Vijay,All-Rounder,0.5","Madhav Tiwari,All-Rounder,0.5","Mitchell Starc,Bowler,0.5","T. Natarajan,Bowler,0.5","Mukesh Kumar,Bowler,0.5","Dushmantha Chameera,Bowler,0.5","Kuldeep Yadav,Bowler,0.5","Nitish Rana,Batter,0.5","Auqib Dar,All-Rounder,0.5","Rehan Ahmed,Bowler,0.5","David Miller,Batter,0.5","Pathum Nissanka,Batter,0.5","Lungi Ngidi,Bowler,0.5","Sahil Parakh,Batter,0.5","Prithvi Shaw,Batter,0.5","Kyle Jamieson,Bowler,0.5",
+      // GT
+      "Shubman Gill,Batter,0.5","Sai Sudharsan,Batter,0.5","Kumar Kushagra,Wicketkeeper,0.5","Anuj Rawat,Wicketkeeper,0.5","Jos Buttler,Wicketkeeper,0.5","Nishant Sindhu,All-Rounder,0.5","Glenn Phillips,All-Rounder,0.5","Washington Sundar,All-Rounder,0.5","Arshad Khan,Bowler,0.5","Shahrukh Khan,Batter,0.5","Rahul Tewatia,All-Rounder,0.5","Kagiso Rabada,Bowler,0.5","Mohammed Siraj,Bowler,0.5","Prasidh Krishna,Bowler,0.5","Ishant Sharma,Bowler,0.5","Gurnoor Singh Brar,Bowler,0.5","Rashid Khan,Bowler,0.5","Manav Suthar,Bowler,0.5","Sai Kishore,Bowler,0.5","Jayant Yadav,Bowler,0.5","Ashok Sharma,Bowler,0.5","Jason Holder,All-Rounder,0.5","Connor Esterhuizen,Wicketkeeper,0.5","Luke Wood,Bowler,0.5","Kulwant Khejroliya,Bowler,0.5",
+      // KKR
+      "Ajinkya Rahane,Batter,0.5","Rinku Singh,Batter,0.5","Angkrish Raghuvanshi,Batter,0.5","Manish Pandey,Batter,0.5","Rovman Powell,All-Rounder,0.5","Anukul Roy,All-Rounder,0.5","Ramandeep Singh,Batter,0.5","Vaibhav Arora,Bowler,0.5","Sunil Narine,All-Rounder,0.5","Varun Chakaravarthy,Bowler,0.5","Navdeep Saini,Bowler,0.5","Umran Malik,Bowler,0.5","Cameron Green,All-Rounder,0.5","Matheesha Pathirana,Bowler,0.5","Finn Allen,Wicketkeeper,0.5","Tejasvi Singh,Wicketkeeper,0.5","Prashant Solanki,Bowler,0.5","Kartik Tyagi,Bowler,0.5","Rahul Tripathi,Batter,0.5","Tim Seifert,Wicketkeeper,0.5","Sarthak Ranjan,All-Rounder,0.5","Daksh Kamra,All-Rounder,0.5","Saurabh Dubey,Bowler,0.5","Rachin Ravindra,All-Rounder,0.5","Blessing Muzarabani,Bowler,0.5",
+      // LSG
+      "Rishabh Pant,Wicketkeeper,0.5","Ayush Badoni,All-Rounder,0.5","Abdul Samad,Batter,0.5","Aiden Markram,Batter,0.5","Himmat Singh,Batter,0.5","Matthew Breetzke,Batter,0.5","Nicholas Pooran,Wicketkeeper,0.5","Mitchell Marsh,Batter,0.5","Shahbaz Ahmad,All-Rounder,0.5","Arshin Kulkarni,All-Rounder,0.5","Mayank Yadav,Bowler,0.5","Avesh Khan,Bowler,0.5","Mohsin Khan,Bowler,0.5","M. Siddharth,Bowler,0.5","Digvesh Rathi,Bowler,0.5","Prince Yadav,Bowler,0.5","Akash Singh,Bowler,0.5","Arjun Tendulkar,Bowler,0.5","Mohammed Shami,Bowler,0.5","Anrich Nortje,Bowler,0.5","George Linde,All-Rounder,0.5","Mukul Choudhary,Wicketkeeper,0.5","Naman Tiwari,All-Rounder,0.5","Akshat Raghuwanshi,Batter,0.5","Josh Inglis,Batter,0.5",
+      // MI
+      "Rohit Sharma,Batter,0.5","Surya Kumar Yadav,Batter,0.5","Robin Minz,Wicketkeeper,0.5","Ryan Rickelton,Wicketkeeper,0.5","Tilak Varma,Batter,0.5","Hardik Pandya,All-Rounder,0.5","Naman Dhir,All-Rounder,0.5","Keshav Maharaj,Bowler,0.5","Will Jacks,All-Rounder,0.5","Corbin Bosch,All-Rounder,0.5","Raj Bawa,All-Rounder,0.5","Trent Boult,Bowler,0.5","Jasprit Bumrah,Bowler,0.5","Deepak Chahar,Bowler,0.5","Ashwani Kumar,Bowler,0.5","Raghu Sharma,Bowler,0.5","Allah Ghazanfar,Bowler,0.5","Mayank Markande,Bowler,0.5","Shardul Thakur,All-Rounder,0.5","Sherfane Rutherford,Batter,0.5","Quinton De Kock,Wicketkeeper,0.5","Krish Bhagat,Bowler,0.5","Mohammad Izhar,Bowler,0.5","Danish Malewar,Batter,0.5","Mayank Rawat,All-Rounder,0.5",
+      // PBKS
+      "Shreyas Iyer,Batter,0.5","Nehal Wadhera,Batter,0.5","Vishnu Vinod,Wicketkeeper,0.5","Harnoor Pannu,Batter,0.5","Pyla Avinash,Batter,0.5","Prabhsimran Singh,Wicketkeeper,0.5","Shashank Singh,Batter,0.5","Marcus Stoinis,All-Rounder,0.5","Harpreet Brar,All-Rounder,0.5","Marco Jansen,All-Rounder,0.5","Azmatullah Omarzai,All-Rounder,0.5","Priyansh Arya,All-Rounder,0.5","Musheer Khan,All-Rounder,0.5","Suryansh Shedge,All-Rounder,0.5","Mitch Owen,All-Rounder,0.5","Arshdeep Singh,Bowler,0.5","Yuzvendra Chahal,Bowler,0.5","Vyshak Vijaykumar,Bowler,0.5","Yash Thakur,Bowler,0.5","Xavier Bartlett,Bowler,0.5","Lockie Ferguson,Bowler,0.5","Cooper Connolly,All-Rounder,0.5","Ben Dwarshuis,All-Rounder,0.5","Vishal Nishad,Bowler,0.5","Pravin Dubey,Bowler,0.5",
+      // RR
+      "Shubham Dubey,Batter,0.5","Vaibhav Sooryavanshi,Batter,0.5","Lhuan-dre Pretorius,Batter,0.5","Shimron Hetmyer,Batter,0.5","Yashasvi Jaiswal,Batter,0.5","Dhruv Jurel,Wicketkeeper,0.5","Riyan Parag,Batter,0.5","Yudhvir Singh Charak,All-Rounder,0.5","Jofra Archer,Bowler,0.5","Tushar Deshpande,Bowler,0.5","Sandeep Sharma,Bowler,0.5","Kwena Maphaka,Bowler,0.5","Nandre Burger,Bowler,0.5","Ravindra Jadeja,All-Rounder,0.5","Dasun Shanaka,All-Rounder,0.5","Donovan Ferreira,Wicketkeeper,0.5","Ravi Bishnoi,Bowler,0.5","Sushant Mishra,Bowler,0.5","Vignesh Puthur,Bowler,0.5","Yash Raj Punja,Bowler,0.5","Ravi Singh,Wicketkeeper,0.5","Brijesh Sharma,Bowler,0.5","Aman Rao,Batter,0.5","Adam Milne,Bowler,0.5","Kuldeep Sen,Bowler,0.5",
+      // SRH
+      "Travis Head,Batter,0.5","Abhishek Sharma,All-Rounder,0.5","Aniket Verma,Batter,0.5","R Smaran,Batter,0.5","Ishan Kishan,Wicketkeeper,0.5","Heinrich Klaasen,Wicketkeeper,0.5","Nitish Kumar Reddy,All-Rounder,0.5","Harsh Dubey,All-Rounder,0.5","Kamindu Mendis,All-Rounder,0.5","Harshal Patel,All-Rounder,0.5","Dilshan Madushanka,Bowler,0.5","Pat Cummins,Bowler,0.5","Jaydev Unadkat,Bowler,0.5","Eshan Malinga,Bowler,0.5","Zeeshan Ansari,Bowler,0.5","Shivang Kumar,All-Rounder,0.5","Salil Arora,Wicketkeeper,0.5","Krains Fuletra,Bowler,0.5","Praful Hinge,Bowler,0.5","Amit Kumar,Bowler,0.5","Onkar Tarmale,Bowler,0.5","Sakib Hussain,Bowler,0.5","Liam Livingstone,All-Rounder,0.5","RS Ambrish,All-Rounder,0.5","Gerald Coetzee,Bowler,0.5"
+    ];
+    const unique = new Map();
+    for (const line of rawPlayers) {
+      const [n, r] = line.split(',');
+      const key = n.toLowerCase().replace(/\s/g,'_');
+      if (!unique.has(key)) unique.set(key, { name: n, role: r, basePrice: 0.5 });
+    }
+    return Array.from(unique.values());
+  }
+
+  async function loadFullPlayerPoolToRoom() {
+    if (!currentRoomCode) return;
+    const players = buildCompletePlayerPool();
+    const updates = {};
+    for (const p of players) {
+      const key = p.name.toLowerCase().replace(/\s/g,'_');
+      updates[`auctions/${currentRoomCode}/playerPool/${key}`] = { ...p, status: 'available', basePrice: 0.5 };
+    }
+    await update(ref(db), updates);
+    showToast(`Loaded ${players.length} players (all rosters + base).`);
+    document.getElementById('poolStatusBadge').innerHTML = `📦 Pool: ${players.length} players ready.`;
+  }
+
+  // Role order: Batter -> Wicketkeeper -> All-Rounder -> Bowler
+  const roleOrder = { "Batter": 1, "Wicketkeeper": 2, "All-Rounder": 3, "Bowler": 4 };
+  async function getNextOrderedPlayer(roomCode) {
+    const snap = await get(ref(db, `auctions/${roomCode}/playerPool`));
+    const pool = snap.val() || {};
+    const available = Object.values(pool).filter(p => p.status === 'available');
+    if (available.length === 0) return null;
+    available.sort((a,b) => (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99));
+    return available[0];
+  }
+
+  async function autoNextPlayer() {
+    const next = await getNextOrderedPlayer(currentRoomCode);
+    if (!next) { await update(ref(db, `auctions/${currentRoomCode}`), { auctionComplete: true }); showToast("Auction complete! All players sold/unsold."); return; }
+    await update(ref(db, `auctions/${currentRoomCode}`), { currentPlayer: next, currentBid: null, currentBidder: null, timer: 30, bidHistory: [], withdrawnTeams: [] });
+  }
+
+  document.getElementById('showAdminCreateBtn').onclick = () => { if(isAdmin) document.getElementById('adminCreatePanel').style.display = 'block'; else showToast("Admin only",true); };
+  document.getElementById('createRoomFinalBtn').onclick = async () => {
+    if(!isAdmin) return;
+    auctionFormat = document.getElementById('auctionTypeSelect').value;
+    currentRoomCode = Math.floor(1000+Math.random()*9000).toString();
+    await set(ref(db, `auctions/${currentRoomCode}`), { admin: username, status: 'setup', auctionType: auctionFormat, teams: { [team]: { name:team, budget:150, rtmCards:0, squad:[], withdrawn:false } }, playerPool: {}, currentPlayer: null, withdrawnTeams: [], auctionComplete: false });
+    document.getElementById('createdRoomInfo').style.display = 'block';
+    document.getElementById('roomCodeValue').innerText = currentRoomCode;
+    showToast(`Room ${currentRoomCode} created. Load players now.`);
+  };
+  document.getElementById('loadFullPlayerDatabaseBtn').onclick = loadFullPlayerPoolToRoom;
+  document.getElementById('startAuctionNowBtn').onclick = async () => {
+    if(!currentRoomCode) return;
+    const pool = await get(ref(db, `auctions/${currentRoomCode}/playerPool`));
+    if(!pool.val() || Object.keys(pool.val()).length===0) { showToast("Load players first", true); return; }
+    await update(ref(db, `auctions/${currentRoomCode}`), { status: 'live', currentPlayer: null });
+    showToast("Auction LIVE! Join via room code.");
+    // Check if user has squad for retention
+    const snapUser = await get(ref(db, `users/${username}`));
+    if(snapUser.exists() && snapUser.val().players && snapUser.val().players.length) originalSquad = snapUser.val().players;
+    if(originalSquad.length) { lobbySection.classList.remove('active'); retentionPhase.classList.add('active'); setRetentionLimits(); renderRetentionGrid(); }
+    else { lobbySection.classList.remove('active'); auctionLiveSection.classList.add('active'); attachRoomListener(); }
+  };
+  document.getElementById('joinRoomBtn').onclick = async () => {
+    const code = document.getElementById('joinRoomInput').value.trim();
+    if(!code) return;
+    const snap = await get(ref(db, `auctions/${code}`));
+    if(!snap.exists()) { showToast("Room not found",true); return; }
+    currentRoomCode = code;
+    auctionFormat = snap.val().auctionType;
+    document.getElementById('modeLabel').innerText = auctionFormat.toUpperCase();
+    const userSnap = await get(ref(db, `users/${username}`));
+    if(userSnap.exists() && userSnap.val().players) originalSquad = userSnap.val().players;
+    if(originalSquad.length){ lobbySection.classList.remove('active'); retentionPhase.classList.add('active'); setRetentionLimits(); renderRetentionGrid(); }
+    else { lobbySection.classList.remove('active'); auctionLiveSection.classList.add('active'); attachRoomListener(); }
+    await update(ref(db, `auctions/${currentRoomCode}/teams/${team}`), { name:team, budget:150, rtmCards:0, squad:[], withdrawn:false });
+  };
+  function setRetentionLimits() { maxRetain=6; captainPriceVal= (auctionFormat==='mega'?4:3); otherPriceVal=(auctionFormat==='mega'?2:1.5); document.getElementById('maxRetainSpan').innerText=maxRetain; document.getElementById('retentionModeDesc').innerHTML= auctionFormat==='mega'?"🏆 MEGA: Keep up to 6 (Captain ₹4Cr, others ₹2Cr)": "⚡ MINI: Release players → full cashback. Select to RETAIN (cost applies)"; }
+  async function renderRetentionGrid() { /* minimal interactive version */ const grid=document.getElementById('retentionPlayersGrid'); grid.innerHTML=''; originalSquad.forEach(p=>{ let div=document.createElement('div'); div.className='player-card'; if(selectedCaptain===p) div.classList.add('captain'); if(selectedRetainPlayers.includes(p)) div.classList.add('selected'); div.innerHTML=`<strong>${p}</strong><div><button class="btn btn-gold btn-sm set-capt">👑 Captain</button>${auctionFormat==='mini'?`<button class="btn btn-warning btn-sm release-btn">🗑️ Release</button>`:''}</div>`; grid.appendChild(div); }); computeRetentionSummaryLocal(); }
+  async function finalizeRetentionAndGoToLobby(){ /* same logic */ await update(ref(db, `users/${username}`), { budget:150-((selectedCaptain?captainPriceVal:0)+(selectedRetainPlayers.length*otherPriceVal)), rtmCards: (auctionFormat==='mega'?maxRetain-(selectedRetainPlayers.length+(selectedCaptain?1:0)):0) }); lobbySection.classList.remove('active'); retentionPhase.classList.remove('active'); auctionLiveSection.classList.add('active'); attachRoomListener(); }
+  document.getElementById('skipRetentionBtn').onclick = async () => { await update(ref(db, `users/${username}`), { budget:150, rtmCards:0 }); lobbySection.classList.remove('active'); retentionPhase.classList.remove('active'); auctionLiveSection.classList.add('active'); attachRoomListener(); };
+  document.getElementById('confirmRetentionFinalBtn').onclick = finalizeRetentionAndGoToLobby;
+
+  async function attachRoomListener() {
+    onValue(ref(db, `auctions/${currentRoomCode}`), async (snap) => {
+      const data = snap.val();
+      if(!data) return;
+      currentAuctionData = data;
+      const myTeam = data.teams?.[team] || { budget:150, squad:[], rtmCards:0 };
+      if(myTeam.squad?.length >= 25 && !isSpectator){ showToast("Squad full! You are now spectator.",false); isSpectator=true; }
+      if(data.status === 'live' && !data.auctionComplete){
+        document.getElementById('liveAuctionContent').style.display = 'block';
+        document.getElementById('auctionNotStartedMsg').style.display = 'none';
+        updateLiveAuctionUI(data);
+        if(isAdmin) document.getElementById('adminControlsLive').style.display = 'flex';
+        else document.getElementById('adminControlsLive').style.display = 'none';
+        if(isSpectator) document.querySelectorAll('.inc-bid, #passBidBtn, #withdrawBidBtn, #rtmActionBtn').forEach(btn => btn.disabled = true);
+        else document.querySelectorAll('.inc-bid, #passBidBtn, #withdrawBidBtn, #rtmActionBtn').forEach(btn => btn.disabled = false);
+      } else { document.getElementById('auctionNotStartedMsg').style.display = 'block'; document.getElementById('liveAuctionContent').style.display = 'none'; }
+      updateSidebarTeams(data.teams);
+    });
+  }
+  function updateLiveAuctionUI(data){
+    const cp = data.currentPlayer;
+    if(!cp) return;
+    document.getElementById('currentPlayerName').innerText = cp.name;
+    document.getElementById('currentPlayerRole').innerText = cp.role;
+    document.getElementById('basePriceSpan').innerHTML = `₹${cp.basePrice.toFixed(2)} Cr`;
+    const bid = data.currentBid || cp.basePrice;
+    document.getElementById('highestBidSpan').innerHTML = `₹${bid.toFixed(2)} Cr`;
+    document.getElementById('highestBidderSpan').innerHTML = data.currentBidder || '-';
+    document.getElementById('timerLive').innerHTML = `${data.timer || 30}s`;
+    const myTeam = data.teams?.[team];
+    const rtmElig = (myTeam?.rtmCards > 0 && originalSquad.includes(cp.name));
+    document.getElementById('rtmActionBtn').style.display = rtmElig && !isSpectator ? 'inline-flex' : 'none';
+    document.getElementById('bidHistoryMini').innerHTML = (data.bidHistory||[]).slice(-4).reverse().map(b=>`💰 ${b.team} ₹${b.amount?.toFixed(2)}Cr`).join('');
+  }
+  async function updateSidebarTeams(teams){
+    if(!teams) return;
+    const my = teams[team] || { budget:150, squad:[], rtmCards:0 };
+    document.getElementById('liveBudgetVal').innerHTML = `₹${my.budget?.toFixed(2)} Cr`;
+    document.getElementById('liveRtmVal').innerHTML = my.rtmCards;
+    document.getElementById('squadCount').innerHTML = my.squad?.length || 0;
+    document.getElementById('liveSquadList').innerHTML = (my.squad || []).map(p=>`<li>${p.name} (₹${p.price?.toFixed(2)}Cr)</li>`).join('');
+    const otherDiv = document.getElementById('otherTeamsLive');
+    otherDiv.innerHTML = '';
+    for(let [t,td] of Object.entries(teams)) if(t!==team) otherDiv.innerHTML += `<div class="badge" style="margin:4px;">${t} | ₹${td.budget?.toFixed(2)}Cr | ${td.squad?.length} players</div>`;
+  }
+  document.querySelectorAll('.inc-bid').forEach(btn => btn.addEventListener('click', async () => {
+    if(isSpectator || !currentAuctionData?.currentPlayer) return;
+    const inc = parseFloat(btn.dataset.inc);
+    const cur = currentAuctionData.currentBid || currentAuctionData.currentPlayer.basePrice;
+    const newBid = Math.round((cur+inc)*100)/100;
+    const myTeam = currentAuctionData.teams?.[team];
+    if(!myTeam || newBid > myTeam.budget) { showToast("Budget exceed", true); return; }
+    await push(ref(db, `auctions/${currentRoomCode}/bidHistory`), { team, amount: newBid });
+    await update(ref(db, `auctions/${currentRoomCode}`), { currentBid: newBid, currentBidder: team, timer: 30 });
+  }));
+  document.getElementById('passBidBtn')?.addEventListener('click', () => showToast("You passed this player"));
+  document.getElementById('withdrawBidBtn')?.addEventListener('click', async () => {
+    if(isSpectator) return;
+    let withdrawn = currentAuctionData.withdrawnTeams || [];
+    if(!withdrawn.includes(team)) withdrawn.push(team);
+    await update(ref(db, `auctions/${currentRoomCode}`), { withdrawnTeams: withdrawn });
+    showToast("You withdrew from further bidding on this player");
+  });
+  document.getElementById('adminSellBtn')?.addEventListener('click', async () => {
+    if(!isAdmin) return;
+    const winner = currentAuctionData.currentBidder;
+    const amount = currentAuctionData.currentBid;
+    if(!winner) { await update(ref(db, `auctions/${currentRoomCode}/playerPool/${currentAuctionData.currentPlayer.name.toLowerCase().replace(/\s/g,'_')}`), { status:'unsold' }); await update(ref(db, `auctions/${currentRoomCode}`), { currentPlayer:null }); autoNextPlayer(); return; }
+    const winRef = ref(db, `auctions/${currentRoomCode}/teams/${winner}`);
+    const winData = (await get(winRef)).val();
+    const newSquad = [...(winData.squad || []), { name: currentAuctionData.currentPlayer.name, role: currentAuctionData.currentPlayer.role, price: amount }];
+    await update(winRef, { squad: newSquad, budget: winData.budget - amount });
+    await update(ref(db, `auctions/${currentRoomCode}/playerPool/${currentAuctionData.currentPlayer.name.toLowerCase().replace(/\s/g,'_')}`), { status:'sold' });
+    await update(ref(db, `auctions/${currentRoomCode}`), { currentPlayer: null, currentBid: null, withdrawnTeams: [] });
+    autoNextPlayer();
+  });
+  document.getElementById('adminSkipPlayerBtn')?.addEventListener('click', async () => {
+    if(!isAdmin) return;
+    await update(ref(db, `auctions/${currentRoomCode}/playerPool/${currentAuctionData.currentPlayer.name.toLowerCase().replace(/\s/g,'_')}`), { status:'unsold' });
+    await update(ref(db, `auctions/${currentRoomCode}`), { currentPlayer: null, currentBid: null, withdrawnTeams: [] });
+    autoNextPlayer();
+  });
+  document.getElementById('adminNextPlayerBtn')?.addEventListener('click', () => { if(isAdmin && !currentAuctionData?.currentPlayer) autoNextPlayer(); else showToast("Finish current or skip first",true); });
+  document.getElementById('leaveAuctionBtn')?.addEventListener('click', async () => {
+    const myTeam = currentAuctionData?.teams?.[team];
+    if(myTeam && myTeam.squad) await update(ref(db, `users/${username}`), { players: myTeam.squad.map(p=>p.name) });
+    showToast("Squad saved. Moving to spectator.");
+    isSpectator = true;
+    window.location.reload();
+  });
+  document.getElementById('exitAuctionBtn')?.addEventListener('click', () => window.location.reload());
+  document.getElementById('copyRoomCodeBtn')?.addEventListener('click', () => { if(currentRoomCode) navigator.clipboard.writeText(currentRoomCode); showToast("Copied"); });
+
+  teamNameDisplay.innerText = team;
+  roleBadge.innerText = isAdmin ? "ADMIN" : "PLAYER";
+  globalBudgetSpan.innerText = "₹150 Cr";
+  globalRtmSpan.innerText = "0";
+  function showToast(msg, err=false){ const t=document.getElementById('toastMsg'); t.textContent=msg; t.style.display='block'; t.style.background=err?'#ac2c1ecc':'#1f5e3acc'; setTimeout(()=>t.style.display='none',2800); }
+</script>
+</body>
+</html>      padding: 10px 16px;
       color: white;
       width: 100%;
       font-size: 0.85rem;
