@@ -1784,6 +1784,36 @@
                             <span>${oppTeam}: <span class="ms-score">${t2}</span></span>
                         </div>`;
                 }
+
+                // Determine button state for unplayed matches
+                let actionHtml = '';
+                if (m.winner) {
+                    actionHtml = `<div class="match-result">🏆 ${m.winner} won</div>${scoreHtml}`;
+                } else if (m.status === 'in progress') {
+                    actionHtml = `<div class="match-result" style="color:var(--orange);">🎮 Match in progress…</div>`;
+                } else if (m.status === 'waiting for opponent') {
+                    // Check if THIS user already clicked Play (connected) or needs to click
+                    actionHtml = `
+                        <div class="match-result" style="color:var(--orange);">⏳ Opponent hasn't clicked Play yet</div>
+                        <div class="card-actions">
+                            <button class="btn btn-warning btn-sm play-series-match-btn"
+                                data-series="${sid}" data-match="${mid}" data-format="${fmt}"
+                                data-roomcode="${m.roomCode || ''}">
+                                <i class="fas fa-hourglass-half"></i> Waiting — Click to Rejoin
+                            </button>
+                        </div>`;
+                } else {
+                    // scheduled — neither player has clicked yet
+                    actionHtml = `
+                        <div class="card-actions">
+                            <button class="btn btn-success btn-sm play-series-match-btn"
+                                data-series="${sid}" data-match="${mid}" data-format="${fmt}"
+                                data-roomcode="${m.roomCode || ''}">
+                                <i class="fas fa-play"></i> Play Match ${m.matchNumber || ''}
+                            </button>
+                        </div>`;
+                }
+
                 matchesHtml += `
                     <div class="match-item">
                         <div class="match-vs">
@@ -1791,17 +1821,8 @@
                             <span class="vs">vs</span>
                             <span>${oppTeam}</span>
                         </div>
-                        <p style="font-size:0.75rem;color:var(--text-dim);">${getFormatName(fmt)}</p>
-                        ${m.winner
-                            ? `<div class="match-result">🏆 ${m.winner} won${scoreHtml ? '' : ''}</div>${scoreHtml}`
-                            : m.status === 'waiting for opponent'
-                                ? `<div class="match-result" style="color:var(--orange);">⏳ Waiting for opponent to join…</div>`
-                                : `<div class="card-actions">
-                                    <button class="btn btn-success btn-sm play-series-match-btn" data-series="${sid}" data-match="${mid}" data-format="${fmt}">
-                                        <i class="fas fa-play"></i> Play Match
-                                    </button>
-                                   </div>`
-                        }
+                        <p style="font-size:0.75rem;color:var(--text-dim);">Match ${m.matchNumber || ''} · ${getFormatName(fmt)}</p>
+                        ${actionHtml}
                     </div>
                 `;
             });
@@ -2514,6 +2535,38 @@
     }
 
     // ───────── Series ─────────
+
+    // Generates match stubs WITH pre-assigned room codes.
+    // Also writes each room to Firebase so both players can join by role.
+    async function generateSeriesMatchesWithRooms(format, creator, creatorTeam, opp, oppTeam, matchFmt) {
+        const n = parseInt(format);
+        const matches = {};
+        const roomWrites = [];
+        for (let i = 1; i <= n; i++) {
+            const roomCode = generateRoomCode() + i; // unique per match
+            const matchId  = `match${i}`;
+            matches[matchId] = {
+                player1: creator, player2: opp,
+                format: matchFmt, status: 'scheduled',
+                winner: null, roomCode,
+                matchNumber: i
+            };
+            // Pre-create the room in Firebase with both player slots and series metadata
+            roomWrites.push(set(ref(db, `rooms/${roomCode}`), {
+                player1: { username: creator, team: creatorTeam, connected: false },
+                player2: { username: opp,     team: oppTeam,     connected: false },
+                format: matchFmt,
+                status: 'series_waiting',   // special status: both need to click Play
+                seriesCreator: creator,
+                seriesOpponent: opp,
+                matchId, matchNumber: i,
+                createdAt: Date.now()
+            }));
+        }
+        await Promise.all(roomWrites);
+        return matches;
+    }
+
     async function createSeries() {
         const name     = document.getElementById('seriesName').value.trim();
         const format   = document.getElementById('seriesFormat').value;
@@ -2530,76 +2583,163 @@
             setBtnState(createSeriesBtn, true, 'Sending…');
             const oppSnap = await get(ref(db, `users/${opp}`));
             const oppData = oppSnap.val();
+            const oppTeam = oppData?.team || opp;
 
+            // Pre-generate all match room codes NOW
+            const matches = await generateSeriesMatchesWithRooms(format, username, team, opp, oppTeam, matchFmt);
+
+            // Send series invite to opponent (include the pre-built matches so they get the same room codes)
             const inviteRef = push(ref(db, `seriesInvites/${opp}`));
             await set(inviteRef, {
                 from: username, team, seriesName: name,
-                format, matchFormat: matchFmt, responded: false, timestamp: Date.now()
+                format, matchFormat: matchFmt,
+                matches,           // ← send match data (with room codes) in the invite
+                responded: false, timestamp: Date.now()
             });
 
-            // Add to creator's series immediately with status pending
+            // Add to creator's series with status Pending Acceptance
             const userSeriesRef = push(ref(db, `users/${username}/series`));
             await set(userSeriesRef, {
-                name, format, matchFormat: matchFmt, opponent: opp,
-                opponentTeam: oppData?.team || opp,
-                userScore: 0, opponentScore: 0, status: 'Pending Acceptance',
-                matches: generateSeriesMatches(format, username, opp, matchFmt)
+                name, format, matchFormat: matchFmt,
+                opponent: opp, opponentTeam: oppTeam,
+                userScore: 0, opponentScore: 0,
+                status: 'Pending Acceptance',
+                creatorUsername: username,   // mark who is player1 in all rooms
+                matches
             });
 
             document.getElementById('seriesName').value = '';
             showMsg(msgEl, 'success', `Invitation sent to ${opp}!`);
         } catch (e) {
+            console.error(e);
             showMsg(msgEl, 'error', 'Failed to send series invitation');
         } finally {
             setBtnState(createSeriesBtn, false, '<i class="fas fa-paper-plane"></i> Send Series Invitation');
         }
     }
 
-    function generateSeriesMatches(format, p1, p2, matchFmt) {
-        const n = parseInt(format);
-        const m = {};
-        for (let i = 1; i <= n; i++) {
-            m[`match${i}`] = { player1: p1, player2: p2, format: matchFmt, status: 'scheduled', winner: null };
+    // Called when opponent accepts — mirrors the creator's matches exactly (same room codes)
+    function showSeriesInviteNotification(invite, inviteId) {
+        const username = localStorage.getItem('hc_username');
+        const team     = localStorage.getItem('hc_team');
+        if (confirm(`${invite.from} (${invite.team}) invited you to a ${invite.format}-match series: "${invite.seriesName}". Accept?`)) {
+            update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: true });
+
+            // Opponent's series entry — SAME room codes as creator, opponent is player2 in every room
+            const acceptorMatches = {};
+            if (invite.matches) {
+                Object.entries(invite.matches).forEach(([mid, m]) => {
+                    acceptorMatches[mid] = { ...m }; // identical match data incl. roomCode
+                });
+            }
+
+            const userRef = push(ref(db, `users/${username}/series`));
+            set(userRef, {
+                name: invite.seriesName, format: invite.format,
+                matchFormat: invite.matchFormat || '20',
+                opponent: invite.from, opponentTeam: invite.team,
+                userScore: 0, opponentScore: 0,
+                status: 'In Progress',
+                creatorUsername: invite.from,  // creator is player1
+                isAcceptor: true,
+                matches: acceptorMatches
+            });
+
+            // Update creator's series: Pending Acceptance → In Progress
+            get(ref(db, `users/${invite.from}/series`)).then(snap => {
+                if (!snap.exists()) return;
+                const allSeries = snap.val();
+                const pendingKey = Object.keys(allSeries).find(k => {
+                    const s = allSeries[k];
+                    return s.name === invite.seriesName && s.opponent === username && s.status === 'Pending Acceptance';
+                });
+                if (pendingKey) {
+                    update(ref(db, `users/${invite.from}/series/${pendingKey}`), { status: 'In Progress' });
+                }
+            });
+        } else {
+            update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: false });
+            // Remove creator's pending entry since declined
+            get(ref(db, `users/${invite.from}/series`)).then(snap => {
+                if (!snap.exists()) return;
+                const allSeries = snap.val();
+                const pendingKey = Object.keys(allSeries).find(k => {
+                    const s = allSeries[k];
+                    return s.name === invite.seriesName && s.opponent === username && s.status === 'Pending Acceptance';
+                });
+                if (pendingKey) remove(ref(db, `users/${invite.from}/series/${pendingKey}`));
+            });
         }
-        return m;
     }
 
+    // Play a series match — uses the PRE-ASSIGNED room code, joins as player1 or player2 by role
     async function playSeriesMatch(seriesId, matchId, matchFormat = '20') {
         const username = localStorage.getItem('hc_username');
         const team     = localStorage.getItem('hc_team');
         try {
             const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
             if (!snap.exists()) { showMessage('error', 'Series not found'); return; }
-            const s   = snap.val();
-            const opp = s.opponent;
+            const s        = snap.val();
+            const matchData = s.matches?.[matchId];
+            if (!matchData) { showMessage('error', 'Match not found'); return; }
 
-            const roomCode = generateRoomCode();
-            const roomData = {
-                player1: { username, team, connected: true },
-                player2: null, format: matchFormat,
-                status: 'waiting', seriesId, matchId, createdAt: Date.now()
-            };
-            await set(ref(db, `rooms/${roomCode}`), roomData);
-            await sendRoomInvite(opp, roomCode);
+            const roomCode = matchData.roomCode;
+            if (!roomCode) { showMessage('error', 'No room code for this match'); return; }
+
+            // Determine role: creator is always player1, acceptor is always player2
+            const isCreator = (s.creatorUsername === username);
+            const role      = isCreator ? 'player1' : 'player2';
+
+            // Mark this player as connected in the pre-created room
+            await update(ref(db, `rooms/${roomCode}/${role}`), { connected: true });
+
+            // Update match status in OWN series node
             await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                roomCode, status: 'waiting for opponent'
+                status: 'waiting for opponent'
             });
-            await update(ref(db, `users/${opp}/series`), {}); // trigger reload on opponent
 
-            showMessage('success', `Room created: ${roomCode}. Invite sent to ${opp}.`);
-            setupSeriesRoomListener(roomCode, username, seriesId, matchId);
+            // Also update the OPPONENT's series node so their UI refreshes instantly
+            const opp = s.opponent;
+            const oppSnap = await get(ref(db, `users/${opp}/series`));
+            if (oppSnap.exists()) {
+                const oppSeries = oppSnap.val();
+                const oppKey = Object.keys(oppSeries).find(k => {
+                    const os = oppSeries[k];
+                    return os.name === s.name && os.opponent === username;
+                });
+                if (oppKey) {
+                    await update(ref(db, `users/${opp}/series/${oppKey}/matches/${matchId}`), {
+                        status: 'waiting for opponent'
+                    });
+                }
+            }
+
+            showMessage('success', `Waiting for ${opp} to click Play Match…`);
+
+            // Listen for when BOTH players are connected → redirect to toss
+            setupSeriesRoomListener(roomCode, username, seriesId, matchId, role, team, matchFormat);
+
         } catch (e) {
-            showMessage('error', 'Failed to create match room');
+            console.error(e);
+            showMessage('error', 'Failed to start match');
         }
     }
 
-    function setupSeriesRoomListener(roomCode, username, seriesId, matchId) {
-        const listener = onValue(ref(db, `rooms/${roomCode}`), snap => {
+    // Listens to the pre-created room; when both players are connected, redirect to toss
+    function setupSeriesRoomListener(roomCode, username, seriesId, matchId, role, team, matchFormat) {
+        const roomRef = ref(db, `rooms/${roomCode}`);
+        const unsub = onValue(roomRef, snap => {
             const d = snap.val();
-            if (d && d.player2) {
+            if (!d) return;
+            const p1Connected = d.player1?.connected === true;
+            const p2Connected = d.player2?.connected === true;
+
+            if (p1Connected && p2Connected) {
+                unsub(); // stop listening
+                // Update match status to 'in progress' in both series nodes
                 update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), { status: 'in progress' });
-                listener();
-                setTimeout(() => redirectToToss(roomCode, 'player1', d.player1.team, d.format), 1500);
+                // Room is ready — go to toss
+                setTimeout(() => redirectToToss(roomCode, role, team, matchFormat), 800);
             }
         });
     }
