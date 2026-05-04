@@ -432,7 +432,109 @@
       letter-spacing: 0.5px;
     }
 
-    /* Responsive */
+    /* ── Fetch Data Button ── */
+    .fetch-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .fetch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #4caf50, #2e7d32);
+      color: white;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 3px 10px rgba(76,175,80,0.3);
+    }
+    .fetch-btn:hover { background: linear-gradient(135deg, #66bb6a, #388e3c); transform: translateY(-1px); }
+    .fetch-btn:active { transform: translateY(0); }
+    .fetch-btn:disabled { background: #37474f; box-shadow: none; cursor: not-allowed; transform: none; }
+    .fetch-btn .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+    .fetch-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .fetch-status.ok { color: #81c784; font-style: normal; }
+    .fetch-status.err { color: #e57373; font-style: normal; }
+
+    /* ── Live Match Panel ── */
+    #liveMatchPanel {
+      display: none;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(76,175,80,0.35);
+      overflow: hidden;
+      background: rgba(0,0,0,0.25);
+    }
+    .lmp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: rgba(76,175,80,0.15);
+      border-bottom: 1px solid rgba(76,175,80,0.25);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #81c784;
+      letter-spacing: 0.5px;
+    }
+    .lmp-body {
+      padding: 14px 16px;
+    }
+    .lmp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .lmp-match {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 12px;
+    }
+    .lmp-match-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .lmp-row { display: flex; justify-content: space-between; margin: 3px 0; color: var(--text-muted); }
+    .lmp-row strong { color: white; }
+    .lmp-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(30,136,229,0.25);
+      color: #90caf9;
+      margin-top: 4px;
+    }
+    .lmp-badge.win { background: rgba(76,175,80,0.25); color: #81c784; }
+    .lmp-empty {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* ── Responsive ── */
     @media (max-width: 700px) {
       table.lb { font-size: 12px; }
       table.lb th, table.lb td { padding: 8px 7px; }
@@ -460,6 +562,25 @@
     <button class="format-btn" data-format="T10">T10</button>
     <button class="format-btn" data-format="T20">T20</button>
     <button class="format-btn" data-format="ODI">ODI</button>
+  </div>
+
+  <!-- Fetch Data bar -->
+  <div class="fetch-bar">
+    <button class="fetch-btn" id="fetchDataBtn">
+      <i class="fas fa-sync-alt"></i> Fetch Data
+    </button>
+    <span class="fetch-status" id="fetchStatus">Pull latest stats &amp; match results from Firebase</span>
+  </div>
+
+  <!-- Live Match Stats Panel (shown after fetch) -->
+  <div id="liveMatchPanel">
+    <div class="lmp-header">
+      <span><i class="fas fa-database"></i> &nbsp;Live Firebase Snapshot</span>
+      <span id="lmpTimestamp" style="font-size:11px;font-weight:400;color:var(--text-muted)"></span>
+    </div>
+    <div class="lmp-body">
+      <div class="lmp-grid" id="lmpMatchGrid"></div>
+    </div>
   </div>
 
   <!-- Tabs -->
@@ -1367,6 +1488,143 @@
 
   // ── Initial load ──
   loadPlayerRankings();
+
+  // ================================================================
+  // FETCH DATA BUTTON — live Firebase snapshot
+  // ================================================================
+  const fetchBtn    = document.getElementById('fetchDataBtn');
+  const fetchStatus = document.getElementById('fetchStatus');
+  const livePanel   = document.getElementById('liveMatchPanel');
+  const lmpGrid     = document.getElementById('lmpMatchGrid');
+  const lmpTs       = document.getElementById('lmpTimestamp');
+
+  fetchBtn.addEventListener('click', fetchLiveData);
+
+  async function fetchLiveData() {
+    fetchBtn.disabled = true;
+    fetchBtn.innerHTML = '<i class="fas fa-sync-alt spin"></i> Fetching…';
+    fetchStatus.className = 'fetch-status';
+    fetchStatus.textContent = 'Connecting to Firebase…';
+    livePanel.style.display = 'none';
+
+    try {
+      // Force fresh pull — bypass cache
+      dataLoaded = false;
+      allCareerStats = {};
+      allMatchResults = {};
+      allPlayersIndex = [];
+
+      // Parallel fetch of career stats + match results
+      const [careerSnap, matchSnap, cmSnap] = await Promise.all([
+        get(ref(db, 'stats/T5/playerCareerStats')),
+        get(ref(db, 'stats/T5/matchResults')),
+        get(ref(db, 'stats/T5/completedMatches'))
+      ]);
+
+      allCareerStats = careerSnap.exists() ? careerSnap.val() : {};
+
+      const rawMatches = [];
+      if (matchSnap.exists())  Object.values(matchSnap.val()).forEach(m => rawMatches.push(m));
+      else if (cmSnap.exists()) Object.values(cmSnap.val()).forEach(m => rawMatches.push(m));
+
+      rawMatches.forEach(m => {
+        const key = m.room || ((m.team1Name||m.team1||'') + '_' + (m.team2Name||m.team2||''));
+        allMatchResults[key] = m;
+      });
+
+      allPlayersIndex = Object.entries(allCareerStats).map(([key, d]) => ({
+        key,
+        name: key.replace(/_/g, ' '),
+        matches: d.matches || 0,
+        runs: d.runs || 0,
+        wickets: d.wickets || 0
+      }));
+      dataLoaded = true;
+
+      // ── Render live panel ──
+      const now = new Date();
+      lmpTs.textContent = 'Fetched at ' + now.toLocaleTimeString();
+
+      const matchList = Object.values(allMatchResults);
+
+      if (matchList.length === 0 && Object.keys(allCareerStats).length === 0) {
+        lmpGrid.innerHTML = `<div class="lmp-empty"><i class="fas fa-inbox" style="font-size:2rem;opacity:0.3;margin-bottom:8px;display:block"></i>No match data found in Firebase yet.</div>`;
+      } else {
+        // Sort matches newest first
+        matchList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        lmpGrid.innerHTML = '';
+
+        // Summary card — overall numbers
+        const totalPlayers = Object.keys(allCareerStats).length;
+        const totalMatches = matchList.length;
+        const totalRuns    = Object.values(allCareerStats).reduce((s, d) => s + (d.runs || 0), 0);
+        const totalWkts    = Object.values(allCareerStats).reduce((s, d) => s + (d.wickets || 0), 0);
+
+        const summaryCard = document.createElement('div');
+        summaryCard.className = 'lmp-match';
+        summaryCard.innerHTML = `
+          <div class="lmp-match-title"><i class="fas fa-chart-bar"></i> &nbsp;Database Summary</div>
+          <div class="lmp-row"><span>Total Players</span><strong>${totalPlayers}</strong></div>
+          <div class="lmp-row"><span>Total Matches</span><strong>${totalMatches}</strong></div>
+          <div class="lmp-row"><span>Total Runs Scored</span><strong>${totalRuns.toLocaleString()}</strong></div>
+          <div class="lmp-row"><span>Total Wickets</span><strong>${totalWkts}</strong></div>
+        `;
+        lmpGrid.appendChild(summaryCard);
+
+        // One card per match result
+        matchList.slice(0, 20).forEach(m => {
+          const team1 = m.team1Name || m.team1 || 'Team 1';
+          const team2 = m.team2Name || m.team2 || 'Team 2';
+          const winner = m.winnerName || m.winner || '—';
+          const margin = m.winningMargin || '—';
+          const fmt    = m.format || 'T5';
+          const date   = m.timestamp ? new Date(m.timestamp).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
+
+          const fi = m.firstInnings;
+          const si = m.secondInnings;
+          const fiScore  = fi ? `${fi.totalRuns}/${fi.totalWickets}` : '—';
+          const siScore  = si ? `${si.totalRuns}/${si.totalWickets}` : '—';
+          const fiBalls  = fi ? `${Math.floor((fi.balls||0)/6)}.${(fi.balls||0)%6} ov` : '';
+          const siBalls  = si ? `${Math.floor((si.balls||0)/6)}.${(si.balls||0)%6} ov` : '';
+          const pom      = m.playerOfTheMatch || '—';
+
+          const card = document.createElement('div');
+          card.className = 'lmp-match';
+          card.innerHTML = `
+            <div class="lmp-match-title">${team1} vs ${team2}</div>
+            <div class="lmp-row"><span>1st Innings</span><strong>${fiScore} ${fiBalls}</strong></div>
+            <div class="lmp-row"><span>2nd Innings</span><strong>${siScore} ${siBalls}</strong></div>
+            <div class="lmp-row"><span>Winner</span><strong>${winner}</strong></div>
+            <div class="lmp-row"><span>Margin</span><strong>${margin}</strong></div>
+            <div class="lmp-row"><span>⭐ POM</span><strong>${pom}</strong></div>
+            <div style="margin-top:6px">
+              <span class="lmp-badge">${fmt}</span>
+              <span class="lmp-badge win">${date}</span>
+            </div>
+          `;
+          lmpGrid.appendChild(card);
+        });
+      }
+
+      livePanel.style.display = 'block';
+
+      // Refresh whichever leaderboard tab is active
+      const activeTab = document.querySelector('.tab.active');
+      if (activeTab && activeTab.dataset.tab !== 'search') dispatchTab(activeTab.dataset.tab);
+
+      fetchStatus.className = 'fetch-status ok';
+      fetchStatus.textContent = `✓ Data refreshed — ${Object.keys(allCareerStats).length} players, ${Object.values(allMatchResults).length} matches`;
+
+    } catch (err) {
+      console.error('Fetch failed:', err);
+      fetchStatus.className = 'fetch-status err';
+      fetchStatus.textContent = '✗ Fetch failed: ' + err.message;
+    } finally {
+      fetchBtn.disabled = false;
+      fetchBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Fetch Data';
+    }
+  }
 </script>
 </body>
 </html>
