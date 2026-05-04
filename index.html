@@ -782,6 +782,70 @@
 
         .login-header p { font-size:0.82rem; color:var(--text-dim); margin-top:4px; }
 
+        /* ===== SERIES WINNER POPUP ===== */
+        .series-winner-overlay {
+            position:fixed; inset:0; z-index:9999;
+            background:rgba(0,0,0,0.75);
+            display:flex; align-items:center; justify-content:center;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        .series-winner-modal {
+            background: var(--bg-card);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 36px 32px;
+            max-width: 360px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(245,197,24,0.3);
+            animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes popIn { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+
+        .series-winner-trophy { font-size:3.5rem; margin-bottom:12px; }
+        .series-winner-title {
+            font-family:'Rajdhani',sans-serif;
+            font-size:1.6rem; font-weight:700;
+            color:var(--gold); margin-bottom:6px;
+        }
+        .series-winner-subtitle { font-size:0.9rem; color:var(--text-dim); margin-bottom:22px; }
+        .series-winner-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+        /* ===== SERIES HISTORY CARD ===== */
+        .series-history-card {
+            background:rgba(0,0,0,0.28);
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:14px 16px;
+            margin-bottom:10px;
+        }
+        .series-history-card.won  { border-color:rgba(34,197,94,0.4); }
+        .series-history-card.lost { border-color:rgba(239,68,68,0.4); }
+        .series-history-card h4 {
+            font-family:'Rajdhani',sans-serif;
+            font-size:1rem; color:var(--gold); margin-bottom:6px;
+        }
+        .series-history-card .result-badge {
+            display:inline-block;
+            padding:2px 10px; border-radius:20px;
+            font-size:0.72rem; font-weight:700; letter-spacing:1px;
+        }
+        .series-history-card .result-badge.won  { background:rgba(34,197,94,0.15); color:var(--green); }
+        .series-history-card .result-badge.lost { background:rgba(239,68,68,0.15); color:var(--red); }
+
+        /* ===== MATCH SCORE ROW ===== */
+        .match-score-row {
+            display:flex; justify-content:space-between;
+            align-items:center; margin-top:6px;
+            font-size:0.78rem; color:var(--text-dim);
+        }
+        .match-score-row .ms-score {
+            font-family:'Rajdhani',sans-serif;
+            font-size:1rem; font-weight:700; color:var(--accent);
+        }
+
         /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar { width:5px; height:5px; }
         ::-webkit-scrollbar-track { background:transparent; }
@@ -983,6 +1047,33 @@
                     <div class="win-rate-track">
                         <div class="win-rate-fill" id="winRateFill" style="width:0%"></div>
                     </div>
+                </div>
+
+                <!-- Series Stats -->
+                <div class="sec-title" style="margin-top:22px;"><i class="fas fa-flag"></i> Series Record</div>
+                <div class="stats-bar" id="seriesStatsBar">
+                    <div class="stat-card sc-blue">
+                        <div class="stat-val" id="seriesTotal">0</div>
+                        <div class="stat-lbl">Series Played</div>
+                    </div>
+                    <div class="stat-card sc-green">
+                        <div class="stat-val" id="seriesWins">0</div>
+                        <div class="stat-lbl">Series Won</div>
+                    </div>
+                    <div class="stat-card sc-red">
+                        <div class="stat-val" id="seriesLosses">0</div>
+                        <div class="stat-lbl">Series Lost</div>
+                    </div>
+                    <div class="stat-card sc-gold">
+                        <div class="stat-val" id="seriesWinPct">0%</div>
+                        <div class="stat-lbl">Series Win Rate</div>
+                    </div>
+                </div>
+
+                <!-- Series History -->
+                <div class="sec-title" style="margin-top:22px;"><i class="fas fa-history"></i> Series History</div>
+                <div id="seriesHistoryList">
+                    <div class="empty-state"><i class="fas fa-archive"></i>No completed series yet</div>
                 </div>
             </div>
 
@@ -1318,6 +1409,7 @@
             setupOngoingGamesListener(savedUsername);
             setupTournamentsListener(savedUsername);
             setupSeriesListener(savedUsername);
+            setupSeriesStatsListener(savedUsername);
         }
     }
 
@@ -1666,43 +1758,96 @@
         const userTeam  = localStorage.getItem('hc_team');
 
         Object.entries(series).forEach(([sid, s]) => {
+            if (s.status === 'History') return; // skip archived series from active list
+
             const oppTeam = s.opponentTeam || s.opponent;
             const uScore  = s.userScore    || 0;
             const oScore  = s.opponentScore|| 0;
+            const totalMatches = parseInt(s.format) || 1;
+            const matchFmt = s.matchFormat || '20';
+
+            // Count completed matches
+            const matchEntries = s.matches ? Object.entries(s.matches) : [];
+            const completedMatches = matchEntries.filter(([,m]) => m.winner).length;
+            const allDone = completedMatches >= totalMatches;
 
             let matchesHtml = '';
-            if (s.matches) {
-                Object.entries(s.matches).forEach(([mid, m]) => {
-                    const fmt = m.format || s.matchFormat || '20';
-                    matchesHtml += `
-                        <div class="match-item">
-                            <div class="match-vs">
-                                <span>${userTeam}</span>
-                                <span class="vs">vs</span>
-                                <span>${oppTeam}</span>
-                            </div>
-                            <p style="font-size:0.75rem;color:var(--text-dim);">${getFormatName(fmt)}</p>
-                            ${m.winner
-                                ? `<div class="match-result">🏆 Winner: ${m.winner}</div>`
-                                : m.status === 'waiting for opponent'
-                                    ? `<div class="match-result" style="color:var(--orange);">⏳ Waiting for opponent to join…</div>`
-                                    : `<div class="card-actions">
-                                        <button class="btn btn-success btn-sm play-series-match-btn" data-series="${sid}" data-match="${mid}" data-format="${fmt}">
-                                            <i class="fas fa-play"></i> Play Match
-                                        </button>
-                                       </div>`
-                            }
+            matchEntries.forEach(([mid, m]) => {
+                const fmt = m.format || matchFmt;
+                let scoreHtml = '';
+                if (m.winner && (m.team1Score !== undefined || m.team2Score !== undefined)) {
+                    const t1 = m.team1Score !== undefined ? m.team1Score : '—';
+                    const t2 = m.team2Score !== undefined ? m.team2Score : '—';
+                    scoreHtml = `
+                        <div class="match-score-row">
+                            <span>${userTeam}: <span class="ms-score">${t1}</span></span>
+                            <span>${oppTeam}: <span class="ms-score">${t2}</span></span>
+                        </div>`;
+                }
+                matchesHtml += `
+                    <div class="match-item">
+                        <div class="match-vs">
+                            <span>${userTeam}</span>
+                            <span class="vs">vs</span>
+                            <span>${oppTeam}</span>
                         </div>
-                    `;
-                });
+                        <p style="font-size:0.75rem;color:var(--text-dim);">${getFormatName(fmt)}</p>
+                        ${m.winner
+                            ? `<div class="match-result">🏆 ${m.winner} won${scoreHtml ? '' : ''}</div>${scoreHtml}`
+                            : m.status === 'waiting for opponent'
+                                ? `<div class="match-result" style="color:var(--orange);">⏳ Waiting for opponent to join…</div>`
+                                : `<div class="card-actions">
+                                    <button class="btn btn-success btn-sm play-series-match-btn" data-series="${sid}" data-match="${mid}" data-format="${fmt}">
+                                        <i class="fas fa-play"></i> Play Match
+                                    </button>
+                                   </div>`
+                        }
+                    </div>
+                `;
+            });
+
+            // Series winner detection
+            let seriesWinnerBanner = '';
+            let moveToHistoryBtn = '';
+            if (allDone && s.status !== 'History') {
+                const seriesWinner = uScore > oScore ? userTeam : oScore > uScore ? oppTeam : null;
+                const isDraw = !seriesWinner;
+                seriesWinnerBanner = `
+                    <div style="margin:10px 0;padding:12px;border-radius:10px;text-align:center;
+                        background:${isDraw ? 'rgba(107,138,170,0.15)' : 'rgba(245,197,24,0.1)'};
+                        border:1px solid ${isDraw ? 'rgba(107,138,170,0.3)' : 'rgba(245,197,24,0.4)'};">
+                        <div style="font-size:1.4rem;">${isDraw ? '🤝' : '🏆'}</div>
+                        <div style="font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;color:${isDraw ? 'var(--text-dim)' : 'var(--gold)'};">
+                            ${isDraw ? 'Series Drawn!' : `${seriesWinner} won the series!`}
+                        </div>
+                        <div style="font-size:0.78rem;color:var(--text-dim);">${uScore} — ${oScore}</div>
+                    </div>`;
+                // Show "Move to History" button only for T5 format
+                if (matchFmt === '5') {
+                    moveToHistoryBtn = `
+                        <button class="btn btn-warning btn-sm move-to-history-btn" data-series="${sid}"
+                            style="width:100%;margin-top:8px;">
+                            <i class="fas fa-archive"></i> Move Series to History
+                        </button>`;
+                }
+                // Auto-show winner popup once per series (use sessionStorage to avoid repeat)
+                const popupKey = `seriesPopup_${sid}`;
+                if (!sessionStorage.getItem(popupKey)) {
+                    sessionStorage.setItem(popupKey, '1');
+                    setTimeout(() => showSeriesWinnerPopup(seriesWinner, isDraw, userTeam, oppTeam, uScore, oScore, sid, matchFmt), 600);
+                }
             }
 
             const el = document.createElement('div');
             el.className = 'card';
             el.innerHTML = `
-                <h4>${s.name}</h4>
+                <h4>${s.name}
+                    <span style="font-size:0.72rem;font-weight:400;color:${s.status==='Pending Acceptance'?'var(--orange)':'var(--green)'};margin-left:8px;">
+                        ${s.status}
+                    </span>
+                </h4>
                 <p><i class="fas fa-users" style="color:var(--accent);"></i> vs ${s.opponent} (${oppTeam})</p>
-                <p><i class="fas fa-info-circle" style="color:var(--text-muted);"></i> ${s.format} matches · ${getFormatName(s.matchFormat || '20')}</p>
+                <p><i class="fas fa-info-circle" style="color:var(--text-muted);"></i> ${s.format} matches · ${getFormatName(matchFmt)}</p>
                 <div class="score-band">
                     <div>
                         <div class="score-team">${userTeam}</div>
@@ -1714,10 +1859,12 @@
                         <div class="score-team">${oppTeam}</div>
                     </div>
                 </div>
+                ${seriesWinnerBanner}
                 ${matchesHtml}
-                <div class="card-actions" style="margin-top:10px;">
+                <div class="card-actions" style="margin-top:10px;flex-direction:column;gap:6px;">
+                    ${moveToHistoryBtn}
                     <button class="btn btn-danger btn-sm delete-series-btn" data-series="${sid}">
-                        <i class="fas fa-trash"></i> Delete
+                        <i class="fas fa-trash"></i> Delete Series
                     </button>
                 </div>
             `;
@@ -1732,6 +1879,160 @@
                 if (confirm('Delete this series?')) deleteSeries(b.dataset.series);
             });
         });
+        document.querySelectorAll('.move-to-history-btn').forEach(b => {
+            b.addEventListener('click', () => moveSeriestoHistory(b.dataset.series));
+        });
+    }
+
+    // ───────── Series Winner Popup ─────────
+    function showSeriesWinnerPopup(winner, isDraw, userTeam, oppTeam, uScore, oScore, seriesId, matchFmt) {
+        const overlay = document.createElement('div');
+        overlay.className = 'series-winner-overlay';
+        overlay.id = 'seriesWinnerOverlay';
+        overlay.innerHTML = `
+            <div class="series-winner-modal">
+                <div class="series-winner-trophy">${isDraw ? '🤝' : '🏆'}</div>
+                <div class="series-winner-title">${isDraw ? 'Series Drawn!' : `${winner} wins!`}</div>
+                <div class="series-winner-subtitle">
+                    ${isDraw
+                        ? `${userTeam} ${uScore} — ${oScore} ${oppTeam}`
+                        : `${winner} has won the series ${uScore > oScore ? uScore + '–' + oScore : oScore + '–' + uScore}`
+                    }
+                </div>
+                <div class="series-winner-actions">
+                    ${matchFmt === '5' ? `
+                    <button class="btn btn-warning btn-sm" onclick="document.getElementById('seriesWinnerOverlay').remove();document.querySelector('.move-to-history-btn[data-series=\\'${seriesId}\\']')?.click();">
+                        <i class="fas fa-archive"></i> Move to History
+                    </button>` : ''}
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('seriesWinnerOverlay').remove();">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    // ───────── Move Series to History ─────────
+    async function moveSeriestoHistory(seriesId) {
+        const username = localStorage.getItem('hc_username');
+        const userTeam = localStorage.getItem('hc_team');
+        try {
+            const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
+            if (!snap.exists()) return;
+            const s = snap.val();
+            const uScore = s.userScore || 0;
+            const oScore = s.opponentScore || 0;
+            const seriesWon = uScore > oScore;
+            const isDraw = uScore === oScore;
+            const result = isDraw ? 'draw' : seriesWon ? 'won' : 'lost';
+
+            // Save to series history in stats
+            const historyEntry = {
+                name: s.name,
+                format: s.format,
+                matchFormat: s.matchFormat,
+                opponent: s.opponent,
+                opponentTeam: s.opponentTeam,
+                userScore: uScore,
+                opponentScore: oScore,
+                result,
+                completedAt: Date.now()
+            };
+            await push(ref(db, `seriesHistory/${username}`), historyEntry);
+
+            // Update series stats counter
+            const statsSnap = await get(ref(db, `stats/${username}`));
+            const currentStats = statsSnap.val() || {};
+            const sPlayed = (currentStats.seriesPlayed || 0) + 1;
+            const sWins   = (currentStats.seriesWins   || 0) + (seriesWon ? 1 : 0);
+            const sLosses = (currentStats.seriesLosses || 0) + (!seriesWon && !isDraw ? 1 : 0);
+            await update(ref(db, `stats/${username}`), { seriesPlayed: sPlayed, seriesWins: sWins, seriesLosses: sLosses });
+
+            // Also notify opponent to do the same — mark their matching series as archived
+            const oppSeriesSnap = await get(ref(db, `users/${s.opponent}/series`));
+            if (oppSeriesSnap.exists()) {
+                const oppSeries = oppSeriesSnap.val();
+                const oppKey = Object.keys(oppSeries).find(k => {
+                    const os = oppSeries[k];
+                    return os.name === s.name && os.opponent === username;
+                });
+                if (oppKey) {
+                    // Add history for opponent too
+                    const oppStats = (await get(ref(db, `stats/${s.opponent}`))).val() || {};
+                    const oppResult = isDraw ? 'draw' : seriesWon ? 'lost' : 'won';
+                    await push(ref(db, `seriesHistory/${s.opponent}`), {
+                        ...historyEntry,
+                        opponent: username,
+                        opponentTeam: userTeam,
+                        userScore: oScore,
+                        opponentScore: uScore,
+                        result: oppResult
+                    });
+                    const oppSPlayed  = (oppStats.seriesPlayed || 0) + 1;
+                    const oppSWins    = (oppStats.seriesWins   || 0) + (oppResult === 'won' ? 1 : 0);
+                    const oppSLosses  = (oppStats.seriesLosses || 0) + (oppResult === 'lost' ? 1 : 0);
+                    await update(ref(db, `stats/${s.opponent}`), { seriesPlayed: oppSPlayed, seriesWins: oppSWins, seriesLosses: oppSLosses });
+                    // Remove from opponent's active series
+                    await remove(ref(db, `users/${s.opponent}/series/${oppKey}`));
+                }
+            }
+
+            // Remove from current user's active series
+            await remove(ref(db, `users/${username}/series/${seriesId}`));
+            showMsg(document.getElementById('seriesMsg'), 'success', 'Series moved to history!');
+        } catch (e) {
+            console.error(e);
+            showMsg(document.getElementById('seriesMsg'), 'error', 'Failed to archive series');
+        }
+    }
+
+    // ───────── Series Stats + History in Stats Tab ─────────
+    function setupSeriesStatsListener(username) {
+        onValue(ref(db, `stats/${username}`), snap => {
+            const s = snap.val() || {};
+            const played = s.seriesPlayed || 0;
+            const wins   = s.seriesWins   || 0;
+            const losses = s.seriesLosses || 0;
+            const pct    = played > 0 ? Math.round(wins / played * 100) : 0;
+            const el = id => document.getElementById(id);
+            if (el('seriesTotal'))   el('seriesTotal').textContent  = played;
+            if (el('seriesWins'))    el('seriesWins').textContent   = wins;
+            if (el('seriesLosses'))  el('seriesLosses').textContent = losses;
+            if (el('seriesWinPct'))  el('seriesWinPct').textContent = pct + '%';
+        });
+
+        onValue(ref(db, `seriesHistory/${username}`), snap => {
+            const listEl = document.getElementById('seriesHistoryList');
+            if (!listEl) return;
+            if (!snap.exists()) {
+                listEl.innerHTML = '<div class="empty-state"><i class="fas fa-archive"></i>No completed series yet</div>';
+                return;
+            }
+            const history = snap.val();
+            listEl.innerHTML = '';
+            Object.values(history).reverse ? Object.values(history).reverse().forEach(h => renderSeriesHistoryCard(listEl, h)) : Object.values(history).forEach(h => renderSeriesHistoryCard(listEl, h));
+        });
+    }
+
+    function renderSeriesHistoryCard(container, h) {
+        const el = document.createElement('div');
+        const won = h.result === 'won';
+        const draw = h.result === 'draw';
+        el.className = `series-history-card ${draw ? '' : won ? 'won' : 'lost'}`;
+        el.innerHTML = `
+            <h4>${h.name} <span class="result-badge ${draw?'':'won'===h.result?'won':'lost'}">${draw?'DRAW':won?'WON':'LOST'}</span></h4>
+            <p style="font-size:0.78rem;color:var(--text-dim);">vs ${h.opponent} (${h.opponentTeam || h.opponent})</p>
+            <p style="font-size:0.78rem;color:var(--text-dim);">${h.format} matches · ${getFormatName(h.matchFormat || '20')}</p>
+            <div class="score-band" style="margin-top:8px;padding:8px;">
+                <div><div class="score-team">You</div><div class="score-num">${h.userScore}</div></div>
+                <div class="score-sep">—</div>
+                <div><div class="score-num">${h.opponentScore}</div><div class="score-team">${h.opponent}</div></div>
+            </div>
+            <p style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">${new Date(h.completedAt).toLocaleDateString()}</p>
+        `;
+        container.appendChild(el);
     }
 
     // ───────── Ongoing games ─────────
@@ -1846,6 +2147,7 @@
             setupOngoingGamesListener(username);
             setupTournamentsListener(username);
             setupSeriesListener(username);
+            setupSeriesStatsListener(username);
             showMsg(document.getElementById('loginMsg'), 'success', `Welcome, ${username}!`);
             return true;
         } catch (e) {
@@ -2338,25 +2640,44 @@
         if (confirm(`${invite.from} (${invite.team}) invited you to a ${invite.format}-match series: "${invite.seriesName}". Accept?`)) {
             update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: true });
 
+            // Add series entry for the OPPONENT (acceptor) only
             const userRef = push(ref(db, `users/${username}/series`));
             set(userRef, {
                 name: invite.seriesName, format: invite.format,
                 matchFormat: invite.matchFormat || '20',
                 opponent: invite.from, opponentTeam: invite.team,
                 userScore: 0, opponentScore: 0, status: 'In Progress',
+                isAcceptor: true,
                 matches: generateSeriesMatches(invite.format, username, invite.from, invite.matchFormat || '20')
             });
 
-            const oppRef = push(ref(db, `users/${invite.from}/series`));
-            set(oppRef, {
-                name: invite.seriesName, format: invite.format,
-                matchFormat: invite.matchFormat || '20',
-                opponent: username, opponentTeam: team,
-                userScore: 0, opponentScore: 0, status: 'In Progress',
-                matches: generateSeriesMatches(invite.format, invite.from, username, invite.matchFormat || '20')
+            // Update creator's existing series from 'Pending Acceptance' to 'In Progress'
+            // Find the creator's pending series and update it
+            get(ref(db, `users/${invite.from}/series`)).then(snap => {
+                if (!snap.exists()) return;
+                const allSeries = snap.val();
+                const pendingKey = Object.keys(allSeries).find(k => {
+                    const s = allSeries[k];
+                    return s.name === invite.seriesName && s.opponent === username && s.status === 'Pending Acceptance';
+                });
+                if (pendingKey) {
+                    update(ref(db, `users/${invite.from}/series/${pendingKey}`), { status: 'In Progress' });
+                }
             });
         } else {
             update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: false });
+            // Remove the creator's pending series entry since it was declined
+            get(ref(db, `users/${invite.from}/series`)).then(snap => {
+                if (!snap.exists()) return;
+                const allSeries = snap.val();
+                const pendingKey = Object.keys(allSeries).find(k => {
+                    const s = allSeries[k];
+                    return s.name === invite.seriesName && s.opponent === username && s.status === 'Pending Acceptance';
+                });
+                if (pendingKey) {
+                    remove(ref(db, `users/${invite.from}/series/${pendingKey}`));
+                }
+            });
         }
     }
 
@@ -2458,6 +2779,7 @@
     window.joinTournamentFromList = joinTournamentFromList;
     window.viewTournament         = viewTournament;
     window.playTournamentMatch    = playTournamentMatch;
+    window.moveSeriestoHistory    = moveSeriestoHistory;
 
     // Start app
     initApp();
