@@ -1601,6 +1601,7 @@
     const firstInningsCompletedRef = ref(db, `rooms/${room}/firstInningsCompleted`);
     const secondInningsStartedRef = ref(db, `rooms/${room}/secondInningsStarted`);
     const spectatorRef = ref(db, `rooms/${room}/spectator`);
+    const saveExitNotifRef = ref(db, `rooms/${room}/saveAndExitNotification`);
     const closedRoomsRef = ref(db, 'closedRooms');
     const playerStatsRef = ref(db, 'playerStats');
     const teamStatsRef = ref(db, 'teamStats');
@@ -1643,6 +1644,7 @@
     let bowlerStats = {};
     let tossWinner = null;
     let battingFirst = null;
+    let originalBattingFirst = null; // Tracks who batted FIRST across the whole match
     let batterSelected = false;
     let bowlerSelected = false;
     let team1Players = [];
@@ -1989,13 +1991,20 @@
       document.getElementById('matchDate').textContent = now.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
-    // Update player comparison with enhanced stats
+    // Update player comparison with enhanced stats and captain/VC badges
     function updatePlayerComparison() {
       if (currentBatter) {
         const batter = batterStats[currentBatter] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
         const sr = batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(2) : '0.00';
         
-        document.getElementById('comparisonBatterName').textContent = currentBatter;
+        // Determine batting team's captain/VC
+        const battingTeamCaptain = battingFirst === "player1" ? team1Captain : team2Captain;
+        const battingTeamVC = battingFirst === "player1" ? team1ViceCaptain : team2ViceCaptain;
+        let batterBadge = '';
+        if (currentBatter === battingTeamCaptain) batterBadge = ' <span style="background:#FFD700;color:#000;font-size:0.6rem;padding:1px 5px;border-radius:10px;font-weight:bold;vertical-align:middle">C</span>';
+        else if (currentBatter === battingTeamVC) batterBadge = ' <span style="background:#C0C0C0;color:#000;font-size:0.6rem;padding:1px 5px;border-radius:10px;font-weight:bold;vertical-align:middle">VC</span>';
+        
+        document.getElementById('comparisonBatterName').innerHTML = currentBatter + batterBadge;
         document.getElementById('comparisonBatterRuns').textContent = batter.runs;
         document.getElementById('comparisonBatterBalls').textContent = batter.balls;
         document.getElementById('comparisonBatterSR').textContent = sr;
@@ -2014,7 +2023,14 @@
         const bowler = bowlerStats[currentBowler] || { wickets: 0, runs: 0, overs: 0, balls: 0 };
         const er = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : '0.00';
         
-        document.getElementById('comparisonBowlerName').textContent = currentBowler;
+        // Determine bowling team's captain/VC
+        const bowlingTeamCaptain = battingFirst === "player1" ? team2Captain : team1Captain;
+        const bowlingTeamVC = battingFirst === "player1" ? team2ViceCaptain : team1ViceCaptain;
+        let bowlerBadge = '';
+        if (currentBowler === bowlingTeamCaptain) bowlerBadge = ' <span style="background:#FFD700;color:#000;font-size:0.6rem;padding:1px 5px;border-radius:10px;font-weight:bold;vertical-align:middle">C</span>';
+        else if (currentBowler === bowlingTeamVC) bowlerBadge = ' <span style="background:#C0C0C0;color:#000;font-size:0.6rem;padding:1px 5px;border-radius:10px;font-weight:bold;vertical-align:middle">VC</span>';
+        
+        document.getElementById('comparisonBowlerName').innerHTML = currentBowler + bowlerBadge;
         document.getElementById('comparisonBowlerWickets').textContent = bowler.wickets.toFixed(1);
         document.getElementById('comparisonBowlerOvers').textContent = bowler.overs.toFixed(1);
         document.getElementById('comparisonBowlerER').textContent = er;
@@ -3263,7 +3279,7 @@
         team2Name: team2Name
       };
       
-      // Pre-save match result to Firebase immediately
+      // Pre-save match result to Firebase immediately and broadcast match end to both players
       try {
         await set(ref(db, `matchResults/${room}`), matchData);
         await set(resultRef, {
@@ -3279,7 +3295,14 @@
             bowlerStats: bowlerStats
           },
           playerOfTheMatch: pom,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          // Broadcast match-end data for both players to render result screen
+          matchEnded: true,
+          originalBattingFirst: originalBattingFirst,
+          team1Name: team1Name,
+          team2Name: team2Name,
+          team1Players: team1Players,
+          team2Players: team2Players
         });
       } catch(e) { console.error("Error pre-saving match result:", e); }
       
@@ -3335,11 +3358,12 @@
       const fiRR = fi && fi.balls > 0 ? (fi.totalRuns / (fi.balls / 6)).toFixed(2) : '0.00';
       const siRR = legalBalls > 0 ? (runs / (legalBalls / 6)).toFixed(2) : '0.00';
 
-      // Determine which team batted first/second
-      const firstBatTeam = battingFirst === "player1" ? team1Players : team2Players;
-      const secondBatTeam = battingFirst === "player1" ? team2Players : team1Players;
-      const firstBatName = battingFirst === "player1" ? team1Name : team2Name;
-      const secondBatName = battingFirst === "player1" ? team2Name : team1Name;
+      // Determine which team batted first/second using originalBattingFirst (before it was swapped for 2nd innings)
+      const trueFirstBatter = originalBattingFirst || (chasingTeam === "player1" ? "player2" : "player1");
+      const firstBatTeam = trueFirstBatter === "player1" ? team1Players : team2Players;
+      const secondBatTeam = trueFirstBatter === "player1" ? team2Players : team1Players;
+      const firstBatName = trueFirstBatter === "player1" ? team1Name : team2Name;
+      const secondBatName = trueFirstBatter === "player1" ? team2Name : team1Name;
       const firstBowlTeam = secondBatTeam;
       const secondBowlTeam = firstBatTeam;
 
@@ -3414,31 +3438,59 @@
     async function saveGameState() {
       try {
         resultEl.innerText = "Saving game...";
-        disableButtons();
+        saveBtn.disabled = true;
         
         const gameState = {
           room: room,
+          savedBy: player,
           player1: player === "player1" ? player : opponent,
           player2: player === "player2" ? player : opponent,
           tossWinner: tossWinner,
           battingFirst: battingFirst,
-          team1Score: runs,
-          team1Wickets: Math.floor(wickets),
+          originalBattingFirst: originalBattingFirst,
+          runs: runs,
+          wickets: wickets,
+          legalBalls: legalBalls,
           currentBatter: currentBatter,
           currentBowler: currentBowler,
           batterStats: batterStats,
           bowlerStats: bowlerStats,
-          legalBalls: legalBalls,
+          bowlerOvers: bowlerOvers,
+          batterWickets: batterWickets,
+          ballByBall: ballByBall,
+          fallOfWickets: fallOfWickets,
+          firstInningsCompleted: firstInningsCompleted,
+          firstInningsData: firstInningsData,
+          secondInningsStarted: secondInningsStarted,
+          target: target,
+          chasingTeam: chasingTeam,
+          team1Name: team1Name,
+          team2Name: team2Name,
+          team1Players: team1Players,
+          team2Players: team2Players,
+          format: currentFormat.name,
           timestamp: Date.now()
         };
         
+        // Save to Firebase
         await set(ref(db, `savedGames/${room}`), gameState);
-        resultEl.innerText = "Game saved successfully!";
-        setTimeout(() => window.location.href = "index.html", 2000);
+        
+        // Notify opponent that the game was saved and this player is exiting
+        await set(ref(db, `rooms/${room}/saveAndExitNotification`), {
+          by: player,
+          byName: player === "player1" ? team1Name : team2Name,
+          timestamp: Date.now(),
+          message: `${player === "player1" ? team1Name : team2Name} has saved the game and exited.`
+        });
+
+        resultEl.innerText = "Game saved! Notifying opponent...";
+        showNotification("Game saved successfully!", 'info');
+        setTimeout(() => window.location.href = "index.html", 1500);
       } catch (error) {
         console.error("Error saving game:", error);
         resultEl.innerText = "Error saving game. Please try again.";
-        enableButtons();
+        saveBtn.disabled = false;
+        showNotification("Failed to save game", 'error');
       }
     }
 
@@ -3633,6 +3685,114 @@
         }
       });
 
+      // Listen for match end - show result screen to the player who didn't trigger endMatch
+      onValue(resultRef, (snap) => {
+        if (!snap.exists()) return;
+        const r = snap.val();
+        if (!r.matchEnded) return;
+        // If already showing result (gameInProgress is false and summaryPopup visible), skip
+        if (summaryPopup.style.display === 'block' && 
+            document.getElementById('summaryTitle')?.textContent === 'Match Result') return;
+
+        // The other player: render result screen from Firebase data
+        gameInProgress = false;
+        disableButtons();
+
+        const fi = r.firstInnings;
+        const si = r.secondInnings;
+        const winnerName = r.winnerName;
+        const winningMargin = r.winningMargin;
+        const pom = r.playerOfTheMatch;
+        const obf = r.originalBattingFirst || originalBattingFirst;
+        const t1n = r.team1Name || team1Name;
+        const t2n = r.team2Name || team2Name;
+        const t1p = r.team1Players || team1Players;
+        const t2p = r.team2Players || team2Players;
+
+        const firstBatName = obf === "player1" ? t1n : t2n;
+        const secondBatName = obf === "player1" ? t2n : t1n;
+        const firstBatTeam = obf === "player1" ? t1p : t2p;
+        const secondBatTeam = obf === "player1" ? t2p : t1p;
+        const firstBowlTeam = secondBatTeam;
+        const secondBowlTeam = firstBatTeam;
+
+        const fiRR = fi && fi.balls > 0 ? (fi.totalRuns / (fi.balls / 6)).toFixed(2) : '0.00';
+        const siRR = si && si.balls > 0 ? (si.totalRuns / (si.balls / 6)).toFixed(2) : '0.00';
+
+        function bTable(title, bStats, team) {
+          let rows = '';
+          team.forEach(p => {
+            const s = bStats && bStats[p];
+            if (s && (s.balls > 0 || s.runs > 0)) {
+              const sr = s.balls > 0 ? ((s.runs / s.balls) * 100).toFixed(1) : '-';
+              rows += `<tr>
+                <td>${p}${p === pom ? ' ⭐' : ''}</td>
+                <td>${s.runs}</td><td>${s.balls}</td><td>${sr}</td><td>${s.fours||0}/${s.sixes||0}</td>
+              </tr>`;
+            }
+          });
+          return rows ? `<h4 style="color:#ffeb3b;margin:10px 0 4px">${title}</h4>
+            <table class="stats-table" style="width:100%">
+              <thead><tr><th>Batter</th><th>R</th><th>B</th><th>SR</th><th>4s/6s</th></tr></thead>
+              <tbody>${rows}</tbody></table>` : '';
+        }
+
+        function bwTable(title, bStats, team) {
+          let rows = '';
+          team.forEach(p => {
+            const s = bStats && bStats[p];
+            if (s && (s.balls > 0 || s.wickets > 0)) {
+              const overs = `${Math.floor(s.balls/6)}.${s.balls%6}`;
+              const er = s.overs > 0 ? (s.runs / s.overs).toFixed(2) : '-';
+              rows += `<tr>
+                <td>${p}${p === pom ? ' ⭐' : ''}</td>
+                <td>${overs}</td><td>${s.wickets % 1 === 0 ? s.wickets : s.wickets.toFixed(1)}</td>
+                <td>${s.runs}</td><td>${er}</td>
+              </tr>`;
+            }
+          });
+          return rows ? `<h4 style="color:#ffeb3b;margin:10px 0 4px">${title}</h4>
+            <table class="stats-table" style="width:100%">
+              <thead><tr><th>Bowler</th><th>Ov</th><th>W</th><th>R</th><th>ER</th></tr></thead>
+              <tbody>${rows}</tbody></table>` : '';
+        }
+
+        document.getElementById('summaryTitle').textContent = "Match Result";
+        document.getElementById('startSecondInningsBtn').style.display = 'none';
+        const summaryContent = document.querySelector('.summary-content');
+        summaryContent.innerHTML = `
+          <div class="summary-highlight">🏆 ${winnerName} won by ${winningMargin}!</div>
+          <div style="background:rgba(30,136,229,0.15);border-radius:8px;padding:8px;margin:8px 0;border-left:3px solid #1e88e5">
+            <div style="font-weight:bold;color:#ffeb3b;margin-bottom:4px">📊 1st Innings — ${firstBatName}</div>
+            <div style="font-size:13px">${fi ? fi.totalRuns : 0}/${fi ? fi.totalWickets : 0} in ${fi ? Math.floor(fi.balls/6)+'.'+fi.balls%6 : '0.0'} overs (RR: ${fiRR})</div>
+            <div style="overflow-x:auto;margin-top:6px">
+              ${fi ? bTable('Batting', fi.batterStats, firstBatTeam) : ''}
+              ${fi ? bwTable('Bowling', fi.bowlerStats, firstBowlTeam) : ''}
+            </div>
+          </div>
+          <div style="background:rgba(76,175,80,0.15);border-radius:8px;padding:8px;margin:8px 0;border-left:3px solid #4CAF50">
+            <div style="font-weight:bold;color:#ffeb3b;margin-bottom:4px">📊 2nd Innings — ${secondBatName}</div>
+            <div style="font-size:13px">${si ? si.totalRuns : 0}/${si ? si.totalWickets : 0} in ${si ? Math.floor(si.balls/6)+'.'+si.balls%6 : '0.0'} overs (RR: ${siRR})</div>
+            <div style="overflow-x:auto;margin-top:6px">
+              ${si ? bTable('Batting', si.batterStats, secondBatTeam) : ''}
+              ${si ? bwTable('Bowling', si.bowlerStats, secondBowlTeam) : ''}
+            </div>
+          </div>
+          ${pom ? `<div style="background:rgba(255,215,0,0.15);border-radius:8px;padding:8px;margin:8px 0;border-left:3px solid gold;font-weight:bold">⭐ Player of the Match: ${pom}</div>` : ''}
+          <button id="goHomeBtn" style="
+            width:100%;padding:14px;margin-top:14px;
+            background:linear-gradient(135deg,#4CAF50,#2e7d32);
+            color:white;border:none;border-radius:10px;
+            font-size:16px;font-weight:bold;cursor:pointer;
+            box-shadow:0 4px 12px rgba(0,0,0,0.3)
+          ">🏠 Go to Home</button>
+        `;
+        document.getElementById('goHomeBtn').addEventListener('click', () => {
+          window.location.href = 'index.html';
+        });
+        summaryPopup.style.display = 'block';
+      });
+
       // Listen for spectator mode
       onValue(spectatorRef, (snap) => {
         if (snap.exists() && snap.val()) {
@@ -3640,9 +3800,45 @@
           setupSpectatorMode();
         }
       });
-    }
 
-    // Setup stats slider navigation
+      // Listen for save-and-exit notification from opponent
+      onValue(saveExitNotifRef, (snap) => {
+        if (!snap.exists()) return;
+        const notif = snap.val();
+        // Only show to the OTHER player
+        if (notif.by === player) return;
+        
+        // Show a prominent notification with home button
+        const existingNotif = document.getElementById('saveExitAlert');
+        if (existingNotif) existingNotif.remove();
+
+        const alertEl = document.createElement('div');
+        alertEl.id = 'saveExitAlert';
+        alertEl.style.cssText = `
+          position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+          background:linear-gradient(145deg,#123456,#0a1f3a);
+          border:2px solid #ffeb3b;border-radius:12px;padding:20px;
+          z-index:9999;text-align:center;color:white;max-width:320px;width:90%;
+          box-shadow:0 8px 25px rgba(0,0,0,0.7);
+        `;
+        alertEl.innerHTML = `
+          <div style="font-size:2rem;margin-bottom:8px">💾</div>
+          <div style="font-size:1.1rem;font-weight:bold;color:#ffeb3b;margin-bottom:8px">Game Saved</div>
+          <div style="font-size:0.9rem;margin-bottom:16px;color:#ccc">
+            ${notif.message || 'Your opponent has saved the game and exited.'}
+            <br><br>The game progress has been saved. You can resume later.
+          </div>
+          <button onclick="window.location.href='index.html'" style="
+            width:100%;padding:12px;background:linear-gradient(135deg,#4CAF50,#2e7d32);
+            color:white;border:none;border-radius:8px;font-size:15px;
+            font-weight:bold;cursor:pointer;
+          ">🏠 Go to Home</button>
+        `;
+        document.body.appendChild(alertEl);
+        showNotification(notif.message || 'Opponent saved and exited', 'info');
+        disableButtons();
+      });
+    }
     function setupStatsSlider() {
       let currentSlide = 0;
       const slideCount = document.querySelectorAll('#statsSlider .stats-slide').length;
@@ -3707,6 +3903,7 @@
           secondInningsStarted = matchStats.secondInningsStarted || false;
           target = matchStats.target || 0;
           chasingTeam = matchStats.chasingTeam || null;
+          if (!originalBattingFirst) originalBattingFirst = battingFirst; // preserve from toss data
           
           // Restore derived state
           if (currentBatter && batterStats[currentBatter]) {
@@ -3788,6 +3985,7 @@
         // Get toss and batting first info
         tossWinner = roomData.toss?.winner || roomData.tossWinner;
         battingFirst = roomData.toss?.battingFirst || roomData.battingFirst;
+        originalBattingFirst = battingFirst; // Save for end-of-match display
         
         // Update team names display
         team1NameDisplay.textContent = roomData.teams.player1.name || "Team 1";
@@ -3846,7 +4044,11 @@
         setupStatsSlider();
         
         // Set up control buttons
-        saveBtn.addEventListener("click", saveGameState);
+        saveBtn.addEventListener("click", async () => {
+          if (confirm("Save & Exit? This will save the current game state and notify your opponent.")) {
+            await saveGameState();
+          }
+        });
         exitBtn.addEventListener("click", async () => {
           if (confirm("Exit without saving?")) {
             await resetGame();
