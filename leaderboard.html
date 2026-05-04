@@ -460,7 +460,6 @@
     <button class="format-btn" data-format="T10">T10</button>
     <button class="format-btn" data-format="T20">T20</button>
     <button class="format-btn" data-format="ODI">ODI</button>
-    <button class="format-btn" data-format="Test">Test</button>
   </div>
 
   <!-- Tabs -->
@@ -652,18 +651,6 @@
   let allPlayersIndex = []; // [{key, name, matches, runs, wickets}] for search autocomplete
   let dataLoaded = false;
 
-  // ── Format → Firebase path mapping ──
-  // Each game type stores stats under stats/{FORMAT}/
-  // Supported: T5, T10, T20, ODI, Test
-  const FORMAT_PATHS = {
-    'T5':   'stats/T5',
-    'T10':  'stats/T10',
-    'T20':  'stats/T20',
-    'ODI':  'stats/ODI',
-    'Test': 'stats/Test',
-  };
-  const ALL_FORMATS = Object.keys(FORMAT_PATHS);
-
   // ── Utility ──
   function sanitizeKey(name) {
     return name.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -722,143 +709,54 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const newFormat = btn.dataset.format;
-      if (newFormat !== currentFormat) {
-        // Invalidate cache so next ensureData() re-fetches for the new format
-        currentFormat = newFormat;
-        dataLoaded = false;
-        allCareerStats = {};
-        allMatchResults = {};
-        allPlayersIndex = [];
-      }
+      currentFormat = btn.dataset.format;
       const active = document.querySelector('.tab.active');
       if (active && active.dataset.tab !== 'search') dispatchTab(active.dataset.tab);
     });
   });
 
   // ================================================================
-  // DATA LOADERS — format-namespaced paths
+  // DATA LOADERS
   // ================================================================
-  // Firebase structure (written by each game file):
-  //   stats/T5/playerCareerStats/{playerKey}  → career stats
-  //   stats/T5/matchResults/{room}            → match results
-  //   stats/T10/playerCareerStats/{playerKey}
-  //   stats/T10/matchResults/{room}
-  //   … (T20, ODI, Test follow the same pattern)
-  //
-  // The leaderboard reads from:
-  //   • a single format path when a specific format is selected
-  //   • all format paths merged when "All Formats" is selected
 
   /**
-   * Load career stats for one format path root (e.g. 'stats/T5').
-   * Returns { playerKey: statsObject } or {} if empty.
+   * Primary source: playerCareerStats/ (written by game_T5 saveAllPlayerCareerStats)
+   * This path uses sanitized player name as key.
+   * Fields: matches, runs, balls, fours, sixes, wickets, runsConceded, oversBowled, noballs,
+   *         matches_as_batter, matches_as_bowler, lastMatch, matchHistory/{matchId}
    */
-  async function loadCareerStatsForPath(basePath) {
-    const snap = await get(ref(db, `${basePath}/playerCareerStats`));
+  async function loadCareerStats() {
+    const snap = await get(ref(db, 'stats/T5/playerCareerStats'));
     if (!snap.exists()) return {};
-    return snap.val();
+    return snap.val(); // { playerKey: {matches, runs, ...} }
   }
 
   /**
-   * Load match results for one format path root.
-   * Returns array of match objects.
+   * Secondary source: matchResults/ or completedMatches/ for team-level and per-match detail
    */
-  async function loadMatchResultsForPath(basePath) {
-    const mrSnap = await get(ref(db, `${basePath}/matchResults`));
+  async function loadMatchResults() {
+    // Try matchResults first (written by endMatch)
+    const mrSnap = await get(ref(db, 'stats/T5/matchResults'));
     if (mrSnap.exists()) return Object.values(mrSnap.val());
+    // Fallback to completedMatches
+    const cmSnap = await get(ref(db, 'stats/T5/completedMatches'));
+    if (cmSnap.exists()) return Object.values(cmSnap.val());
     return [];
   }
 
-  /**
-   * Merge career stats from multiple formats into one object.
-   * Player stats are summed across formats; matchHistory entries are merged.
-   */
-  function mergeCareerStats(statsByFormat) {
-    // statsByFormat: { T5: {playerKey: {...}}, T10: {playerKey: {...}}, ... }
-    const merged = {};
-    for (const [fmt, stats] of Object.entries(statsByFormat)) {
-      for (const [key, d] of Object.entries(stats)) {
-        if (!merged[key]) {
-          merged[key] = {
-            matches: 0, runs: 0, balls: 0, fours: 0, sixes: 0,
-            wickets: 0, runsConceded: 0, oversBowled: 0, noballs: 0,
-            matches_as_batter: 0, matches_as_bowler: 0,
-            matchHistory: {}, lastMatch: null
-          };
-        }
-        const m = merged[key];
-        m.matches           += d.matches || 0;
-        m.runs              += d.runs || 0;
-        m.balls             += d.balls || 0;
-        m.fours             += d.fours || 0;
-        m.sixes             += d.sixes || 0;
-        m.wickets           += d.wickets || 0;
-        m.runsConceded      += d.runsConceded || 0;
-        m.oversBowled       += d.oversBowled || 0;
-        m.noballs           += d.noballs || 0;
-        m.matches_as_batter += d.matches_as_batter || 0;
-        m.matches_as_bowler += d.matches_as_bowler || 0;
-        // Merge match history — prefix keys with format to avoid collisions
-        if (d.matchHistory) {
-          for (const [mId, mh] of Object.entries(d.matchHistory)) {
-            m.matchHistory[`${fmt}_${mId}`] = { ...mh, format: fmt };
-          }
-        }
-        // Keep the most recent lastMatch
-        if (d.lastMatch && d.lastMatch.date) {
-          if (!m.lastMatch || d.lastMatch.date > m.lastMatch.date) {
-            m.lastMatch = d.lastMatch;
-          }
-        }
-      }
-    }
-    return merged;
-  }
-
-  /**
-   * Load and cache data based on the currently selected format.
-   * Uses cached data if already loaded for this format selection.
-   */
   async function ensureData() {
     if (dataLoaded) return;
-
-    if (currentFormat === 'all') {
-      // Load all format paths in parallel then merge
-      const entries = await Promise.all(
-        ALL_FORMATS.map(async fmt => {
-          const basePath = FORMAT_PATHS[fmt];
-          const stats   = await loadCareerStatsForPath(basePath);
-          const matches = await loadMatchResultsForPath(basePath);
-          return { fmt, stats, matches };
-        })
-      );
-
-      const statsByFormat = {};
-      for (const { fmt, stats, matches } of entries) {
-        if (Object.keys(stats).length) statsByFormat[fmt] = stats;
-        matches.forEach(m => {
-          const key = (m.room || (m.team1Name + '_' + m.team2Name)) + '_' + (m.format || fmt);
-          allMatchResults[key] = m;
-        });
-      }
-      allCareerStats = mergeCareerStats(statsByFormat);
-
-    } else {
-      // Single format — read only its path
-      const basePath = FORMAT_PATHS[currentFormat] || `stats/${currentFormat}`;
-      allCareerStats  = await loadCareerStatsForPath(basePath);
-      const matches   = await loadMatchResultsForPath(basePath);
-      matches.forEach(m => {
-        const key = m.room || (m.team1Name + '_' + m.team2Name);
-        allMatchResults[key] = m;
-      });
-    }
-
-    // Build player index for search autocomplete
+    allCareerStats = await loadCareerStats();
+    const matches = await loadMatchResults();
+    // Index matches by room for dedup, keep latest
+    matches.forEach(m => {
+      const key = m.room || (m.team1Name + '_' + m.team2Name);
+      allMatchResults[key] = m;
+    });
+    // Build player index from career stats
     allPlayersIndex = Object.entries(allCareerStats).map(([key, d]) => ({
       key,
-      name: key.replace(/_/g, ' '),
+      name: (d.lastMatch ? guessPlayerName(key) : key.replace(/_/g, ' ')),
       matches: d.matches || 0,
       runs: d.runs || 0,
       wickets: d.wickets || 0
@@ -867,14 +765,18 @@
   }
 
   function guessPlayerName(key) {
+    // The key is the sanitized player name; restore spaces (best-effort)
     return key.replace(/_/g, ' ');
   }
 
-  // ── Filter matches by format (for team rankings) ──
-  // When a specific format is active, allMatchResults already only contains that format's data.
-  // For 'all', all formats are loaded and matches already tagged with their format field.
+  // ── Filter matches by format ──
   function filterMatches(matches) {
-    return matches; // filtering is handled at load time via ensureData()
+    if (currentFormat === 'all') return matches;
+    return matches.filter(m => {
+      const f = (m.format || '').toUpperCase();
+      const cf = currentFormat.toUpperCase();
+      return f === cf || f.includes(cf);
+    });
   }
 
   // ================================================================
