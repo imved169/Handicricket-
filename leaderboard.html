@@ -4,1651 +4,1369 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HandiCricket - Leaderboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    body {
-      background: linear-gradient(135deg, #061e3e, #0a2a4a);
-      color: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 20px;
-      margin: 0;
-      min-height: 100vh;
+    :root {
+      --navy: #061e3e;
+      --navy2: #0a2a4a;
+      --blue: #1e88e5;
+      --blue-dim: rgba(30,136,229,0.25);
+      --gold: #ffeb3b;
+      --gold-dim: rgba(255,235,59,0.15);
+      --glass: rgba(0,0,0,0.28);
+      --border: rgba(255,255,255,0.08);
+      --text-muted: #8fadc7;
+      --green: #4caf50;
+      --red: #f44336;
     }
-    
-    .container {
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(145deg, var(--navy), var(--navy2));
+      background-attachment: fixed;
+      color: white;
+      font-family: 'Exo 2', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    /* Subtle grid pattern overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(30,136,229,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30,136,229,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
       max-width: 1200px;
       margin: 0 auto;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 15px;
-      padding: 20px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
-    h1 {
-      color: #ffeb3b;
-      text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
-      margin-bottom: 20px;
-      text-align: center;
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
     }
-    
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-family: 'Exo 2', sans-serif;
+      font-weight: 500;
+      transition: all 0.2s;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .back-btn:hover { background: var(--blue-dim); color: white; border-color: var(--blue); }
+
+    .header-title {
+      flex: 1;
+    }
+    .header-title h1 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-shadow: 0 0 20px rgba(255,235,59,0.3);
+      line-height: 1;
+    }
+    .header-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Format Filter ── */
+    .format-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .format-btn {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: 'Exo 2', sans-serif;
+      font-weight: 600;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .format-btn.active,
+    .format-btn:hover { background: var(--blue); color: white; border-color: var(--blue); }
+
+    /* ── Tabs ── */
     .tabs {
       display: flex;
+      border-bottom: 1px solid var(--border);
       margin-bottom: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 2px;
       flex-wrap: wrap;
     }
-    
     .tab {
-      padding: 12px 20px;
+      padding: 10px 18px;
       cursor: pointer;
-      transition: all 0.3s;
+      font-size: 13px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
       border-bottom: 3px solid transparent;
-      font-size: 14px;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
-    
-    .tab.active {
-      border-bottom: 3px solid #1e88e5;
-      font-weight: bold;
+    .tab:hover { color: white; }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Summary Cards ── */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
     }
-    
-    .tab-content {
-      display: none;
+    .stat-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      backdrop-filter: blur(4px);
     }
-    
-    .tab-content.active {
-      display: block;
+    .stat-card .val {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1.1;
     }
-    
-    .leaderboard-table {
+    .stat-card .lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      letter-spacing: 0.4px;
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    table.lb {
       width: 100%;
       border-collapse: collapse;
-      margin: 15px 0;
-      font-size: 14px;
+      font-size: 13px;
     }
-    
-    .leaderboard-table th {
-      background: rgba(30, 136, 229, 0.5);
-      padding: 10px;
+    table.lb th {
+      background: rgba(30,136,229,0.2);
+      padding: 10px 12px;
       text-align: left;
-      position: sticky;
-      top: 0;
-    }
-    
-    .leaderboard-table td {
-      padding: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .leaderboard-table tr:nth-child(even) {
-      background: rgba(13, 42, 82, 0.3);
-    }
-    
-    .leaderboard-table tr:hover {
-      background: rgba(30, 136, 229, 0.2);
-    }
-    
-    .rank {
-      font-weight: bold;
-      color: #ffeb3b;
-      text-align: center;
-    }
-    
-    .player-name {
-      font-weight: bold;
-    }
-    
-    .team-name {
-      color: #aaa;
+      font-family: 'Rajdhani', sans-serif;
       font-size: 12px;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      white-space: nowrap;
     }
-    
-    .highlight {
-      background: rgba(255, 235, 59, 0.2);
+    table.lb td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
     }
-    
-    .medal-gold {
-      color: gold;
+    table.lb tr:last-child td { border-bottom: none; }
+    table.lb tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    table.lb tr:hover td { background: var(--blue-dim); }
+    table.lb .rank { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--gold); text-align: center; }
+    table.lb .pname { font-weight: 600; }
+    table.lb .team { color: var(--text-muted); font-size: 11px; }
+    .medal-g { color: gold; }
+    .medal-s { color: silver; }
+    .medal-b { color: #cd7f32; }
+    .top3 td { background: var(--gold-dim) !important; }
+
+    /* ── Loading/Empty ── */
+    .loading-row td, .empty-row td {
+      text-align: center;
+      padding: 28px !important;
+      color: var(--text-muted);
+      font-size: 13px;
     }
-    
-    .medal-silver {
-      color: silver;
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 8px;
     }
-    
-    .medal-bronze {
-      color: #cd7f32;
-    }
-    
-    .format-filter {
-      margin: 15px 0;
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Player Search Tab ── */
+    .search-box-wrap {
       display: flex;
       gap: 10px;
+      margin-bottom: 20px;
+    }
+    .search-input {
+      flex: 1;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 16px;
+      color: white;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--blue); }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-btn {
+      padding: 11px 22px;
+      background: var(--blue);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    .search-btn:hover { background: #1565c0; }
+
+    /* Autocomplete dropdown */
+    .search-dropdown {
+      position: relative;
+    }
+    .autocomplete-list {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: #0d2040;
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+      z-index: 50;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .autocomplete-list.open { display: block; }
+    .ac-item {
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover { background: var(--blue-dim); }
+    .ac-item .ac-name { font-weight: 600; }
+    .ac-item .ac-meta { font-size: 11px; color: var(--text-muted); }
+
+    /* Player profile card */
+    .player-profile {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .player-profile.visible { display: block; }
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .profile-avatar {
+      width: 54px; height: 54px;
+      background: var(--blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(30,136,229,0.3);
+    }
+    .profile-info h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+    }
+    .profile-info .profile-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .profile-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .profile-stat {
+      background: rgba(30,136,229,0.1);
+      border: 1px solid rgba(30,136,229,0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .profile-stat .val {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .profile-stat .lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+      letter-spacing: 0.3px;
+    }
+    .profile-section-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--gold);
+      margin: 16px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    /* Match history rows */
+    .match-history-item {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .match-history-item .mh-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .match-history-item .mh-title {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .match-history-item .mh-date {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .match-history-item .mh-result {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mh-win { background: rgba(76,175,80,0.2); color: #81c784; }
+    .mh-loss { background: rgba(244,67,54,0.2); color: #e57373; }
+    .mh-stats-line {
+      color: var(--text-muted);
+      display: flex;
+      gap: 14px;
       flex-wrap: wrap;
     }
-    
-    .format-btn {
-      padding: 8px 15px;
-      border-radius: 20px;
-      border: none;
-      background: rgba(30, 136, 229, 0.3);
-      color: white;
-      cursor: pointer;
-      transition: all 0.2s;
+    .mh-stats-line span { white-space: nowrap; }
+    .mh-stats-line strong { color: white; }
+
+    /* No result / search hint */
+    .search-hint {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
     }
-    
-    .format-btn.active {
-      background: #1e88e5;
+    .search-hint i { font-size: 2.5rem; margin-bottom: 12px; color: var(--blue); opacity: 0.5; }
+    .search-hint p { font-size: 14px; }
+
+    /* Milestones section divider */
+    .section-label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin: 20px 0 12px;
+      letter-spacing: 0.5px;
     }
-    
-    .stats-card {
-      background: rgba(13, 42, 82, 0.5);
-      border-radius: 10px;
-      padding: 15px;
-      margin: 15px 0;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    
-    .stats-card h3 {
-      margin-top: 0;
-      color: #ffeb3b;
-      border-bottom: 2px solid #1e88e5;
-      padding-bottom: 8px;
-    }
-    
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
-    }
-    
-    .stat-item {
-      background: rgba(30, 136, 229, 0.2);
-      border-radius: 8px;
-      padding: 10px;
-    }
-    
-    .stat-value {
-      font-size: 24px;
-      font-weight: bold;
-      color: #ffeb3b;
-    }
-    
-    .stat-label {
-      font-size: 12px;
-      color: #aaa;
-    }
-    
-    .loading-spinner {
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 3px solid #1e88e5;
-      width: 30px;
-      height: 30px;
-      animation: spin 1s linear infinite;
-      margin: 20px auto;
-    }
-    
-    .back-btn {
-      display: inline-block;
-      padding: 10px 20px;
-      margin-bottom: 20px;
-      border-radius: 6px;
-      border: none;
-      background: linear-gradient(145deg, #607D8B, #455A64);
-      color: white;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-      transition: all 0.3s;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      text-decoration: none;
-    }
-    
-    .back-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    @media (max-width: 768px) {
-      .leaderboard-table {
-        font-size: 12px;
-      }
-      
-      .leaderboard-table th, 
-      .leaderboard-table td {
-        padding: 8px 5px;
-      }
-      
-      .tab {
-        padding: 8px 12px;
-        font-size: 12px;
-      }
-      
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
+
+    /* Responsive */
+    @media (max-width: 700px) {
+      table.lb { font-size: 12px; }
+      table.lb th, table.lb td { padding: 8px 7px; }
+      .tab { padding: 8px 12px; font-size: 12px; }
+      .header-title h1 { font-size: 1.5rem; }
     }
   </style>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <div class="container">
-    <a href="index.html" class="back-btn">
-      <i class="fas fa-arrow-left"></i> Back to Home
-    </a>
-    
-    <h1><i class="fas fa-trophy"></i> HandiCricket Leaderboard</h1>
-    
-    <div class="tabs">
-      <div class="tab active" data-tab="players">Player Rankings</div>
-      <div class="tab" data-tab="teams">Team Rankings</div>
-      <div class="tab" data-tab="batters">Top Batters</div>
-      <div class="tab" data-tab="bowlers">Top Bowlers</div>
-      <div class="tab" data-tab="allrounders">All-Rounders</div>
-      <div class="tab" data-tab="milestones">Milestones</div>
+<div class="page-wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Home</a>
+    <div class="header-title">
+      <h1><i class="fas fa-trophy"></i> HandiCricket Leaderboard</h1>
+      <p>Live career stats from all completed matches</p>
     </div>
-    
-    <div class="format-filter">
-      <button class="format-btn active" data-format="all">All Formats</button>
-      <button class="format-btn" data-format="5">T5</button>
-      <button class="format-btn" data-format="10">T10</button>
-      <button class="format-btn" data-format="20">T20</button>
-      <button class="format-btn" data-format="50">ODI</button>
+  </div>
+
+  <!-- Format filter -->
+  <div class="format-bar">
+    <button class="format-btn active" data-format="all">All Formats</button>
+    <button class="format-btn" data-format="T5">T5</button>
+    <button class="format-btn" data-format="T10">T10</button>
+    <button class="format-btn" data-format="T20">T20</button>
+    <button class="format-btn" data-format="ODI">ODI</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="players">Player Rankings</div>
+    <div class="tab" data-tab="teams">Team Rankings</div>
+    <div class="tab" data-tab="batters">Top Batters</div>
+    <div class="tab" data-tab="bowlers">Top Bowlers</div>
+    <div class="tab" data-tab="allrounders">All-Rounders</div>
+    <div class="tab" data-tab="milestones">Milestones</div>
+    <div class="tab" data-tab="search"><i class="fas fa-search"></i> Player Search</div>
+  </div>
+
+  <!-- ── Player Rankings Tab ── -->
+  <div class="tab-content active" id="players-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="topPlayerRuns">—</div><div class="lbl">Most Career Runs</div></div>
+      <div class="stat-card"><div class="val" id="topPlayerWickets">—</div><div class="lbl">Most Career Wickets</div></div>
+      <div class="stat-card"><div class="val" id="topPlayerMatches">—</div><div class="lbl">Most Matches Played</div></div>
+      <div class="stat-card"><div class="val" id="topPlayerWins">—</div><div class="lbl">Most Wins</div></div>
     </div>
-    
-    <!-- Player Rankings -->
-    <div class="tab-content active" id="players-tab">
-      <div class="stats-card">
-        <h3>Top Players</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="topPlayerRuns">-</div>
-            <div class="stat-label">Most Runs (Career)</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topPlayerWickets">-</div>
-            <div class="stat-label">Most Wickets (Career)</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topPlayerMatches">-</div>
-            <div class="stat-label">Most Matches Played</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topPlayerWins">-</div>
-            <div class="stat-label">Most Wins</div>
-          </div>
-        </div>
-      </div>
-      
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th width="50">Rank</th>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Matches</th>
-            <th>Runs</th>
-            <th>Wickets</th>
-            <th>Bat Avg</th>
-            <th>Bowl Avg</th>
-            <th>Win %</th>
-          </tr>
-        </thead>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr>
+          <th width="50">Rank</th><th>Player</th><th>Matches</th>
+          <th>Runs</th><th>Wickets</th><th>Bat Avg</th><th>Bowl Avg</th><th>SR (Bat)</th><th>Economy</th>
+        </tr></thead>
         <tbody id="playerRankingsBody">
-          <tr>
-            <td colspan="9" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading player rankings...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Team Rankings -->
-    <div class="tab-content" id="teams-tab">
-      <div class="stats-card">
-        <h3>Team Statistics</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="topTeamWins">-</div>
-            <div class="stat-label">Most Wins</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topTeamRuns">-</div>
-            <div class="stat-label">Highest Team Total</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topTeamChases">-</div>
-            <div class="stat-label">Most Successful Chases</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topTeamDefends">-</div>
-            <div class="stat-label">Most Successful Defends</div>
-          </div>
-        </div>
-      </div>
-      
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th width="50">Rank</th>
-            <th>Team</th>
-            <th>Matches</th>
-            <th>Wins</th>
-            <th>Losses</th>
-            <th>Win %</th>
-            <th>Highest Score</th>
-            <th>Lowest Score</th>
-          </tr>
-        </thead>
-        <tbody id="teamRankingsBody">
-          <tr>
-            <td colspan="8" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading team rankings...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Top Batters -->
-    <div class="tab-content" id="batters-tab">
-      <div class="stats-card">
-        <h3>Batting Records</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="topBatterRuns">-</div>
-            <div class="stat-label">Most Runs in an Innings</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBatterAvg">-</div>
-            <div class="stat-label">Highest Batting Average</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBatterSR">-</div>
-            <div class="stat-label">Highest Strike Rate</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBatterBoundaries">-</div>
-            <div class="stat-label">Most Boundaries</div>
-          </div>
-        </div>
-      </div>
-      
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th width="50">Rank</th>
-            <th>Batter</th>
-            <th>Team</th>
-            <th>Innings</th>
-            <th>Runs</th>
-            <th>Avg</th>
-            <th>SR</th>
-            <th>50s</th>
-            <th>100s</th>
-            <th>4s/6s</th>
-          </tr>
-        </thead>
-        <tbody id="batterRankingsBody">
-          <tr>
-            <td colspan="10" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading batting rankings...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Top Bowlers -->
-    <div class="tab-content" id="bowlers-tab">
-      <div class="stats-card">
-        <h3>Bowling Records</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="topBowlerWickets">-</div>
-            <div class="stat-label">Most Wickets in a Match</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBowlerAvg">-</div>
-            <div class="stat-label">Best Bowling Average</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBowlerER">-</div>
-            <div class="stat-label">Best Economy Rate</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topBowlerSR">-</div>
-            <div class="stat-label">Best Strike Rate</div>
-          </div>
-        </div>
-      </div>
-      
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th width="50">Rank</th>
-            <th>Bowler</th>
-            <th>Team</th>
-            <th>Innings</th>
-            <th>Wickets</th>
-            <th>Avg</th>
-            <th>ER</th>
-            <th>SR</th>
-            <th>5W</th>
-            <th>Best</th>
-          </tr>
-        </thead>
-        <tbody id="bowlerRankingsBody">
-          <tr>
-            <td colspan="10" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading bowling rankings...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- All-Rounders -->
-    <div class="tab-content" id="allrounders-tab">
-      <div class="stats-card">
-        <h3>All-Round Performance</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="topAllrounderRunsWickets">-</div>
-            <div class="stat-label">Most Runs + Wickets</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topAllrounderMatches">-</div>
-            <div class="stat-label">Most Player of Match Awards</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="topAllrounderDouble">-</div>
-            <div class="stat-label">Most 50+ Runs & 3+ Wickets</div>
-          </div>
-        </div>
-      </div>
-      
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th width="50">Rank</th>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Runs</th>
-            <th>Wickets</th>
-            <th>Bat Avg</th>
-            <th>Bowl Avg</th>
-            <th>POM</th>
-            <th>50+ & 3+</th>
-          </tr>
-        </thead>
-        <tbody id="allrounderRankingsBody">
-          <tr>
-            <td colspan="8" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading all-rounder rankings...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Milestones -->
-    <div class="tab-content" id="milestones-tab">
-      <div class="stats-card">
-        <h3>Milestones Achieved</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value" id="totalCenturies">-</div>
-            <div class="stat-label">Total Centuries</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="totalHalfCenturies">-</div>
-            <div class="stat-label">Total Half-Centuries</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="totalFiveWickets">-</div>
-            <div class="stat-label">5-Wicket Hauls</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" id="totalHatTricks">-</div>
-            <div class="stat-label">Hat-Tricks</div>
-          </div>
-        </div>
-      </div>
-      
-      <h3>Recent Centuries</h3>
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Runs</th>
-            <th>Balls</th>
-            <th>4s/6s</th>
-            <th>Match</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody id="centuriesBody">
-          <tr>
-            <td colspan="7" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading centuries...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      
-      <h3>Recent 5-Wicket Hauls</h3>
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th>Bowler</th>
-            <th>Team</th>
-            <th>Wickets</th>
-            <th>Runs</th>
-            <th>Overs</th>
-            <th>Match</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody id="fiveWicketsBody">
-          <tr>
-            <td colspan="7" style="text-align: center;">
-              <div class="loading-spinner"></div>
-              Loading 5-wicket hauls...
-            </td>
-          </tr>
+          <tr class="loading-row"><td colspan="9"><div class="spinner"></div>Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-    import { getDatabase, ref, get, query, orderByChild, equalTo, limitToLast } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+  <!-- ── Team Rankings Tab ── -->
+  <div class="tab-content" id="teams-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="topTeamWins">—</div><div class="lbl">Most Wins</div></div>
+      <div class="stat-card"><div class="val" id="topTeamRuns">—</div><div class="lbl">Highest Team Total</div></div>
+      <div class="stat-card"><div class="val" id="topTeamChases">—</div><div class="lbl">Most Successful Chases</div></div>
+      <div class="stat-card"><div class="val" id="topTeamDefends">—</div><div class="lbl">Most Successful Defends</div></div>
+    </div>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr>
+          <th width="50">Rank</th><th>Team</th><th>Matches</th>
+          <th>Wins</th><th>Losses</th><th>Win %</th><th>High Score</th><th>Low Score</th>
+        </tr></thead>
+        <tbody id="teamRankingsBody">
+          <tr class="loading-row"><td colspan="8"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
-      authDomain: "handicricket-85a06.firebaseapp.com",
-      projectId: "handicricket-85a06",
-      storageBucket: "handicricket-85a06.appspot.com",
-      messagingSenderId: "599182538558",
-      appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
-      measurementId: "G-HSV9H4LEJQ"
-    };
+  <!-- ── Top Batters Tab ── -->
+  <div class="tab-content" id="batters-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="topBatterRuns">—</div><div class="lbl">Highest Innings Score</div></div>
+      <div class="stat-card"><div class="val" id="topBatterAvg">—</div><div class="lbl">Best Batting Average</div></div>
+      <div class="stat-card"><div class="val" id="topBatterSR">—</div><div class="lbl">Highest Strike Rate</div></div>
+      <div class="stat-card"><div class="val" id="topBatterBoundaries">—</div><div class="lbl">Most Boundaries</div></div>
+    </div>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr>
+          <th width="50">Rank</th><th>Batter</th><th>Innings</th>
+          <th>Runs</th><th>Avg</th><th>SR</th><th>HS</th><th>50s</th><th>100s</th><th>4s/6s</th>
+        </tr></thead>
+        <tbody id="batterRankingsBody">
+          <tr class="loading-row"><td colspan="10"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  <!-- ── Top Bowlers Tab ── -->
+  <div class="tab-content" id="bowlers-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="topBowlerWickets">—</div><div class="lbl">Best Match Figures</div></div>
+      <div class="stat-card"><div class="val" id="topBowlerAvg">—</div><div class="lbl">Best Bowling Average</div></div>
+      <div class="stat-card"><div class="val" id="topBowlerER">—</div><div class="lbl">Best Economy Rate</div></div>
+      <div class="stat-card"><div class="val" id="topBowlerSR">—</div><div class="lbl">Best Strike Rate</div></div>
+    </div>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr>
+          <th width="50">Rank</th><th>Bowler</th><th>Innings</th>
+          <th>Wickets</th><th>Avg</th><th>ER</th><th>SR</th><th>5W</th><th>Best</th>
+        </tr></thead>
+        <tbody id="bowlerRankingsBody">
+          <tr class="loading-row"><td colspan="9"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
-        tab.classList.add('active');
-        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
-        
-        // Load data for the tab if not already loaded
-        if (tab.dataset.tab === 'players') loadPlayerRankings();
-        if (tab.dataset.tab === 'teams') loadTeamRankings();
-        if (tab.dataset.tab === 'batters') loadBatterRankings();
-        if (tab.dataset.tab === 'bowlers') loadBowlerRankings();
-        if (tab.dataset.tab === 'allrounders') loadAllrounderRankings();
-        if (tab.dataset.tab === 'milestones') loadMilestones();
-      });
+  <!-- ── All-Rounders Tab ── -->
+  <div class="tab-content" id="allrounders-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="topAllrounderRunsWickets">—</div><div class="lbl">Most Runs + Wickets</div></div>
+      <div class="stat-card"><div class="val" id="topAllrounderMatches">—</div><div class="lbl">Most Player of Match Awards</div></div>
+      <div class="stat-card"><div class="val" id="topAllrounderDouble">—</div><div class="lbl">Most 50+ Runs & 3+ Wickets</div></div>
+    </div>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr>
+          <th width="50">Rank</th><th>Player</th><th>Matches</th>
+          <th>Runs</th><th>Wickets</th><th>Bat Avg</th><th>Bowl Avg</th><th>POM</th><th>Doubles</th>
+        </tr></thead>
+        <tbody id="allrounderRankingsBody">
+          <tr class="loading-row"><td colspan="9"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Milestones Tab ── -->
+  <div class="tab-content" id="milestones-tab">
+    <div class="summary-row">
+      <div class="stat-card"><div class="val" id="totalCenturies">—</div><div class="lbl">Total Centuries</div></div>
+      <div class="stat-card"><div class="val" id="totalHalfCenturies">—</div><div class="lbl">Total Half-Centuries</div></div>
+      <div class="stat-card"><div class="val" id="totalFiveWickets">—</div><div class="lbl">5-Wicket Hauls</div></div>
+      <div class="stat-card"><div class="val" id="totalHatTricks">—</div><div class="lbl">Hat-Tricks</div></div>
+    </div>
+    <div class="section-label">Recent Centuries</div>
+    <div class="table-wrap" style="margin-bottom:20px;">
+      <table class="lb">
+        <thead><tr><th>Player</th><th>Runs</th><th>Balls</th><th>4s/6s</th><th>Match</th><th>Date</th></tr></thead>
+        <tbody id="centuriesBody">
+          <tr class="loading-row"><td colspan="6"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-label">Recent 5-Wicket Hauls</div>
+    <div class="table-wrap">
+      <table class="lb">
+        <thead><tr><th>Bowler</th><th>Wickets</th><th>Runs</th><th>Overs</th><th>Match</th><th>Date</th></tr></thead>
+        <tbody id="fiveWicketsBody">
+          <tr class="loading-row"><td colspan="6"><div class="spinner"></div>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Player Search Tab ── -->
+  <div class="tab-content" id="search-tab">
+    <div style="position:relative;" class="search-dropdown">
+      <div class="search-box-wrap">
+        <input type="text" id="playerSearchInput" class="search-input" placeholder="Search player name…" autocomplete="off">
+        <button class="search-btn" id="playerSearchBtn"><i class="fas fa-search"></i> Search</button>
+      </div>
+      <div class="autocomplete-list" id="autocompleteList"></div>
+    </div>
+
+    <!-- Player profile / results -->
+    <div class="player-profile" id="playerProfile"></div>
+
+    <!-- Default hint -->
+    <div class="search-hint" id="searchHint">
+      <i class="fas fa-user-circle"></i>
+      <p>Search any player name to fetch their full career stats and match history from the database.</p>
+    </div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCN6aZMwlsZe7JJaovU0WA3UQygWr4jYmA",
+    authDomain: "handicricket-85a06.firebaseapp.com",
+    projectId: "handicricket-85a06",
+    storageBucket: "handicricket-85a06.appspot.com",
+    messagingSenderId: "599182538558",
+    appId: "1:599182538558:web:3e965753ab05f8f1e3de6f",
+    measurementId: "G-HSV9H4LEJQ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // ── State ──
+  let currentFormat = 'all';
+  let allCareerStats = {}; // keyed by playerKey (sanitized name)
+  let allMatchResults = {}; // matchResults or completedMatches
+  let allPlayersIndex = []; // [{key, name, matches, runs, wickets}] for search autocomplete
+  let dataLoaded = false;
+
+  // ── Utility ──
+  function sanitizeKey(name) {
+    return name.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    } catch { return '—'; }
+  }
+
+  function rankIcon(i) {
+    if (i === 0) return '<span class="medal-g"><i class="fas fa-medal"></i></span>';
+    if (i === 1) return '<span class="medal-s"><i class="fas fa-medal"></i></span>';
+    if (i === 2) return '<span class="medal-b"><i class="fas fa-medal"></i></span>';
+    return '';
+  }
+
+  function loadingRow(cols) {
+    return `<tr class="loading-row"><td colspan="${cols}"><div class="spinner"></div>Loading…</td></tr>`;
+  }
+
+  function emptyRow(cols, msg) {
+    return `<tr class="empty-row"><td colspan="${cols}">${msg}</td></tr>`;
+  }
+
+  function formatName(fmtKey) {
+    const map = { '5': 'T5', '10': 'T10', '20': 'T20', '50': 'ODI', 'T5': 'T5', 'T10': 'T10', 'T20': 'T20', 'ODI': 'ODI' };
+    return map[fmtKey] || fmtKey;
+  }
+
+  // ── Tab Switching ──
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+      if (tab.dataset.tab !== 'search') dispatchTab(tab.dataset.tab);
     });
-    
-    // Format filtering
-    let currentFormat = 'all';
-    document.querySelectorAll('.format-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFormat = btn.dataset.format;
-        
-        // Reload current tab with new format filter
-        const activeTab = document.querySelector('.tab.active');
-        if (activeTab.dataset.tab === 'players') loadPlayerRankings();
-        if (activeTab.dataset.tab === 'teams') loadTeamRankings();
-        if (activeTab.dataset.tab === 'batters') loadBatterRankings();
-        if (activeTab.dataset.tab === 'bowlers') loadBowlerRankings();
-        if (activeTab.dataset.tab === 'allrounders') loadAllrounderRankings();
-        if (activeTab.dataset.tab === 'milestones') loadMilestones();
-      });
-    });
+  });
 
-    // Load player rankings
-    async function loadPlayerRankings() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesRef);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('playerRankingsBody').innerHTML = `
-            <tr>
-              <td colspan="9" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process player stats
-        const playerStats = {};
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team
-          if (match.player1Stats) {
-            Object.entries(match.player1Stats).forEach(([player, stats]) => {
-              if (!playerStats[player]) {
-                playerStats[player] = initPlayerStats(player, match.player1.team);
-              }
-              updatePlayerStats(playerStats[player], stats, match.winner === 'player1');
-            });
-          }
-          
-          // Process player2 team
-          if (match.player2Stats) {
-            Object.entries(match.player2Stats).forEach(([player, stats]) => {
-              if (!playerStats[player]) {
-                playerStats[player] = initPlayerStats(player, match.player2.team);
-              }
-              updatePlayerStats(playerStats[player], stats, match.winner === 'player2');
-            });
-          }
-        });
-        
-        // Convert to array and sort by runs + wickets
-        const playersArray = Object.values(playerStats).sort((a, b) => {
-          return (b.runs + (b.wickets * 25)) - (a.runs + (a.wickets * 25));
-        });
-        
-        // Update top stats
-        if (playersArray.length > 0) {
-          document.getElementById('topPlayerRuns').textContent = `${playersArray[0].runs} (${playersArray[0].name})`;
-          document.getElementById('topPlayerWickets').textContent = `${playersArray[0].wickets} (${playersArray[0].name})`;
-          
-          // Find player with most matches
-          const mostMatchesPlayer = [...playersArray].sort((a, b) => b.matches - a.matches)[0];
-          document.getElementById('topPlayerMatches').textContent = `${mostMatchesPlayer.matches} (${mostMatchesPlayer.name})`;
-          
-          // Find player with most wins
-          const mostWinsPlayer = [...playersArray].sort((a, b) => b.wins - a.wins)[0];
-          document.getElementById('topPlayerWins').textContent = `${mostWinsPlayer.wins} (${mostWinsPlayer.name})`;
-        }
-        
-        // Update table
-        const tbody = document.getElementById('playerRankingsBody');
-        tbody.innerHTML = '';
-        
-        playersArray.forEach((player, index) => {
-          const tr = document.createElement('tr');
-          if (index < 3) tr.classList.add('highlight');
-          
-          const batAvg = player.batInnings > 0 ? (player.runs / player.batInnings).toFixed(2) : '-';
-          const bowlAvg = player.wickets > 0 ? (player.runsConceded / player.wickets).toFixed(2) : '-';
-          const winPct = player.matches > 0 ? ((player.wins / player.matches) * 100).toFixed(1) : '-';
-          
-          tr.innerHTML = `
-            <td class="rank">
-              ${index + 1}
-              ${index === 0 ? '<span class="medal-gold"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 1 ? '<span class="medal-silver"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 2 ? '<span class="medal-bronze"><i class="fas fa-medal"></i></span>' : ''}
-            </td>
-            <td class="player-name">${player.name}</td>
-            <td class="team-name">${player.team}</td>
-            <td>${player.matches}</td>
-            <td>${player.runs}</td>
-            <td>${player.wickets}</td>
-            <td>${batAvg}</td>
-            <td>${bowlAvg}</td>
-            <td>${winPct}%</td>
-          `;
-          
-          tbody.appendChild(tr);
-        });
-      } catch (error) {
-        console.error("Error loading player rankings:", error);
-        document.getElementById('playerRankingsBody').innerHTML = `
-          <tr>
-            <td colspan="9" style="text-align: center; color: #f44336;">Error loading player rankings</td>
-          </tr>
-        `;
+  function dispatchTab(name) {
+    if (name === 'players') loadPlayerRankings();
+    if (name === 'teams') loadTeamRankings();
+    if (name === 'batters') loadBatterRankings();
+    if (name === 'bowlers') loadBowlerRankings();
+    if (name === 'allrounders') loadAllrounderRankings();
+    if (name === 'milestones') loadMilestones();
+  }
+
+  // ── Format filter ──
+  document.querySelectorAll('.format-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFormat = btn.dataset.format;
+      const active = document.querySelector('.tab.active');
+      if (active && active.dataset.tab !== 'search') dispatchTab(active.dataset.tab);
+    });
+  });
+
+  // ================================================================
+  // DATA LOADERS
+  // ================================================================
+
+  /**
+   * Primary source: playerCareerStats/ (written by game_T5 saveAllPlayerCareerStats)
+   * This path uses sanitized player name as key.
+   * Fields: matches, runs, balls, fours, sixes, wickets, runsConceded, oversBowled, noballs,
+   *         matches_as_batter, matches_as_bowler, lastMatch, matchHistory/{matchId}
+   */
+  async function loadCareerStats() {
+    const snap = await get(ref(db, 'playerCareerStats'));
+    if (!snap.exists()) return {};
+    return snap.val(); // { playerKey: {matches, runs, ...} }
+  }
+
+  /**
+   * Secondary source: matchResults/ or completedMatches/ for team-level and per-match detail
+   */
+  async function loadMatchResults() {
+    // Try matchResults first (written by endMatch)
+    const mrSnap = await get(ref(db, 'matchResults'));
+    if (mrSnap.exists()) return Object.values(mrSnap.val());
+    // Fallback to completedMatches
+    const cmSnap = await get(ref(db, 'completedMatches'));
+    if (cmSnap.exists()) return Object.values(cmSnap.val());
+    return [];
+  }
+
+  async function ensureData() {
+    if (dataLoaded) return;
+    allCareerStats = await loadCareerStats();
+    const matches = await loadMatchResults();
+    // Index matches by room for dedup, keep latest
+    matches.forEach(m => {
+      const key = m.room || (m.team1Name + '_' + m.team2Name);
+      allMatchResults[key] = m;
+    });
+    // Build player index from career stats
+    allPlayersIndex = Object.entries(allCareerStats).map(([key, d]) => ({
+      key,
+      name: (d.lastMatch ? guessPlayerName(key) : key.replace(/_/g, ' ')),
+      matches: d.matches || 0,
+      runs: d.runs || 0,
+      wickets: d.wickets || 0
+    }));
+    dataLoaded = true;
+  }
+
+  function guessPlayerName(key) {
+    // The key is the sanitized player name; restore spaces (best-effort)
+    return key.replace(/_/g, ' ');
+  }
+
+  // ── Filter matches by format ──
+  function filterMatches(matches) {
+    if (currentFormat === 'all') return matches;
+    return matches.filter(m => {
+      const f = (m.format || '').toUpperCase();
+      const cf = currentFormat.toUpperCase();
+      return f === cf || f.includes(cf);
+    });
+  }
+
+  // ================================================================
+  // PLAYER RANKINGS (uses playerCareerStats)
+  // ================================================================
+  async function loadPlayerRankings() {
+    const body = document.getElementById('playerRankingsBody');
+    body.innerHTML = loadingRow(9);
+    try {
+      await ensureData();
+      const players = Object.entries(allCareerStats).map(([key, d]) => ({
+        name: key.replace(/_/g, ' '),
+        matches: d.matches || 0,
+        runs: d.runs || 0,
+        balls: d.balls || 0,
+        fours: d.fours || 0,
+        sixes: d.sixes || 0,
+        wickets: d.wickets || 0,
+        runsConceded: d.runsConceded || 0,
+        oversBowled: d.oversBowled || 0,
+        batInnings: d.matches_as_batter || 0,
+        bowlInnings: d.matches_as_bowler || 0,
+      }));
+
+      if (players.length === 0) {
+        body.innerHTML = emptyRow(9, 'No player data yet — complete a match first.');
+        return;
       }
+
+      players.sort((a, b) => (b.runs + b.wickets * 25) - (a.runs + a.wickets * 25));
+
+      // Summary cards
+      const mostRuns = [...players].sort((a, b) => b.runs - a.runs)[0];
+      const mostWkts = [...players].sort((a, b) => b.wickets - a.wickets)[0];
+      const mostMatches = [...players].sort((a, b) => b.matches - a.matches)[0];
+      document.getElementById('topPlayerRuns').textContent = `${mostRuns.runs} (${mostRuns.name})`;
+      document.getElementById('topPlayerWickets').textContent = `${mostWkts.wickets} (${mostWkts.name})`;
+      document.getElementById('topPlayerMatches').textContent = `${mostMatches.matches} (${mostMatches.name})`;
+      document.getElementById('topPlayerWins').textContent = '—';
+
+      body.innerHTML = '';
+      players.forEach((p, i) => {
+        const batAvg = p.batInnings > 0 ? (p.runs / p.batInnings).toFixed(1) : '—';
+        const bowlAvg = p.wickets > 0 ? (p.runsConceded / p.wickets).toFixed(1) : '—';
+        const sr = p.balls > 0 ? ((p.runs / p.balls) * 100).toFixed(1) : '—';
+        const er = p.oversBowled > 0 ? (p.runsConceded / p.oversBowled).toFixed(2) : '—';
+        const tr = document.createElement('tr');
+        if (i < 3) tr.classList.add('top3');
+        tr.innerHTML = `
+          <td class="rank">${i+1} ${rankIcon(i)}</td>
+          <td class="pname" style="cursor:pointer;color:#7ec8ff;" data-player="${p.name}">${p.name}</td>
+          <td>${p.matches}</td><td>${p.runs}</td><td>${p.wickets}</td>
+          <td>${batAvg}</td><td>${bowlAvg}</td><td>${sr}</td><td>${er}</td>`;
+        body.appendChild(tr);
+      });
+
+      // Click player name → jump to search tab
+      body.querySelectorAll('[data-player]').forEach(el => {
+        el.addEventListener('click', () => openPlayerSearch(el.dataset.player));
+      });
+
+    } catch (e) {
+      console.error(e);
+      body.innerHTML = emptyRow(9, '⚠ Error loading player rankings.');
     }
-    
-    // Load team rankings
-    async function loadTeamRankings() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesRef);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('teamRankingsBody').innerHTML = `
-            <tr>
-              <td colspan="8" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process team stats
-        const teamStats = {};
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team
-          const team1 = match.player1.team;
-          if (!teamStats[team1]) {
-            teamStats[team1] = initTeamStats(team1);
-          }
-          updateTeamStats(teamStats[team1], match, match.winner === 'player1');
-          
-          // Process player2 team
-          const team2 = match.player2.team;
-          if (!teamStats[team2]) {
-            teamStats[team2] = initTeamStats(team2);
-          }
-          updateTeamStats(teamStats[team2], match, match.winner === 'player2');
-        });
-        
-        // Convert to array and sort by wins
-        const teamsArray = Object.values(teamStats).sort((a, b) => {
-          return b.wins - a.wins || b.matches - a.matches;
-        });
-        
-        // Update top stats
-        if (teamsArray.length > 0) {
-          document.getElementById('topTeamWins').textContent = `${teamsArray[0].wins} (${teamsArray[0].name})`;
-          
-          // Find team with highest score
-          const highestScoreTeam = [...teamsArray].sort((a, b) => b.highestScore - a.highestScore)[0];
-          document.getElementById('topTeamRuns').textContent = `${highestScoreTeam.highestScore} (${highestScoreTeam.name})`;
-          
-          // Find team with most chases
-          const mostChasesTeam = [...teamsArray].sort((a, b) => b.chases - a.chases)[0];
-          document.getElementById('topTeamChases').textContent = `${mostChasesTeam.chases} (${mostChasesTeam.name})`;
-          
-          // Find team with most defends
-          const mostDefendsTeam = [...teamsArray].sort((a, b) => b.defends - a.defends)[0];
-          document.getElementById('topTeamDefends').textContent = `${mostDefendsTeam.defends} (${mostDefendsTeam.name})`;
-        }
-        
-        // Update table
-        const tbody = document.getElementById('teamRankingsBody');
-        tbody.innerHTML = '';
-        
-        teamsArray.forEach((team, index) => {
-          const tr = document.createElement('tr');
-          if (index < 3) tr.classList.add('highlight');
-          
-          const winPct = team.matches > 0 ? ((team.wins / team.matches) * 100).toFixed(1) : '-';
-          
-          tr.innerHTML = `
-            <td class="rank">
-              ${index + 1}
-              ${index === 0 ? '<span class="medal-gold"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 1 ? '<span class="medal-silver"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 2 ? '<span class="medal-bronze"><i class="fas fa-medal"></i></span>' : ''}
-            </td>
-            <td class="player-name">${team.name}</td>
-            <td>${team.matches}</td>
-            <td>${team.wins}</td>
-            <td>${team.losses}</td>
-            <td>${winPct}%</td>
-            <td>${team.highestScore}</td>
-            <td>${team.lowestScore}</td>
-          `;
-          
-          tbody.appendChild(tr);
-        });
-      } catch (error) {
-        console.error("Error loading team rankings:", error);
-        document.getElementById('teamRankingsBody').innerHTML = `
-          <tr>
-            <td colspan="8" style="text-align: center; color: #f44336;">Error loading team rankings</td>
-          </tr>
-        `;
+  }
+
+  // ================================================================
+  // TEAM RANKINGS (uses matchResults)
+  // ================================================================
+  async function loadTeamRankings() {
+    const body = document.getElementById('teamRankingsBody');
+    body.innerHTML = loadingRow(8);
+    try {
+      await ensureData();
+      const matches = filterMatches(Object.values(allMatchResults));
+      if (matches.length === 0) {
+        body.innerHTML = emptyRow(8, 'No match data yet.');
+        return;
       }
-    }
-    
-    // Load batter rankings
-    async function loadBatterRankings() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesRef);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('batterRankingsBody').innerHTML = `
-            <tr>
-              <td colspan="10" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process batter stats
-        const batterStats = {};
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team batters
-          if (match.player1Stats) {
-            Object.entries(match.player1Stats).forEach(([player, stats]) => {
-              if (!batterStats[player]) {
-                batterStats[player] = initBatterStats(player, match.player1.team);
-              }
-              updateBatterStats(batterStats[player], stats);
-            });
-          }
-          
-          // Process player2 team batters
-          if (match.player2Stats) {
-            Object.entries(match.player2Stats).forEach(([player, stats]) => {
-              if (!batterStats[player]) {
-                batterStats[player] = initBatterStats(player, match.player2.team);
-              }
-              updateBatterStats(batterStats[player], stats);
-            });
-          }
-        });
-        
-        // Convert to array and sort by runs
-        const battersArray = Object.values(batterStats).filter(b => b.innings > 0).sort((a, b) => {
-          return b.runs - a.runs;
-        });
-        
-        // Update top stats
-        if (battersArray.length > 0) {
-          // Highest score in an innings
-          const highestScore = Math.max(...battersArray.map(b => b.highestScore));
-          const highestScorer = battersArray.find(b => b.highestScore === highestScore);
-          document.getElementById('topBatterRuns').textContent = `${highestScore} (${highestScorer.name})`;
-          
-          // Highest average (min 5 innings)
-          const qualifiedBatters = battersArray.filter(b => b.innings >= 5);
-          if (qualifiedBatters.length > 0) {
-            const highestAvgBatter = [...qualifiedBatters].sort((a, b) => b.average - a.average)[0];
-            document.getElementById('topBatterAvg').textContent = `${highestAvgBatter.average.toFixed(2)} (${highestAvgBatter.name})`;
-          }
-          
-          // Highest strike rate (min 100 runs)
-          const qualifiedSRBatters = battersArray.filter(b => b.runs >= 100);
-          if (qualifiedSRBatters.length > 0) {
-            const highestSRBatter = [...qualifiedSRBatters].sort((a, b) => b.strikeRate - b.strikeRate)[0];
-            document.getElementById('topBatterSR').textContent = `${highestSRBatter.strikeRate.toFixed(2)} (${highestSRBatter.name})`;
-          }
-          
-          // Most boundaries
-          const mostBoundariesBatter = [...battersArray].sort((a, b) => (b.fours + b.sixes) - (a.fours + a.sixes))[0];
-          document.getElementById('topBatterBoundaries').textContent = `${mostBoundariesBatter.fours + mostBoundariesBatter.sixes} (${mostBoundariesBatter.name})`;
-        }
-        
-        // Update table
-        const tbody = document.getElementById('batterRankingsBody');
-        tbody.innerHTML = '';
-        
-        battersArray.forEach((batter, index) => {
-          const tr = document.createElement('tr');
-          if (index < 3) tr.classList.add('highlight');
-          
-          const avg = batter.innings > 0 ? (batter.runs / batter.innings).toFixed(2) : '-';
-          const sr = batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(2) : '-';
-          
-          tr.innerHTML = `
-            <td class="rank">
-              ${index + 1}
-              ${index === 0 ? '<span class="medal-gold"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 1 ? '<span class="medal-silver"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 2 ? '<span class="medal-bronze"><i class="fas fa-medal"></i></span>' : ''}
-            </td>
-            <td class="player-name">${batter.name}</td>
-            <td class="team-name">${batter.team}</td>
-            <td>${batter.innings}</td>
-            <td>${batter.runs}</td>
-            <td>${avg}</td>
-            <td>${sr}</td>
-            <td>${batter.fifties}</td>
-            <td>${batter.hundreds}</td>
-            <td>${batter.fours}/${batter.sixes}</td>
-          `;
-          
-          tbody.appendChild(tr);
-        });
-      } catch (error) {
-        console.error("Error loading batter rankings:", error);
-        document.getElementById('batterRankingsBody').innerHTML = `
-          <tr>
-            <td colspan="10" style="text-align: center; color: #f44336;">Error loading batting rankings</td>
-          </tr>
-        `;
+
+      const teams = {};
+      function getOrInit(name) {
+        if (!teams[name]) teams[name] = { name, matches:0, wins:0, losses:0, chases:0, defends:0, highestScore:0, lowestScore:Infinity, totalRuns:0 };
+        return teams[name];
       }
+
+      matches.forEach(m => {
+        const t1 = m.team1Name || m.winnerName || 'Team 1';
+        const t2 = m.team2Name || 'Team 2';
+        const winner = m.winnerName || (m.winner === 'player1' ? t1 : t2);
+        const fi = m.firstInnings || {};
+        const si = m.secondInnings || {};
+        const t1Score = fi.totalRuns ?? 0;
+        const t2Score = si.totalRuns ?? 0;
+
+        const team1 = getOrInit(t1);
+        const team2 = getOrInit(t2);
+
+        team1.matches++; team2.matches++;
+        if (winner === t1) { team1.wins++; team2.losses++; } else { team2.wins++; team1.losses++; }
+
+        if (t1Score > team1.highestScore) team1.highestScore = t1Score;
+        if (t1Score < team1.lowestScore) team1.lowestScore = t1Score;
+        team1.totalRuns += t1Score;
+
+        if (t2Score > team2.highestScore) team2.highestScore = t2Score;
+        if (t2Score < team2.lowestScore) team2.lowestScore = t2Score;
+        team2.totalRuns += t2Score;
+      });
+
+      const arr = Object.values(teams).sort((a,b) => b.wins - a.wins || b.matches - a.matches);
+
+      // Summary cards
+      const topWins = arr[0];
+      const topHS = [...arr].sort((a,b) => b.highestScore - a.highestScore)[0];
+      document.getElementById('topTeamWins').textContent = `${topWins.wins} (${topWins.name})`;
+      document.getElementById('topTeamRuns').textContent = `${topHS.highestScore} (${topHS.name})`;
+      document.getElementById('topTeamChases').textContent = '—';
+      document.getElementById('topTeamDefends').textContent = '—';
+
+      body.innerHTML = '';
+      arr.forEach((t, i) => {
+        const winPct = t.matches > 0 ? ((t.wins/t.matches)*100).toFixed(1) : '—';
+        const ls = t.lowestScore === Infinity ? '—' : t.lowestScore;
+        const tr = document.createElement('tr');
+        if (i < 3) tr.classList.add('top3');
+        tr.innerHTML = `
+          <td class="rank">${i+1} ${rankIcon(i)}</td>
+          <td class="pname">${t.name}</td>
+          <td>${t.matches}</td><td>${t.wins}</td><td>${t.losses}</td>
+          <td>${winPct}%</td><td>${t.highestScore}</td><td>${ls}</td>`;
+        body.appendChild(tr);
+      });
+
+    } catch(e) {
+      console.error(e);
+      body.innerHTML = emptyRow(8, '⚠ Error loading team rankings.');
     }
-    
-    // Load bowler rankings
-    async function loadBowlerRankings() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesRef);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('bowlerRankingsBody').innerHTML = `
-            <tr>
-              <td colspan="10" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process bowler stats
-        const bowlerStats = {};
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team bowlers
-          if (match.player1Stats) {
-            Object.entries(match.player1Stats).forEach(([player, stats]) => {
-              if (!bowlerStats[player]) {
-                bowlerStats[player] = initBowlerStats(player, match.player1.team);
-              }
-              updateBowlerStats(bowlerStats[player], stats);
+  }
+
+  // ================================================================
+  // BATTER RANKINGS (uses playerCareerStats)
+  // ================================================================
+  async function loadBatterRankings() {
+    const body = document.getElementById('batterRankingsBody');
+    body.innerHTML = loadingRow(10);
+    try {
+      await ensureData();
+
+      // Aggregate batter stats from match history inside playerCareerStats
+      const batters = {};
+      Object.entries(allCareerStats).forEach(([key, d]) => {
+        const name = key.replace(/_/g, ' ');
+        if (!batters[name]) batters[name] = { name, innings:0, runs:0, balls:0, fours:0, sixes:0, fifties:0, hundreds:0, highestScore:0, notOuts:0 };
+        const b = batters[name];
+
+        // Use career totals
+        if ((d.runs || 0) > 0 || (d.balls || 0) > 0) {
+          b.innings += d.matches_as_batter || d.matches || 0;
+          b.runs += d.runs || 0;
+          b.balls += d.balls || 0;
+          b.fours += d.fours || 0;
+          b.sixes += d.sixes || 0;
+
+          // Try match history for highest score and milestones
+          if (d.matchHistory) {
+            Object.values(d.matchHistory).forEach(mh => {
+              const bat = mh.batting;
+              if (!bat) return;
+              if ((bat.runs || 0) > b.highestScore) b.highestScore = bat.runs;
+              if ((bat.runs || 0) >= 50) b.fifties++;
+              if ((bat.runs || 0) >= 100) b.hundreds++;
             });
           }
-          
-          // Process player2 team bowlers
-          if (match.player2Stats) {
-            Object.entries(match.player2Stats).forEach(([player, stats]) => {
-              if (!bowlerStats[player]) {
-                bowlerStats[player] = initBowlerStats(player, match.player2.team);
-              }
-              updateBowlerStats(bowlerStats[player], stats);
-            });
-          }
-        });
-        
-        // Convert to array and sort by wickets
-        const bowlersArray = Object.values(bowlerStats).filter(b => b.innings > 0).sort((a, b) => {
-          return b.wickets - a.wickets;
-        });
-        
-        // Update top stats
-        if (bowlersArray.length > 0) {
-          // Most wickets in a match
-          const bestBowling = Math.max(...bowlersArray.map(b => b.bestWickets));
-          const bestBowler = bowlersArray.find(b => b.bestWickets === bestBowling);
-          document.getElementById('topBowlerWickets').textContent = `${bestBowling}/${bestBowler.bestRuns} (${bestBowler.name})`;
-          
-          // Best average (min 5 wickets)
-          const qualifiedBowlers = bowlersArray.filter(b => b.wickets >= 5);
-          if (qualifiedBowlers.length > 0) {
-            const bestAvgBowler = [...qualifiedBowlers].sort((a, b) => a.average - b.average)[0];
-            document.getElementById('topBowlerAvg').textContent = `${bestAvgBowler.average.toFixed(2)} (${bestAvgBowler.name})`;
-          }
-          
-          // Best economy rate (min 10 overs)
-          const qualifiedERBowlers = bowlersArray.filter(b => b.overs >= 10);
-          if (qualifiedERBowlers.length > 0) {
-            const bestERBowler = [...qualifiedERBowlers].sort((a, b) => a.economy - b.economy)[0];
-            document.getElementById('topBowlerER').textContent = `${bestERBowler.economy.toFixed(2)} (${bestERBowler.name})`;
-          }
-          
-          // Best strike rate (min 5 wickets)
-          if (qualifiedBowlers.length > 0) {
-            const bestSRBowler = [...qualifiedBowlers].sort((a, b) => a.strikeRate - b.strikeRate)[0];
-            document.getElementById('topBowlerSR').textContent = `${bestSRBowler.strikeRate.toFixed(2)} (${bestSRBowler.name})`;
-          }
         }
-        
-        // Update table
-        const tbody = document.getElementById('bowlerRankingsBody');
-        tbody.innerHTML = '';
-        
-        bowlersArray.forEach((bowler, index) => {
-          const tr = document.createElement('tr');
-          if (index < 3) tr.classList.add('highlight');
-          
-          const avg = bowler.wickets > 0 ? (bowler.runsConceded / bowler.wickets).toFixed(2) : '-';
-          const er = bowler.overs > 0 ? (bowler.runsConceded / bowler.overs).toFixed(2) : '-';
-          const sr = bowler.wickets > 0 ? (bowler.balls / bowler.wickets).toFixed(2) : '-';
-          const best = bowler.bestWickets > 0 ? `${bowler.bestWickets}/${bowler.bestRuns}` : '-';
-          
-          tr.innerHTML = `
-            <td class="rank">
-              ${index + 1}
-              ${index === 0 ? '<span class="medal-gold"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 1 ? '<span class="medal-silver"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 2 ? '<span class="medal-bronze"><i class="fas fa-medal"></i></span>' : ''}
-            </td>
-            <td class="player-name">${bowler.name}</td>
-            <td class="team-name">${bowler.team}</td>
-            <td>${bowler.innings}</td>
-            <td>${bowler.wickets}</td>
-            <td>${avg}</td>
-            <td>${er}</td>
-            <td>${sr}</td>
-            <td>${bowler.fiveWickets}</td>
-            <td>${best}</td>
-          `;
-          
-          tbody.appendChild(tr);
-        });
-      } catch (error) {
-        console.error("Error loading bowler rankings:", error);
-        document.getElementById('bowlerRankingsBody').innerHTML = `
-          <tr>
-            <td colspan="10" style="text-align: center; color: #f44336;">Error loading bowling rankings</td>
-          </tr>
-        `;
+      });
+
+      const arr = Object.values(batters).filter(b => b.innings > 0).sort((a,b) => b.runs - a.runs);
+
+      if (arr.length === 0) {
+        body.innerHTML = emptyRow(10, 'No batting data yet.');
+        return;
       }
+
+      const topHS = [...arr].sort((a,b) => b.highestScore - a.highestScore)[0];
+      const qualified = arr.filter(b => b.innings >= 3);
+      const topAvg = qualified.length ? [...qualified].sort((a,b) => (b.runs/b.innings) - (a.runs/a.innings))[0] : arr[0];
+      const topSR = arr.filter(b => b.runs >= 50).length ? [...arr.filter(b=>b.runs>=50)].sort((a,b) => (b.runs/b.balls) - (a.runs/a.balls))[0] : arr[0];
+      const topBdry = [...arr].sort((a,b) => (b.fours+b.sixes) - (a.fours+a.sixes))[0];
+
+      document.getElementById('topBatterRuns').textContent = `${topHS.highestScore} (${topHS.name})`;
+      document.getElementById('topBatterAvg').textContent = `${(topAvg.runs/Math.max(topAvg.innings,1)).toFixed(1)} (${topAvg.name})`;
+      document.getElementById('topBatterSR').textContent = topSR.balls > 0 ? `${((topSR.runs/topSR.balls)*100).toFixed(1)} (${topSR.name})` : '—';
+      document.getElementById('topBatterBoundaries').textContent = `${topBdry.fours+topBdry.sixes} (${topBdry.name})`;
+
+      body.innerHTML = '';
+      arr.forEach((b, i) => {
+        const avg = b.innings > 0 ? (b.runs / b.innings).toFixed(1) : '—';
+        const sr = b.balls > 0 ? ((b.runs/b.balls)*100).toFixed(1) : '—';
+        const tr = document.createElement('tr');
+        if (i < 3) tr.classList.add('top3');
+        tr.innerHTML = `
+          <td class="rank">${i+1} ${rankIcon(i)}</td>
+          <td class="pname" style="cursor:pointer;color:#7ec8ff;" data-player="${b.name}">${b.name}</td>
+          <td>${b.innings}</td><td>${b.runs}</td><td>${avg}</td>
+          <td>${sr}</td><td>${b.highestScore||'—'}</td><td>${b.fifties}</td><td>${b.hundreds}</td>
+          <td>${b.fours}/${b.sixes}</td>`;
+        body.appendChild(tr);
+      });
+      body.querySelectorAll('[data-player]').forEach(el => {
+        el.addEventListener('click', () => openPlayerSearch(el.dataset.player));
+      });
+
+    } catch(e) {
+      console.error(e);
+      body.innerHTML = emptyRow(10, '⚠ Error loading batting rankings.');
     }
-    
-    // Load all-rounder rankings
-    async function loadAllrounderRankings() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesRef);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('allrounderRankingsBody').innerHTML = `
-            <tr>
-              <td colspan="8" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process all-rounder stats
-        const allrounderStats = {};
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team
-          if (match.player1Stats) {
-            Object.entries(match.player1Stats).forEach(([player, stats]) => {
-              if (!allrounderStats[player]) {
-                allrounderStats[player] = initAllrounderStats(player, match.player1.team);
-              }
-              updateAllrounderStats(allrounderStats[player], stats, match.winner === 'player1');
-            });
-          }
-          
-          // Process player2 team
-          if (match.player2Stats) {
-            Object.entries(match.player2Stats).forEach(([player, stats]) => {
-              if (!allrounderStats[player]) {
-                allrounderStats[player] = initAllrounderStats(player, match.player2.team);
-              }
-              updateAllrounderStats(allrounderStats[player], stats, match.winner === 'player2');
-            });
-          }
-        });
-        
-        // Convert to array and sort by all-round performance
-        const allroundersArray = Object.values(allrounderStats)
-          .filter(a => a.batInnings > 0 && a.bowlInnings > 0)
-          .sort((a, b) => {
-            // Sort by runs + wickets*25 + POM*50 + doublePerformances*30
-            const aScore = a.runs + (a.wickets * 25) + (a.playerOfMatch * 50) + (a.doublePerformances * 30);
-            const bScore = b.runs + (b.wickets * 25) + (b.playerOfMatch * 50) + (b.doublePerformances * 30);
-            return bScore - aScore;
-          });
-        
-        // Update top stats
-        if (allroundersArray.length > 0) {
-          // Most runs + wickets
-          const topAllrounder = [...allroundersArray].sort((a, b) => (b.runs + b.wickets) - (a.runs + a.wickets))[0];
-          document.getElementById('topAllrounderRunsWickets').textContent = `${topAllrounder.runs}+${topAllrounder.wickets} (${topAllrounder.name})`;
-          
-          // Most POM awards
-          const mostPOM = [...allroundersArray].sort((a, b) => b.playerOfMatch - a.playerOfMatch)[0];
-          document.getElementById('topAllrounderMatches').textContent = `${mostPOM.playerOfMatch} (${mostPOM.name})`;
-          
-          // Most double performances
-          const mostDoubles = [...allroundersArray].sort((a, b) => b.doublePerformances - a.doublePerformances)[0];
-          document.getElementById('topAllrounderDouble').textContent = `${mostDoubles.doublePerformances} (${mostDoubles.name})`;
-        }
-        
-        // Update table
-        const tbody = document.getElementById('allrounderRankingsBody');
-        tbody.innerHTML = '';
-        
-        allroundersArray.forEach((player, index) => {
-          const tr = document.createElement('tr');
-          if (index < 3) tr.classList.add('highlight');
-          
-          const batAvg = player.batInnings > 0 ? (player.runs / player.batInnings).toFixed(2) : '-';
-          const bowlAvg = player.wickets > 0 ? (player.runsConceded / player.wickets).toFixed(2) : '-';
-          
-          tr.innerHTML = `
-            <td class="rank">
-              ${index + 1}
-              ${index === 0 ? '<span class="medal-gold"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 1 ? '<span class="medal-silver"><i class="fas fa-medal"></i></span>' : ''}
-              ${index === 2 ? '<span class="medal-bronze"><i class="fas fa-medal"></i></span>' : ''}
-            </td>
-            <td class="player-name">${player.name}</td>
-            <td class="team-name">${player.team}</td>
-            <td>${player.runs}</td>
-            <td>${player.wickets}</td>
-            <td>${batAvg}</td>
-            <td>${bowlAvg}</td>
-            <td>${player.playerOfMatch}</td>
-            <td>${player.doublePerformances}</td>
-          `;
-          
-          tbody.appendChild(tr);
-        });
-      } catch (error) {
-        console.error("Error loading all-rounder rankings:", error);
-        document.getElementById('allrounderRankingsBody').innerHTML = `
-          <tr>
-            <td colspan="8" style="text-align: center; color: #f44336;">Error loading all-rounder rankings</td>
-          </tr>
-        `;
-      }
-    }
-    
-    // Load milestones
-    async function loadMilestones() {
-      try {
-        // Get all completed matches
-        const matchesRef = ref(db, 'completedMatches');
-        const matchesSnap = await get(matchesSnap);
-        
-        if (!matchesSnap.exists()) {
-          document.getElementById('centuriesBody').innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          document.getElementById('fiveWicketsBody').innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center;">No match data available yet</td>
-            </tr>
-          `;
-          return;
-        }
-        
-        const matches = Object.values(matchesSnap.val());
-        
-        // Filter by format if needed
-        const filteredMatches = currentFormat === 'all' 
-          ? matches 
-          : matches.filter(m => m.format === formatName(currentFormat));
-        
-        // Process milestones
-        const centuries = [];
-        const fiveWickets = [];
-        let totalCenturies = 0;
-        let totalHalfCenturies = 0;
-        let totalFiveWickets = 0;
-        let totalHatTricks = 0;
-        
-        filteredMatches.forEach(match => {
-          // Process player1 team
-          if (match.player1Stats) {
-            Object.entries(match.player1Stats).forEach(([player, stats]) => {
-              if (stats.runs >= 100) {
-                centuries.push({
-                  player: player,
-                  team: match.player1.team,
-                  runs: stats.runs,
-                  balls: stats.balls,
-                  fours: stats.fours,
-                  sixes: stats.sixes,
-                  match: `${match.player1.team} vs ${match.player2.team}`,
-                  date: new Date(match.timestamp).toLocaleDateString()
-                });
-                totalCenturies++;
-              } else if (stats.runs >= 50) {
-                totalHalfCenturies++;
-              }
-              
-              if (stats.wickets >= 5) {
-                fiveWickets.push({
-                  player: player,
-                  team: match.player1.team,
-                  wickets: stats.wickets,
-                  runs: stats.runsConceded,
-                  overs: stats.overs,
-                  match: `${match.player1.team} vs ${match.player2.team}`,
-                  date: new Date(match.timestamp).toLocaleDateString()
-                });
-                totalFiveWickets++;
-              }
-              
-              // Check for hat-tricks (3 wickets in 3 consecutive balls)
-              if (stats.wickets >= 3) {
-                // This is a simplified check - in a real app you'd need to track ball-by-ball data
-                totalHatTricks++;
-              }
-            });
-          }
-          
-          // Process player2 team
-          if (match.player2Stats) {
-            Object.entries(match.player2Stats).forEach(([player, stats]) => {
-              if (stats.runs >= 100) {
-                centuries.push({
-                  player: player,
-                  team: match.player2.team,
-                  runs: stats.runs,
-                  balls: stats.balls,
-                  fours: stats.fours,
-                  sixes: stats.sixes,
-                  match: `${match.player1.team} vs ${match.player2.team}`,
-                  date: new Date(match.timestamp).toLocaleDateString()
-                });
-                totalCenturies++;
-              } else if (stats.runs >= 50) {
-                totalHalfCenturies++;
-              }
-              
-              if (stats.wickets >= 5) {
-                fiveWickets.push({
-                  player: player,
-                  team: match.player2.team,
-                  wickets: stats.wickets,
-                  runs: stats.runsConceded,
-                  overs: stats.overs,
-                  match: `${match.player1.team} vs ${match.player2.team}`,
-                  date: new Date(match.timestamp).toLocaleDateString()
-                });
-                totalFiveWickets++;
-              }
-              
-              if (stats.wickets >= 3) {
-                totalHatTricks++;
-              }
-            });
-          }
-        });
-        
-        // Update milestone counts
-        document.getElementById('totalCenturies').textContent = totalCenturies;
-        document.getElementById('totalHalfCenturies').textContent = totalHalfCenturies;
-        document.getElementById('totalFiveWickets').textContent = totalFiveWickets;
-        document.getElementById('totalHatTricks').textContent = totalHatTricks;
-        
-        // Sort centuries by runs (descending)
-        centuries.sort((a, b) => b.runs - a.runs);
-        
-        // Update centuries table
-        const centuriesBody = document.getElementById('centuriesBody');
-        centuriesBody.innerHTML = '';
-        
-        if (centuries.length === 0) {
-          centuriesBody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center;">No centuries scored yet</td>
-            </tr>
-          `;
-        } else {
-          centuries.slice(0, 10).forEach(century => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td class="player-name">${century.player}</td>
-              <td class="team-name">${century.team}</td>
-              <td>${century.runs}</td>
-              <td>${century.balls}</td>
-              <td>${century.fours}/${century.sixes}</td>
-              <td>${century.match}</td>
-              <td>${century.date}</td>
-            `;
-            centuriesBody.appendChild(tr);
+  }
+
+  // ================================================================
+  // BOWLER RANKINGS (uses playerCareerStats)
+  // ================================================================
+  async function loadBowlerRankings() {
+    const body = document.getElementById('bowlerRankingsBody');
+    body.innerHTML = loadingRow(9);
+    try {
+      await ensureData();
+
+      const bowlers = {};
+      Object.entries(allCareerStats).forEach(([key, d]) => {
+        const name = key.replace(/_/g, ' ');
+        if ((d.wickets || 0) === 0 && (d.oversBowled || 0) === 0) return;
+        if (!bowlers[name]) bowlers[name] = { name, innings:0, wickets:0, runsConceded:0, overs:0, balls:0, fiveWickets:0, bestWickets:0, bestRuns:999 };
+        const bw = bowlers[name];
+        bw.innings += d.matches_as_bowler || 0;
+        bw.wickets += d.wickets || 0;
+        bw.runsConceded += d.runsConceded || 0;
+        bw.overs += d.oversBowled || 0;
+        bw.balls += Math.round((d.oversBowled || 0) * 6);
+
+        if (d.matchHistory) {
+          Object.values(d.matchHistory).forEach(mh => {
+            const bowl = mh.bowling;
+            if (!bowl) return;
+            if ((bowl.wickets || 0) >= 5) bw.fiveWickets++;
+            if ((bowl.wickets || 0) > bw.bestWickets ||
+               ((bowl.wickets || 0) === bw.bestWickets && (bowl.runs || 0) < bw.bestRuns)) {
+              bw.bestWickets = bowl.wickets || 0;
+              bw.bestRuns = bowl.runs || 0;
+            }
           });
         }
-        
-        // Sort five-wicket hauls by wickets (descending), then runs (ascending)
-        fiveWickets.sort((a, b) => {
-          if (b.wickets !== a.wickets) return b.wickets - a.wickets;
-          return a.runs - b.runs;
+      });
+
+      const arr = Object.values(bowlers).filter(b => b.innings > 0).sort((a,b) => b.wickets - a.wickets);
+
+      if (arr.length === 0) {
+        body.innerHTML = emptyRow(9, 'No bowling data yet.');
+        return;
+      }
+
+      const topFig = [...arr].sort((a,b) => b.bestWickets - a.bestWickets || a.bestRuns - b.bestRuns)[0];
+      const qualified = arr.filter(b => b.wickets >= 5);
+      const topAvg = qualified.length ? [...qualified].sort((a,b) => (a.runsConceded/Math.max(a.wickets,1)) - (b.runsConceded/Math.max(b.wickets,1)))[0] : arr[0];
+      const topER = arr.filter(b => b.overs >= 5).length ? [...arr.filter(b=>b.overs>=5)].sort((a,b) => (a.runsConceded/a.overs) - (b.runsConceded/b.overs))[0] : arr[0];
+
+      document.getElementById('topBowlerWickets').textContent = `${topFig.bestWickets}/${topFig.bestRuns} (${topFig.name})`;
+      document.getElementById('topBowlerAvg').textContent = topAvg.wickets > 0 ? `${(topAvg.runsConceded/topAvg.wickets).toFixed(1)} (${topAvg.name})` : '—';
+      document.getElementById('topBowlerER').textContent = topER.overs > 0 ? `${(topER.runsConceded/topER.overs).toFixed(2)} (${topER.name})` : '—';
+      document.getElementById('topBowlerSR').textContent = qualified.length
+        ? `${([...qualified].sort((a,b) => (a.balls/Math.max(a.wickets,1)) - (b.balls/Math.max(b.wickets,1)))[0].balls / Math.max([...qualified].sort((a,b) => (a.balls/Math.max(a.wickets,1)) - (b.balls/Math.max(b.wickets,1)))[0].wickets, 1)).toFixed(1)}`
+        : '—';
+
+      body.innerHTML = '';
+      arr.forEach((bw, i) => {
+        const avg = bw.wickets > 0 ? (bw.runsConceded / bw.wickets).toFixed(1) : '—';
+        const er = bw.overs > 0 ? (bw.runsConceded / bw.overs).toFixed(2) : '—';
+        const sr = bw.wickets > 0 ? (bw.balls / bw.wickets).toFixed(1) : '—';
+        const best = bw.bestWickets > 0 ? `${bw.bestWickets}/${bw.bestRuns}` : '—';
+        const tr = document.createElement('tr');
+        if (i < 3) tr.classList.add('top3');
+        tr.innerHTML = `
+          <td class="rank">${i+1} ${rankIcon(i)}</td>
+          <td class="pname" style="cursor:pointer;color:#7ec8ff;" data-player="${bw.name}">${bw.name}</td>
+          <td>${bw.innings}</td><td>${bw.wickets}</td><td>${avg}</td>
+          <td>${er}</td><td>${sr}</td><td>${bw.fiveWickets}</td><td>${best}</td>`;
+        body.appendChild(tr);
+      });
+      body.querySelectorAll('[data-player]').forEach(el => {
+        el.addEventListener('click', () => openPlayerSearch(el.dataset.player));
+      });
+
+    } catch(e) {
+      console.error(e);
+      body.innerHTML = emptyRow(9, '⚠ Error loading bowling rankings.');
+    }
+  }
+
+  // ================================================================
+  // ALL-ROUNDERS
+  // ================================================================
+  async function loadAllrounderRankings() {
+    const body = document.getElementById('allrounderRankingsBody');
+    body.innerHTML = loadingRow(9);
+    try {
+      await ensureData();
+
+      const players = Object.entries(allCareerStats).map(([key, d]) => ({
+        name: key.replace(/_/g, ' '),
+        matches: d.matches || 0,
+        runs: d.runs || 0,
+        wickets: d.wickets || 0,
+        runsConceded: d.runsConceded || 0,
+        oversBowled: d.oversBowled || 0,
+        batInnings: d.matches_as_batter || 0,
+        bowlInnings: d.matches_as_bowler || 0,
+        pom: 0, doubles: 0
+      })).filter(p => p.runs > 0 && p.wickets > 0);
+
+      if (players.length === 0) {
+        body.innerHTML = emptyRow(9, 'No all-rounder data yet.');
+        return;
+      }
+
+      players.sort((a, b) => {
+        const as_ = a.runs + a.wickets * 25;
+        const bs_ = b.runs + b.wickets * 25;
+        return bs_ - as_;
+      });
+
+      const top = players[0];
+      document.getElementById('topAllrounderRunsWickets').textContent = `${top.runs}+${top.wickets} (${top.name})`;
+      document.getElementById('topAllrounderMatches').textContent = '—';
+      document.getElementById('topAllrounderDouble').textContent = '—';
+
+      body.innerHTML = '';
+      players.forEach((p, i) => {
+        const batAvg = p.batInnings > 0 ? (p.runs / p.batInnings).toFixed(1) : '—';
+        const bowlAvg = p.wickets > 0 ? (p.runsConceded / p.wickets).toFixed(1) : '—';
+        const tr = document.createElement('tr');
+        if (i < 3) tr.classList.add('top3');
+        tr.innerHTML = `
+          <td class="rank">${i+1} ${rankIcon(i)}</td>
+          <td class="pname" style="cursor:pointer;color:#7ec8ff;" data-player="${p.name}">${p.name}</td>
+          <td>${p.matches}</td><td>${p.runs}</td><td>${p.wickets}</td>
+          <td>${batAvg}</td><td>${bowlAvg}</td><td>—</td><td>—</td>`;
+        body.appendChild(tr);
+      });
+      body.querySelectorAll('[data-player]').forEach(el => {
+        el.addEventListener('click', () => openPlayerSearch(el.dataset.player));
+      });
+
+    } catch(e) {
+      console.error(e);
+      body.innerHTML = emptyRow(9, '⚠ Error loading all-rounder rankings.');
+    }
+  }
+
+  // ================================================================
+  // MILESTONES
+  // ================================================================
+  async function loadMilestones() {
+    document.getElementById('centuriesBody').innerHTML = loadingRow(6);
+    document.getElementById('fiveWicketsBody').innerHTML = loadingRow(6);
+    try {
+      await ensureData();
+
+      const centuries = [];
+      const fiveWickets = [];
+      let totalCenturies = 0, totalFifties = 0, totalFiveW = 0;
+
+      Object.entries(allCareerStats).forEach(([key, d]) => {
+        const name = key.replace(/_/g, ' ');
+        if (!d.matchHistory) return;
+        Object.values(d.matchHistory).forEach(mh => {
+          const bat = mh.batting;
+          if (bat && (bat.runs || 0) >= 100) {
+            totalCenturies++;
+            centuries.push({ player: name, ...bat, match: `${mh.team1||''} vs ${mh.team2||''}`, date: mh.date });
+          }
+          if (bat && (bat.runs || 0) >= 50) totalFifties++;
+          const bowl = mh.bowling;
+          if (bowl && (bowl.wickets || 0) >= 5) {
+            totalFiveW++;
+            fiveWickets.push({ player: name, ...bowl, match: `${mh.team1||''} vs ${mh.team2||''}`, date: mh.date });
+          }
         });
-        
-        // Update five-wicket table
-        const fiveWicketsBody = document.getElementById('fiveWicketsBody');
-        fiveWicketsBody.innerHTML = '';
-        
-        if (fiveWickets.length === 0) {
-          fiveWicketsBody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center;">No 5-wicket hauls yet</td>
-            </tr>
-          `;
-        } else {
-          fiveWickets.slice(0, 10).forEach(haul => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td class="player-name">${haul.player}</td>
-              <td class="team-name">${haul.team}</td>
-              <td>${haul.wickets}</td>
-              <td>${haul.runs}</td>
-              <td>${haul.overs.toFixed(1)}</td>
-              <td>${haul.match}</td>
-              <td>${haul.date}</td>
-            `;
-            fiveWicketsBody.appendChild(tr);
-          });
-        }
-      } catch (error) {
-        console.error("Error loading milestones:", error);
-        document.getElementById('centuriesBody').innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; color: #f44336;">Error loading centuries</td>
-          </tr>
-        `;
-        document.getElementById('fiveWicketsBody').innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; color: #f44336;">Error loading 5-wicket hauls</td>
-          </tr>
-        `;
-      }
-    }
-    
-    // Helper functions for stats initialization and updating
-    
-    function initPlayerStats(name, team) {
-      return {
-        name: name,
-        team: team,
-        matches: 0,
-        wins: 0,
-        runs: 0,
-        wickets: 0,
-        runsConceded: 0,
-        batInnings: 0,
-        bowlInnings: 0,
-        balls: 0,
-        overs: 0,
-        fours: 0,
-        sixes: 0,
-        fifties: 0,
-        hundreds: 0,
-        fiveWickets: 0,
-        playerOfMatch: 0,
-        doublePerformances: 0 // 50+ runs and 3+ wickets in same match
-      };
-    }
-    
-    function updatePlayerStats(player, stats, isWinner) {
-      player.matches++;
-      if (isWinner) player.wins++;
-      
-      if (stats.runs !== undefined) {
-        player.runs += stats.runs;
-        player.batInnings++;
-        player.balls += stats.balls || 0;
-        player.fours += stats.fours || 0;
-        player.sixes += stats.sixes || 0;
-        
-        if (stats.runs >= 50) player.fifties++;
-        if (stats.runs >= 100) player.hundreds++;
-      }
-      
-      if (stats.wickets !== undefined) {
-        player.wickets += stats.wickets;
-        player.bowlInnings++;
-        player.runsConceded += stats.runsConceded || 0;
-        player.overs += stats.overs || 0;
-        
-        if (stats.wickets >= 5) player.fiveWickets++;
-      }
-      
-      if (stats.playerOfMatch) player.playerOfMatch++;
-      
-      if ((stats.runs >= 50) && (stats.wickets >= 3)) {
-        player.doublePerformances++;
-      }
-    }
-    
-    function initTeamStats(name) {
-      return {
-        name: name,
-        matches: 0,
-        wins: 0,
-        losses: 0,
-        chases: 0,
-        defends: 0,
-        highestScore: 0,
-        lowestScore: Infinity,
-        totalRuns: 0,
-        totalWickets: 0
-      };
-    }
-    
-    function updateTeamStats(team, match, isWinner) {
-      team.matches++;
-      
-      if (isWinner) {
-        team.wins++;
-        
-        // Check if this was a successful chase
-        if (match.toss && match.toss.battingFirst !== match.toss.winner) {
-          team.chases++;
-        } else {
-          team.defends++;
-        }
+      });
+
+      document.getElementById('totalCenturies').textContent = totalCenturies;
+      document.getElementById('totalHalfCenturies').textContent = totalFifties;
+      document.getElementById('totalFiveWickets').textContent = totalFiveW;
+      document.getElementById('totalHatTricks').textContent = '—';
+
+      // Centuries table
+      const cenBody = document.getElementById('centuriesBody');
+      if (centuries.length === 0) {
+        cenBody.innerHTML = emptyRow(6, 'No centuries yet.');
       } else {
-        team.losses++;
+        cenBody.innerHTML = '';
+        centuries.slice(0, 15).forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="pname">${c.player}</td><td>${c.runs}</td><td>${c.balls||'—'}</td>
+            <td>${(c.fours||0)}/${(c.sixes||0)}</td><td class="team">${c.match}</td><td class="team">${formatDate(c.date)}</td>`;
+          cenBody.appendChild(tr);
+        });
       }
-      
-      // Update team scores
-      const team1Score = match.player1.totalRuns || 0;
-      const team2Score = match.player2.totalRuns || 0;
-      
-      if (team.name === match.player1.team) {
-        team.totalRuns += team1Score;
-        team.totalWickets += match.player1.totalWickets || 0;
-        
-        if (team1Score > team.highestScore) team.highestScore = team1Score;
-        if (team1Score < team.lowestScore) team.lowestScore = team1Score;
+
+      // Five-wickets table
+      const fwBody = document.getElementById('fiveWicketsBody');
+      if (fiveWickets.length === 0) {
+        fwBody.innerHTML = emptyRow(6, 'No 5-wicket hauls yet.');
+      } else {
+        fwBody.innerHTML = '';
+        fiveWickets.slice(0, 15).forEach(f => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="pname">${f.player}</td><td>${f.wickets}</td><td>${f.runs||'—'}</td>
+            <td>${(f.overs||0).toFixed(1)}</td><td class="team">${f.match}</td><td class="team">${formatDate(f.date)}</td>`;
+          fwBody.appendChild(tr);
+        });
       }
-      
-      if (team.name === match.player2.team) {
-        team.totalRuns += team2Score;
-        team.totalWickets += match.player2.totalWickets || 0;
-        
-        if (team2Score > team.highestScore) team.highestScore = team2Score;
-        if (team2Score < team.lowestScore) team.lowestScore = team2Score;
-      }
+
+    } catch(e) {
+      console.error(e);
+      document.getElementById('centuriesBody').innerHTML = emptyRow(6, '⚠ Error loading milestones.');
+      document.getElementById('fiveWicketsBody').innerHTML = emptyRow(6, '⚠ Error loading milestones.');
     }
-    
-    function initBatterStats(name, team) {
-      return {
-        name: name,
-        team: team,
-        innings: 0,
-        runs: 0,
-        balls: 0,
-        average: 0,
-        strikeRate: 0,
-        fours: 0,
-        sixes: 0,
-        fifties: 0,
-        hundreds: 0,
-        highestScore: 0,
-        notOuts: 0
-      };
+  }
+
+  // ================================================================
+  // PLAYER SEARCH
+  // ================================================================
+  const searchInput = document.getElementById('playerSearchInput');
+  const searchBtn = document.getElementById('playerSearchBtn');
+  const acList = document.getElementById('autocompleteList');
+  const profileEl = document.getElementById('playerProfile');
+  const hintEl = document.getElementById('searchHint');
+
+  searchInput.addEventListener('input', async () => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (q.length < 2) { acList.classList.remove('open'); return; }
+    await ensureData();
+    const matches = Object.keys(allCareerStats)
+      .filter(k => k.toLowerCase().includes(q.replace(/\s/g, '_')) || k.replace(/_/g,' ').toLowerCase().includes(q))
+      .slice(0, 8);
+
+    if (matches.length === 0) { acList.classList.remove('open'); return; }
+    acList.innerHTML = matches.map(k => {
+      const d = allCareerStats[k];
+      const displayName = k.replace(/_/g,' ');
+      return `<div class="ac-item" data-key="${k}">
+        <div class="ac-name">${displayName}</div>
+        <div class="ac-meta">${d.matches||0} matches · ${d.runs||0} runs · ${d.wickets||0} wkts</div>
+      </div>`;
+    }).join('');
+    acList.classList.add('open');
+
+    acList.querySelectorAll('.ac-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const key = item.dataset.key;
+        searchInput.value = key.replace(/_/g,' ');
+        acList.classList.remove('open');
+        renderPlayerProfile(key);
+      });
+    });
+  });
+
+  searchBtn.addEventListener('click', async () => {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    await ensureData();
+    // Try exact sanitized key first
+    const exactKey = sanitizeKey(q);
+    if (allCareerStats[exactKey]) { renderPlayerProfile(exactKey); return; }
+    // Fuzzy match
+    const ql = q.toLowerCase();
+    const found = Object.keys(allCareerStats).find(k =>
+      k.toLowerCase().includes(ql.replace(/\s/g,'_')) || k.replace(/_/g,' ').toLowerCase().includes(ql)
+    );
+    if (found) { renderPlayerProfile(found); }
+    else { showSearchError(q); }
+  });
+
+  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchBtn.click(); });
+
+  // Close autocomplete on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-dropdown')) acList.classList.remove('open');
+  });
+
+  function openPlayerSearch(name) {
+    // Switch to search tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="search"]').classList.add('active');
+    document.getElementById('search-tab').classList.add('active');
+    searchInput.value = name;
+    const key = sanitizeKey(name);
+    if (allCareerStats[key]) renderPlayerProfile(key);
+    else searchBtn.click();
+  }
+
+  function showSearchError(q) {
+    profileEl.classList.remove('visible');
+    hintEl.innerHTML = `<i class="fas fa-user-slash"></i><p>No player found matching "<strong>${q}</strong>". Try a different spelling.</p>`;
+    hintEl.style.display = 'block';
+  }
+
+  function renderPlayerProfile(key) {
+    const d = allCareerStats[key];
+    if (!d) { showSearchError(key); return; }
+
+    hintEl.style.display = 'none';
+    profileEl.classList.add('visible');
+
+    const name = key.replace(/_/g, ' ');
+    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+
+    const batAvg = (d.matches_as_batter > 0 && d.runs > 0) ? (d.runs / d.matches_as_batter).toFixed(1) : '—';
+    const sr = (d.balls > 0 && d.runs > 0) ? ((d.runs / d.balls) * 100).toFixed(1) : '—';
+    const er = (d.oversBowled > 0) ? (d.runsConceded / d.oversBowled).toFixed(2) : '—';
+    const bowlAvg = (d.wickets > 0) ? (d.runsConceded / d.wickets).toFixed(1) : '—';
+    const lastMatchDate = d.lastMatch ? formatDate(d.lastMatch.date) : '—';
+
+    // Build match history HTML
+    let historyHTML = '';
+    if (d.matchHistory) {
+      const matches = Object.values(d.matchHistory).sort((a,b) => new Date(b.date) - new Date(a.date));
+      historyHTML = `<div class="profile-section-title"><i class="fas fa-history"></i> Match History (${matches.length})</div>`;
+      matches.slice(0, 20).forEach(mh => {
+        const bat = mh.batting;
+        const bowl = mh.bowling;
+        const won = mh.winner === name || mh.winnerName === name || (mh.winner && name.includes(mh.winner));
+        historyHTML += `
+          <div class="match-history-item">
+            <div class="mh-top">
+              <div class="mh-title">${mh.team1||'Team 1'} vs ${mh.team2||'Team 2'} <span class="team" style="font-weight:400">· ${mh.format||'T5'}</span></div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="mh-result ${won ? 'mh-win' : 'mh-loss'}">${won ? 'Win' : 'Loss'}</span>
+                <span class="mh-date">${formatDate(mh.date)}</span>
+              </div>
+            </div>
+            <div class="mh-stats-line">
+              ${bat ? `<span>🏏 <strong>${bat.runs||0}</strong> runs (${bat.balls||0}b, SR ${bat.balls>0?((bat.runs/bat.balls)*100).toFixed(1):'—'}) ${bat.fours||0}×4 ${bat.sixes||0}×6</span>` : ''}
+              ${bowl ? `<span>🎳 <strong>${bowl.wickets||0}</strong>/${bowl.runs||0} (${(bowl.overs||0).toFixed(1)} ov, ER ${bowl.overs>0?(bowl.runs/bowl.overs).toFixed(2):'—'})</span>` : ''}
+              ${mh.playerOfMatch===name ? '<span>⭐ Player of the Match</span>' : ''}
+            </div>
+          </div>`;
+      });
+    } else {
+      historyHTML = `<div class="profile-section-title">Match History</div>
+        <div class="search-hint" style="padding:20px;"><p>No detailed match history stored for this player yet.</p></div>`;
     }
-    
-    function updateBatterStats(batter, stats) {
-      if (stats.runs === undefined) return;
-      
-      batter.innings++;
-      batter.runs += stats.runs;
-      batter.balls += stats.balls || 0;
-      batter.fours += stats.fours || 0;
-      batter.sixes += stats.sixes || 0;
-      
-      if (stats.runs >= 50) batter.fifties++;
-      if (stats.runs >= 100) batter.hundreds++;
-      
-      if (stats.runs > batter.highestScore) {
-        batter.highestScore = stats.runs;
-      }
-      
-      if (!stats.out) batter.notOuts++;
-      
-      batter.average = batter.innings > 0 ? (batter.runs / (batter.innings - batter.notOuts)) : 0;
-      batter.strikeRate = batter.balls > 0 ? ((batter.runs / batter.balls) * 100) : 0;
-    }
-    
-    function initBowlerStats(name, team) {
-      return {
-        name: name,
-        team: team,
-        innings: 0,
-        wickets: 0,
-        runsConceded: 0,
-        overs: 0,
-        balls: 0,
-        average: 0,
-        economy: 0,
-        strikeRate: 0,
-        fiveWickets: 0,
-        bestWickets: 0,
-        bestRuns: 0
-      };
-    }
-    
-    function updateBowlerStats(bowler, stats) {
-      if (stats.wickets === undefined) return;
-      
-      bowler.innings++;
-      bowler.wickets += stats.wickets;
-      bowler.runsConceded += stats.runsConceded || 0;
-      bowler.overs += stats.overs || 0;
-      bowler.balls += (stats.overs || 0) * 6;
-      
-      if (stats.wickets >= 5) bowler.fiveWickets++;
-      
-      // Update best bowling
-      if (stats.wickets > bowler.bestWickets || 
-          (stats.wickets === bowler.bestWickets && stats.runsConceded < bowler.bestRuns)) {
-        bowler.bestWickets = stats.wickets;
-        bowler.bestRuns = stats.runsConceded || 0;
-      }
-      
-      bowler.average = bowler.wickets > 0 ? (bowler.runsConceded / bowler.wickets) : 0;
-      bowler.economy = bowler.overs > 0 ? (bowler.runsConceded / bowler.overs) : 0;
-      bowler.strikeRate = bowler.wickets > 0 ? (bowler.balls / bowler.wickets) : 0;
-    }
-    
-    function initAllrounderStats(name, team) {
-      return {
-        name: name,
-        team: team,
-        matches: 0,
-        wins: 0,
-        runs: 0,
-        wickets: 0,
-        runsConceded: 0,
-        batInnings: 0,
-        bowlInnings: 0,
-        balls: 0,
-        overs: 0,
-        fours: 0,
-        sixes: 0,
-        fifties: 0,
-        hundreds: 0,
-        fiveWickets: 0,
-        playerOfMatch: 0,
-        doublePerformances: 0
-      };
-    }
-    
-    function updateAllrounderStats(player, stats, isWinner) {
-      player.matches++;
-      if (isWinner) player.wins++;
-      
-      if (stats.runs !== undefined) {
-        player.runs += stats.runs;
-        player.batInnings++;
-        player.balls += stats.balls || 0;
-        player.fours += stats.fours || 0;
-        player.sixes += stats.sixes || 0;
-        
-        if (stats.runs >= 50) player.fifties++;
-        if (stats.runs >= 100) player.hundreds++;
-      }
-      
-      if (stats.wickets !== undefined) {
-        player.wickets += stats.wickets;
-        player.bowlInnings++;
-        player.runsConceded += stats.runsConceded || 0;
-        player.overs += stats.overs || 0;
-        
-        if (stats.wickets >= 5) player.fiveWickets++;
-      }
-      
-      if (stats.playerOfMatch) player.playerOfMatch++;
-      
-      if ((stats.runs >= 50) && (stats.wickets >= 3)) {
-        player.doublePerformances++;
-      }
-    }
-    
-    function formatName(formatKey) {
-      const formats = {
-        '5': 'T5 (5 Overs)',
-        '10': 'T10 (10 Overs)',
-        '20': 'T20 (20 Overs)',
-        '50': 'ODI (50 Overs)'
-      };
-      return formats[formatKey] || formatKey;
-    }
-    
-    // Load initial data
-    loadPlayerRankings();
-  </script>
+
+    profileEl.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar">${initials}</div>
+        <div class="profile-info">
+          <h2>${name}</h2>
+          <div class="profile-meta">${d.matches||0} matches · Last played: ${lastMatchDate}</div>
+        </div>
+      </div>
+
+      <div class="profile-section-title"><i class="fas fa-bat"></i> Career Batting</div>
+      <div class="profile-stats-grid">
+        <div class="profile-stat"><div class="val">${d.runs||0}</div><div class="lbl">Career Runs</div></div>
+        <div class="profile-stat"><div class="val">${d.balls||0}</div><div class="lbl">Balls Faced</div></div>
+        <div class="profile-stat"><div class="val">${batAvg}</div><div class="lbl">Batting Avg</div></div>
+        <div class="profile-stat"><div class="val">${sr}</div><div class="lbl">Strike Rate</div></div>
+        <div class="profile-stat"><div class="val">${d.fours||0}</div><div class="lbl">Fours</div></div>
+        <div class="profile-stat"><div class="val">${d.sixes||0}</div><div class="lbl">Sixes</div></div>
+      </div>
+
+      <div class="profile-section-title"><i class="fas fa-baseball-ball"></i> Career Bowling</div>
+      <div class="profile-stats-grid">
+        <div class="profile-stat"><div class="val">${d.wickets||0}</div><div class="lbl">Wickets</div></div>
+        <div class="profile-stat"><div class="val">${d.runsConceded||0}</div><div class="lbl">Runs Conceded</div></div>
+        <div class="profile-stat"><div class="val">${(d.oversBowled||0).toFixed(1)}</div><div class="lbl">Overs Bowled</div></div>
+        <div class="profile-stat"><div class="val">${bowlAvg}</div><div class="lbl">Bowling Avg</div></div>
+        <div class="profile-stat"><div class="val">${er}</div><div class="lbl">Economy Rate</div></div>
+        <div class="profile-stat"><div class="val">${d.noballs||0}</div><div class="lbl">No Balls</div></div>
+      </div>
+
+      ${historyHTML}
+    `;
+  }
+
+  // ── Initial load ──
+  loadPlayerRankings();
+</script>
 </body>
-  </html>
+</html>
