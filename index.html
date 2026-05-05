@@ -1683,6 +1683,10 @@
             if (s.matches) {
                 Object.entries(s.matches).forEach(([mid, m]) => {
                     const fmt = m.format || s.matchFormat || '20';
+                    // iWaiting = I clicked Play first and am waiting for opponent
+                    // oppWaiting = Opponent clicked Play first, I need to click Play to join
+                    const iWaiting   = m.status === 'waiting for opponent' && m.roomCode && m.waitingPlayer === username;
+                    const oppWaiting = m.status === 'waiting for opponent' && m.roomCode && m.waitingPlayer && m.waitingPlayer !== username;
                     matchesHtml += `
                         <div class="match-item">
                             <div class="match-vs">
@@ -1693,11 +1697,11 @@
                             <p style="font-size:0.75rem;color:var(--text-dim);">${getFormatName(fmt)}</p>
                             ${m.winner
                                 ? `<div class="match-result">🏆 Winner: ${m.winner}</div>`
-                                : m.status === 'waiting for opponent'
-                                    ? `<div class="match-result" style="color:var(--orange);">⏳ Waiting for opponent to join…</div>`
+                                : iWaiting
+                                    ? `<div class="match-result" style="color:var(--orange);">⏳ Waiting for ${s.opponent} to click Play…</div>`
                                     : `<div class="card-actions">
-                                        <button class="btn btn-success btn-sm play-series-match-btn" data-series="${sid}" data-match="${mid}" data-format="${fmt}">
-                                            <i class="fas fa-play"></i> Play Match
+                                        <button class="btn btn-success btn-sm play-series-match-btn${oppWaiting ? ' opp-waiting' : ''}" data-series="${sid}" data-match="${mid}" data-format="${fmt}">
+                                            <i class="fas fa-play"></i> ${oppWaiting ? '⚡ Join Match' : 'Play Match'}
                                         </button>
                                        </div>`
                             }
@@ -2314,9 +2318,9 @@
                 status: 'waiting', seriesId, matchId, createdAt: Date.now()
             });
 
-            // Mark our own match as waiting
+            // Mark our own match as waiting (store username so UI can tell who is waiting vs who should join)
             await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                roomCode, status: 'waiting for opponent'
+                roomCode, status: 'waiting for opponent', waitingPlayer: username
             });
 
             // Find opponent's seriesId for this series so we can write to their match node
@@ -2417,7 +2421,8 @@
                                 const [mid] = unplayed;
                                 update(ref(db, `users/${username}/series/${sid}/matches/${mid}`), {
                                     roomCode: signal.roomCode,
-                                    status: 'waiting for opponent'
+                                    status: 'waiting for opponent',
+                                    waitingPlayer: signal.from  // the one who clicked first — not me
                                 });
                             }
                         }
