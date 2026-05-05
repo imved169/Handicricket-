@@ -1836,7 +1836,10 @@
                     <!-- Matches -->
                     <div class="matches-section-label"><i class="fas fa-list-ol" style="margin-right:4px;"></i>Matches</div>
                     ${matchesHtml}
-                    <div style="margin-top:10px;display:flex;justify-content:flex-end;">
+                    <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;">
+                        <button class="btn btn-ghost btn-sm refresh-series-btn" data-series="${sid}" style="font-size:0.75rem;padding:5px 12px;">
+                            <i class="fas fa-sync-alt"></i> Update Score
+                        </button>
                         <button class="btn btn-danger btn-sm delete-series-btn" data-series="${sid}" style="font-size:0.75rem;padding:5px 12px;">
                             <i class="fas fa-trash"></i> Delete
                         </button>
@@ -1848,6 +1851,9 @@
 
         document.querySelectorAll('.play-series-match-btn').forEach(b => {
             b.addEventListener('click', () => playSeriesMatch(b.dataset.series, b.dataset.match, b.dataset.format));
+        });
+        document.querySelectorAll('.refresh-series-btn').forEach(b => {
+            b.addEventListener('click', () => refreshSeriesScores(b.dataset.series));
         });
         document.querySelectorAll('.delete-series-btn').forEach(b => {
             b.addEventListener('click', () => {
@@ -2383,7 +2389,11 @@
         const n = parseInt(format);
         const m = {};
         for (let i = 1; i <= n; i++) {
-            m[`match${i}`] = { player1: p1, player2: p2, format: matchFmt, status: 'scheduled', winner: null };
+            // Pre-assign a unique roomCode for each match at series creation time.
+            // This becomes the permanent identifier for that match slot so both
+            // players always reference the same room — no stale-code confusion.
+            const roomCode = generateRoomCode();
+            m[`match${i}`] = { player1: p1, player2: p2, format: matchFmt, status: 'scheduled', winner: null, roomCode };
         }
         return m;
     }
@@ -2394,51 +2404,72 @@
         try {
             const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
             if (!snap.exists()) { showMessage('error', 'Series not found'); return; }
-            const s   = snap.val();
-            const opp = s.opponent;
+            const s       = snap.val();
+            const opp     = s.opponent;
+            const myMatch = (s.matches || {})[matchId];
 
-            // Check if opponent already pressed Play — room exists and is waiting for us
-            const myMatchSnap = await get(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`));
-            const myMatch = myMatchSnap.val();
+            if (!myMatch) { showMessage('error', 'Match not found'); return; }
 
-            if (myMatch && myMatch.roomCode && myMatch.status === 'waiting for opponent') {
-                // We are the SECOND player to click Play — join and both redirect
-                const roomCode = myMatch.roomCode;
+            // Guard: match already finished — do nothing
+            if (myMatch.winner) {
+                showMessage('info', 'This match has already been played.');
+                return;
+            }
+
+            // Use the pre-assigned roomCode baked in at series creation
+            const roomCode = myMatch.roomCode;
+            if (!roomCode) { showMessage('error', 'No room code found for this match'); return; }
+
+            // ── CASE A: opponent already clicked Play first ──
+            // Detected when status === 'waiting for opponent' AND waitingPlayer !== me
+            if (myMatch.status === 'waiting for opponent' && myMatch.waitingPlayer && myMatch.waitingPlayer !== username) {
                 const roomSnap = await get(ref(db, `rooms/${roomCode}`));
-                if (!roomSnap.exists()) { showMessage('error', 'Room expired, try again'); return; }
-
+                if (!roomSnap.exists()) {
+                    // Room expired — reset status so either player can try again
+                    await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
+                        status: 'scheduled', waitingPlayer: null
+                    });
+                    showMessage('error', 'Room expired, please try again');
+                    return;
+                }
                 await update(ref(db, `rooms/${roomCode}`), {
                     player2: { username, team, connected: true },
                     status: 'ready'
                 });
-                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), { status: 'in progress' });
+                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
+                    status: 'in progress', waitingPlayer: null
+                });
                 // Clear the play signal now that we've responded
                 await remove(ref(db, `users/${username}/playSignal/${seriesId}_${matchId}`));
-                // Start listening for match result so player2's series score also updates
                 listenForSeriesMatchResult(roomCode, username, seriesId, matchId, opp);
                 redirectToToss(roomCode, 'player2', team, matchFormat);
                 return;
             }
 
-            // We are the FIRST to click Play — create the room, signal opponent, and wait
-            const roomCode = generateRoomCode();
+            // ── CASE B: I already clicked Play and am waiting — do nothing ──
+            if (myMatch.status === 'waiting for opponent' && myMatch.waitingPlayer === username) {
+                showMessage('info', 'Already waiting for opponent — please hold on.');
+                return;
+            }
+
+            // ── CASE C: First click — create/reset the room and signal opponent ──
+            // Always (re-)create the room using the pre-assigned roomCode so it's fresh
             await set(ref(db, `rooms/${roomCode}`), {
                 player1: { username, team, connected: true },
                 player2: null, format: matchFormat,
                 status: 'waiting', seriesId, matchId, createdAt: Date.now()
             });
 
-            // Mark our own match as waiting (store username so UI can tell who is waiting vs who should join)
+            // Mark our match as "waiting", recording who is waiting so opponent's UI knows to show Join
             await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                roomCode, status: 'waiting for opponent', waitingPlayer: username
+                status: 'waiting for opponent', waitingPlayer: username
             });
 
-            // Find opponent's seriesId for this series so we can write to their match node
-            // We stored accepterSeriesId on creator's series when opponent accepted
-            // We also stored creatorSeriesId on opponent's series implicitly via invite
-            // Strategy: write the roomCode directly to a targeted signal node for the opponent
+            // Signal opponent using the pre-assigned roomCode as signal key — unique per match
             await set(ref(db, `users/${opp}/playSignal/${seriesId}_${matchId}`), {
-                from: username, roomCode, matchFormat, timestamp: Date.now()
+                from: username, roomCode, matchFormat,
+                matchId,   // pass matchId so listener can target the exact match
+                timestamp: Date.now()
             });
 
             showSeriesWaitingPopup(opp);
@@ -2446,6 +2477,44 @@
         } catch (e) {
             console.error(e);
             showMessage('error', 'Failed to create match room');
+        }
+    }
+
+    // Manually refresh series scores by re-reading every match's result node from Firebase
+    async function refreshSeriesScores(seriesId) {
+        const username = localStorage.getItem('hc_username');
+        const userTeam = localStorage.getItem('hc_team');
+        try {
+            const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
+            if (!snap.exists()) return;
+            const s = snap.val();
+            const matches = s.matches || {};
+            let uScore = 0, oScore = 0;
+            const updates = {};
+            for (const [mid, m] of Object.entries(matches)) {
+                if (!m.roomCode) continue;
+                const resultSnap = await get(ref(db, `rooms/${m.roomCode}/result`));
+                if (resultSnap.exists()) {
+                    const result = resultSnap.val();
+                    if (result && result.winner) {
+                        updates[`matches/${mid}/winner`] = result.winner;
+                        updates[`matches/${mid}/status`] = 'completed';
+                        if (result.winner === userTeam) uScore++;
+                        else oScore++;
+                    }
+                } else if (m.winner) {
+                    // Already stored locally
+                    if (m.winner === userTeam) uScore++;
+                    else oScore++;
+                }
+            }
+            updates['userScore'] = uScore;
+            updates['opponentScore'] = oScore;
+            await update(ref(db, `users/${username}/series/${seriesId}`), updates);
+            showMessage('success', 'Scores updated!');
+        } catch (e) {
+            console.error(e);
+            showMessage('error', 'Failed to refresh scores');
         }
     }
 
@@ -2518,7 +2587,8 @@
                     userScore: newMyScore, opponentScore: newOppScore
                 });
                 await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                    winner: winnerTeam, status: 'completed'
+                    winner: winnerTeam, status: 'completed',
+                    waitingPlayer: null   // clear so Play Match on future matches starts clean
                 });
             }
 
@@ -2541,7 +2611,7 @@
                                 Object.entries(os.matches).forEach(async ([omid, om]) => {
                                     if (om.roomCode === roomCode) {
                                         await update(ref(db, `users/${oppUsername}/series/${osid}/matches/${omid}`), {
-                                            winner: winnerTeam, status: 'completed'
+                                            winner: winnerTeam, status: 'completed', waitingPlayer: null
                                         });
                                     }
                                 });
@@ -2578,21 +2648,26 @@
             if (!signal || !signal.from || !signal.roomCode) return;
             const signalKey = snap.key; // e.g. "seriesId_matchId"
 
-            // Inject the roomCode into this user's series match so playSeriesMatch can detect it
-            // Find the right series by opponent name
+            // Inject the roomCode into this user's exact series match using the matchId
+            // from the signal payload (or fall back to parsing the signal key).
             get(ref(db, `users/${username}/series`)).then(seriesSnap => {
                 if (!seriesSnap.exists()) return;
                 const allSeries = seriesSnap.val();
                 // Find the series where opponent === signal.from
                 Object.entries(allSeries).forEach(([sid, s]) => {
                     if (s.opponent === signal.from) {
-                        // Find the earliest unplayed match and inject the roomCode+status
-                        if (s.matches) {
-                            const unplayed = Object.entries(s.matches).find(([, m]) => m.status === 'scheduled' && !m.winner);
-                            if (unplayed) {
-                                const [mid] = unplayed;
-                                update(ref(db, `users/${username}/series/${sid}/matches/${mid}`), {
-                                    roomCode: signal.roomCode,
+                        if (!s.matches) return;
+
+                        // Prefer the matchId carried in the signal payload;
+                        // fall back to parsing the signal key ("seriesId_matchId").
+                        const targetMatchId = signal.matchId || signalKey.split('_').slice(1).join('_');
+
+                        // Only update the specific match that was signalled
+                        if (s.matches[targetMatchId]) {
+                            const m = s.matches[targetMatchId];
+                            // Skip if already completed or currently active
+                            if (!m.winner && m.status !== 'in progress') {
+                                update(ref(db, `users/${username}/series/${sid}/matches/${targetMatchId}`), {
                                     status: 'waiting for opponent',
                                     waitingPlayer: signal.from  // the one who clicked first — not me
                                 });
@@ -2765,6 +2840,7 @@
     window.joinTournamentFromList = joinTournamentFromList;
     window.viewTournament         = viewTournament;
     window.playTournamentMatch    = playTournamentMatch;
+    window.refreshSeriesScores    = refreshSeriesScores;
 
     // Start app
     initApp();
