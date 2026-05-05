@@ -1670,15 +1670,13 @@
             const uScore  = s.userScore    || 0;
             const oScore  = s.opponentScore|| 0;
 
-            // Determine series winner name from scores
-            const totalMatches = s.format ? parseInt(s.format) : 0;
-            const matchesPlayed = uScore + oScore;
-            const majority = Math.ceil(totalMatches / 2);
+            // Compute series winner banner using actual names
+            const majority = Math.ceil(parseInt(s.format || '1') / 2);
             let seriesWinnerBanner = '';
             if (uScore >= majority) {
-                seriesWinnerBanner = `<div style="text-align:center;padding:8px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;margin-bottom:8px;font-weight:700;color:var(--green);">🏆 ${userTeam} won the series!</div>`;
+                seriesWinnerBanner = `<div style="text-align:center;padding:8px 12px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;margin-bottom:8px;font-weight:700;color:var(--green);">🏆 ${userTeam} won the series!</div>`;
             } else if (oScore >= majority) {
-                seriesWinnerBanner = `<div style="text-align:center;padding:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;margin-bottom:8px;font-weight:700;color:var(--red);">🏆 ${s.opponent} won the series!</div>`;
+                seriesWinnerBanner = `<div style="text-align:center;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;margin-bottom:8px;font-weight:700;color:var(--red);">🏆 ${s.opponent} won the series!</div>`;
             }
 
             let matchesHtml = '';
@@ -1806,7 +1804,7 @@
             const inv = snap.val();
             if (inv && !inv.responded) showSeriesInviteNotification(inv, snap.key);
         });
-        setupSeriesReadySignalListener(username);
+        setupPlaySignalListener(username);
     }
 
     // ───────── Show user info ─────────
@@ -2242,19 +2240,22 @@
             const oppSnap = await get(ref(db, `users/${opp}`));
             const oppData = oppSnap.val();
 
-            const inviteRef = push(ref(db, `seriesInvites/${opp}`));
-            await set(inviteRef, {
-                from: username, team, seriesName: name,
-                format, matchFormat: matchFmt, responded: false, timestamp: Date.now()
-            });
-
-            // Add to creator's series immediately with status pending
+            // Add to creator's series FIRST so we get its Firebase key
             const userSeriesRef = push(ref(db, `users/${username}/series`));
+            const creatorSeriesId = userSeriesRef.key;
             await set(userSeriesRef, {
                 name, format, matchFormat: matchFmt, opponent: opp,
                 opponentTeam: oppData?.team || opp,
                 userScore: 0, opponentScore: 0, status: 'Pending Acceptance',
                 matches: generateSeriesMatches(format, username, opp, matchFmt)
+            });
+
+            // Embed creatorSeriesId in invite so opponent's accept can update (not duplicate) creator entry
+            const inviteRef = push(ref(db, `seriesInvites/${opp}`));
+            await set(inviteRef, {
+                from: username, team, seriesName: name,
+                format, matchFormat: matchFmt, responded: false,
+                timestamp: Date.now(), creatorSeriesId
             });
 
             document.getElementById('seriesName').value = '';
@@ -2284,46 +2285,46 @@
             const s   = snap.val();
             const opp = s.opponent;
 
-            // Check if opponent already pressed Play (a pending room exists for this match)
-            const existingMatchSnap = await get(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`));
-            const existingMatch = existingMatchSnap.val();
+            // Check if opponent already pressed Play — room exists and is waiting for us
+            const myMatchSnap = await get(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`));
+            const myMatch = myMatchSnap.val();
 
-            if (existingMatch && existingMatch.roomCode && existingMatch.status === 'waiting for opponent') {
-                // This player is the SECOND to click Play — join the existing room and redirect both
-                const roomCode = existingMatch.roomCode;
+            if (myMatch && myMatch.roomCode && myMatch.status === 'waiting for opponent') {
+                // We are the SECOND player to click Play — join and both redirect
+                const roomCode = myMatch.roomCode;
                 const roomSnap = await get(ref(db, `rooms/${roomCode}`));
-                const roomData = roomSnap.val();
-                if (!roomData) { showMessage('error', 'Room expired, please try again'); return; }
+                if (!roomSnap.exists()) { showMessage('error', 'Room expired, try again'); return; }
 
-                // Mark player2 in the room
                 await update(ref(db, `rooms/${roomCode}`), {
                     player2: { username, team, connected: true },
                     status: 'ready'
                 });
-                // Update match status for both players
                 await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), { status: 'in progress' });
-                await update(ref(db, `users/${opp}/series`), {}); // trigger reload
-                // Redirect this player (player2) immediately
+                // Clear the play signal now that we've responded
+                await remove(ref(db, `users/${username}/playSignal/${seriesId}_${matchId}`));
                 redirectToToss(roomCode, 'player2', team, matchFormat);
                 return;
             }
 
-            // This player is the FIRST to click Play — create the room and wait
+            // We are the FIRST to click Play — create the room, signal opponent, and wait
             const roomCode = generateRoomCode();
-            const roomData = {
+            await set(ref(db, `rooms/${roomCode}`), {
                 player1: { username, team, connected: true },
                 player2: null, format: matchFormat,
                 status: 'waiting', seriesId, matchId, createdAt: Date.now()
-            };
-            await set(ref(db, `rooms/${roomCode}`), roomData);
-
-            // Store roomCode on the OPPONENT's series so they see it when they click Play
-            await update(ref(db, `users/${opp}/series/${seriesId}/matches/${matchId}`), {
-                roomCode, status: 'waiting for opponent'
             });
-            // Mark our own match as "waiting" too (so UI shows waiting state)
+
+            // Mark our own match as waiting
             await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
                 roomCode, status: 'waiting for opponent'
+            });
+
+            // Find opponent's seriesId for this series so we can write to their match node
+            // We stored accepterSeriesId on creator's series when opponent accepted
+            // We also stored creatorSeriesId on opponent's series implicitly via invite
+            // Strategy: write the roomCode directly to a targeted signal node for the opponent
+            await set(ref(db, `users/${opp}/playSignal/${seriesId}_${matchId}`), {
+                from: username, roomCode, matchFormat, timestamp: Date.now()
             });
 
             showSeriesWaitingPopup(opp);
@@ -2334,117 +2335,98 @@
         }
     }
 
-    // Popup shown to the first player while waiting for opponent to click Play
+    // Popup shown to the first player while waiting
     function showSeriesWaitingPopup(oppName) {
-        // Remove any existing popup
         const old = document.getElementById('seriesWaitingPopup');
         if (old) old.remove();
-
         const popup = document.createElement('div');
         popup.id = 'seriesWaitingPopup';
-        popup.style.cssText = `
-            position:fixed; inset:0; z-index:9999;
-            display:flex; align-items:center; justify-content:center;
-            background:rgba(4,16,31,0.85); backdrop-filter:blur(6px);
-        `;
+        popup.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(4,16,31,0.85);backdrop-filter:blur(6px);';
         popup.innerHTML = `
-            <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:18px;
-                        padding:36px 40px;text-align:center;max-width:360px;
-                        box-shadow:0 0 40px rgba(0,198,255,0.18);">
+            <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:18px;padding:36px 40px;text-align:center;max-width:360px;box-shadow:0 0 40px rgba(0,198,255,0.18);">
                 <div style="font-size:2.8rem;margin-bottom:14px;animation:cricketBounce 1.5s ease-in-out infinite;">🏏</div>
-                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;
-                             color:var(--accent);margin-bottom:8px;">Waiting for ${oppName}</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:8px;">Waiting for ${oppName}</div>
                 <p style="color:var(--text-dim);font-size:0.88rem;margin-bottom:20px;">
-                    Ask your opponent to click <strong style="color:var(--gold);">Play Match</strong> on their side.<br>
+                    Your opponent needs to click <strong style="color:var(--gold);">Play Match</strong> on their screen.<br>
                     You will both be redirected together!
                 </p>
                 <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);font-size:0.8rem;">
                     <i class="fas fa-spinner fa-spin" style="color:var(--accent);"></i> Waiting…
                 </div>
-            </div>
-        `;
+            </div>`;
         document.body.appendChild(popup);
     }
 
-    // Popup shown to opponent when first player clicks Play
-    function showOpponentReachingPopup(opponentName) {
+    // Popup shown to the second player when opponent has clicked Play
+    function showOpponentReachingPopup(fromName) {
         const old = document.getElementById('oppReachingPopup');
         if (old) old.remove();
-
         const popup = document.createElement('div');
         popup.id = 'oppReachingPopup';
-        popup.style.cssText = `
-            position:fixed; inset:0; z-index:9999;
-            display:flex; align-items:center; justify-content:center;
-            background:rgba(4,16,31,0.85); backdrop-filter:blur(6px);
-        `;
+        popup.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(4,16,31,0.85);backdrop-filter:blur(6px);';
         popup.innerHTML = `
-            <div style="background:var(--bg-card);border:1px solid rgba(245,197,24,0.4);border-radius:18px;
-                        padding:36px 40px;text-align:center;max-width:360px;
-                        box-shadow:0 0 40px rgba(245,197,24,0.15);">
+            <div style="background:var(--bg-card);border:1px solid rgba(245,197,24,0.4);border-radius:18px;padding:36px 40px;text-align:center;max-width:360px;box-shadow:0 0 40px rgba(245,197,24,0.15);">
                 <div style="font-size:2.8rem;margin-bottom:14px;">⚡</div>
-                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;
-                             color:var(--gold);margin-bottom:8px;">${opponentName} is Reaching the Field!</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);margin-bottom:8px;">${fromName} is Reaching the Field!</div>
                 <p style="color:var(--text-dim);font-size:0.88rem;margin-bottom:22px;">
-                    Your opponent is ready and waiting.<br>Click <strong style="color:var(--green);">Play Match</strong> to start!
+                    Your opponent is ready and waiting.<br>
+                    Click <strong style="color:var(--green);">Play Match</strong> on your Series tab to join!
                 </p>
                 <button onclick="document.getElementById('oppReachingPopup').remove()"
-                    style="background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:9px;
-                           padding:11px 28px;color:#fff;font-family:'Exo 2',sans-serif;font-weight:700;
-                           font-size:0.9rem;cursor:pointer;letter-spacing:0.5px;">
+                    style="background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:9px;padding:11px 28px;color:#fff;font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;">
                     Got it! 🏏
                 </button>
-            </div>
-        `;
+            </div>`;
         document.body.appendChild(popup);
     }
 
     function setupSeriesRoomListener(roomCode, username, seriesId, matchId, matchFormat) {
         const roomRef = ref(db, `rooms/${roomCode}`);
-        const listener = onValue(roomRef, snap => {
+        const unsubscribe = onValue(roomRef, snap => {
             const d = snap.val();
             if (d && d.player2 && d.status === 'ready') {
-                // Both players have clicked Play — redirect player1
+                unsubscribe();
                 update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), { status: 'in progress' });
-                listener();
-                // Remove waiting popup
                 const wp = document.getElementById('seriesWaitingPopup');
                 if (wp) wp.remove();
                 redirectToToss(roomCode, 'player1', d.player1.team, d.format || matchFormat);
             }
         });
-
-        // Also listen on the OPPONENT's series to show the "reaching field" popup to opponent
-        // We write a signal node so opponent's listener can detect player1 clicked Play
-        set(ref(db, `seriesReadySignal/${seriesId}/${matchId}`), {
-            initiator: username, roomCode, timestamp: Date.now()
-        });
     }
 
-    // Called from setupSeriesListener — watches for ready signals meant for the current user
-    function setupSeriesReadySignalListener(username) {
-        // Listen to all series of this user; when a readySignal appears for a match, show popup
-        onValue(ref(db, `seriesReadySignal`), snap => {
-            const all = snap.val();
-            if (!all) return;
-            Object.entries(all).forEach(([sid, matches]) => {
-                Object.entries(matches).forEach(([mid, signal]) => {
-                    if (signal.initiator && signal.initiator !== username) {
-                        // Check this user is part of this series
-                        get(ref(db, `users/${username}/series/${sid}`)).then(serSnap => {
-                            if (serSnap.exists()) {
-                                const s = serSnap.val();
-                                if (s.opponent === signal.initiator) {
-                                    // Only show if not already showing
-                                    if (!document.getElementById('oppReachingPopup')) {
-                                        showOpponentReachingPopup(signal.initiator);
-                                    }
-                                }
+    // Listen for play signals sent directly to this user by opponent
+    function setupPlaySignalListener(username) {
+        const signalRef = ref(db, `users/${username}/playSignal`);
+        onChildAdded(signalRef, snap => {
+            const signal = snap.val();
+            if (!signal || !signal.from || !signal.roomCode) return;
+            const signalKey = snap.key; // e.g. "seriesId_matchId"
+
+            // Inject the roomCode into this user's series match so playSeriesMatch can detect it
+            // Find the right series by opponent name
+            get(ref(db, `users/${username}/series`)).then(seriesSnap => {
+                if (!seriesSnap.exists()) return;
+                const allSeries = seriesSnap.val();
+                // Find the series where opponent === signal.from
+                Object.entries(allSeries).forEach(([sid, s]) => {
+                    if (s.opponent === signal.from) {
+                        // Find the earliest unplayed match and inject the roomCode+status
+                        if (s.matches) {
+                            const unplayed = Object.entries(s.matches).find(([, m]) => m.status === 'scheduled' && !m.winner);
+                            if (unplayed) {
+                                const [mid] = unplayed;
+                                update(ref(db, `users/${username}/series/${sid}/matches/${mid}`), {
+                                    roomCode: signal.roomCode,
+                                    status: 'waiting for opponent'
+                                });
                             }
-                        });
+                        }
                     }
                 });
             });
+
+            // Show the notification popup
+            showOpponentReachingPopup(signal.from);
         });
     }
 
@@ -2484,7 +2466,9 @@
         if (confirm(`${invite.from} (${invite.team}) invited you to a ${invite.format}-match series: "${invite.seriesName}". Accept?`)) {
             update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: true });
 
+            // Add series only for the accepter (player 2)
             const userRef = push(ref(db, `users/${username}/series`));
+            const accepterSeriesId = userRef.key;
             set(userRef, {
                 name: invite.seriesName, format: invite.format,
                 matchFormat: invite.matchFormat || '20',
@@ -2493,14 +2477,14 @@
                 matches: generateSeriesMatches(invite.format, username, invite.from, invite.matchFormat || '20')
             });
 
-            const oppRef = push(ref(db, `users/${invite.from}/series`));
-            set(oppRef, {
-                name: invite.seriesName, format: invite.format,
-                matchFormat: invite.matchFormat || '20',
-                opponent: username, opponentTeam: team,
-                userScore: 0, opponentScore: 0, status: 'In Progress',
-                matches: generateSeriesMatches(invite.format, invite.from, username, invite.matchFormat || '20')
-            });
+            // Update the CREATOR's existing series (don't push a new one — that caused the duplicate)
+            // We stored creatorSeriesId in the invite for exactly this
+            if (invite.creatorSeriesId) {
+                update(ref(db, `users/${invite.from}/series/${invite.creatorSeriesId}`), {
+                    status: 'In Progress',
+                    accepterSeriesId   // so creator knows opponent's series key for cross-writing match signals
+                });
+            }
         } else {
             update(ref(db, `seriesInvites/${username}/${inviteId}`), { responded: true, accepted: false });
         }
