@@ -1753,12 +1753,12 @@
                     const oppReady = m.status === 'waiting for opponent' && m.waitingPlayer && m.waitingPlayer !== username;
                     const isLive   = m.status === 'in progress';
                     const isDone   = !!m.winner;
-                    // iWon: winner team name must match userTeam (from localStorage).
-                    // Since we now store runs keyed as myRuns/oppRuns from the real room data,
-                    // we can also cross-check: if myRuns > oppRuns it's a win regardless of team name.
-                    const iWon     = isDone && (
-                        m.winner === userTeam ||
-                        (m.myRuns !== undefined && m.oppRuns !== undefined && m.myRuns > m.oppRuns)
+                    // iWon: use stored myRuns/oppRuns (written from room data, not localStorage).
+                    // Fall back to comparing winner against userTeam only if runs aren't stored yet.
+                    const iWon = isDone && (
+                        m.myRuns != null && m.oppRuns != null
+                            ? Number(m.myRuns) >= Number(m.oppRuns)   // runs-based (correct)
+                            : m.winner === userTeam                    // legacy fallback
                     );
                     const iLost    = isDone && !iWon;
 
@@ -1769,15 +1769,46 @@
 
                     let actionHtml = '';
                     if (isDone) {
-                        const hasRuns = m.myRuns !== undefined && m.myRuns !== null;
-                        const runsHtml = hasRuns
-                            ? `<div style="display:flex;justify-content:center;gap:18px;margin-bottom:4px;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;">
-                                <span style="color:${iWon ? 'var(--green)' : 'var(--text-dim)'};">${userTeam}: <span style="color:${iWon ? 'var(--green)' : 'var(--red)'};">${m.myRuns}</span></span>
-                                <span style="color:var(--text-muted);">|</span>
-                                <span style="color:${!iWon ? 'var(--green)' : 'var(--text-dim)'};">${oppTeam}: <span style="color:${!iWon ? 'var(--green)' : 'var(--red)'};">${m.oppRuns}</span></span>
-                               </div>`
-                            : '';
-                        actionHtml = `${runsHtml}<div class="match-result">${iWon ? '🏆' : '💔'} ${m.winner} won</div>`;
+                        // Build score display — show both teams' runs/wickets if available
+                        const hasScores = m.p1Runs != null || m.myRuns != null;
+
+                        // Determine which label goes on which side of the VS row
+                        // p1Team/p2Team are stored from room data; fall back to series teams
+                        const leftTeam  = m.p1Team  || userTeam;
+                        const rightTeam = m.p2Team  || oppTeam;
+                        const leftRuns  = m.p1Runs;
+                        const rightRuns = m.p2Runs;
+                        const leftWkts  = m.p1Wickets;
+                        const rightWkts = m.p2Wickets;
+
+                        const fmtScore = (runs, wkts) => {
+                            if (runs == null) return '—';
+                            return wkts != null ? `${runs}/${wkts}` : `${runs}`;
+                        };
+
+                        const leftWon  = m.winner === leftTeam;
+                        const rightWon = m.winner === rightTeam;
+
+                        // Win margin line
+                        const marginLine = m.margin
+                            ? `<div style="text-align:center;font-size:0.72rem;color:var(--text-dim);margin-top:2px;">${m.winner} won by ${m.margin}</div>`
+                            : `<div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin-top:2px;">${iWon ? '🏆' : '💔'} ${m.winner} won</div>`;
+
+                        actionHtml = hasScores ? `
+                            <div style="margin:6px 0 2px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:8px 10px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                                    <div style="flex:1;text-align:center;">
+                                        <div style="font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:800;color:${leftWon ? 'var(--green)' : 'var(--red)'};">${fmtScore(leftRuns, leftWkts)}</div>
+                                        <div style="font-size:0.65rem;color:${leftWon ? 'var(--green)' : 'var(--text-muted)'};font-weight:600;margin-top:1px;">${leftTeam} ${leftWon ? '🏆' : ''}</div>
+                                    </div>
+                                    <div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;">VS</div>
+                                    <div style="flex:1;text-align:center;">
+                                        <div style="font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:800;color:${rightWon ? 'var(--green)' : 'var(--red)'};">${fmtScore(rightRuns, rightWkts)}</div>
+                                        <div style="font-size:0.65rem;color:${rightWon ? 'var(--green)' : 'var(--text-muted)'};font-weight:600;margin-top:1px;">${rightTeam} ${rightWon ? '🏆' : ''}</div>
+                                    </div>
+                                </div>
+                                ${marginLine}
+                            </div>` : `<div class="match-result">${iWon ? '🏆' : '💔'} ${m.winner} won</div>`;
                     } else if (iWaiting) {
                         actionHtml = `<div style="display:flex;justify-content:center;"><span class="match-status-pill pill-waiting"><i class="fas fa-spinner fa-spin" style="font-size:.6rem;"></i> Waiting for ${s.opponent}…</span></div>`;
                     } else if (oppReady) {
@@ -1851,7 +1882,7 @@
                     <div class="matches-section-label"><i class="fas fa-list-ol" style="margin-right:4px;"></i>Matches</div>
                     ${matchesHtml}
                     <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;">
-                        <button class="btn btn-ghost btn-sm refresh-series-btn" data-series="${sid}" style="font-size:0.75rem;padding:5px 12px;">
+                        <button class="btn btn-ghost btn-sm update-score-btn" data-series="${sid}" style="font-size:0.75rem;padding:5px 14px;border-color:var(--accent);color:var(--accent);">
                             <i class="fas fa-sync-alt"></i> Update Score
                         </button>
                         <button class="btn btn-danger btn-sm delete-series-btn" data-series="${sid}" style="font-size:0.75rem;padding:5px 12px;">
@@ -1866,7 +1897,7 @@
         document.querySelectorAll('.play-series-match-btn').forEach(b => {
             b.addEventListener('click', () => playSeriesMatch(b.dataset.series, b.dataset.match, b.dataset.format));
         });
-        document.querySelectorAll('.refresh-series-btn').forEach(b => {
+        document.querySelectorAll('.update-score-btn').forEach(b => {
             b.addEventListener('click', () => refreshSeriesScores(b.dataset.series));
         });
         document.querySelectorAll('.delete-series-btn').forEach(b => {
@@ -2403,11 +2434,7 @@
         const n = parseInt(format);
         const m = {};
         for (let i = 1; i <= n; i++) {
-            // Pre-assign a unique roomCode for each match at series creation time.
-            // This becomes the permanent identifier for that match slot so both
-            // players always reference the same room — no stale-code confusion.
-            const roomCode = generateRoomCode();
-            m[`match${i}`] = { player1: p1, player2: p2, format: matchFmt, status: 'scheduled', winner: null, roomCode };
+            m[`match${i}`] = { player1: p1, player2: p2, format: matchFmt, status: 'scheduled', winner: null };
         }
         return m;
     }
@@ -2418,72 +2445,51 @@
         try {
             const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
             if (!snap.exists()) { showMessage('error', 'Series not found'); return; }
-            const s       = snap.val();
-            const opp     = s.opponent;
-            const myMatch = (s.matches || {})[matchId];
+            const s   = snap.val();
+            const opp = s.opponent;
 
-            if (!myMatch) { showMessage('error', 'Match not found'); return; }
+            // Check if opponent already pressed Play — room exists and is waiting for us
+            const myMatchSnap = await get(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`));
+            const myMatch = myMatchSnap.val();
 
-            // Guard: match already finished — do nothing
-            if (myMatch.winner) {
-                showMessage('info', 'This match has already been played.');
-                return;
-            }
-
-            // Use the pre-assigned roomCode baked in at series creation
-            const roomCode = myMatch.roomCode;
-            if (!roomCode) { showMessage('error', 'No room code found for this match'); return; }
-
-            // ── CASE A: opponent already clicked Play first ──
-            // Detected when status === 'waiting for opponent' AND waitingPlayer !== me
-            if (myMatch.status === 'waiting for opponent' && myMatch.waitingPlayer && myMatch.waitingPlayer !== username) {
+            if (myMatch && myMatch.roomCode && myMatch.status === 'waiting for opponent') {
+                // We are the SECOND player to click Play — join and both redirect
+                const roomCode = myMatch.roomCode;
                 const roomSnap = await get(ref(db, `rooms/${roomCode}`));
-                if (!roomSnap.exists()) {
-                    // Room expired — reset status so either player can try again
-                    await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                        status: 'scheduled', waitingPlayer: null
-                    });
-                    showMessage('error', 'Room expired, please try again');
-                    return;
-                }
+                if (!roomSnap.exists()) { showMessage('error', 'Room expired, try again'); return; }
+
                 await update(ref(db, `rooms/${roomCode}`), {
                     player2: { username, team, connected: true },
                     status: 'ready'
                 });
-                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                    status: 'in progress', waitingPlayer: null
-                });
+                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), { status: 'in progress' });
                 // Clear the play signal now that we've responded
                 await remove(ref(db, `users/${username}/playSignal/${seriesId}_${matchId}`));
+                // Start listening for match result so player2's series score also updates
                 listenForSeriesMatchResult(roomCode, username, seriesId, matchId, opp);
                 redirectToToss(roomCode, 'player2', team, matchFormat);
                 return;
             }
 
-            // ── CASE B: I already clicked Play and am waiting — do nothing ──
-            if (myMatch.status === 'waiting for opponent' && myMatch.waitingPlayer === username) {
-                showMessage('info', 'Already waiting for opponent — please hold on.');
-                return;
-            }
-
-            // ── CASE C: First click — create/reset the room and signal opponent ──
-            // Always (re-)create the room using the pre-assigned roomCode so it's fresh
+            // We are the FIRST to click Play — create the room, signal opponent, and wait
+            const roomCode = generateRoomCode();
             await set(ref(db, `rooms/${roomCode}`), {
                 player1: { username, team, connected: true },
                 player2: null, format: matchFormat,
                 status: 'waiting', seriesId, matchId, createdAt: Date.now()
             });
 
-            // Mark our match as "waiting", recording who is waiting so opponent's UI knows to show Join
+            // Mark our own match as waiting (store username so UI can tell who is waiting vs who should join)
             await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), {
-                status: 'waiting for opponent', waitingPlayer: username
+                roomCode, status: 'waiting for opponent', waitingPlayer: username
             });
 
-            // Signal opponent using the pre-assigned roomCode as signal key — unique per match
+            // Find opponent's seriesId for this series so we can write to their match node
+            // We stored accepterSeriesId on creator's series when opponent accepted
+            // We also stored creatorSeriesId on opponent's series implicitly via invite
+            // Strategy: write the roomCode directly to a targeted signal node for the opponent
             await set(ref(db, `users/${opp}/playSignal/${seriesId}_${matchId}`), {
-                from: username, roomCode, matchFormat,
-                matchId,   // pass matchId so listener can target the exact match
-                timestamp: Date.now()
+                from: username, roomCode, matchFormat, timestamp: Date.now()
             });
 
             showSeriesWaitingPopup(opp);
@@ -2491,78 +2497,6 @@
         } catch (e) {
             console.error(e);
             showMessage('error', 'Failed to create match room');
-        }
-    }
-
-    // Manually refresh series scores by re-reading every match's result node from Firebase
-    async function refreshSeriesScores(seriesId) {
-        const username = localStorage.getItem('hc_username');
-        const userTeam = localStorage.getItem('hc_team');
-        try {
-            const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
-            if (!snap.exists()) return;
-            const s = snap.val();
-            const matches = s.matches || {};
-            let uScore = 0, oScore = 0;
-            const updates = {};
-
-            for (const [mid, m] of Object.entries(matches)) {
-                if (!m.roomCode) continue;
-
-                // Read the full room to get player→team mapping and runs
-                const roomSnap = await get(ref(db, `rooms/${m.roomCode}`));
-                const roomData = roomSnap.exists() ? roomSnap.val() : {};
-                const resultSnap = await get(ref(db, `rooms/${m.roomCode}/result`));
-
-                if (resultSnap.exists()) {
-                    const result = resultSnap.val();
-                    if (result && result.winner) {
-                        const winnerTeam = result.winner;
-
-                        // Resolve team names from room player data (source of truth)
-                        const p1Username = roomData.player1?.username || '';
-                        const p1Team     = roomData.player1?.team || '';
-                        const p2Username = roomData.player2?.username || '';
-                        const p2Team     = roomData.player2?.team || '';
-
-                        let myTeamInRoom = userTeam;
-                        let myRuns = null, oppRuns = null;
-                        if (p1Username === username) {
-                            myTeamInRoom = p1Team || userTeam;
-                            myRuns  = result.team1Runs ?? result.score1 ?? result.batting1Score ?? null;
-                            oppRuns = result.team2Runs ?? result.score2 ?? result.batting2Score ?? null;
-                        } else if (p2Username === username) {
-                            myTeamInRoom = p2Team || userTeam;
-                            myRuns  = result.team2Runs ?? result.score2 ?? result.batting2Score ?? null;
-                            oppRuns = result.team1Runs ?? result.score1 ?? result.batting1Score ?? null;
-                        }
-
-                        const iWon = winnerTeam === myTeamInRoom;
-                        if (iWon) uScore++; else oScore++;
-
-                        updates[`matches/${mid}/winner`]  = winnerTeam;
-                        updates[`matches/${mid}/status`]  = 'completed';
-                        updates[`matches/${mid}/waitingPlayer`] = null;
-                        if (myRuns  !== null) updates[`matches/${mid}/myRuns`]  = myRuns;
-                        if (oppRuns !== null) updates[`matches/${mid}/oppRuns`] = oppRuns;
-                    }
-                } else if (m.winner) {
-                    // Already stored locally — just recount
-                    const iWon = m.winner === (roomData.player1?.username === username ? roomData.player1?.team : roomData.player2?.team) || m.winner === userTeam;
-                    // Simpler: check stored myRuns/oppRuns to infer; or just recount from stored winner
-                    // Re-derive: winner === userTeam is a safe fallback if room data unavailable
-                    const localWon = m.winner === userTeam;
-                    if (localWon) uScore++; else oScore++;
-                }
-            }
-
-            updates['userScore']     = uScore;
-            updates['opponentScore'] = oScore;
-            await update(ref(db, `users/${username}/series/${seriesId}`), updates);
-            showMessage('success', 'Scores updated!');
-        } catch (e) {
-            console.error(e);
-            showMessage('error', 'Failed to refresh scores');
         }
     }
 
@@ -2612,8 +2546,8 @@
     }
 
     // ── Called after a game ends — game writes rooms/${roomCode}/result = { winner: teamName, ... }
-    // We read the full room to get both team names & runs so we can determine the real winner
-    // correctly for each player regardless of which side they played. ──
+    // We read the ROOM node directly to get player1/player2 team names — the only source of truth.
+    // This avoids the localStorage mismatch bug where both players have a different hc_team. ──
     function listenForSeriesMatchResult(roomCode, username, seriesId, matchId, oppUsername) {
         const resultRef = ref(db, `rooms/${roomCode}/result`);
         const unsub = onValue(resultRef, async snap => {
@@ -2622,111 +2556,173 @@
             if (!result || !result.winner) return;
             unsub();
 
-            // Read the full room so we can cross-reference team names against real player usernames
+            // ── Step 1: Read the room to get authoritative player→team mapping ──
             const roomSnap = await get(ref(db, `rooms/${roomCode}`));
-            const roomData = roomSnap.exists() ? roomSnap.val() : {};
+            if (!roomSnap.exists()) return;
+            const room = roomSnap.val();
 
-            const winnerTeam = result.winner;   // team NAME that won (what the game file writes)
+            const p1Username = room.player1?.username || '';
+            const p1Team     = room.player1?.team     || '';
+            const p2Username = room.player2?.username || '';
+            const p2Team     = room.player2?.team     || '';
 
-            // Determine which username maps to which team from the room's player data
-            const p1Username = roomData.player1?.username || '';
-            const p1Team     = roomData.player1?.team || '';
-            const p2Username = roomData.player2?.username || '';
-            const p2Team     = roomData.player2?.team || '';
+            // ── Step 2: Determine which side I am, and who won ──
+            const winnerTeam = result.winner;   // the team NAME the game file declared winner
+            const myTeam     = (username === p1Username) ? p1Team : p2Team;
+            const iWon       = (winnerTeam === myTeam);
 
-            // Runs — game files may write result.team1Runs / result.team2Runs, or score1/score2
-            // We normalise: player1Runs = runs for whoever was player1 in the room
-            const p1Runs = result.team1Runs ?? result.score1 ?? result.batting1Score ?? null;
-            const p2Runs = result.team2Runs ?? result.score2 ?? result.batting2Score ?? null;
+            // ── Step 3: Pull runs + wickets + margin from result node ──
+            // Game files may use various key names — cover all of them
+            const p1Runs    = result.team1Runs    ?? result.score1      ?? result.batting1Score ?? null;
+            const p2Runs    = result.team2Runs    ?? result.score2      ?? result.batting2Score ?? null;
+            const p1Wickets = result.team1Wickets ?? result.wickets1    ?? null;
+            const p2Wickets = result.team2Wickets ?? result.wickets2    ?? null;
+            const margin    = result.margin       ?? result.winMargin   ?? null;  // e.g. "5 wickets" or "23 runs"
 
-            // Determine my team by matching username against room players (source of truth)
-            let myTeam  = localStorage.getItem('hc_team');
-            let myRuns  = null, oppRuns = null;
-            if (p1Username === username) {
-                myTeam  = p1Team  || myTeam;
-                myRuns  = p1Runs;
-                oppRuns = p2Runs;
-            } else if (p2Username === username) {
-                myTeam  = p2Team  || myTeam;
-                myRuns  = p2Runs;
-                oppRuns = p1Runs;
-            }
+            // Map runs to my-side / opp-side for display
+            const myRuns    = (username === p1Username) ? p1Runs    : p2Runs;
+            const oppRuns   = (username === p1Username) ? p2Runs    : p1Runs;
+            const myWkts    = (username === p1Username) ? p1Wickets : p2Wickets;
+            const oppWkts   = (username === p1Username) ? p2Wickets : p1Wickets;
 
-            // iWon: the winning team matches MY team name as recorded in the room
-            const iWon = winnerTeam === myTeam;
-
-            // Build match result payload (store runs so UI can display them)
-            const matchResult = {
-                winner: winnerTeam,
-                status: 'completed',
-                waitingPlayer: null,
-                // Store runs for both sides so the UI can render scores
-                ...(myRuns  !== null ? { myRuns  } : {}),
-                ...(oppRuns !== null ? { oppRuns } : {})
+            // Build the match payload — store everything needed for display
+            const matchPayload = {
+                winner: winnerTeam, status: 'completed',
+                p1Team, p2Team, p1Runs, p2Runs, p1Wickets, p2Wickets, margin,
+                myRuns, oppRuns, myWkts, oppWkts
             };
 
-            // ── Update MY series ──
+            // ── Step 4: Update MY series ──
             const mySerSnap = await get(ref(db, `users/${username}/series/${seriesId}`));
             if (mySerSnap.exists()) {
                 const mySeries   = mySerSnap.val();
-                const newMyScore = (mySeries.userScore    || 0) + (iWon ? 1 : 0);
-                const newOpScore = (mySeries.opponentScore|| 0) + (iWon ? 0 : 1);
+                const newMyScore = (mySeries.userScore     || 0) + (iWon ? 1 : 0);
+                const newOpScore = (mySeries.opponentScore || 0) + (iWon ? 0 : 1);
                 await update(ref(db, `users/${username}/series/${seriesId}`), {
                     userScore: newMyScore, opponentScore: newOpScore
                 });
-                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), matchResult);
+                await update(ref(db, `users/${username}/series/${seriesId}/matches/${matchId}`), matchPayload);
             }
 
-            // ── Update OPPONENT's series ──
+            // ── Step 5: Update OPPONENT's series ──
             if (oppUsername) {
                 const oppSeriesSnap = await get(ref(db, `users/${oppUsername}/series`));
                 if (oppSeriesSnap.exists()) {
-                    const allOppSeries = oppSeriesSnap.val();
-                    for (const [osid, os] of Object.entries(allOppSeries)) {
+                    for (const [osid, os] of Object.entries(oppSeriesSnap.val())) {
                         if (os.opponent !== username) continue;
 
-                        // For the opponent, their "myTeam" is the other side
-                        let oppMyTeam = '';
-                        let oppMyRuns = null, oppOppRuns = null;
-                        if (p1Username === oppUsername) {
-                            oppMyTeam  = p1Team;
-                            oppMyRuns  = p1Runs;
-                            oppOppRuns = p2Runs;
-                        } else if (p2Username === oppUsername) {
-                            oppMyTeam  = p2Team;
-                            oppMyRuns  = p2Runs;
-                            oppOppRuns = p1Runs;
-                        } else {
-                            // Fallback: opponent won if user didn't
-                            oppMyTeam = winnerTeam !== myTeam ? winnerTeam : '';
-                        }
-                        const oppWon     = winnerTeam === oppMyTeam;
-                        const newOppUser = (os.userScore    || 0) + (oppWon ? 1 : 0);
-                        const newOppOpp  = (os.opponentScore|| 0) + (oppWon ? 0 : 1);
+                        const oppMyTeam = (oppUsername === p1Username) ? p1Team : p2Team;
+                        const oppWon    = (winnerTeam === oppMyTeam);
+                        // Runs from their perspective (their myRuns = my oppRuns)
+                        const oppMyRuns  = (oppUsername === p1Username) ? p1Runs : p2Runs;
+                        const oppOppRuns = (oppUsername === p1Username) ? p2Runs : p1Runs;
+                        const oppMyWkts  = (oppUsername === p1Username) ? p1Wickets : p2Wickets;
+                        const oppOppWkts = (oppUsername === p1Username) ? p2Wickets : p1Wickets;
 
+                        const newOU = (os.userScore     || 0) + (oppWon ? 1 : 0);
+                        const newOO = (os.opponentScore || 0) + (oppWon ? 0 : 1);
                         await update(ref(db, `users/${oppUsername}/series/${osid}`), {
-                            userScore: newOppUser, opponentScore: newOppOpp
+                            userScore: newOU, opponentScore: newOO
                         });
-
-                        // Update their exact match node by roomCode
-                        if (os.matches) {
-                            for (const [omid, om] of Object.entries(os.matches)) {
-                                if (om.roomCode === roomCode) {
-                                    const oppMatchResult = {
-                                        winner: winnerTeam,
-                                        status: 'completed',
-                                        waitingPlayer: null,
-                                        ...(oppMyRuns  !== null ? { myRuns: oppMyRuns   } : {}),
-                                        ...(oppOppRuns !== null ? { oppRuns: oppOppRuns } : {})
-                                    };
-                                    await update(ref(db, `users/${oppUsername}/series/${osid}/matches/${omid}`), oppMatchResult);
-                                }
+                        // Find their match by roomCode and update it
+                        for (const [omid, om] of Object.entries(os.matches || {})) {
+                            if (om.roomCode === roomCode) {
+                                await update(ref(db, `users/${oppUsername}/series/${osid}/matches/${omid}`), {
+                                    winner: winnerTeam, status: 'completed',
+                                    p1Team, p2Team, p1Runs, p2Runs, p1Wickets, p2Wickets, margin,
+                                    myRuns: oppMyRuns, oppRuns: oppOppRuns,
+                                    myWkts: oppMyWkts, oppWkts: oppOppWkts
+                                });
                             }
                         }
                     }
                 }
             }
         });
+    }
+
+    // ── "Update Score" button — re-reads every match's room result from Firebase,
+    //    uses the room's player1/player2 team names as the source of truth,
+    //    stores runs + margin, then rebuilds the series tally. ──
+    async function refreshSeriesScores(seriesId) {
+        const username = localStorage.getItem('hc_username');
+        try {
+            const snap = await get(ref(db, `users/${username}/series/${seriesId}`));
+            if (!snap.exists()) return;
+            const s = snap.val();
+            let uScore = 0, oScore = 0;
+            const updates = {};
+
+            for (const [mid, m] of Object.entries(s.matches || {})) {
+                if (!m.roomCode) { if (m.winner) { /* recount already stored */ } continue; }
+
+                // Read full room (player→team mapping) and its result node
+                const [roomSnap, resultSnap] = await Promise.all([
+                    get(ref(db, `rooms/${m.roomCode}`)),
+                    get(ref(db, `rooms/${m.roomCode}/result`))
+                ]);
+
+                if (!resultSnap.exists()) {
+                    // Match not finished yet — recount any locally stored winner
+                    if (m.winner) {
+                        const myTeamLocal = roomSnap.exists()
+                            ? ((roomSnap.val().player1?.username === username) ? roomSnap.val().player1?.team : roomSnap.val().player2?.team)
+                            : localStorage.getItem('hc_team');
+                        if (m.winner === myTeamLocal) uScore++; else oScore++;
+                    }
+                    continue;
+                }
+
+                const result  = resultSnap.val();
+                const room    = roomSnap.exists() ? roomSnap.val() : {};
+
+                const p1Username = room.player1?.username || '';
+                const p1Team     = room.player1?.team     || '';
+                const p2Team     = room.player2?.team     || '';
+
+                const winnerTeam = result.winner;
+                const myTeam     = (p1Username === username) ? p1Team : p2Team;
+                const iWon       = (winnerTeam === myTeam);
+                if (iWon) uScore++; else oScore++;
+
+                // Pull all available score data
+                const p1Runs    = result.team1Runs    ?? result.score1      ?? result.batting1Score ?? null;
+                const p2Runs    = result.team2Runs    ?? result.score2      ?? result.batting2Score ?? null;
+                const p1Wickets = result.team1Wickets ?? result.wickets1    ?? null;
+                const p2Wickets = result.team2Wickets ?? result.wickets2    ?? null;
+                const margin    = result.margin       ?? result.winMargin   ?? null;
+
+                const myRuns    = (p1Username === username) ? p1Runs    : p2Runs;
+                const oppRuns   = (p1Username === username) ? p2Runs    : p1Runs;
+                const myWkts    = (p1Username === username) ? p1Wickets : p2Wickets;
+                const oppWkts   = (p1Username === username) ? p2Wickets : p1Wickets;
+
+                updates[`matches/${mid}/winner`]    = winnerTeam;
+                updates[`matches/${mid}/status`]    = 'completed';
+                updates[`matches/${mid}/p1Team`]    = p1Team;
+                updates[`matches/${mid}/p2Team`]    = p2Team;
+                updates[`matches/${mid}/p1Runs`]    = p1Runs;
+                updates[`matches/${mid}/p2Runs`]    = p2Runs;
+                updates[`matches/${mid}/p1Wickets`] = p1Wickets;
+                updates[`matches/${mid}/p2Wickets`] = p2Wickets;
+                updates[`matches/${mid}/margin`]    = margin;
+                updates[`matches/${mid}/myRuns`]    = myRuns;
+                updates[`matches/${mid}/oppRuns`]   = oppRuns;
+                updates[`matches/${mid}/myWkts`]    = myWkts;
+                updates[`matches/${mid}/oppWkts`]   = oppWkts;
+            }
+
+            updates['userScore']     = uScore;
+            updates['opponentScore'] = oScore;
+            await update(ref(db, `users/${username}/series/${seriesId}`), updates);
+            showMessage('success', '✅ Scores updated!');
+            // Refresh the UI immediately
+            const seriesSnap = await get(ref(db, `users/${username}/series`));
+            if (seriesSnap.exists()) updateMySeriesList(seriesSnap.val());
+        } catch (e) {
+            console.error(e);
+            showMessage('error', 'Failed to refresh scores');
+        }
     }
 
     function setupSeriesRoomListener(roomCode, username, seriesId, matchId, matchFormat) {
@@ -2754,26 +2750,21 @@
             if (!signal || !signal.from || !signal.roomCode) return;
             const signalKey = snap.key; // e.g. "seriesId_matchId"
 
-            // Inject the roomCode into this user's exact series match using the matchId
-            // from the signal payload (or fall back to parsing the signal key).
+            // Inject the roomCode into this user's series match so playSeriesMatch can detect it
+            // Find the right series by opponent name
             get(ref(db, `users/${username}/series`)).then(seriesSnap => {
                 if (!seriesSnap.exists()) return;
                 const allSeries = seriesSnap.val();
                 // Find the series where opponent === signal.from
                 Object.entries(allSeries).forEach(([sid, s]) => {
                     if (s.opponent === signal.from) {
-                        if (!s.matches) return;
-
-                        // Prefer the matchId carried in the signal payload;
-                        // fall back to parsing the signal key ("seriesId_matchId").
-                        const targetMatchId = signal.matchId || signalKey.split('_').slice(1).join('_');
-
-                        // Only update the specific match that was signalled
-                        if (s.matches[targetMatchId]) {
-                            const m = s.matches[targetMatchId];
-                            // Skip if already completed or currently active
-                            if (!m.winner && m.status !== 'in progress') {
-                                update(ref(db, `users/${username}/series/${sid}/matches/${targetMatchId}`), {
+                        // Find the earliest unplayed match and inject the roomCode+status
+                        if (s.matches) {
+                            const unplayed = Object.entries(s.matches).find(([, m]) => m.status === 'scheduled' && !m.winner);
+                            if (unplayed) {
+                                const [mid] = unplayed;
+                                update(ref(db, `users/${username}/series/${sid}/matches/${mid}`), {
+                                    roomCode: signal.roomCode,
                                     status: 'waiting for opponent',
                                     waitingPlayer: signal.from  // the one who clicked first — not me
                                 });
@@ -2946,7 +2937,6 @@
     window.joinTournamentFromList = joinTournamentFromList;
     window.viewTournament         = viewTournament;
     window.playTournamentMatch    = playTournamentMatch;
-    window.refreshSeriesScores    = refreshSeriesScores;
 
     // Start app
     initApp();
